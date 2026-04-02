@@ -2,12 +2,12 @@
 // Points to shared Supabase PostgreSQL database
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -271,40 +271,40 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  beneficiaryProfile         Beneficiary?          @relation("BeneficiaryUser")
-  subscriberBeneficiaries    Beneficiary[]         @relation("SubscriberBeneficiaries")
-  beneficiariesManaged       Beneficiary[]         @relation("BeneficiaryFieldManager")
-  careCompanionProfile       CareCompanion?        @relation("CareCompanionToUser")
-  fieldManagerProfile        FieldManager?         @relation("FieldManagerToUser")
-  operationsManagerProfile   OperationsManager?    @relation("OperationsManagerToUser")
-  staffProfile               StaffProfile?         @relation("StaffProfileToUser")
-  subscriberSubscriptions    Subscription[]        @relation("SubscriberSubscriptions")
-  emergencyRequestsRequested EmergencyRequest[]    @relation("RequestedBy")
-  emergencyRequestsAssigned  EmergencyRequest[]    @relation("AssignedTo")
-  medicationAdherenceRecords MedicationAdherence[] @relation("MedicationRecordedBy")
-  vitalHistoryRecords        VitalHistory[]        @relation("VitalRecordedBy")
-  subscriberPayments         Payment[]             @relation("SubscriberPayments")
+  beneficiaryProfile         Beneficiary?           @relation("BeneficiaryUser")
+  subscriberBeneficiaries    Beneficiary[]          @relation("SubscriberBeneficiaries")
+  beneficiariesManaged       Beneficiary[]          @relation("BeneficiaryFieldManager")
+  careCompanionProfile       CareCompanion?         @relation("CareCompanionToUser")
+  fieldManagerProfile        FieldManager?          @relation("FieldManagerToUser")
+  operationsManagerProfile   OperationsManager?     @relation("OperationsManagerToUser")
+  staffProfile               StaffProfile?          @relation("StaffProfileToUser")
+  subscriberSubscriptions    Subscription[]         @relation("SubscriberSubscriptions")
+  emergencyRequestsRequested EmergencyRequest[]     @relation("RequestedBy")
+  emergencyRequestsAssigned  EmergencyRequest[]     @relation("AssignedTo")
+  medicationAdherenceRecords MedicationAdherence[]  @relation("MedicationRecordedBy")
+  vitalHistoryRecords        VitalHistory[]         @relation("VitalRecordedBy")
+  subscriberPayments         Payment[]              @relation("SubscriberPayments")
   notifications              Notification[]
-  uploadedMedicalRecords     MedicalRecord[]       @relation("MedicalRecordUploadedBy")
-  bookedAppointments         Appointment[]         @relation("AppointmentBookedBy")
-  assignedMarketingLeads     MarketingLead[]       @relation("LeadAssignedTo")
-  convertedMarketingLeads    MarketingLead[]       @relation("LeadConvertedUser")
-  subscriberCallbackRequests CallbackRequest[]     @relation("SubscriberCallbacks")
-  assignedCallbackRequests   CallbackRequest[]     @relation("CallbackAssignedTo")
-  zonesAsFieldManager        Zone[]                @relation("ZoneFieldManager")
-  zonesAsOperationsManager   Zone[]                @relation("ZoneOperationsManager")
-  fieldManagersReporting     FieldManager[]        @relation("FieldManagerReportsTo")
-  staffProfilesReporting     StaffProfile[]        @relation("StaffProfileReportsTo")
-  verifiedStaffDocuments     StaffDocument[]       @relation("StaffDocumentVerifiedBy")
+  uploadedMedicalRecords     MedicalRecord[]        @relation("MedicalRecordUploadedBy")
+  bookedAppointments         Appointment[]          @relation("AppointmentBookedBy")
+  assignedMarketingLeads     MarketingLead[]        @relation("LeadAssignedTo")
+  convertedMarketingLeads    MarketingLead[]        @relation("LeadConvertedUser")
+  subscriberCallbackRequests CallbackRequest[]      @relation("SubscriberCallbacks")
+  assignedCallbackRequests   CallbackRequest[]      @relation("CallbackAssignedTo")
+  zonesAsFieldManager        Zone[]                 @relation("ZoneFieldManager")
+  zonesAsOperationsManager   Zone[]                 @relation("ZoneOperationsManager")
+  fieldManagersReporting     FieldManager[]         @relation("FieldManagerReportsTo")
+  staffProfilesReporting     StaffProfile[]         @relation("StaffProfileReportsTo")
+  verifiedStaffDocuments     StaffDocument[]        @relation("StaffDocumentVerifiedBy")
   backgroundChecksReviewed   StaffBackgroundCheck[] @relation("BackgroundCheckReviewedBy")
-  trainingsAssigned          StaffTraining[]       @relation("TrainingAssignedBy")
+  trainingsAssigned          StaffTraining[]        @relation("TrainingAssignedBy")
   couponUsages               CouponUsage[]
   couponAttemptLogs          CouponAttemptLog[]
 
-  @@map("users")
   @@index([name])
   @@index([role])
   @@index([isActive])
+  @@map("users")
 }
 
 model Otp {
@@ -498,11 +498,11 @@ model Beneficiary {
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
-  user               User                  @relation("BeneficiaryUser", fields: [userId], references: [id])
-  subscriber         User                  @relation("SubscriberBeneficiaries", fields: [subscriberId], references: [id])
-  primaryCC          CareCompanion?        @relation("PrimaryCC", fields: [primaryCcId], references: [id])
-  secondaryCC        CareCompanion?        @relation("SecondaryCC", fields: [secondaryCcId], references: [id])
-  fieldManager       User?                 @relation("BeneficiaryFieldManager", fields: [fieldManagerId], references: [id])
+  user               User                   @relation("BeneficiaryUser", fields: [userId], references: [id])
+  subscriber         User                   @relation("SubscriberBeneficiaries", fields: [subscriberId], references: [id])
+  primaryCC          CareCompanion?         @relation("PrimaryCC", fields: [primaryCcId], references: [id])
+  secondaryCC        CareCompanion?         @relation("SecondaryCC", fields: [secondaryCcId], references: [id])
+  fieldManager       User?                  @relation("BeneficiaryFieldManager", fields: [fieldManagerId], references: [id])
   conditions         BeneficiaryCondition[]
   medicalRecords     MedicalRecord[]
   emergencyContacts  EmergencyContact[]
@@ -512,14 +512,13 @@ model Beneficiary {
   medicationList     Medication[]
   adherenceRecords   MedicationAdherence[]
   emergencyRequests  EmergencyRequest[]
-  calls              CallLog[]             @relation("BeneficiaryCalls")
+  calls              CallLog[]              @relation("BeneficiaryCalls")
   payments           Payment[]
   packageHourLogs    PackageHoursLog[]
   appointments       Appointment[]
   vitalHistory       VitalHistory[]
   callbackRequests   CallbackRequest[]
 
-  @@map("beneficiaries")
   @@index([name])
   @@index([city])
   @@index([pincode])
@@ -527,6 +526,7 @@ model Beneficiary {
   @@index([fieldManagerId])
   @@index([primaryCcId])
   @@index([secondaryCcId])
+  @@map("beneficiaries")
 }
 
 model CareCompanion {
@@ -562,11 +562,11 @@ model CareCompanion {
   primaryFor   Beneficiary[] @relation("PrimaryCC")
   secondaryFor Beneficiary[] @relation("SecondaryCC")
 
-  @@map("care_companions")
   @@index([name])
   @@index([teamId])
   @@index([zone])
   @@index([isAvailable])
+  @@map("care_companions")
 }
 
 model FieldManager {
@@ -588,30 +588,30 @@ model FieldManager {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  user          User         @relation("FieldManagerToUser", fields: [userId], references: [id])
-  reportsToUser User?        @relation("FieldManagerReportsTo", fields: [reportsToUserId], references: [id])
+  user          User   @relation("FieldManagerToUser", fields: [userId], references: [id])
+  reportsToUser User?  @relation("FieldManagerReportsTo", fields: [reportsToUserId], references: [id])
   teams         Team[]
 
-  @@map("field_managers")
   @@index([name])
+  @@map("field_managers")
 }
 
 model OperationsManager {
-  id            String    @id @default(uuid())
-  userId        String    @unique
+  id            String   @id @default(uuid())
+  userId        String   @unique
   name          String
   photo         String?
   phone         String?
   qualification String?
   experience    Int?
-  isAvailable   Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   user User @relation("OperationsManagerToUser", fields: [userId], references: [id])
 
-  @@map("operations_managers")
   @@index([name])
+  @@map("operations_managers")
 }
 
 model StaffProfile {
@@ -650,11 +650,11 @@ model StaffProfile {
   backgroundChecks StaffBackgroundCheck[]
   trainings        StaffTraining[]
 
-  @@map("staff_profiles")
   @@index([role])
   @@index([employmentStatus])
   @@index([zoneId])
   @@index([teamId])
+  @@map("staff_profiles")
 }
 
 model StaffDocument {
@@ -700,8 +700,8 @@ model StaffBackgroundCheck {
   staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
   reviewedByUser User?        @relation("BackgroundCheckReviewedBy", fields: [reviewedBy], references: [id])
 
-  @@map("staff_background_checks")
   @@index([status])
+  @@map("staff_background_checks")
 }
 
 model StaffTraining {
@@ -721,8 +721,8 @@ model StaffTraining {
   staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
   assignedByUser User?        @relation("TrainingAssignedBy", fields: [assignedBy], references: [id])
 
-  @@map("staff_trainings")
   @@index([status])
+  @@map("staff_trainings")
 }
 
 model Team {
@@ -818,33 +818,33 @@ model PackageDiscount {
 }
 
 model SubscriptionPackage {
-  id                String   @id @default(uuid())
-  type              String   @unique
+  id                String    @id @default(uuid())
+  type              String    @unique
   name              String
   tagline           String?
   description       String
   basePrice         Float
-  currency          String   @default("INR")
-  billingCycle      String   @default("monthly")
-  isFreeTrial       Boolean  @default(false)
+  currency          String    @default("INR")
+  billingCycle      String    @default("monthly")
+  isFreeTrial       Boolean   @default(false)
   trialDurationDays Int?
-  activeFrom        DateTime @default(now())
+  activeFrom        DateTime  @default(now())
   activeTo          DateTime?
-  discountSixMonths Float    @default(10.0)
-  discountAnnual    Float    @default(20.0)
-  durationMonths    Int      @default(1)
-  visitsPerWeek     Int      @default(0)
-  hoursPerMonth     Float    @default(0)
-  maxBeneficiaries  Int      @default(1)
-  features          String[] @default([])
-  highlightFeatures String[] @default([])
+  discountSixMonths Float     @default(10.0)
+  discountAnnual    Float     @default(20.0)
+  durationMonths    Int       @default(1)
+  visitsPerWeek     Int       @default(0)
+  hoursPerMonth     Float     @default(0)
+  maxBeneficiaries  Int       @default(1)
+  features          String[]  @default([])
+  highlightFeatures String[]  @default([])
   color             String?
-  isPopular         Boolean  @default(false)
-  isGlobal          Boolean  @default(true)
-  isActive          Boolean  @default(true)
-  sortOrder         Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  isPopular         Boolean   @default(false)
+  isGlobal          Boolean   @default(true)
+  isActive          Boolean   @default(true)
+  sortOrder         Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   subscriptions    Subscription[]
   packageBenefits  PackageBenefit[]
@@ -879,10 +879,10 @@ model Subscription {
   payments    Payment[]
   hoursLogs   PackageHoursLog[]
 
-  @@map("subscriptions")
   @@index([subscriberId])
   @@index([beneficiaryId])
   @@index([isActive])
+  @@map("subscriptions")
 }
 
 model PackageHoursLog {
@@ -942,11 +942,11 @@ model Payment {
   beneficiary  Beneficiary  @relation(fields: [beneficiaryId], references: [id])
   subscription Subscription @relation(fields: [subscriptionId], references: [id])
 
-  @@map("payments")
   @@index([subscriberId])
   @@index([beneficiaryId])
   @@index([subscriptionId])
   @@index([paymentStatus])
+  @@map("payments")
 }
 
 model Appointment {
@@ -972,69 +972,69 @@ model Appointment {
   bookedByUser  User?         @relation("AppointmentBookedBy", fields: [bookedBy], references: [id])
   visit         Visit?
 
-  @@map("appointments")
   @@index([beneficiaryId])
   @@index([careCompanionId])
   @@index([status])
   @@index([scheduledDate])
+  @@map("appointments")
 }
 
 model Visit {
-  id                   String      @id @default(uuid())
-  encounterId          String      @unique
-  beneficiaryId        String
-  careCompanionId      String
-  appointmentId        String?     @unique
-  scheduledTime        DateTime
-  checkInTime          DateTime?
-  checkOutTime         DateTime?
-  durationMinutes      Int?
-  status               VisitStatus @default(scheduled)
-  checkInLat           Float?
-  checkInLng           Float?
-  checkOutLat          Float?
-  checkOutLng          Float?
-  isGeoVerified        Boolean     @default(false)
-  geoDistanceMeters    Float?
-  manualCheckInReason  String?
-  bpSystolic           Int?
-  bpDiastolic          Int?
-  heartRate            Int?
-  oxygenLevel          Float?
-  bloodSugarFasting    Float?
-  bloodSugarPostMeal   Float?
-  temperature          Float?
-  weight               Float?
-  height               Float?
-  bmi                  Float?
-  painLevel            Int?
-  respiratoryRate      Int?
-  extraVitals          Json?
-  mood                 MoodType?
-  happinessScore       Int?
-  cognitiveScore       Int?
-  mobilityScore        Int?
-  appetiteScore        Int?
-  sleepQualityScore    Int?
-  hygieneScore         Int?
-  socialEngagement     Boolean     @default(false)
-  activitiesDone       String[]    @default([])
-  medicationAdherence  Boolean     @default(false)
-  medicationNotes      String?
-  notes                String?
-  visitSummary         String?
-  followUpRequired     Boolean     @default(false)
-  followUpNotes        String?
-  followUpDate         DateTime?
-  escalateToManager    Boolean     @default(false)
-  escalationReason     String?
-  rating               Int?
-  feedback             String?
-  ccSelfRating         Int?
-  locationLat          Float?
-  locationLng          Float?
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  id                  String      @id @default(uuid())
+  encounterId         String      @unique
+  beneficiaryId       String
+  careCompanionId     String
+  appointmentId       String?     @unique
+  scheduledTime       DateTime
+  checkInTime         DateTime?
+  checkOutTime        DateTime?
+  durationMinutes     Int?
+  status              VisitStatus @default(scheduled)
+  checkInLat          Float?
+  checkInLng          Float?
+  checkOutLat         Float?
+  checkOutLng         Float?
+  isGeoVerified       Boolean     @default(false)
+  geoDistanceMeters   Float?
+  manualCheckInReason String?
+  bpSystolic          Int?
+  bpDiastolic         Int?
+  heartRate           Int?
+  oxygenLevel         Float?
+  bloodSugarFasting   Float?
+  bloodSugarPostMeal  Float?
+  temperature         Float?
+  weight              Float?
+  height              Float?
+  bmi                 Float?
+  painLevel           Int?
+  respiratoryRate     Int?
+  extraVitals         Json?
+  mood                MoodType?
+  happinessScore      Int?
+  cognitiveScore      Int?
+  mobilityScore       Int?
+  appetiteScore       Int?
+  sleepQualityScore   Int?
+  hygieneScore        Int?
+  socialEngagement    Boolean     @default(false)
+  activitiesDone      String[]    @default([])
+  medicationAdherence Boolean     @default(false)
+  medicationNotes     String?
+  notes               String?
+  visitSummary        String?
+  followUpRequired    Boolean     @default(false)
+  followUpNotes       String?
+  followUpDate        DateTime?
+  escalateToManager   Boolean     @default(false)
+  escalationReason    String?
+  rating              Int?
+  feedback            String?
+  ccSelfRating        Int?
+  locationLat         Float?
+  locationLng         Float?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   beneficiary                Beneficiary           @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
   careCompanion              CareCompanion         @relation(fields: [careCompanionId], references: [id])
@@ -1043,11 +1043,11 @@ model Visit {
   vitalHistory               VitalHistory[]
   medicationAdherenceRecords MedicationAdherence[]
 
-  @@map("visits")
   @@index([beneficiaryId])
   @@index([careCompanionId])
   @@index([status])
   @@index([scheduledTime])
+  @@map("visits")
 }
 
 model VitalHistory {
@@ -1073,10 +1073,10 @@ model VitalHistory {
   visit          Visit?      @relation(fields: [visitId], references: [id], onDelete: SetNull)
   recordedByUser User        @relation("VitalRecordedBy", fields: [recordedBy], references: [id])
 
-  @@map("vital_history")
   @@index([beneficiaryId])
   @@index([visitId])
   @@index([recordedAt])
+  @@map("vital_history")
 }
 
 model MedicationAdherence {
@@ -1096,11 +1096,11 @@ model MedicationAdherence {
   visit          Visit?      @relation(fields: [visitId], references: [id], onDelete: SetNull)
   recordedByUser User        @relation("MedicationRecordedBy", fields: [recordedBy], references: [id])
 
-  @@map("medication_adherence")
   @@index([beneficiaryId])
   @@index([medicationId])
   @@index([scheduledTime])
   @@index([taken])
+  @@map("medication_adherence")
 }
 
 model EmergencyRequest {
@@ -1160,10 +1160,10 @@ model Notification {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("notifications")
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+  @@map("notifications")
 }
 
 model Zone {
@@ -1192,10 +1192,10 @@ model Zone {
   operationsManagerUser User?          @relation("ZoneOperationsManager", fields: [operationsManagerId], references: [id])
   staffProfiles         StaffProfile[]
 
-  @@map("zones")
   @@index([name])
   @@index([city])
   @@index([pincode])
+  @@map("zones")
 }
 
 model MarketingLead {
@@ -1296,9 +1296,9 @@ model Coupon {
 
   usages CouponUsage[]
 
-  @@map("coupons")
   @@index([code])
   @@index([isActive])
+  @@map("coupons")
 }
 
 model CouponUsage {
@@ -1313,9 +1313,9 @@ model CouponUsage {
   coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("coupon_usages")
   @@index([couponId])
   @@index([userId])
+  @@map("coupon_usages")
 }
 
 model CouponAttemptLog {
@@ -1330,7 +1330,7 @@ model CouponAttemptLog {
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@map("coupon_attempt_logs")
   @@index([userId])
   @@index([couponCode])
+  @@map("coupon_attempt_logs")
 }

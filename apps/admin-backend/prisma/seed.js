@@ -1,5 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+require('dotenv').config({ path: __dirname + '/../.env' });
+const { prisma, pool } = require('../lib/prisma');
 
 async function main() {
   console.log('🌱 Starting database seeding...');
@@ -239,4 +239,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    if (pool) await pool.end();
   });
