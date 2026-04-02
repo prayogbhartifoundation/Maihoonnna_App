@@ -33,9 +33,7 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 
-# Prisma
-/prisma/schema.prisma
-node_modules/.prisma/
+
 
 # Editor settings
 .vscode/
