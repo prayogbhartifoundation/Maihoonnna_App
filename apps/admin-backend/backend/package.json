@@ -1,0 +1,25 @@
+{
+    "name": "maihoonna-admin-backend",
+    "version": "1.0.0",
+    "description": "Admin Panel Backend API for MaiHoonNa",
+    "main": "server.js",
+    "scripts": {
+        "dev": "node server.js",
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.1018.0",
+        "@supabase/supabase-js": "^2.100.1",
+        "cors": "^2.8.5",
+        "dotenv": "^17.0.0",
+        "express": "^4.21.2",
+        "jsonwebtoken": "^9.0.3",
+        "multer": "^2.1.1",
+        "uuid": "^13.0.0",
+        "zod": "^3.22.4"
+    },
+    "devDependencies": {
+        "@prisma/client": "^7.5.0",
+        "prisma": "^5.22.0"
+    }
+}

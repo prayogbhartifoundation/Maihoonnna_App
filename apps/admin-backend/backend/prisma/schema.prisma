@@ -1,0 +1,159 @@
+// Prisma schema for Admin Panel backend
+// Points to shared Supabase PostgreSQL database
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User Model (subset for admin) ───────────────────────────────────────────
+model User {
+  id    String   @id
+  name  String?
+  phone String   @unique
+  role  UserRole @default(subscriber)
+
+  fieldManagerProfile  FieldManager?
+  careCompanionProfile CareCompanion?
+
+  @@map("users")
+}
+
+enum UserRole {
+  subscriber
+  beneficiary
+  care_companion
+  field_manager
+  operations_manager
+  emergency_coordinator
+  volunteer
+}
+
+// ─── Zone Model ───────────────────────────────────────────────────────────────
+model Zone {
+  id             String    @id @default(uuid())
+  name           String
+  city           String
+  address        String
+  state          String
+  pincode        String
+  latitude       Float?
+  longitude      Float?
+  phone          String?
+  leaseStartDate DateTime?
+  leaseEndDate   DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  fieldManagerId String?
+
+  @@map("zones")
+  @@index([name])
+  @@index([city])
+  @@index([pincode])
+}
+
+// ─── Callbacks ───────────────────────────────────────────────────────────────
+
+enum CallbackStatus {
+  pending
+  called
+  resolved
+  not_resolved
+  in_progress
+
+
+}
+
+model CallbackRequest {
+  id            String         @id @default(uuid())
+  name          String
+  phone         String
+  subscriberId  String?
+  beneficiaryId String?
+  zoneId        String?
+  status        CallbackStatus @default(pending)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("callback_requests")
+
+}
+
+// ─── Team Management ──────────────────────────────────────────────────────────
+
+model FieldManager {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  name        String
+  photo       String?
+  zone        String
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id])
+  teams Team[]
+
+  @@map("field_managers")
+  @@index([name])
+}
+
+model Team {
+  id             String   @id @default(uuid())
+  name           String
+  fieldManagerId String
+  zone           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  fieldManager   FieldManager    @relation(fields: [fieldManagerId], references: [id])
+  careCompanions CareCompanion[]
+
+  @@map("teams")
+}
+
+model CareCompanion {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  name           String
+  photo          String?
+  bio            String   @default("")
+  specialization String[]
+  zone           String
+  isAvailable    Boolean  @default(true)
+  teamId         String?
+  createdAt      DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id])
+  team Team? @relation(fields: [teamId], references: [id])
+
+  @@map("care_companions")
+  @@index([name])
+  @@index([zone])
+  @@index([teamId])
+  @@index([isAvailable])
+}
+
+// ─── Vitals Library ───────────────────────────────────────────────────────────
+
+model VitalDefinition {
+  id           String   @id @default(uuid())
+  name         String
+  unit         String?
+  description  String?
+  iconCode     String?
+  fieldKey     String   @unique
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("vital_definitions")
+}
