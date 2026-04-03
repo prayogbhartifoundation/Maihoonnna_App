@@ -236,8 +236,7 @@ export const operationsManagerApi = {
       page: params.page.toString(),
       limit: params.limit.toString()
     }).toString();
-    const res = await apiFetch(`${API_BASE}/users/operations-managers?${query}`);
-    return res.json();
+    return apiJson(`/users/operations-managers?${query}`);
   },
 
   async getById(id: string): Promise<any | undefined> {
@@ -257,8 +256,7 @@ export const fieldManagerApi = {
       page: params.page.toString(),
       limit: params.limit.toString()
     }).toString();
-    const res = await apiFetch(`${API_BASE}/users/field-managers?${query}`);
-    return res.json();
+    return apiJson(`/users/field-managers?${query}`);
   },
 };
 
@@ -277,8 +275,7 @@ export const careCompanionApi = {
       page: params.page.toString(),
       limit: params.limit.toString()
     }).toString();
-    const res = await apiFetch(`${API_BASE}/users/care-companions?${query}`);
-    return res.json();
+    return apiJson(`/users/care-companions?${query}`);
   },
 
   async getById(id: string): Promise<CareCompanion | undefined> {
@@ -299,9 +296,7 @@ export const careCompanionApi = {
 export const subscriberApi = {
   async getAll(): Promise<any[]> {
     try {
-      const response = await fetch(`${API_BASE}/subscribers`);
-      const result = await response.json();
-      return result.data || [];
+      return await apiJson('/subscribers');
     } catch (err) {
       console.error('subscriberApi.getAll failed, falling back to mock:', err);
       return [...mockSubscribers];
@@ -314,15 +309,12 @@ export const subscriberApi = {
       page: params.page.toString(),
       limit: params.limit.toString()
     }).toString();
-    const res = await apiFetch(`${API_BASE}/subscribers?${query}`);
-    return res.json();
+    return apiJson(`/subscribers?${query}`);
   },
 
   async getById(id: string): Promise<any | undefined> {
     try {
-      const response = await fetch(`${API_BASE}/subscribers/${id}`);
-      const result = await response.json();
-      return result.data || undefined;
+      return await apiJson(`/subscribers/${id}`);
     } catch {
       return mockSubscribers.find(s => s.id === id);
     }
@@ -336,10 +328,9 @@ export const subscriberApi = {
 export const beneficiaryApi = {
   async getAll(): Promise<any[]> {
     try {
-      const response = await fetch(`${API_BASE}/beneficiaries`);
-      const result = await response.json();
+      const data = await apiJson<any[]>('/beneficiaries');
       // Normalize to match expected shape
-      return (result.data || []).map((b: any) => {
+      return (data || []).map((b: any) => {
         const emContacts = Array.isArray(b.emergencyContacts) ? b.emergencyContacts : [];
         const firstEmContact = emContacts[0] || {};
         return {
@@ -381,15 +372,12 @@ export const beneficiaryApi = {
       page: params.page.toString(),
       limit: params.limit.toString()
     }).toString();
-    const res = await apiFetch(`${API_BASE}/beneficiaries?${query}`);
-    return res.json();
+    return apiJson(`/beneficiaries?${query}`);
   },
 
   async getById(id: string): Promise<any | undefined> {
     try {
-      const response = await fetch(`${API_BASE}/beneficiaries/${id}`);
-      const result = await response.json();
-      return result.data || undefined;
+      return await apiJson(`/beneficiaries/${id}`);
     } catch {
       return mockBeneficiaries.find(b => b.id === id);
     }
@@ -413,9 +401,7 @@ export const beneficiaryApi = {
 
   async getAvailableStaff(pincode: string): Promise<{ careCompanions: any[]; fieldManagers: any[]; zones: any[] }> {
     try {
-      const response = await fetch(`${API_BASE}/beneficiaries/available-staff?pincode=${encodeURIComponent(pincode)}`);
-      const result = await response.json();
-      return result.data || { careCompanions: [], fieldManagers: [], zones: [] };
+      return await apiJson(`/beneficiaries/available-staff?pincode=${encodeURIComponent(pincode)}`);
     } catch (err) {
       console.error('beneficiaryApi.getAvailableStaff failed:', err);
       return { careCompanions: [], fieldManagers: [], zones: [] };
@@ -423,14 +409,10 @@ export const beneficiaryApi = {
   },
 
   async assignStaff(beneficiaryId: string, payload: { primaryCcId?: string | null; secondaryCcId?: string | null; fieldManagerId?: string | null }): Promise<any> {
-    const response = await fetch(`${API_BASE}/beneficiaries/${beneficiaryId}/assign-staff`, {
+    return apiJson(`/beneficiaries/${beneficiaryId}/assign-staff`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const result = await response.json();
-    if (!result.success) throw new Error(result.message || 'Failed to assign staff');
-    return result.data;
   },
 };
 
@@ -643,8 +625,20 @@ export const teamApi = {
     });
   },
 
-  async getAvailableCompanions(): Promise<CareCompanion[]> {
-    return apiJson('/teams/available-companions');
+  async getAvailableCompanions(includeTeamId?: string): Promise<CareCompanion[]> {
+    const query = includeTeamId ? `?includeTeamId=${includeTeamId}` : '';
+    return apiJson(`/teams/available-companions${query}`);
+  },
+
+  async getTeamById(id: string): Promise<any> {
+    return apiJson(`/teams/${id}`);
+  },
+
+  async updateTeam(id: string, data: { name?: string; fieldManagerId?: string; zone?: string; careCompanionIds?: string[] }): Promise<any> {
+    return apiJson(`/teams/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
 
   async getAvailableManagers(): Promise<any[]> {
@@ -740,6 +734,12 @@ export const staffOnboardingApi = {
     return apiJson(`/users/staff/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  },
+  
+  async deactivateStaff(userId: string): Promise<any> {
+    return apiJson(`/users/staff/${userId}/deactivate`, {
+      method: 'PUT',
     });
   },
 };

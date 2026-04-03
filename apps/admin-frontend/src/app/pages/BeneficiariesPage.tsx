@@ -200,21 +200,25 @@ export default function BeneficiariesPage() {
                         <span>Emergency: {ben.emergencyContact?.name || 'N/A'}</span>
                       </div>
                     </div>
-                    {(ben.careCompanion || ben.secondaryCareCompanion) && (
-                      <div className="flex flex-wrap gap-1">
-                        {ben.careCompanion && (
-                          <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full font-semibold">
-                            <UserCheck className="w-3 h-3" /> {ben.careCompanion}
-                          </span>
-                        )}
-                        {ben.secondaryCareCompanion && (
-                          <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-semibold">
-                            <User className="w-3 h-3" /> {ben.secondaryCareCompanion}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <Button variant="outline" size="sm" className="w-full">View Profile</Button>
+                    <div className="pt-3 border-t border-[#E7DED6] space-y-3">
+                      {(ben.careCompanion || ben.secondaryCareCompanion) && (
+                        <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
+                          {ben.careCompanion && (
+                            <span className="flex items-center gap-1 px-2 py-1 bg-orange-50 text-orange-600 rounded-lg border border-orange-100">
+                              <UserCheck size={12} /> {ben.careCompanion}
+                            </span>
+                          )}
+                          {ben.secondaryCareCompanion && (
+                            <span className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">
+                              <User size={12} /> {ben.secondaryCareCompanion}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <Button variant="outline" size="sm" className="w-full py-5 rounded-xl border-[#E7DED6] text-gray-600 font-black uppercase tracking-widest hover:bg-[#F4EAE3]">
+                        View Profile
+                      </Button>
+                    </div>
                   </div>
                 </DataCard>
               </div>

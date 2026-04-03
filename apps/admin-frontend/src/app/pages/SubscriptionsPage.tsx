@@ -28,6 +28,7 @@ export default function SubscriptionsPage() {
   const [currentStep, setCurrentStep] = useState<WizardStep>('define');
   const [packageName, setPackageName] = useState('');
   const [duration, setDuration] = useState('12');
+  const [totalHours, setTotalHours] = useState('120');
   const [activeFrom, setActiveFrom] = useState('2026-01-01');
   const [activeTo, setActiveTo] = useState('2026-12-31');
   const [selectedBenefits, setSelectedBenefits] = useState<Set<string>>(new Set());
@@ -99,6 +100,7 @@ export default function SubscriptionsPage() {
       duration: parseInt(duration),
       benefits: packageBenefits,
       totalCost: parseInt(totalCost),
+      totalHours: parseFloat(totalHours) || 0,
       isActive: true,
       activeFrom: new Date(activeFrom).toISOString(),
       activeTo: activeTo ? new Date(activeTo).toISOString() : null,
@@ -132,6 +134,7 @@ export default function SubscriptionsPage() {
     setEditingPackageId(pkg.id);
     setPackageName(pkg.name);
     setDuration(String(pkg.duration));
+    setTotalHours(String(pkg.totalHours || 0));
     setTotalCost(String(pkg.totalCost));
     // Date strings for input[type="date"] need to be YYYY-MM-DD
     setActiveFrom(pkg.activeFrom ? pkg.activeFrom.split('T')[0] : '');
@@ -167,6 +170,7 @@ export default function SubscriptionsPage() {
     setCurrentStep('define');
     setPackageName('');
     setDuration('12');
+    setTotalHours('120');
     setSelectedBenefits(new Set());
     setBenefitUnits({});
     setTotalCost('15000');
@@ -272,6 +276,19 @@ export default function SubscriptionsPage() {
                           className="bg-input-background"
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="totalHours">Total Allocated Hours</Label>
+                        <Input
+                          id="totalHours"
+                          type="number"
+                          value={totalHours}
+                          onChange={(e) => setTotalHours(e.target.value)}
+                          placeholder="e.g., 120"
+                          className="bg-input-background"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="cost">Total Cost (₹) — <span className="text-[10px] text-primary uppercase font-bold">Auto-calculated</span></Label>
                         <Input
@@ -426,6 +443,10 @@ export default function SubscriptionsPage() {
                           <span className="ml-2 font-medium">₹{totalCost}</span>
                         </div>
                         <div>
+                          <span className="text-muted-foreground">Allocated Hours:</span>
+                          <span className="ml-2 font-medium">{totalHours} Hours</span>
+                        </div>
+                        <div>
                           <span className="text-muted-foreground">Active From:</span>
                           <span className="ml-2 font-medium">{activeFrom}</span>
                         </div>
@@ -527,7 +548,9 @@ export default function SubscriptionsPage() {
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-2xl font-bold text-primary">₹{pkg.totalCost}</span>
-                      <span className="text-sm text-muted-foreground">per package</span>
+                      <span className="text-sm font-medium bg-orange-50 text-orange-700 px-3 py-1 rounded-lg">
+                        {pkg.totalHours || 0} Hours
+                      </span>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       <p>Active: {pkg.activeFrom} to {pkg.activeTo}</p>

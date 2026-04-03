@@ -130,7 +130,7 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
             <div>
               <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Edit Profile</h2>
               <p className={`text-[10px] font-black uppercase tracking-widest ${roleColors[role]}`}>
-                {roleLabels[role]} — {userId.slice(0, 8)}
+                {roleLabels[role]}
               </p>
             </div>
           </div>
@@ -181,6 +181,18 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                 </div>
 
                 <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Preferred Name</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      value={formState.personal.preferredName || ''}
+                      onChange={(e) => updateNestedField('personal', 'preferredName', e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Mobile Number *</label>
                   <div className="relative">
                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -207,6 +219,30 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                 </div>
 
                 <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">WhatsApp Number</label>
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      value={formState.personal.whatsappNumber || ''}
+                      onChange={(e) => updateNestedField('personal', 'whatsappNumber', e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Alternate Phone</label>
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      value={formState.personal.alternatePhone || ''}
+                      onChange={(e) => updateNestedField('personal', 'alternatePhone', e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Date of Birth</label>
                   <div className="relative">
                     <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -219,21 +255,72 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                   </div>
                 </div>
 
-                <div className="md:col-span-2 grid grid-cols-3 gap-4 mt-4">
-                   <div className="space-y-1 col-span-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Full Address</label>
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                   <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Address Line 1 *</label>
                     <input
+                      required
                       value={formState.personal.addressLine1}
                       onChange={(e) => updateNestedField('personal', 'addressLine1', e.target.value)}
-                      placeholder="Street address, locality..."
+                      placeholder="Street address, block..."
                       className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Pincode</label>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Address Line 2</label>
                     <input
+                      value={formState.personal.addressLine2 || ''}
+                      onChange={(e) => updateNestedField('personal', 'addressLine2', e.target.value)}
+                      placeholder="Locality, landmarks..."
+                      className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">City *</label>
+                    <input
+                      required
+                      value={formState.personal.city || ''}
+                      onChange={(e) => updateNestedField('personal', 'city', e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">State *</label>
+                    <input
+                      required
+                      value={formState.personal.state || ''}
+                      onChange={(e) => updateNestedField('personal', 'state', e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Pincode *</label>
+                    <input
+                      required
                       value={formState.personal.pincode}
                       onChange={(e) => updateNestedField('personal', 'pincode', e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-[#E7DED6]">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Aadhaar Number *</label>
+                    <input
+                      required
+                      value={formState.personal.aadhaarNumber || ''}
+                      onChange={(e) => updateNestedField('personal', 'aadhaarNumber', e.target.value)}
+                      placeholder="12 digit Aadhaar"
+                      className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">PAN Number</label>
+                    <input
+                      value={formState.personal.panNumber || ''}
+                      onChange={(e) => updateNestedField('personal', 'panNumber', e.target.value)}
+                      placeholder="10 char PAN"
                       className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
                     />
                   </div>
@@ -274,8 +361,16 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Nursing Registration #</label>
                       <input
-                        value={formState.professional.nursingRegistrationNumber}
+                        value={formState.professional.nursingRegistrationNumber || ''}
                         onChange={(e) => updateNestedField('professional', 'nursingRegistrationNumber', e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Nursing Council</label>
+                      <input
+                        value={formState.professional.nursingCouncil || ''}
+                        onChange={(e) => updateNestedField('professional', 'nursingCouncil', e.target.value)}
                         className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
                       />
                     </div>
@@ -284,7 +379,7 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                       <div className="relative">
                         <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <select
-                          value={formState.professional.preferredShift}
+                          value={formState.professional.preferredShift || 'any'}
                           onChange={(e) => updateNestedField('professional', 'preferredShift', e.target.value)}
                           className="w-full pl-12 pr-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00] appearance-none"
                         >
@@ -295,10 +390,70 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                         </select>
                       </div>
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Max Daily Visits</label>
+                      <input
+                        type="number"
+                        value={formState.professional.maxDailyVisits || 4}
+                        onChange={(e) => updateNestedField('professional', 'maxDailyVisits', e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {role === 'field_manager' && (
+                   <>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Previous Employer</label>
+                      <input
+                        value={formState.professional.previousEmployer || ''}
+                        onChange={(e) => updateNestedField('professional', 'previousEmployer', e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Max Team Size</label>
+                      <input
+                        type="number"
+                        value={formState.professional.maxTeamSize || 10}
+                        onChange={(e) => updateNestedField('professional', 'maxTeamSize', e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                      />
+                    </div>
                   </>
                 )}
 
                 <div className="md:col-span-2 space-y-3">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                    <Languages size={14} /> Skills & Specializations
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {(metadata?.specializations || []).map((spec) => (
+                      <button
+                        key={spec}
+                        type="button"
+                        onClick={() => {
+                          const current = formState.professional.specialization || [];
+                          if (current.includes(spec)) {
+                            updateNestedField('professional', 'specialization', current.filter((s: string) => s !== spec));
+                          } else {
+                            updateNestedField('professional', 'specialization', [...current, spec]);
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          (formState.professional.specialization || []).includes(spec)
+                            ? 'bg-[#FF7A00] text-white shadow-md'
+                            : 'bg-white text-gray-500 border border-[#E7DED6] hover:border-[#FF7A00]'
+                        }`}
+                      >
+                        {spec}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 space-y-3 pt-4 border-t border-[#E7DED6]">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
                     <Languages size={14} /> Spoken Languages
                   </label>
@@ -317,8 +472,8 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                         }}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                           (formState.professional.languages || []).includes(lang)
-                            ? 'bg-[#FF7A00] text-white'
-                            : 'bg-white text-gray-500 border border-[#E7DED6]'
+                            ? 'bg-[#FF7A00] text-white shadow-md'
+                            : 'bg-white text-gray-500 border border-[#E7DED6] hover:border-[#FF7A00]'
                         }`}
                       >
                         {lang}
@@ -330,94 +485,128 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
             )}
 
             {/* ASSIGNMENT TAB */}
-            {activeTab === 'assignment' && (
-              <div className="space-y-6">
-                {role === 'operations_manager' ? (
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                      <MapPin size={14} /> Assigned Managed Zones
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {metadata?.zones.map((zone) => (
-                        <button
-                          key={zone.id}
-                          type="button"
-                          onClick={() => {
-                            const current = formState.assignment.zoneIds || [];
-                            if (current.includes(zone.id)) {
-                              updateNestedField('assignment', 'zoneIds', current.filter((id: string) => id !== zone.id));
-                            } else {
-                              updateNestedField('assignment', 'zoneIds', [...current, zone.id]);
-                            }
-                          }}
-                          className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                            (formState.assignment.zoneIds || []).includes(zone.id)
-                              ? 'bg-blue-50 border-[#1D4ED8] text-[#1D4ED8]'
-                              : 'bg-white border-[#E7DED6] text-gray-500'
-                          }`}
-                        >
-                          <div className="text-left">
-                            <p className="text-sm font-black">{zone.name}</p>
-                            <p className="text-[10px] opacity-60 uppercase">{zone.city}</p>
+                {activeTab === 'assignment' && (
+                  <div className="space-y-6">
+                    {role === 'operations_manager' ? (
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Manage Zone Assignments (Multi-select)</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {metadata?.zones.map((zone) => (
+                            <button
+                              key={zone.id}
+                              type="button"
+                              onClick={() => {
+                                const current = formState.assignment.zoneIds || [];
+                                if (current.includes(zone.id)) {
+                                  updateNestedField('assignment', 'zoneIds', current.filter((id: string) => id !== zone.id));
+                                } else {
+                                  updateNestedField('assignment', 'zoneIds', [...current, zone.id]);
+                                }
+                              }}
+                              className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                                (formState.assignment.zoneIds || []).includes(zone.id)
+                                  ? 'bg-blue-50 border-[#1D4ED8] text-[#1D4ED8]'
+                                  : 'bg-white border-[#E7DED6] text-gray-500'
+                              }`}
+                            >
+                              <div className="text-left">
+                                <p className="text-sm font-black">{zone.name}</p>
+                                <p className="text-[10px] opacity-60 uppercase">{zone.city}</p>
+                              </div>
+                              {(formState.assignment.zoneIds || []).includes(zone.id) && <CheckCircle2 size={16} />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Primary Assignment Zone</label>
+                          <select
+                            value={formState.assignment.zoneId}
+                            onChange={(e) => updateNestedField('assignment', 'zoneId', e.target.value)}
+                            className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                          >
+                            <option value="">Select a Zone</option>
+                            {metadata?.zones.map((z) => (
+                              <option key={z.id} value={z.id}>{z.name} ({z.city})</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {role === 'care_companion' && (
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Assigned Team</label>
+                            <select
+                              value={formState.assignment.teamId}
+                              onChange={(e) => updateNestedField('assignment', 'teamId', e.target.value)}
+                              className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                            >
+                              <option value="">No Team Assigned</option>
+                              {metadata?.teams
+                                .filter(t => t.zone === formState.assignment.zoneId || formState.assignment.zoneId === '')
+                                .map((t) => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
                           </div>
-                          {(formState.assignment.zoneIds || []).includes(zone.id) && <CheckCircle2 size={16} />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Primary Assignment Zone</label>
-                      <select
-                        value={formState.assignment.zoneId}
-                        onChange={(e) => updateNestedField('assignment', 'zoneId', e.target.value)}
-                        className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
-                      >
-                        <option value="">Select a Zone</option>
-                        {metadata?.zones.map((z) => (
-                          <option key={z.id} value={z.id}>{z.name} ({z.city})</option>
-                        ))}
-                      </select>
-                    </div>
+                        )}
 
-                    {role === 'care_companion' && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Assigned Team</label>
-                        <select
-                          value={formState.assignment.teamId}
-                          onChange={(e) => updateNestedField('assignment', 'teamId', e.target.value)}
-                          className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
-                        >
-                          <option value="">No Team Assigned</option>
-                          {metadata?.teams
-                            .filter(t => t.zone === formState.assignment.zoneId || formState.assignment.zoneId === '')
-                            .map((t) => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                          ))}
-                        </select>
+                        {role === 'field_manager' && (
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Reports to (OM)</label>
+                            <select
+                              value={formState.assignment.reportsToUserId}
+                              onChange={(e) => updateNestedField('assignment', 'reportsToUserId', e.target.value)}
+                              className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                            >
+                              <option value="">No Manager Assigned</option>
+                              {metadata?.operationsManagers.map((m) => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {role === 'field_manager' && (
-                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Reports to (OM)</label>
-                        <select
-                          value={formState.assignment.reportsToUserId}
-                          onChange={(e) => updateNestedField('assignment', 'reportsToUserId', e.target.value)}
-                          className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
-                        >
-                          <option value="">No Manager Assigned</option>
-                          {metadata?.operationsManagers.map((m) => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                          ))}
-                        </select>
+                    {/* Verification Status */}
+                    <div className="mt-8 pt-6 border-t border-[#E7DED6]">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Verification Status</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label className="flex items-center justify-between bg-white rounded-2xl p-4 border border-[#E7DED6] cursor-pointer hover:border-[#FF7A00] transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+                              <ShieldCheck size={16} />
+                            </div>
+                            <span className="font-bold text-gray-700">BGV Verified</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            className="w-5 h-5 rounded-lg border-[#E7DED6] text-[#FF7A00] focus:ring-[#FF7A00]"
+                            checked={Boolean(formState.assignment.bgvVerified)}
+                            onChange={(e) => updateNestedField('assignment', 'bgvVerified', e.target.checked)}
+                          />
+                        </label>
+
+                        <label className="flex items-center justify-between bg-white rounded-2xl p-4 border border-[#E7DED6] cursor-pointer hover:border-[#FF7A00] transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                              <CheckCircle2 size={16} />
+                            </div>
+                            <span className="font-bold text-gray-700">KYC Verified</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            className="w-5 h-5 rounded-lg border-[#E7DED6] text-[#FF7A00] focus:ring-[#FF7A00]"
+                            checked={Boolean(formState.assignment.kycVerified)}
+                            onChange={(e) => updateNestedField('assignment', 'kycVerified', e.target.checked)}
+                          />
+                        </label>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
-              </div>
-            )}
           </form>
         </div>
 

@@ -200,11 +200,14 @@ function mapCareCompanion(companion) {
     maxDailyVisits: companion.maxDailyVisits,
     utilization: 0, // Mock for UI; will be calculated from visits later
     isAvailable: Boolean(companion.isAvailable && (companion.user?.isActive ?? true)),
+    isActive: companion.user?.isActive ?? true,
     employmentStatus: staffProfile?.employmentStatus || 'draft',
     bgvStatus: latestBackgroundCheck?.status || null,
     backgroundVerification: {
       policeVerificationStatus: latestBackgroundCheck?.status === 'cleared' ? 'verified' : 'pending',
     },
+    bgvVerified: staffProfile?.bgvVerified ?? false,
+    kycVerified: staffProfile?.kycVerified ?? false,
     joinedAt: companion.joinedAt || staffProfile?.joinedAt || companion.createdAt,
     createdAt: companion.createdAt,
   };
@@ -228,10 +231,13 @@ function mapFieldManager(manager) {
     canApproveRoster: manager.canApproveRoster,
     canOnboardCCs: manager.canOnboardCCs,
     isAvailable: Boolean(manager.isAvailable && (manager.user?.isActive ?? true)),
+    isActive: manager.user?.isActive ?? true,
     teamCount: manager.teams?.length || 0,
     teamNames: (manager.teams || []).map((team) => team.name),
     reportsToUserId: manager.reportsToUserId || staffProfile?.reportsToUserId || null,
     employmentStatus: staffProfile?.employmentStatus || 'draft',
+    bgvVerified: staffProfile?.bgvVerified ?? false,
+    kycVerified: staffProfile?.kycVerified ?? false,
     joinedAt: manager.joinedAt || staffProfile?.joinedAt || manager.createdAt,
     createdAt: manager.createdAt,
   };
@@ -247,12 +253,15 @@ function mapOperationsManager(manager) {
     qualification: manager.qualification,
     experience: manager.experience,
     isAvailable: Boolean(manager.isAvailable && (manager.user?.isActive ?? true)),
+    isActive: manager.user?.isActive ?? true,
     assignedZones: (manager.user?.zonesAsOperationsManager || []).map((zone) => ({
       id: zone.id,
       name: zone.name,
       city: zone.city,
       pincode: zone.pincode,
     })),
+    bgvVerified: manager.user?.staffProfile?.bgvVerified ?? false,
+    kycVerified: manager.user?.staffProfile?.kycVerified ?? false,
     joinedAt: manager.createdAt,
     createdAt: manager.createdAt,
   };
@@ -284,6 +293,7 @@ async function buildOnboardingMetadata() {
       orderBy: { name: 'asc' },
     }),
     prisma.operationsManager.findMany({
+      where: { user: { isActive: true } },
       include: {
         user: {
           select: {
@@ -326,6 +336,16 @@ async function buildOnboardingMetadata() {
       fieldManagerName: team.fieldManager?.user?.name || team.fieldManager?.name || 'Unassigned',
     })),
     operationsManagers: operationsManagers.map(mapOperationsManager),
+    specializations: [
+      'Elderly Care',
+      'Post-Operative Recovery',
+      'Diabetes Management',
+      'Dementia Support',
+      'Physiotherapy Assistance',
+      'Palliative Care',
+      'Emergency First Aid',
+      'Medication Management'
+    ]
   };
 }
 
@@ -334,7 +354,7 @@ router.get('/field-managers', async (req, res) => {
     if (!ensureOnboardingModels(res)) return;
 
     const { search, page, limit } = req.query;
-    const filterParams = {};
+    const filterParams = { user: { isActive: true } };
 
     if (search) {
       filterParams.OR = [
@@ -358,6 +378,8 @@ router.get('/field-managers', async (req, res) => {
                 zoneId: true,
                 reportsToUserId: true,
                 employmentStatus: true,
+                bgvVerified: true,
+                kycVerified: true,
                 joinedAt: true,
               },
             },
@@ -388,14 +410,19 @@ router.get('/field-managers', async (req, res) => {
     ]);
 
     const mapped = managers.map(mapFieldManager);
-    const response = { success: true, data: mapped, total };
-
     if (page && limit) {
-      response.page = Number(page);
-      response.totalPages = Math.ceil(total / Number(limit));
+      res.json({
+        success: true,
+        data: {
+          data: mapped,
+          total,
+          page: Number(page),
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      });
+    } else {
+      res.json({ success: true, data: mapped });
     }
-
-    res.json(response);
   } catch (err) {
     console.error('GET /field-managers error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch field managers' });
@@ -407,7 +434,7 @@ router.get('/operations-managers', async (req, res) => {
     if (!ensureOnboardingModels(res)) return;
 
     const { search, page, limit } = req.query;
-    const filterParams = {};
+    const filterParams = { user: { isActive: true } };
 
     if (search) {
       filterParams.name = { contains: search, mode: 'insensitive' };
@@ -431,6 +458,12 @@ router.get('/operations-managers', async (req, res) => {
                 pincode: true,
               },
             },
+            staffProfile: {
+              select: {
+                bgvVerified: true,
+                kycVerified: true,
+              },
+            },
           },
         },
       },
@@ -452,14 +485,19 @@ router.get('/operations-managers', async (req, res) => {
     ]);
 
     const mapped = managers.map(mapOperationsManager);
-    const response = { success: true, data: mapped, total };
-
     if (page && limit) {
-      response.page = Number(page);
-      response.totalPages = Math.ceil(total / Number(limit));
+      res.json({
+        success: true,
+        data: {
+          data: mapped,
+          total,
+          page: Number(page),
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      });
+    } else {
+      res.json({ success: true, data: mapped });
     }
-
-    res.json(response);
   } catch (err) {
     console.error('GET /operations-managers error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch operations managers' });
@@ -653,6 +691,8 @@ router.post('/staff/onboard', async (req, res) => {
           zoneId: primaryZoneId,
           teamId,
           reportsToUserId,
+          bgvVerified: Boolean(assignment.bgvVerified),
+          kycVerified: Boolean(assignment.kycVerified),
           employmentStatus,
           joinedAt: new Date(),
           notes: asNullableString(req.body?.notes),
@@ -829,7 +869,7 @@ router.get('/care-companions', async (req, res) => {
     if (!ensureOnboardingModels(res)) return;
 
     const { search, searchBy, page, limit } = req.query;
-    const filterParams = {};
+    const filterParams = { user: { isActive: true } };
 
     if (search) {
       if (searchBy === 'name') {
@@ -859,6 +899,8 @@ router.get('/care-companions', async (req, res) => {
                 zoneId: true,
                 teamId: true,
                 employmentStatus: true,
+                bgvVerified: true,
+                kycVerified: true,
                 joinedAt: true,
                 documents: {
                   select: {
@@ -904,14 +946,19 @@ router.get('/care-companions', async (req, res) => {
     ]);
 
     const mapped = companions.map(mapCareCompanion);
-    const response = { success: true, data: mapped, total };
-
     if (page && limit) {
-      response.page = Number(page);
-      response.totalPages = Math.ceil(total / Number(limit));
+      res.json({
+        success: true,
+        data: {
+          data: mapped,
+          total,
+          page: Number(page),
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      });
+    } else {
+      res.json({ success: true, data: mapped });
     }
-
-    res.json(response);
   } catch (err) {
     console.error('GET /care-companions error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch care companions' });
@@ -1001,6 +1048,8 @@ router.get('/staff/:userId', async (req, res) => {
         reportsToUserId: user.fieldManagerProfile?.reportsToUserId || user.staffProfile?.reportsToUserId || '',
         bgvType: user.staffProfile?.backgroundChecks?.[0]?.backgroundCheckType || 'police_clearance',
         bgvAgency: user.staffProfile?.backgroundChecks?.[0]?.agency || '',
+        bgvVerified: user.staffProfile?.bgvVerified ?? false,
+        kycVerified: user.staffProfile?.kycVerified ?? false,
       },
       notes: user.staffProfile?.notes || '',
     };
@@ -1052,9 +1101,17 @@ router.put('/staff/:userId', async (req, res) => {
           aadhaarNumberEncrypted: asNullableString(personal.aadhaarNumber),
           panNumberEncrypted: asNullableString(personal.panNumber)?.toUpperCase(),
           languages: asStringArray(professional.languages),
-          zoneId: role === 'operations_manager' ? null : asNullableString(assignment.zoneId),
-          teamId: role === 'care_companion' ? asNullableString(assignment.teamId) : null,
-          reportsToUserId: role === 'field_manager' ? asNullableString(assignment.reportsToUserId) : null,
+          zone: role === 'operations_manager' || !asNullableString(assignment.zoneId)
+            ? { disconnect: true }
+            : { connect: { id: asNullableString(assignment.zoneId) } },
+          team: role === 'care_companion' && asNullableString(assignment.teamId)
+            ? { connect: { id: asNullableString(assignment.teamId) } }
+            : { disconnect: true },
+          reportsToUser: role === 'field_manager' && asNullableString(assignment.reportsToUserId)
+            ? { connect: { id: asNullableString(assignment.reportsToUserId) } }
+            : { disconnect: true },
+          bgvVerified: Boolean(assignment.bgvVerified),
+          kycVerified: Boolean(assignment.kycVerified),
           notes: asNullableString(notes),
         },
       });
@@ -1070,13 +1127,16 @@ router.put('/staff/:userId', async (req, res) => {
             experience: asOptionalInt(professional.experience),
             qualifications: [asTrimmedString(professional.qualification)].filter(Boolean),
             languages: asStringArray(professional.languages),
+            specialization: asStringArray(professional.specialization),
             nursingRegistrationNumber: asNullableString(professional.nursingRegistrationNumber),
             nursingCouncil: asNullableString(professional.nursingCouncil),
             shiftPreference: asTrimmedString(professional.preferredShift) || 'any',
             maxDailyVisits: asOptionalInt(professional.maxDailyVisits),
             willingClinicVisits: Boolean(professional.willingClinicVisits),
             hasTwoWheeler: Boolean(professional.hasTwoWheeler),
-            teamId: asNullableString(assignment.teamId),
+            team: asNullableString(assignment.teamId)
+              ? { connect: { id: asNullableString(assignment.teamId) } }
+              : { disconnect: true },
           },
         });
       } else if (role === 'field_manager') {
@@ -1130,6 +1190,80 @@ router.put('/staff/:userId', async (req, res) => {
   } catch (err) {
     console.error(`PUT /staff/${userId} error:`, err);
     res.status(500).json({ success: false, message: err?.message || 'Failed to update staff member' });
+  }
+});
+
+router.put('/staff/:userId/deactivate', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        staffProfile: true,
+        careCompanionProfile: true,
+        fieldManagerProfile: true,
+        operationsManagerProfile: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    const startDate = user.staffProfile?.activatedAt || user.staffProfile?.joinedAt || user.createdAt;
+    const endDate = new Date();
+    const diffTime = Math.abs(endDate - startDate);
+    const workingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Deactivate User
+      await tx.user.update({
+        where: { id: userId },
+        data: { isActive: false },
+      });
+
+      // 2. Update Staff Profile
+      await tx.staffProfile.update({
+        where: { userId },
+        data: {
+          employmentStatus: 'inactive',
+          deactivatedAt: endDate,
+        },
+      });
+
+      // 3. Update Role Specific Availability
+      if (user.role === 'care_companion' && user.careCompanionProfile) {
+        await tx.careCompanion.update({
+          where: { userId },
+          data: { isAvailable: false },
+        });
+      } else if (user.role === 'field_manager' && user.fieldManagerProfile) {
+        await tx.fieldManager.update({
+          where: { userId },
+          data: { isAvailable: false },
+        });
+      } else if (user.role === 'operations_manager' && user.operationsManagerProfile) {
+        await tx.operationsManager.update({
+          where: { userId },
+          data: { isAvailable: false },
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Staff member deactivated successfully',
+      data: {
+        name: user.name,
+        startDate,
+        endDate,
+        workingDays,
+      },
+    });
+  } catch (err) {
+    console.error(`PUT /staff/${userId}/deactivate error:`, err);
+    res.status(500).json({ success: false, message: err?.message || 'Failed to deactivate staff member' });
   }
 });
 

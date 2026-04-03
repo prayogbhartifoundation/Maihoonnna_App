@@ -5,6 +5,9 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import StaffEditModal from '../components/StaffEditModal';
 import DataFilter from '../components/common/DataFilter';
+import DeactivationSummaryModal from '../components/DeactivationSummaryModal';
+import { staffOnboardingApi } from '../../services/api';
+import { Trash2 } from 'lucide-react';
 
 interface CareCompanionItem {
   id: string;
@@ -16,6 +19,8 @@ interface CareCompanionItem {
   hubName?: string;
   isAvailable: boolean;
   teamName?: string;
+  bgvVerified: boolean;
+  kycVerified: boolean;
 }
 
 const CareCompanions = () => {
@@ -26,6 +31,7 @@ const CareCompanions = () => {
   const [loading, setLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deactivationSummary, setDeactivationSummary] = useState<any>(null);
 
   const [search, setSearch] = useState('');
   const [searchBy, setSearchBy] = useState('');
@@ -53,7 +59,9 @@ const CareCompanions = () => {
         zone: cc.zone,
         hubName: zones.find((z: any) => z.id === cc.zoneId || z.id === cc.zone || z.name === cc.zone)?.name || cc.zone,
         isAvailable: cc.isAvailable,
-        teamName: cc.teamName
+        teamName: cc.teamName,
+        bgvVerified: cc.bgvVerified || false,
+        kycVerified: cc.kycVerified || false,
       }));
 
       setCompanions(dbCompanions);
@@ -98,6 +106,23 @@ const CareCompanions = () => {
       toast.error(err.message || 'Failed to onboard Care Companion');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeactivate = async (userId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to deactivate ${name}? This will mark their profile as inactive.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await staffOnboardingApi.deactivateStaff(userId);
+      setDeactivationSummary(response);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to deactivate staff member');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -189,22 +214,40 @@ const CareCompanions = () => {
                 )}
               </div>
 
-              {/* Compliance Badges */}
-              <div className="flex items-center justify-between pt-4 border-t border-[#E7DED6]">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-lg text-[10px] font-bold">
-                    <ShieldCheck size={12} /> BGV
-                  </div>
-                  <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-lg text-[10px] font-bold">
-                    <CheckCircle2 size={12} /> KYC
-                  </div>
+              {/* Compliance Badges & Actions */}
+              <div className="pt-4 border-t border-[#E7DED6] space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {cc.bgvVerified && (
+                    <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                      <ShieldCheck size={12} /> BGV
+                    </div>
+                  )}
+                  {cc.kycVerified && (
+                    <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                      <CheckCircle2 size={12} /> KYC
+                    </div>
+                  )}
+                  {!cc.bgvVerified && !cc.kycVerified && (
+                    <div className="flex items-center gap-1 bg-gray-50 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                      <ShieldCheck size={12} /> Verification Pending
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => setEditingUserId(cc.userId)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFF0E0] text-[#FF7A00] hover:bg-[#FFE0C0] transition text-[10px] font-black uppercase tracking-wider"
-                >
-                  <Edit2 size={12} /> Edit
-                </button>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setEditingUserId(cc.userId)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#FFF0E0] text-[#FF7A00] hover:bg-[#FFE0C0] transition text-[10px] font-black uppercase tracking-wider shadow-sm border border-[#FFE0C0]"
+                  >
+                    <Edit2 size={12} /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeactivate(cc.userId, cc.name)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition text-[10px] font-black uppercase tracking-wider shadow-sm border border-red-100"
+                  >
+                    <Trash2 size={12} /> Deactivate
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -308,6 +351,13 @@ const CareCompanions = () => {
           role="care_companion"
           onClose={() => setEditingUserId(null)}
           onSuccess={fetchData}
+        />
+      )}
+      {/* DEACTIVATION SUMMARY MODAL */}
+      {deactivationSummary && (
+        <DeactivationSummaryModal 
+          data={deactivationSummary} 
+          onClose={() => setDeactivationSummary(null)} 
         />
       )}
     </div>

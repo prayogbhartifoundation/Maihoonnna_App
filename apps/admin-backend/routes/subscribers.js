@@ -70,14 +70,19 @@ router.get('/', async (req, res) => {
         };
     });
 
-        const response = { success: true, data: mapped, total };
-        
         if (page && limit) {
-            response.page = Number(page);
-            response.totalPages = Math.ceil(total / Number(limit));
+            res.json({
+                success: true,
+                data: {
+                    data: mapped,
+                    total,
+                    page: Number(page),
+                    totalPages: Math.ceil(total / Number(limit)),
+                },
+            });
+        } else {
+            res.json({ success: true, data: mapped });
         }
-
-        res.json(response);
     } catch (err) {
         console.error('GET /subscribers error:', err);
         res.status(500).json({ success: false, message: 'Failed to fetch subscribers' });

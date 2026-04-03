@@ -102,14 +102,19 @@ router.get('/', async (req, res) => {
             };
         });
 
-        const response = { success: true, data: mapped, total };
-        
         if (page && limit) {
-            response.page = Number(page);
-            response.totalPages = Math.ceil(total / Number(limit));
+            res.json({
+                success: true,
+                data: {
+                    data: mapped,
+                    total,
+                    page: Number(page),
+                    totalPages: Math.ceil(total / Number(limit)),
+                },
+            });
+        } else {
+            res.json({ success: true, data: mapped });
         }
-
-        res.json(response);
     } catch (err) {
         console.error('GET /beneficiaries error:', err);
         res.status(500).json({ success: false, message: 'Failed to fetch beneficiaries' });
@@ -137,6 +142,7 @@ router.get('/available-staff', async (req, res) => {
                 role: 'care_companion',
                 zoneId: zoneIds.length > 0 ? { in: zoneIds } : undefined,
                 employmentStatus: 'active',
+                user: { isActive: true },
             },
             include: {
                 user: {
@@ -155,6 +161,7 @@ router.get('/available-staff', async (req, res) => {
                 role: 'field_manager',
                 zoneId: zoneIds.length > 0 ? { in: zoneIds } : undefined,
                 employmentStatus: 'active',
+                user: { isActive: true },
             },
             include: {
                 user: {

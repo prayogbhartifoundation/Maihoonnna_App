@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, MapPin, Briefcase, Plus, Filter, Loader2 } from 'lucide-react';
+import { Users, MapPin, Briefcase, Plus, Filter, Loader2, Edit2 } from 'lucide-react';
 import { teamApi } from '../../services/api';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
@@ -93,6 +93,15 @@ const TeamsPage = () => {
                       +{(team.careCompanions || []).length - 3}
                     </div>
                   )}
+                  <div className="pl-4">
+                    <button
+                      onClick={() => navigate(`/edit-team/${team.id}`)}
+                      className="p-2 rounded-xl bg-white border border-[#E7DED6] text-gray-400 hover:text-[#FF7A00] hover:border-[#FF7A00] transition-all shadow-sm"
+                      title="Edit Team"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -106,10 +115,10 @@ const TeamsPage = () => {
                     <Briefcase size={18} />
                   </div>
                   <div className="flex-1">
-                    <p className="font-bold text-gray-800">{team.fieldManager?.name}</p>
-                    <p className="text-xs font-bold text-green-700">FIELD MANAGER</p>
+                    <p className="font-bold text-gray-800">{team.fieldManager?.name || 'No Manager Assigned'}</p>
+                    <p className={`text-xs font-bold ${team.fieldManager ? 'text-green-700' : 'text-gray-400'}`}>FIELD MANAGER</p>
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#1F8A3E] bg-[#DFF4E6] px-2 py-1 rounded-full">Active</span>
+                  {team.fieldManager && <span className="text-[10px] font-bold uppercase tracking-widest text-[#1F8A3E] bg-[#DFF4E6] px-2 py-1 rounded-full">Active</span>}
                 </div>
 
                 {/* Care Companions */}

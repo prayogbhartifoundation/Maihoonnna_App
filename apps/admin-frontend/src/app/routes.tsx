@@ -24,6 +24,7 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import CallbacksPage from './pages/CallbacksPage';
 import TeamsPage from './pages/TeamsPage';
 import CreateTeamPage from './pages/CreateTeamPage';
+import EditTeamPage from './pages/EditTeamPage';
 import StaffOnboardingPage from './pages/StaffOnboardingPage';
 import BenefitTypesPage from './pages/BenefitTypesPage';
 import BenefitsPage from './pages/BenefitsPage';
@@ -110,6 +111,10 @@ export const router = createBrowserRouter([
       {
         path: 'create-team',
         Component: CreateTeamPage,
+      },
+      {
+        path: 'edit-team/:id',
+        Component: EditTeamPage,
       },
       {
         path: 'staff-onboarding',

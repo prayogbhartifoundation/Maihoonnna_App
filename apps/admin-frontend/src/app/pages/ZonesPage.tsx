@@ -39,7 +39,7 @@ const emptyForm = {
   name: '', city: '', address: '', state: '', pincode: '',
   phone: '', latitude: '', longitude: '',
   leaseStartDate: '', leaseEndDate: '',
-  fieldManagerId: ''
+  fieldManagerId: '' as string | null
 };
 
 const ZonesPage = () => {
@@ -216,9 +216,7 @@ const ZonesPage = () => {
     if (!assigningZone) return;
     setSaving(true);
     try {
-      const payload = assignType === 'om' 
-        ? { operationsManagerId: staffId === 'none' ? null : staffId }
-        : { fieldManagerId: staffId === 'none' ? null : staffId };
+      const payload = { operationsManagerId: staffId === 'none' ? null : staffId };
 
       const res = await fetch(`${API_BASE}/zones/${assigningZone.id}`, {
         method: 'PUT',
@@ -348,13 +346,6 @@ const ZonesPage = () => {
                           <Users size={12} />
                           {zone.operationsManagerId ? 'Change OM' : 'Assign OM'}
                         </button>
-                        <button
-                          onClick={() => openAssignModal(zone, 'fm')}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition text-[10px] font-black uppercase"
-                        >
-                          <UserCheck size={12} />
-                          {zone.fieldManagerId ? 'Change FM' : 'Assign FM'}
-                        </button>
                       </div>
                       <button
                         onClick={() => openEditModal(zone)}
@@ -404,13 +395,6 @@ const ZonesPage = () => {
                       <div className="flex items-center gap-2 text-[#FF7A00] font-black uppercase text-[10px] tracking-tight">
                         <Users size={14} className="shrink-0" />
                         <span>Ops Manager: {operationsManagers.find(m => m.userId === zone.operationsManagerId)?.name || 'Assigned'}</span>
-                      </div>
-                    )}
-
-                    {zone.fieldManagerId && (
-                      <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-tight">
-                        <UserCheck size={14} className="shrink-0" />
-                        <span>Field Manager: {fieldManagers.find(m => m.userId === zone.fieldManagerId)?.name || 'Assigned'}</span>
                       </div>
                     )}
                   </div>
@@ -710,16 +694,9 @@ const ZonesPage = () => {
 
             <div className="flex gap-2 mb-6">
               <button
-                onClick={() => setAssignType('om')}
-                className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition ${assignType === 'om' ? 'bg-[#FF7A00] text-white shadow-lg shadow-orange-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition bg-[#FF7A00] text-white shadow-lg shadow-orange-100`}
               >
-                Ops Manager
-              </button>
-              <button
-                onClick={() => setAssignType('fm')}
-                className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition ${assignType === 'fm' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
-              >
-                Field Manager
+                Operations Manager
               </button>
             </div>
 
@@ -727,23 +704,23 @@ const ZonesPage = () => {
               <button
                 onClick={() => handleAssignStaff('none')}
                 className={`w-full text-left px-5 py-4 rounded-2xl border transition ${
-                  (assignType === 'om' ? !assigningZone.operationsManagerId : !assigningZone.fieldManagerId) 
+                  !assigningZone.operationsManagerId
                     ? 'bg-red-50 border-red-200' 
                     : 'border-gray-100 hover:bg-gray-50'
                 }`}
               >
                 <p className="font-bold text-sm text-red-600">None / Unassign</p>
-                <p className="text-[10px] text-red-400 uppercase">Remove current {assignType === 'om' ? 'OM' : 'FM'}</p>
+                <p className="text-[10px] text-red-400 uppercase">Remove current OM</p>
               </button>
 
               <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
-                {(assignType === 'om' ? operationsManagers : fieldManagers).map(member => (
+                {operationsManagers.map(member => (
                   <button
                     key={member.id}
                     onClick={() => handleAssignStaff(member.userId)}
                     className={`w-full text-left px-5 py-4 rounded-2xl border transition ${
-                      (assignType === 'om' ? assigningZone.operationsManagerId === member.userId : assigningZone.fieldManagerId === member.userId) 
-                        ? (assignType === 'om' ? 'bg-orange-50 border-orange-200' : 'bg-blue-50 border-blue-200') 
+                      assigningZone.operationsManagerId === member.userId
+                        ? 'bg-orange-50 border-orange-200' 
                         : 'border-gray-100 hover:bg-gray-50'
                     }`}
                   >
@@ -752,14 +729,14 @@ const ZonesPage = () => {
                         <p className="font-bold text-sm text-gray-800">{member.name}</p>
                         <p className="text-[10px] text-gray-400">{member.phone}</p>
                       </div>
-                      <UserCheck size={18} className={(assignType === 'om' ? assigningZone.operationsManagerId === member.userId : assigningZone.fieldManagerId === member.userId) ? (assignType === 'om' ? 'text-orange-500' : 'text-blue-500') : 'text-gray-200'} />
+                      <UserCheck size={18} className={assigningZone.operationsManagerId === member.userId ? 'text-orange-500' : 'text-gray-200'} />
                     </div>
                   </button>
                 ))}
 
-                {(assignType === 'om' ? operationsManagers : fieldManagers).length === 0 && (
+                {operationsManagers.length === 0 && (
                   <div className="text-center py-8">
-                    <p className="text-gray-400 text-sm italic">No {assignType === 'om' ? 'operations' : 'field'} managers found.</p>
+                    <p className="text-gray-400 text-sm italic">No operations managers found.</p>
                   </div>
                 )}
               </div>

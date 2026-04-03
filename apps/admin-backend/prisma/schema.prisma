@@ -635,6 +635,8 @@ model StaffProfile {
   teamId                 String?
   reportsToUserId        String?
   employmentStatus       StaffEmploymentStatus @default(draft)
+  bgvVerified            Boolean               @default(false)
+  kycVerified            Boolean               @default(false)
   joinedAt               DateTime?
   activatedAt            DateTime?
   deactivatedAt          DateTime?
@@ -728,14 +730,14 @@ model StaffTraining {
 model Team {
   id             String   @id @default(uuid())
   name           String
-  fieldManagerId String
+  fieldManagerId String?
   zone           String
   description    String?
   maxCapacity    Int      @default(15)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  fieldManager   FieldManager    @relation(fields: [fieldManagerId], references: [id])
+  fieldManager   FieldManager?   @relation(fields: [fieldManagerId], references: [id])
   careCompanions CareCompanion[]
   staffProfiles  StaffProfile[]
 
@@ -835,6 +837,7 @@ model SubscriptionPackage {
   durationMonths    Int       @default(1)
   visitsPerWeek     Int       @default(0)
   hoursPerMonth     Float     @default(0)
+  totalHours        Float     @default(0)
   maxBeneficiaries  Int       @default(1)
   features          String[]  @default([])
   highlightFeatures String[]  @default([])

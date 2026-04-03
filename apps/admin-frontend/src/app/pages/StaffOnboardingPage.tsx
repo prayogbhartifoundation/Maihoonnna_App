@@ -162,6 +162,8 @@ function createInitialFormState(role: StaffOnboardingRole): FormState {
       reportsToUserId: '',
       bgvType: 'police_clearance',
       bgvAgency: '',
+      bgvVerified: false,
+      kycVerified: false,
     },
     documents: [],
   };
@@ -300,7 +302,7 @@ export default function StaffOnboardingPage() {
     }));
   };
 
-  const setAssignmentField = (field: keyof StaffOnboardingPayload['assignment'], value: string | string[]) => {
+  const setAssignmentField = (field: keyof StaffOnboardingPayload['assignment'], value: string | string[] | boolean) => {
     setFormState((previousState) => ({
       ...previousState,
       assignment: {
@@ -368,30 +370,27 @@ export default function StaffOnboardingPage() {
   const getStepError = (stepNumber: number) => {
     if (stepNumber === 1) {
       const { personal } = formState;
-      if (!personal.fullName || !personal.mobileNumber || !personal.dateOfBirth) {
-        return 'Full name, mobile number, and date of birth are required.';
-      }
-      if (personal.mobileNumber.length !== 10) {
-        return 'Mobile number must be exactly 10 digits.';
-      }
+      if (!personal.fullName) return 'Full name is required.';
+      if (!personal.dateOfBirth) return 'Date of birth is required.';
+      if (!personal.mobileNumber) return 'Mobile number is required.';
+      if (personal.mobileNumber.length !== 10) return 'Mobile number must be exactly 10 digits.';
       if (personal.alternatePhone && personal.mobileNumber === personal.alternatePhone) {
         return 'Alternate phone number cannot be the same as the mobile number.';
       }
-      if (!personal.addressLine1 || !personal.city || !personal.state || !personal.pincode || !personal.aadhaarNumber) {
-        return 'Address and Aadhaar details must be completed.';
-      }
-      if (personal.aadhaarNumber.length !== 12) {
-        return 'Aadhaar number must be exactly 12 digits.';
-      }
+      if (!personal.addressLine1) return 'Address Line 1 is required.';
+      if (!personal.city) return 'City is required.';
+      if (!personal.state) return 'State is required.';
+      if (!personal.pincode) return 'Pincode is required.';
+      if (!personal.aadhaarNumber) return 'Aadhaar number is required.';
+      if (personal.aadhaarNumber.length !== 12) return 'Aadhaar number must be exactly 12 digits.';
       if (personal.panNumber && personal.panNumber.length !== 10) {
         return 'PAN number must be exactly 10 characters.';
       }
     }
 
     if (stepNumber === 2) {
-      if (!formState.professional.qualification || formState.professional.experience === '') {
-        return 'Qualification and years of experience are required.';
-      }
+      if (!formState.professional.qualification) return 'Highest qualification is required.';
+      if (formState.professional.experience === '') return 'Years of experience is required.';
     }
 
     if (stepNumber === 3 && !hasRequiredDocuments) {
@@ -452,6 +451,8 @@ export default function StaffOnboardingPage() {
         reportsToUserId: role === 'field_manager' ? formState.assignment.reportsToUserId : undefined,
         bgvType: formState.assignment.bgvType,
         bgvAgency: formState.assignment.bgvAgency,
+        bgvVerified: formState.assignment.bgvVerified,
+        kycVerified: formState.assignment.kycVerified,
       },
       documents: formState.documents,
     };
@@ -600,7 +601,7 @@ export default function StaffOnboardingPage() {
                     <input
                       value={formState.personal.fullName}
                       onChange={(event) => setPersonalField('fullName', event.target.value)}
-                      placeholder="Full name"
+                      placeholder="Full name *"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
                     <input
@@ -609,12 +610,15 @@ export default function StaffOnboardingPage() {
                       placeholder="Preferred name"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
-                    <input
-                      type="date"
-                      value={formState.personal.dateOfBirth}
-                      onChange={(event) => setPersonalField('dateOfBirth', event.target.value)}
-                      className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
-                    />
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase ml-4">Date of Birth *</label>
+                      <input
+                        type="date"
+                        value={formState.personal.dateOfBirth}
+                        onChange={(event) => setPersonalField('dateOfBirth', event.target.value)}
+                        className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
+                      />
+                    </div>
                     <select
                       value={formState.personal.gender}
                       onChange={(event) => setPersonalField('gender', event.target.value)}
@@ -631,7 +635,7 @@ export default function StaffOnboardingPage() {
                         const val = event.target.value.replace(/\D/g, '').slice(0, 10);
                         setPersonalField('mobileNumber', val);
                       }}
-                      placeholder="Mobile number"
+                      placeholder="Mobile number *"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
                     <input
@@ -668,7 +672,7 @@ export default function StaffOnboardingPage() {
                     <input
                       value={formState.personal.addressLine1}
                       onChange={(event) => setPersonalField('addressLine1', event.target.value)}
-                      placeholder="Address line 1"
+                      placeholder="Address line 1 *"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
                     <input
@@ -681,13 +685,13 @@ export default function StaffOnboardingPage() {
                       <input
                         value={formState.personal.city}
                         onChange={(event) => setPersonalField('city', event.target.value)}
-                        placeholder="City"
+                        placeholder="City *"
                         className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                       />
                       <input
                         value={formState.personal.state}
                         onChange={(event) => setPersonalField('state', event.target.value)}
-                        placeholder="State"
+                        placeholder="State *"
                         className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                       />
                       <div className="relative">
@@ -709,7 +713,7 @@ export default function StaffOnboardingPage() {
                               }
                             }
                           }}
-                          placeholder="Pincode"
+                          placeholder="Pincode *"
                           maxLength={6}
                           className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                         />
@@ -771,7 +775,7 @@ export default function StaffOnboardingPage() {
                         const val = event.target.value.replace(/\D/g, '').slice(0, 12);
                         setPersonalField('aadhaarNumber', val);
                       }}
-                      placeholder="Aadhaar number (12 digits)"
+                      placeholder="Aadhaar number (12 digits) *"
                       maxLength={12}
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
@@ -808,7 +812,7 @@ export default function StaffOnboardingPage() {
                     <input
                       value={formState.professional.qualification}
                       onChange={(event) => setProfessionalField('qualification', event.target.value)}
-                      placeholder="Qualification"
+                      placeholder="Qualification *"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
                     <input
@@ -816,7 +820,7 @@ export default function StaffOnboardingPage() {
                       min="0"
                       value={formState.professional.experience}
                       onChange={(event) => setProfessionalField('experience', event.target.value)}
-                      placeholder="Years of experience"
+                      placeholder="Years of experience *"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
 
@@ -855,6 +859,36 @@ export default function StaffOnboardingPage() {
                         />
                       </>
                     )}
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="text-sm font-black text-gray-700 mb-3">Expert skills & specializations</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(metadata?.specializations || []).map((spec) => {
+                        const selected = (formState.professional.specialization || []).includes(spec);
+                        return (
+                          <button
+                            key={spec}
+                            type="button"
+                            onClick={() => {
+                              const current = formState.professional.specialization || [];
+                              if (selected) {
+                                setProfessionalField('specialization', current.filter((s: string) => s !== spec));
+                              } else {
+                                setProfessionalField('specialization', [...current, spec]);
+                              }
+                            }}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                              selected
+                                ? 'bg-[#FF7A00] text-white border-[#FF7A00] shadow-md'
+                                : 'bg-white text-gray-500 border-[#E7DED6] hover:border-[#FF7A00]'
+                            }`}
+                          >
+                            {spec}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="mt-6">
@@ -1153,6 +1187,38 @@ export default function StaffOnboardingPage() {
                       placeholder="BGV agency"
                       className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <label className="flex items-center justify-between bg-white rounded-2xl p-4 border border-[#E7DED6] cursor-pointer hover:border-[#FF7A00] transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+                          <ShieldCheck size={16} />
+                        </div>
+                        <span className="font-bold text-gray-700">BGV Verified</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5 rounded-lg border-[#E7DED6] text-[#FF7A00] focus:ring-[#FF7A00]"
+                        checked={Boolean(formState.assignment.bgvVerified)}
+                        onChange={(event) => setAssignmentField('bgvVerified', event.target.checked as any)}
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between bg-white rounded-2xl p-4 border border-[#E7DED6] cursor-pointer hover:border-[#FF7A00] transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                          <CheckCircle2 size={16} />
+                        </div>
+                        <span className="font-bold text-gray-700">KYC Verified</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5 rounded-lg border-[#E7DED6] text-[#FF7A00] focus:ring-[#FF7A00]"
+                        checked={Boolean(formState.assignment.kycVerified)}
+                        onChange={(event) => setAssignmentField('kycVerified', event.target.checked as any)}
+                      />
+                    </label>
                   </div>
                 </section>
 

@@ -20,17 +20,22 @@ router.get('/', async (req, res) => {
     }
 });
 
+
 // ── POST /api/teams ──────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
     try {
         const { name, fieldManagerId, zone, careCompanionIds } = req.body;
+        
+        // Handle optional field manager
+        const finalFMId = (fieldManagerId === 'none' || !fieldManagerId) ? null : fieldManagerId;
+
         const team = await prisma.team.create({
             data: {
                 name,
-                fieldManagerId,
+                fieldManagerId: finalFMId,
                 zone,
                 careCompanions: {
-                    connect: careCompanionIds.map(id => ({ id }))
+                    connect: (careCompanionIds || []).map(id => ({ id }))
                 }
             },
             include: {
@@ -45,13 +50,61 @@ router.post('/', async (req, res) => {
     }
 });
 
+// ── PUT /api/teams/:id ───────────────────────────────────────────────────────
+router.put('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, fieldManagerId, zone, careCompanionIds } = req.body;
+
+        // Handle optional field manager
+        const finalFMId = (fieldManagerId === 'none' || !fieldManagerId) ? null : fieldManagerId;
+
+        // Use transaction to ensure consistency
+        const updatedTeam = await prisma.$transaction(async (tx) => {
+            // 1. Clear all existing associations first
+            await tx.careCompanion.updateMany({
+                where: { teamId: id },
+                data: { teamId: null }
+            });
+
+            // 2. Update team info and connect new selection
+            return await tx.team.update({
+                where: { id },
+                data: {
+                    name,
+                    fieldManagerId: finalFMId,
+                    zone,
+                    careCompanions: {
+                        connect: (careCompanionIds || []).map(ccId => ({ id: ccId }))
+                    }
+                },
+                include: {
+                    fieldManager: true,
+                    careCompanions: true
+                }
+            });
+        });
+
+        res.json({ success: true, data: updatedTeam });
+    } catch (err) {
+        console.error('PUT /api/teams/:id error:', err);
+        res.status(500).json({ success: false, message: 'Failed to update team' });
+    }
+});
+
 // ── GET /api/teams/available-companions ──────────────────────────────────────
 router.get('/available-companions', async (req, res) => {
     try {
+        const { includeTeamId } = req.query;
+        
         const companions = await prisma.careCompanion.findMany({
             where: {
-                teamId: null,
-                isAvailable: true
+                OR: [
+                    { teamId: null },
+                    ...(includeTeamId ? [{ teamId: includeTeamId }] : [])
+                ],
+                isAvailable: true,
+                user: { isActive: true }
             }
         });
         res.json({ success: true, data: companions });
@@ -66,7 +119,8 @@ router.get('/available-managers', async (req, res) => {
     try {
         const managers = await prisma.fieldManager.findMany({
             where: {
-                isAvailable: true
+                isAvailable: true,
+                user: { isActive: true }
             },
             include: {
                 user: true
@@ -76,6 +130,28 @@ router.get('/available-managers', async (req, res) => {
     } catch (err) {
         console.error('GET /available-managers error:', err);
         res.status(500).json({ success: false, message: 'Failed to fetch available managers' });
+    }
+});
+
+// ── GET /api/teams/:id ───────────────────────────────────────────────────────
+router.get('/:id', async (req, res) => {
+    try {
+        const team = await prisma.team.findUnique({
+            where: { id: req.params.id },
+            include: {
+                fieldManager: true,
+                careCompanions: true
+            }
+        });
+
+        if (!team) {
+            return res.status(404).json({ success: false, message: 'Team not found' });
+        }
+
+        res.json({ success: true, data: team });
+    } catch (err) {
+        console.error('GET /api/teams/:id error:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch team details' });
     }
 });
 

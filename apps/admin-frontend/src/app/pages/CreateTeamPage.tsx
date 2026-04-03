@@ -42,15 +42,15 @@ export default function CreateTeamPage() {
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !selectedFM || !zone || selectedCCs.length === 0) {
-      toast.error('Please fill all fields and select at least one Care Companion');
+    if (!name || !zone || selectedCCs.length === 0) {
+      toast.error('Please fill name and zone, and select at least one Care Companion');
       return;
     }
 
     try {
       await teamApi.createTeam({
         name,
-        fieldManagerId: selectedFM,
+        fieldManagerId: selectedFM === 'none' ? undefined : selectedFM,
         zone,
         careCompanionIds: selectedCCs
       });
@@ -111,12 +111,13 @@ export default function CreateTeamPage() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Select Field Manager</label>
+              <label className="text-[10px] font-black text-gray-400 uppercase">Select Field Manager (Optional)</label>
               <Select onValueChange={setSelectedFM} value={selectedFM}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Choose FM" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">No Field Manager Assigned</SelectItem>
                   {availableFMs.map(fm => (
                     <SelectItem key={fm.id} value={fm.id}>
                       {fm.user.name} ({fm.zone})

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router';
 import { PageHeader } from '../components/common/PageHeader';
 import { DataCard } from '../components/common/DataCard'
 import { StatusChip } from '../components/common/StatusChip';
@@ -9,6 +10,7 @@ import DataFilter from '../components/common/DataFilter';
 import SubscriberDetailsModal from '../components/subscribers/SubscriberDetailsModal';
 
 export default function SubscribersPage() {
+  const navigate = useNavigate();
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,11 +125,21 @@ export default function SubscribersPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                      <StatusChip status={sub.isActive ? 'Active' : 'Inactive'} />
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">
-                        Joined {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString('en-IN') : '--'}
-                      </span>
+                    <div className="pt-4 border-t border-gray-100 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <StatusChip status={sub.isActive ? 'Active' : 'Inactive'} />
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                          Joined {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '--'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2">
+                         <button 
+                          onClick={() => navigate(`/subscribers/${sub.id}`)}
+                          className="w-full py-2.5 rounded-xl bg-[#F4EAE3] text-gray-700 hover:bg-[#E7DED6] transition text-[10px] font-black uppercase tracking-widest border border-[#E7DED6]"
+                         >
+                           View Details
+                         </button>
+                      </div>
                     </div>
                   </div>
                 </DataCard>

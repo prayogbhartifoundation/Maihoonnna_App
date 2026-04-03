@@ -68,7 +68,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/packages — create package + packageBenefits in a transaction
 // Body: { name, description, packageCost, billingCycle, activeFrom, activeTo, benefits: [{benefitId, unitsIncluded, unitsPeriod, isUnlimited}] }
 router.post('/', async (req, res) => {
-  const { name, description, packageCost, currency, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, benefits = [], discounts = [], isGlobal } = req.body;
+  const { name, description, packageCost, currency, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, benefits = [], discounts = [], isGlobal, totalHours } = req.body;
 
   if (!name || !activeFrom) {
     return res.status(400).json({ success: false, message: 'name and activeFrom are required' });
@@ -94,6 +94,7 @@ router.post('/', async (req, res) => {
           activeTo: activeTo ? new Date(activeTo) : null,
           sortOrder: displayOrder ?? 0,
           isGlobal: isGlobal ?? true,
+          totalHours: totalHours ? parseFloat(totalHours) : 0,
         },
       });
 
@@ -144,7 +145,7 @@ router.post('/', async (req, res) => {
 // PATCH /api/packages/:id — update package header
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, description, packageCost, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, isActive, isGlobal } = req.body;
+  const { name, description, packageCost, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, isActive, isGlobal, totalHours } = req.body;
   try {
     const pkg = await prisma.subscriptionPackage.update({
       where: { id },
@@ -160,6 +161,7 @@ router.patch('/:id', async (req, res) => {
         sortOrder: displayOrder, 
         isActive,
         isGlobal: isGlobal,
+        totalHours: totalHours !== undefined ? parseFloat(totalHours) : undefined,
       },
     });
     res.json({ success: true, data: pkg });
@@ -172,7 +174,7 @@ router.patch('/:id', async (req, res) => {
 // PUT /api/packages/:id — full update (header + benefits + discounts)
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, description, packageCost, currency, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, benefits = [], discounts = [], isGlobal } = req.body;
+  const { name, description, packageCost, currency, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, benefits = [], discounts = [], isGlobal, totalHours } = req.body;
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
@@ -191,6 +193,7 @@ router.put('/:id', async (req, res) => {
           activeTo: activeTo ? new Date(activeTo) : null,
           sortOrder: displayOrder ?? undefined,
           isGlobal: isGlobal ?? true,
+          totalHours: totalHours ? parseFloat(totalHours) : undefined,
         },
       });
 

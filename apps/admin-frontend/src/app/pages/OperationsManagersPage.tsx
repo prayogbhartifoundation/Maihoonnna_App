@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, MapPin, Phone, Plus, ShieldCheck, Users, Loader2, Edit2 } from 'lucide-react';
+import { Briefcase, MapPin, Phone, Plus, ShieldCheck, Users, Loader2, Edit2, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
 import { operationsManagerApi } from '../../services/api';
 import StaffEditModal from '../components/StaffEditModal';
 import DataFilter from '../components/common/DataFilter';
+import DeactivationSummaryModal from '../components/DeactivationSummaryModal';
+import { staffOnboardingApi } from '../../services/api';
+import { Trash2 } from 'lucide-react';
 
 interface OperationsManagerItem {
   id: string;
@@ -22,6 +25,8 @@ interface OperationsManagerItem {
     city: string;
     pincode: string;
   }>;
+  bgvVerified: boolean;
+  kycVerified: boolean;
 }
 
 export default function OperationsManagersPage() {
@@ -29,6 +34,7 @@ export default function OperationsManagersPage() {
   const [managers, setManagers] = useState<OperationsManagerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [deactivationSummary, setDeactivationSummary] = useState<any>(null);
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -40,7 +46,12 @@ export default function OperationsManagersPage() {
     try {
       setLoading(true);
       const response = await operationsManagerApi.getAllPaginated({ search, page, limit });
-      setManagers(response.data || []);
+      const mapped = (response.data || []).map((om: any) => ({
+        ...om,
+        bgvVerified: om.bgvVerified || false,
+        kycVerified: om.kycVerified || false,
+      }));
+      setManagers(mapped);
       setTotal(response.total || 0);
       setTotalPages(response.totalPages || 1);
     } catch (error: any) {
@@ -49,6 +60,23 @@ export default function OperationsManagersPage() {
       setLoading(false);
     }
   }, [search, page, limit]);
+
+  const handleDeactivate = async (userId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to deactivate ${name}? This will mark their profile as inactive.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await staffOnboardingApi.deactivateStaff(userId);
+      setDeactivationSummary(response);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to deactivate staff member');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -154,16 +182,42 @@ export default function OperationsManagersPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between mt-4">
-                      <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-lg text-[10px] font-bold">
-                        <ShieldCheck size={12} /> ONBOARDING READY
+                    <div className="pt-4 border-t border-[#E7DED6] mt-4 space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        {manager.bgvVerified && (
+                          <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                            <ShieldCheck size={12} /> BGV
+                          </div>
+                        )}
+                        {manager.kycVerified && (
+                          <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                            <CheckCircle2 size={12} /> KYC
+                          </div>
+                        )}
+                        {!manager.bgvVerified && !manager.kycVerified && (
+                          <div className="flex items-center gap-1 bg-gray-50 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                            <ShieldCheck size={12} /> Verification Pending
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                          <Plus size={12} /> MANAGER
+                        </div>
                       </div>
-                      <button
-                        onClick={() => setEditingUserId(manager.userId)}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FFF0E0] text-[#FF7A00] hover:bg-[#FFE0C0] transition text-[10px] font-black uppercase tracking-wider"
-                      >
-                        <Edit2 size={12} /> Edit Profile
-                      </button>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setEditingUserId(manager.userId)}
+                          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#FFF0E0] text-[#FF7A00] hover:bg-[#FFE0C0] transition text-[10px] font-black uppercase tracking-wider shadow-sm border border-[#FFE0C0]"
+                        >
+                          <Edit2 size={12} /> Edit Profile
+                        </button>
+                        <button
+                          onClick={() => handleDeactivate(manager.userId, manager.name)}
+                          className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition text-[10px] font-black uppercase tracking-wider shadow-sm border border-red-100"
+                        >
+                          <Trash2 size={12} /> Deactivate
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -213,6 +267,13 @@ export default function OperationsManagersPage() {
           role="operations_manager"
           onClose={() => setEditingUserId(null)}
           onSuccess={loadData}
+        />
+      )}
+      {/* DEACTIVATION SUMMARY MODAL */}
+      {deactivationSummary && (
+        <DeactivationSummaryModal 
+          data={deactivationSummary} 
+          onClose={() => setDeactivationSummary(null)} 
         />
       )}
     </div>

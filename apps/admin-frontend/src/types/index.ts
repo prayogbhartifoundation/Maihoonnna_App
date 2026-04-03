@@ -299,6 +299,7 @@ export interface SubscriptionPackage {
   isActive: boolean;
   activeFrom: string;
   activeTo: string;
+  totalHours: number;
   isGlobal: boolean;
   createdBy: string;
   createdAt: string;
@@ -390,6 +391,7 @@ export interface StaffOnboardingMetadata {
   zones: StaffOnboardingZone[];
   teams: StaffOnboardingTeam[];
   operationsManagers: StaffOnboardingOperationsManager[];
+  specializations: string[];
 }
 
 export interface StaffOnboardingPayload {
@@ -419,6 +421,7 @@ export interface StaffOnboardingPayload {
     previousEmployer?: string;
     maxTeamSize?: number | string;
     languages?: string[];
+    specialization?: string[];
     preferredShift?: StaffShiftPreference;
     maxDailyVisits?: number | string;
     willingClinicVisits?: boolean;
@@ -433,6 +436,8 @@ export interface StaffOnboardingPayload {
     reportsToUserId?: string;
     bgvType?: StaffBackgroundCheckType;
     bgvAgency?: string;
+    bgvVerified?: boolean;
+    kycVerified?: boolean;
   };
   documents: StaffOnboardingDocumentInput[];
 }

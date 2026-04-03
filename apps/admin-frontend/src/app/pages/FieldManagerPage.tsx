@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserPlus, MapPin, Phone, ShieldCheck, Users, Filter, Loader2, X, Briefcase, Edit2 } from 'lucide-react';
+import { UserPlus, MapPin, Phone, ShieldCheck, Users, Filter, Loader2, X, Briefcase, Edit2, CheckCircle2 } from 'lucide-react';
 import { fieldManagerApi, teamApi, userApi } from '../../services/api';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
 import StaffEditModal from '../components/StaffEditModal';
 import DataFilter from '../components/common/DataFilter';
+import DeactivationSummaryModal from '../components/DeactivationSummaryModal';
+import { staffOnboardingApi } from '../../services/api';
+import { Trash2 } from 'lucide-react';
 
 interface FieldManagerItem {
   id: string;
@@ -15,6 +18,8 @@ interface FieldManagerItem {
   hubName?: string;
   isAvailable: boolean;
   teamCount: number;
+  bgvVerified: boolean;
+  kycVerified: boolean;
 }
 
 const FieldManagerPage = () => {
@@ -25,6 +30,7 @@ const FieldManagerPage = () => {
   const [loading, setLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deactivationSummary, setDeactivationSummary] = useState<any>(null);
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -51,6 +57,8 @@ const FieldManagerPage = () => {
         hubName: zones.find((z: any) => z.id === fm.zoneId || z.id === fm.zone || z.name === fm.zone)?.name || fm.zone,
         isAvailable: fm.isAvailable,
         teamCount: fm.teamCount || 0,
+        bgvVerified: fm.bgvVerified || false,
+        kycVerified: fm.kycVerified || false,
       }));
 
       setManagers(dbManagers);
@@ -94,6 +102,23 @@ const FieldManagerPage = () => {
       toast.error(err.message || 'Failed to onboard Field Manager');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeactivate = async (userId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to deactivate ${name}? This will mark their profile as inactive.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await staffOnboardingApi.deactivateStaff(userId);
+      setDeactivationSummary(response);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to deactivate staff member');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -179,22 +204,43 @@ const FieldManagerPage = () => {
                 </div>
               </div>
 
-              {/* Compliance Badges */}
-              <div className="flex items-center justify-between pt-4 border-t border-[#E7DED6]">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-lg text-[10px] font-bold">
-                    <ShieldCheck size={12} /> BGV
-                  </div>
-                  <div className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-lg text-[10px] font-bold">
+              {/* Compliance Badges & Actions */}
+              <div className="pt-4 border-t border-[#E7DED6] space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {fm.bgvVerified && (
+                    <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                      <ShieldCheck size={12} /> BGV
+                    </div>
+                  )}
+                  {fm.kycVerified && (
+                    <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                      <CheckCircle2 size={12} /> KYC
+                    </div>
+                  )}
+                  {!fm.bgvVerified && !fm.kycVerified && (
+                    <div className="flex items-center gap-1 bg-gray-50 text-gray-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                      <ShieldCheck size={12} /> Verification Pending
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider">
                     <Briefcase size={12} /> SUPERVISOR
                   </div>
                 </div>
-                <button
-                  onClick={() => setEditingUserId(fm.userId)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E8F5E9] text-[#1F8A3E] hover:bg-[#C8E6C9] transition text-[10px] font-black uppercase tracking-wider"
-                >
-                  <Edit2 size={12} /> Edit
-                </button>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setEditingUserId(fm.userId)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#E8F5E9] text-[#1F8A3E] hover:bg-[#C8E6C9] transition text-[10px] font-black uppercase tracking-wider shadow-sm border border-[#C8E6C9]"
+                  >
+                    <Edit2 size={12} /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeactivate(fm.userId, fm.name)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition text-[10px] font-black uppercase tracking-wider shadow-sm border border-red-100"
+                  >
+                    <Trash2 size={12} /> Deactivate
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -298,6 +344,13 @@ const FieldManagerPage = () => {
           role="field_manager"
           onClose={() => setEditingUserId(null)}
           onSuccess={fetchData}
+        />
+      )}
+      {/* DEACTIVATION SUMMARY MODAL */}
+      {deactivationSummary && (
+        <DeactivationSummaryModal 
+          data={deactivationSummary} 
+          onClose={() => setDeactivationSummary(null)} 
         />
       )}
     </div>
