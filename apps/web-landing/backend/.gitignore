@@ -1,0 +1,48 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build
+dist/
+build/
+
+# Temp
+tmp/
+*.tmp
+
+# Misc
+*.txt
+
+
+
+# Coverage
+coverage/
+
+# Next.js / React
+.next/
+out/
+
+# Monorepo apps node_modules
+apps/*/node_modules/
+
+# Lock files (optional — keep if needed)
+# package-lock.json

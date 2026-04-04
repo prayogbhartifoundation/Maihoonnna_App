@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.log
+*err.txt
+*output.txt
+*check.txt
+.prisma/
+bins.json
+out.json
+test-db.ts

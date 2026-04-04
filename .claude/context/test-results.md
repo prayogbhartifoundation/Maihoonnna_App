@@ -1,0 +1,21 @@
+# Test Results
+- Zones Fetch: Success (Status 200)
+- Onboarding Fetch: Success (Status 200)
+- Staff Metadata: Success (Mock Fallback)
+- Prisma Client Generate: Success
+- Storage Adapter Initialization: Success
+- Upload Document Endpoint: Wired and ready (pending Supabase Service Role Key)
+- Frontend File Tracking: File objects now stored in pendingFiles Map
+- Upload-After-Onboard Flow: Configured to run after staffProfileId is returned
+- Login with 9090909090/010101: Success — token generated correctly
+- Staff Onboard 400 Bug: Fixed — was caused by mock zone IDs being submitted to real backend
+- Supabase Upload: FAILING — error "Invalid Compact JWS" — key entered is malformed or wrong type
+  - Must use Service Role key (long JWT starting with eyJ), NOT anon/public key
+  - Get from: Supabase Dashboard → Project Settings → API → Service Role
+- Benefits Schema Push: Success (`npx prisma db push --skip-generate`)
+- Benefits Client Generate: Success (`npx prisma generate`)
+- Backend Routes (BenefitTypes/Benefits/Packages): Mounted and ready (server restart required)
+- Frontend API Integration: `api.ts` cleaned and wired to real endpoints
+- Global TypeScript Check: `npx tsc --noEmit` Success (all subscription enum errors fixed)
+- Database Force-Reset: `npx prisma db push --force-reset` Success (merged SubscriptionPackage model)
+- Test Data Seeding: `npx ts-node prisma/seed_test.ts` Success (beneficiaries and packages populated)

@@ -1,0 +1,329 @@
+- Added URL encoding for DATABASE_URL password in .env
+- Synchronized database schema with Prisma (db push/generate)
+- Fixed missing columns in zones table
+- Implemented `StaffOnboardingMetadata` mock fallbacks in frontend `api.ts`
+- Built Storage Service Architecture with Supabase/S3 adapters
+- Added `fileKey` to `StaffDocument` schema for persistent storage tracking
+- Created dedicated `POST /api/upload-document` with naming sanitization
+- Refactored `/staff/onboard` to use backend-controlled document mapping
+- Added `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_PROVIDER`, `STORAGE_BUCKET` to Admin Panel backend `.env`
+- Added `staffOnboardingApi.uploadDocument()` to frontend `api.ts` (sends FormData to backend)
+- Updated `StaffOnboardingPage.tsx` to track actual `File` objects in `pendingFiles` Map state
+- After onboarding returns `staffProfileId`, all pending files are uploaded to Supabase in parallel
+- Files are renamed client-side before upload using timestamp + uuid to prevent collisions
+- Expanded `ADMIN_CREDENTIALS` array in `auth.js` to support 9090909090 / 010101 alongside 9999955555
+- Fixed `getMetadata()` and `onboard()` mock fallbacks to only trigger on genuine network failures
+- Improved `supabaseStorage.js` error messages to detect placeholder key and print clear error
+- Added 5 new models to `schema.prisma`: `BenefitType`, `Benefit`, `Package`, `PackageBenefit`, `PackageDiscount`
+- Created backend routes for `benefitTypes.js`, `benefits.js`, and `packages.js` including transactional multi-row creation
+- Created frontend pages: `BenefitTypesPage.tsx` and `BenefitsPage.tsx`
+- Integrated real APIs in `api.ts`, replacing old mock stubs and fixing duplicate declaration errors
+- Updated `routes.tsx` to include new management pages
+- Merged `Package` model into `SubscriptionPackage` in `schema.prisma` to consolidate package management
+- Removed `SubscriptionType` enum to allow for arbitrary, user-defined package types (Dynamic Packages)
+- Refactored all backend services (`subscription_service.ts`, `visit_service.ts`, etc.) to remove enum dependencies
+- Updated Admin Panel backend `packages.js` route to support the existing "Product Factory" wizard's field names (`totalCost`, `monthlyUnits`)
+- Fixed `seed_test.ts` by adding missing `generateUUID` imports and correcting `MedicationFrequency` enum values
+- Synchronized database via `npx prisma db push --force-reset` and successfully re-seeded test data
+
+---
+
+## Session: Dynamic Staff Profile Editing & Zone Management (2026-03-30)
+
+### StaffEditModal
+- Created reusable `StaffEditModal.tsx` component used across CC, FM, and OM listing pages
+- Modal fetches staff data via `GET /api/users/staff/:userId` and updates via `PUT /api/users/staff/:userId`
+- Role-based rendering: Personal, Professional, and Assignment tabs adapt automatically based on role
+- Zones (multi-select) for Operations Managers, team/zone assignment for CCs, reporting line for FMs
+- Edit buttons added to `OperationsManagersPage.tsx`, `CareCompanionsPage.tsx`, and `FieldManagerPage.tsx`
+- Onboarding page (`StaffOnboardingPage.tsx`) was intentionally left untouched
+
+### Backend Staff CRUD (`users.js`)
+- Added `GET /api/users/staff/:userId` — aggregates User + StaffProfile + role-specific table into one response
+- Added `PUT /api/users/staff/:userId` — transactional update of User, StaffProfile, and role record (CC/FM/OM)
+- OM updates include zone re-assignment: removes from old zones, assigns to new zones atomically
+
+### Zone Management (`zones.js` + `ZonesPage.tsx`)
+- Added `operationsManagerId` support to Zone creation and update routes
+- Zone PUT endpoint accepts both `fieldManagerId` and `operationsManagerId` selectively
+- `ZonesPage.tsx` now fetches `/api/users/operations-managers` alongside field managers
+- Zone cards show both OM and FM labels with distinct orange/blue colors
+- Unified assignment modal: toggle between "Ops Manager" and "Field Manager" tabs before assigning
+- Fixed ID bug: zone assignment uses `userId` (not internal role table id) which matches `operationsManagerId` in `zones` table
+- Fixed zone data fetch: removed `zonesJson.json` typo — now uses `zonesJson.data` correctly
+
+### API Service Layer (`api.ts`)
+- Added `staffOnboardingApi.getStaffDetails(userId)` → `GET /api/users/staff/:userId`
+- Added `staffOnboardingApi.updateStaff(userId, data)` → `PUT /api/users/staff/:userId`
+- Added (previously) `zoneApi.assignOM(zoneId, omId)` for direct zone OM assignment
+
+---
+
+## Session: Subscription Auto-Cost Calculation (2026-03-30)
+
+- Updated `Benefit` interface in `types/index.ts` to include `unitCost?: number` and `isChargeable?: boolean`
+- Added reactive `useEffect` in `SubscriptionsPage.tsx` to auto-calculate total package cost:
+  - Formula: `Total = SUM(Benefit Unit Cost × Monthly Units) × Duration (Months)`
+  - Triggers on: `selectedBenefits`, `benefitUnits`, `duration`, `benefits`, `showWizard` changes
+- Labelled cost input as "Auto-calculated" with formula hint text for admin clarity
+- Benefit selection step now shows per-unit cost (e.g., ₹500/visit) next to each benefit card
+- Unit configuration step shows live cost subtotal per benefit row
+- Calculated total is sent to backend as `totalCost` → mapped to `basePrice` in packages table
+- Users can still manually override the total if needed (field is editable)
+
+---
+
+## Session: Beneficiary Staff Assignment via Pincode (2026-03-30)
+
+### Backend (`beneficiaries.js` — Rewritten)
+- `GET /api/beneficiaries` now returns: `pincode`, `city`, `state`, `primaryCcId`, `secondaryCcId`, `fieldManagerId`
+  - Also includes proper `emergencyContacts` (filtered to isPrimary true)
+- **NEW** `GET /api/beneficiaries/available-staff?pincode=XXXXX`:
+  - Finds `Zone` records matching the given pincode + `isActive: true`
+  - Queries `StaffProfile` with `role: 'care_companion'` + `zoneId IN [matched zones]` + `employmentStatus: 'active'`
+  - Same query for `role: 'field_manager'`
+  - Returns `{ careCompanions, fieldManagers, zones }` — only staff in the same pincode zone
+  - If no zones match, still returns staff (graceful fallback)
+- **NEW** `PUT /api/beneficiaries/:id/assign-staff`:
+  - Accepts `{ primaryCcId, secondaryCcId, fieldManagerId }` (all optional)
+  - Uses Prisma update with `include` to return newly assigned CC/FM names
+  - Supports `null` values to unassign
+
+### Frontend (`BeneficiariesPage.tsx` — Rewritten)
+- Added **"Assign Staff"** tab in the beneficiary profile dialog (3 tabs total: Profile, Assign Staff, Clinical Config)
+- On dialog open: auto-fetches `beneficiaryApi.getAvailableStaff(pincode)` if pincode exists
+- Shows matched zone name in a banner for admin context
+- Graceful states: no pincode warning, loading spinner, no staff found message
+- Primary CC selector (orange accent): highlights current assignment, tapping row changes pending selection
+- Secondary CC selector (blue accent): filters out the primary selection automatically
+- Unavailable staff shown dimmed (opacity-50) but selectable (admin override)
+- "Save Staff Assignments" button only enabled when `pendingPrimary` or `pendingSecondary` has changes
+- After save: refreshes local beneficiary data and resets pending state
+- Beneficiary cards now show CC/FM assignment chips inline (orange = primary, blue = secondary)
+- Beneficiary cards show zone pincode for quick reference
+
+### API Service Layer (`api.ts`)
+- Added `beneficiaryApi.getAvailableStaff(pincode)` → `GET /api/beneficiaries/available-staff?pincode=...`
+- Added `beneficiaryApi.assignStaff(beneficiaryId, payload)` → `PUT /api/beneficiaries/:id/assign-staff`
+
+---
+
+## Session: Seeding & Benefit Library Fix (2026-03-30)
+
+### Seeding Beneficiary Data (Pincode 110059)
+- Updated `backend/prisma/seed_test.ts`:
+  - Added new Beneficiary: **Mrs. Sharma** with pincode `110059`.
+  - Added new Zone: **Janakpuri Zone** with pincode `110059`.
+  - Added new Care Companion: **Amit Sharma** with `StaffProfile` linked to the Janakpuri Zone.
+- This ensures the zone-based staff assignment feature can be tested with valid matching data.
+- Successfully executed `npm run seed:test` to populate the database.
+
+### Benefit Library Deactivation Fix
+- **Types Update**: Added `isActive: boolean` to the global `Benefit` interface in `types/index.ts`.
+- **Backend Filter**: Updated `GET /api/benefits` in `benefits.js` to handle `activeOnly=true` query parameter using Prisma filtering.
+- **API Service**: Updated `benefitApi.getAll()` in `api.ts` to support the `activeOnly` option and append the query string.
+- **Product Factory Wizard**: Updated `SubscriptionsPage.tsx` to call `benefitApi.getAll({ activeOnly: true })`.
+- **Mock Data**: Updated `mockData.ts` to include `isActive: true` for all predefined benefits to ensure lint/type compliance.
+- Result: Deactivated benefits in the library are now correctly hidden from the package creation wizard.
+
+---
+
+## Session: Vitals Management, Package Pricing Fixes, and Dynamic Pincode Registration (2026-03-31)
+
+### Vitals Management System Implementation
+- Created `VitalDefinition` Prisma model to store vital signs (name, unit, icon, field key, order, active status).
+- Created a full CRUD backend API (`/api/vitals`) in the Admin Panel to allow admins to manage these definitions.
+- Implemented soft deletion (`isActive: false`) logic for vitals.
+- Created `VitalsPage.tsx` interface in the Admin Panel for adding, editing, and deleting vitals.
+- Refactored `maihoonna/app/(setup)/medical-info.tsx` to pull dynamic vitals from a new `GET /api/public/vitals` endpoint instead of relying on hardcoded UI forms.
+
+### Dynamic Subscription Packages Bug Fix
+- Debugged `Cannot read properties of undefined (reading 'toLocaleString')` crash in `subscription-packages.tsx`.
+- Identified mismatch between frontend mapping (`pkg.price`) and backend Prisma schema (`pkg.basePrice`).
+- Applied the `basePrice` fix to `subscription-packages.tsx`, and proactively patched `subscribe-form.tsx` and `checkout.tsx` to prevent cascading checkout flow crashes.
+- Added protective fallback defaults (`|| 0` / `|| []`) to features array mapping and visits counting.
+
+### Dynamic Registration UI & Pincode Zoning
+- Overhauled `maihoonna/app/(auth)/register.tsx` to perfectly match the revised brand aesthetic (colors, styling, spacing).
+- Added dedicated inline phone number `+91` input box.
+- Embedded real-time `useEffect` debounce listener onto the pincode input field.
+- Created backend endpoint `GET /api/public/zones/check-pincode` which queries the `Zone` dictionary to see if a pincode is actively served.
+- Implemented real-time dynamic zone rendering: Instantly flashes a green success banner fetching Care Companion and Care Center statistics if the zone exists, or an orange "coming soon" banner if it doesn't.
+- Modified the existing single-page schema-breaking UX into an elegant 2-step sliding registration form. Clicking "Continue to Verification" now slides to step 2 to securely request `Age` and `Password` inputs in order to satisfy the legacy `/auth/register-password` backend endpoint.
+
+### Medical Information UI Revamp & DB Hookup
+- Remodeled the `maihoonna/app/(setup)/medical-info.tsx` page to replicate the custom mockup UI.
+- Implemented deep React state array systems (`conditions[]`, `medications[]`) bridging the gap instead of using flattened strings.
+- Developed custom floating modals:
+  - "Add Medical Information": Collects medical condition titles pushing dynamically as pill tokens.
+  - "Add Medicine": Collects drug payloads, dose metrics, frequencies (with enum adapters), and configurable time slots generating robust sub-cards.
+- Added a `setReminders` boolean column explicitly to the backend `Medication` Prisma schema and pushed without code generation to unlock UI payload savings safely.
+- Reworked `checkout.tsx` to JSON-marshall nested arrays into the `purchase` service effectively.
+- Rewrote the `purchaseSubscription` query block inside `subscription_service.ts`:
+  - Dynamically sweeps payloads resolving literal strings into `MedicalCondition` library entries before properly attaching normalized lookup relational ids onto the `BeneficiaryCondition` intermediate payload.
+  - Converts UI Medication objects cleanly into exact Prisma `medicationList.create` payloads directly beneath Beneficiary creation queries utilizing generic type fallback bridges `/ @ts-ignore` for active session migrations.
+
+---
+
+## Session: Onboarding UX Enhancements & Relationship Persistence (2026-03-31)
+
+### Beneficiary Onboarding UX (`beneficiary-info.tsx`)
+- Replaced text input for "Relationship to Subscriber" with a premium bottom-sheet selection modal.
+- Implemented dynamic "Other" logic: selecting "Other" or entering a custom value triggers a secondary text input for manual specification.
+- Updated state management to seamlessly bridge the modal selection and the transition to custom text entry.
+
+### Medical Info UX (`medical-info.tsx`)
+- Replaced comma-separated text input for "Hobbies & Interests" with an interactive multi-choice grid modal.
+- Implemented `toggleHobby` logic to manage multiple selections within a persistent string state.
+- Added "Other" hobby support: checking "Other" reveals a text field to capture custom interests (stored as `(Custom Value)`).
+
+### Backend & Database Integration
+- **Prisma Schema**: Added `relationship` field (String?) to the `Beneficiary` model.
+- **Migration**: Applied `add_relationship_to_beneficiary` migration to the PostgreSQL database.
+- **Subscription Service**: Updated `purchaseSubscription` in `subscription_service.ts` to extract the `relationship` field from the frontend payload and persist it during beneficiary creation.
+- **Data Seeding**: Enhanced `seed_test.ts` to populate:
+  - 7 Vital Definitions (BP, HR, Sugar, etc.) for dynamic medical-info rendering.
+  - 8 Common Medical Conditions.
+  - 3 Standard Subscription Packages (Silver, Gold, Platinum).
+- **Execution**: Successfully re-seeded the database to provide a fully functional test environment with real data lookups.
+
+---
+
+## Session: Global Package Visibility & Advanced Coupon Engine (2026-03-31)
+
+### Global Subscription Visibility
+- Added `isGlobal` boolean field to `SubscriptionPackage` model in `schema.prisma`.
+- Updated `getSubscriptionPackages` service in `subscription_service.ts` to filter by `isActive: true` AND `isGlobal: true` for subscriber-side listings.
+- Added `isGlobal` control to Admin Panel package creation/edit flow and backend routes.
+
+### Advanced Coupon Engine Implementation
+- **Database Schema**:
+  - Added `Coupon`, `CouponUsage`, and `CouponAttemptLog` models supporting complex rules (limits, segmentation, expiration).
+  - Extended `Payment` model with `couponCode` and `discountAmount` fields for transaction tracking.
+  - Executed migration and regenerated Prisma Client after clearing Node process locks.
+- **Validation Service (`coupon_service.ts`)**:
+  - Developed a centralized 9-step validation engine (Status, Dates, Global Limits, Per-User Limits, Package Eligibility, Min Order, First-Time Users).
+  - Added `logCouponAttempt` for ROI and fraud tracking.
+- **Admin Dashboard Integration**:
+  - Created `CouponsPage.tsx` with a multi-tab wizard and analytics dashboard showing total redemptions vs. failed attempts.
+  - Registered new coupon CRUD routes in `Admin_panel/backend/server.js`.
+- **Subscription Checkout Integration**:
+  - Exposed `POST /api/subscriber/coupons/validate` for real-time mobile app validation.
+  - Refactored `purchaseSubscription` in `subscription_service.ts` to consume `couponCode`, apply discounts, and persist usage records atomically.
+  - Updated `maihoonna/app/(setup)/checkout.tsx` with a premium coupon UI, real-time total recalculation, and discount visibility.
+
+### Critical Fixes & Cleanup
+- Fixed incorrect relative import paths in `subscription_service.ts`.
+- Resolved Prisma Client synchronization errors by force-regenerating the client.
+- Confirmed zero TypeScript template/lint errors in the backend service layer.
+
+---
+
+## Session: Pincode Lookup Service & Automated Location Entry (2026-04-01)
+
+### Backend Proxy Route
+- Developed `GET /api/pincode/:pincode` in `backend/routes/pincode.js`.
+- Proxies requests to the Indian Postal Pincode API (`api.postalpincode.in`) to avoid CORS issues and centralize external calls.
+- Registered the route in `server.js`.
+
+### Reusable Frontend Hook
+- Created `usePincodeLookup.ts` in `frontend/src/app/hooks/`.
+- Encapsulates fetching, debouncing logic (triggers on 6 digits), loading states, and error handling.
+- Supports multiple "Post Office" results for a single pincode.
+
+### Zones Management Integration (`ZonesPage.tsx`)
+- Integrated `usePincodeLookup` into the Zone creation/edit form.
+- Implemented a **Multi-Area Selection Dropdown**: If a pincode maps to multiple areas, a floating list allows for manual selection.
+- Auto-fills `City`, `State`, and `Address` (with the area name) upon selection.
+- **Bug Fix**: Added logic to clear location fields when the pincode is deleted.
+- **Dynamic Override**: Ensured selecting a new area always overwrites the Address field with the fresh area name.
+
+### Staff Onboarding Integration (`StaffOnboardingPage.tsx`)
+- Integrated `usePincodeLookup` into Step 1 (Personal Details).
+- **Layout Fix**: Resolved dropdown visibility issues in the 3-column grid by nesting the absolute-positioned results inside a `relative` wrapper.
+- Synchronized `City`, `State`, and `Address Line 1` with the pincode lookup results.
+- Maintained manual override capability for all auto-filled fields.
+
+### Git Operations
+- Successfully rebased local commits with `origin/main` to resolve push rejections.
+- Pushed all integration changes to the remote repository.
+
+---
+
+## Session: Scalable DataFilter & API-driven Search (2026-04-01)
+
+### Database Optimization
+- Added `@@index` directives to `schema.prisma` for `name`, `city`, and `pincode` across all major models (Zone, Beneficiary, CareCompanion, etc.).
+- Applied indexes to the production database via `npx prisma db push`.
+
+### Backend API Refactoring
+- Standardized all `GET` routes (`zones.js`, `beneficiaries.js`, `subscribers.js`, `users.js`) to support `search`, `searchBy`, `page`, and `limit`.
+- Implemented efficient server-side pagination using Prisma's `findMany` and `count` in parallel.
+- Fixed a critical crash where searching for text in a numeric column (like pincode) would error; added explicit typed-search handling.
+
+### Frontend Component Architecture
+- Created `DataFilter.tsx`: A premium, reusable filter bar with:
+  - Debounced search (500ms) to reduce API load.
+  - **"Search By" Toggle Buttons**: Segmented controls (Name, Zone, City, Pincode) to narrow down results explicitly.
+  - Consistent styling with the MaiHoonNa design system.
+- Updated `api.ts`: Added `getAllPaginated` methods for all staff and beneficiary entities.
+
+### Page-level Integration
+- Fully refactored **Zones**, **Operations Managers**, **Field Managers**, **Care Companions**, **Beneficiaries**, and **Subscribers** pages.
+- Replaced all legacy client-side `.filter()` logic with real-time API calls.
+- Added responsive pagination controls (Prev/Next) with "Showing X to Y of Z" indicators.
+
+### Document/Storage Fixes
+- Identified missing `.env` file in `Admin_panel/backend/` as the root cause of Supabase "Invalid Compact JWS" errors.
+- Created a `.env` template and instructed user on key placement to unblock file uploads.
+
+---
+
+## Session: Search UI Modernization & Flexible Infrastructure (2026-04-01)
+
+### Premium Search & Filter UI
+- **Integrated Design**: Rebuilt `DataFilter.tsx` as a unified search bar with an internal category dropdown (Amazon/Flipkart style).
+- **Global Search**: Defaulted search to "All" category while still supporting field-specific refinement (Name, Zone, Pincode).
+- **Clear All**: Added a dedicated reset button that clears both search text and category filters instantly.
+- **Micro-animations**: Added shadow-hover effects, vertical dividers, and refined border styling for a premium feel.
+
+### UI Stability & Bug Fixes
+- **Stale Closure Resolution**: Refactored data fetching in 6 major pages (`Beneficiaries`, `CareCompanions`, `Zones`, etc.) using `useCallback` to ensure fresh state usage.
+- **Anti-Flicker Architecture**: Replaced the "unmount-on-load" pattern with a semi-transparent Loading Overlay.
+- **Focus Persistence**: Ensured the search bar remains mounted during data refreshes, preventing cursor loss and input erasing while typing.
+
+### Flexible Infrastructure (Amazon Ready)
+- **Service Refinement**: Updated `supabaseStorage.js` to support `SUPABASE_ANON_KEY` as a fallback for initial development.
+
+---
+
+## Session: Backend Hardening & Standalone Production Readiness (2026-04-02)
+
+### Standalone Backend Deployment
+- **Decoupling**: Successfully prepared `admin-backend` for standalone production hosting.
+- **Auto-Generation**: Added `"postinstall": "prisma generate"` to `package.json` to ensure the Prisma Client is built automatically during deployment on platforms like Render or Vercel.
+- **Dependency Management**: Moved `prisma` from `devDependencies` to `dependencies` to ensure the generator is available in production environments.
+
+### Database Stability & Connection Management
+- **Prisma Singleton Pattern**: Implemented a robust singleton for the `PrismaClient` in `lib/prisma.js` to prevent connection leaks.
+- **Shared Pool Singleton**: Integrated `pg.Pool` alongside `@prisma/adapter-pg` to resolve `DeprecationWarning: Calling client.query()` and optimize connection reuse.
+- **Graceful Shutdown**: Added a robust `SIGINT/SIGTERM` handler in `server.js` that ends the database pool and releases port **3001** immediately.
+- **Port Conflict Recovery**: Implemented a clear error handler for `EADDRINUSE` to guide users in clearing hanging processes.
+
+### Prisma 7 Migration & Cloud Sync
+- **Config Overhaul**: Migrated to the new `prisma.config.ts` format required by Prisma 7.
+- **Schema Cleanup**: Removed the hardcoded `url` from `schema.prisma` (no longer supported in P7 with adapters) and centralized it in the config file.
+- **Database Synchronization**: Successfully executed `npx prisma db push` to align the Supabase cloud database with the latest local schema transitions.
+
+### Data Integrity & Frontend Validation
+- **Strict Input Constraints**: 
+  - Implemented length and numeric-only restrictions for **Phone (10)**, **Pincode (6)**, **Aadhaar (12)**, and **PAN (10, uppercase)** fields.
+- **Chronological Validation**: 
+  - Added date-range checks for **Zone Lease** and **Subscription Dates** (Expiry must be after Start Date).
+- **Coupon Lifecycle**: 
+  - Implemented a "Soft Delete" feature (`isActive: false`, `isVisible: false`) for the Coupon Management UI to preserve historical usage data while removing active availability.
+
+### Comprehensive Seeding System
+- **Unified Seeder**: Created a robust `prisma/seed.js` script that populates the entire system (Subscribers, Beneficiaries, Managers, CCs, Packages, and Zones) in one pass.
+- **Integration**: Registered the seed command in `prisma.config.ts` for native `npx prisma db seed` support.
+- **Verification**: Built and ran `verify-seed.js` to ensure data integrity across all relational models.
