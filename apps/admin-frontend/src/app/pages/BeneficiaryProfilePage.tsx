@@ -1,0 +1,416 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router';
+import { 
+  User, Phone, Mail, MapPin, Calendar, Loader2, Heart, Activity, 
+  Thermometer, Droplet, Scale, RefreshCw, UserCheck, ArrowLeft, Edit2
+} from 'lucide-react';
+import { beneficiaryApi } from '../../services/api';
+import { StatusChip } from '../components/common/StatusChip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Label } from '../components/ui/label';
+import { Button } from '../components/ui/button';
+import { Switch } from '../components/ui/switch';
+import { toast } from 'sonner';
+
+interface StaffPool {
+  careCompanions: { id: string; userId: string; name: string; zone: string; isAvailable: boolean }[];
+  fieldManagers: { id: string; userId: string; name: string; zone: string; isAvailable: boolean }[];
+  zones: { id: string; name: string; pincode: string }[];
+}
+
+const vitalIcons: any = {
+  bloodPressure: Activity, spO2: Activity, temperature: Thermometer,
+  heartRate: Heart, bloodSugar: Droplet, weight: Scale,
+};
+
+export default function BeneficiaryProfilePage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [details, setDetails] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [staffPool, setStaffPool] = useState<StaffPool>({ careCompanions: [], fieldManagers: [], zones: [] });
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [pendingPrimary, setPendingPrimary] = useState<string | null | undefined>(undefined);
+  const [pendingSecondary, setPendingSecondary] = useState<string | null | undefined>(undefined);
+
+  const fetchDetails = async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await beneficiaryApi.getById(id);
+      setDetails(data);
+      if (data.pincode) {
+        fetchStaffPool(data.pincode);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load beneficiary details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStaffPool = async (pincode: string) => {
+    setLoadingStaff(true);
+    try {
+      const pool = await beneficiaryApi.getAvailableStaff(pincode);
+      setStaffPool(pool);
+    } catch (err) {
+      console.error('Failed to load available staff', err);
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDetails();
+  }, [id]);
+
+  const handleAssignStaff = async () => {
+    if (!details || !id) return;
+    setAssigning(true);
+    try {
+      const payload: any = {};
+      if (pendingPrimary !== undefined) payload.primaryCcId = pendingPrimary;
+      if (pendingSecondary !== undefined) payload.secondaryCcId = pendingSecondary;
+      await beneficiaryApi.assignStaff(id, payload);
+      toast.success('Staff assigned successfully!');
+      setPendingPrimary(undefined);
+      setPendingSecondary(undefined);
+      await fetchDetails();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to assign staff');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleVitalToggle = async (vitalKey: string, enabled: boolean) => {
+    if (!details) return;
+    try {
+      // Assuming beneficiaryApi.updateClinicalConfig exists as seen in BeneficiariesPage
+      await beneficiaryApi.updateClinicalConfig(details.id, {
+        [vitalKey]: { ...details.clinicalConfiguration?.[vitalKey], enabled },
+      });
+      await fetchDetails();
+      toast.success(`${vitalKey} monitoring ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      toast.error('Failed to update configuration');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8 bg-[#F4EAE3] min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-[#FF7A00]" />
+          <p className="font-bold text-sm uppercase tracking-widest text-gray-500">Loading Beneficiary Profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !details) {
+    return (
+      <div className="p-8 bg-[#F4EAE3] min-h-screen">
+        <Button variant="ghost" onClick={() => navigate('/beneficiaries')} className="mb-6 gap-2">
+          <ArrowLeft size={16} /> Back to Beneficiaries
+        </Button>
+        <div className="bg-white rounded-[32px] p-20 border border-dashed border-[#E7DED6] text-center">
+          <h2 className="text-xl font-bold text-gray-800">{error || 'Beneficiary not found'}</h2>
+          <Button onClick={() => navigate('/beneficiaries')} className="mt-6 bg-[#FF7A00]">Return to List</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const effectivePrimary = pendingPrimary !== undefined ? pendingPrimary : details.primaryCcId;
+  const effectiveSecondary = pendingSecondary !== undefined ? pendingSecondary : details.secondaryCcId;
+  const hasChanges = pendingPrimary !== undefined || pendingSecondary !== undefined;
+
+  return (
+    <div className="p-8 bg-[#F4EAE3] min-h-screen">
+      <div className="max-w-5xl mx-auto">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors mb-6"
+        >
+          <ArrowLeft size={16} /> Back
+        </button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column: Profile Card */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-24 h-24 rounded-[32px] bg-orange-100 flex items-center justify-center mb-4 border-4 border-white shadow-sm overflow-hidden text-[#FF7A00]">
+                   {details.photo ? (
+                      <img src={details.photo} alt={details.name} className="w-full h-full object-cover" />
+                   ) : (
+                      <User size={40} />
+                   )}
+                </div>
+                <h1 className="text-2xl font-black text-gray-900 tracking-tight">{details.name}</h1>
+                <div className="mt-2">
+                  <StatusChip status={details.isActive ? 'Active' : 'Inactive'} />
+                </div>
+                <p className="text-xs font-bold text-gray-400 mt-4 uppercase tracking-[0.2em]">Age: {details.age} • {details.gender}</p>
+              </div>
+
+              <div className="mt-8 space-y-4 pt-8 border-t border-gray-50">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-[#FF7A00] flex-shrink-0">
+                    <Phone size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Emergency Contact</p>
+                    <p className="text-sm font-bold text-gray-700">{details.emergencyContacts?.[0]?.name || 'N/A'}</p>
+                    {details.emergencyContacts?.[0]?.phone && <p className="text-xs text-gray-500">{details.emergencyContacts[0].phone}</p>}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 flex-shrink-0">
+                    <MapPin size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Zone / Pincode</p>
+                    <p className="text-sm font-bold text-gray-700">{details.pincode || 'N/A'}</p>
+                    {details.city && <p className="text-xs text-gray-500">{details.city}, {details.state}</p>}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0">
+                    <Calendar size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Registered On</p>
+                    <p className="text-sm font-bold text-gray-700">{details.createdAt ? new Date(details.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : '--'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <button className="w-full mt-8 py-3 rounded-2xl bg-[#F4EAE3] text-gray-700 font-black uppercase tracking-widest text-[10px] border border-[#E7DED6] hover:bg-[#E7DED6] transition-colors flex items-center justify-center gap-2">
+                <Edit2 size={14} /> Edit Care Profile
+              </button>
+            </div>
+
+            {/* Subscriber Info Card */}
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-[#E7DED6]">
+               <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Subscriber Info</h4>
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
+                     <User size={20} />
+                  </div>
+                  <div className="flex-1">
+                     <p className="text-sm font-bold text-gray-800">{details.subscriber?.name || 'Unknown'}</p>
+                     <p className="text-xs text-gray-500">{details.subscriber?.phone}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/subscribers/${details.subscriberId}`)}>
+                     View
+                  </Button>
+               </div>
+            </div>
+          </div>
+
+          {/* Right Column: Dynamic Tabs Content */}
+          <div className="lg:col-span-2">
+            <Tabs defaultValue="profile" className="space-y-8">
+              <TabsList className="bg-white/50 p-1.5 rounded-3xl h-auto flex gap-1 border border-[#E7DED6] backdrop-blur-sm">
+                <TabsTrigger value="profile" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Health Profile</TabsTrigger>
+                <TabsTrigger value="assign" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Staff Assignment</TabsTrigger>
+                <TabsTrigger value="clinical" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Clinical Config</TabsTrigger>
+              </TabsList>
+
+              {/* Profile Tab */}
+              <TabsContent value="profile" className="space-y-8 mt-0 outline-none">
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                   <h3 className="text-lg font-black text-gray-800 mb-6">Medical Summary</h3>
+                   
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                        <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Medical History</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {(details.medicalHistory || []).map((c: string) => (
+                            <span key={c} className="px-4 py-2 bg-[#FFF5EE] text-[#FF7A00] rounded-2xl text-xs font-bold border border-orange-100">{c}</span>
+                          ))}
+                          {!(details.medicalHistory || []).length && <span className="text-sm text-gray-400 italic">None recorded</span>}
+                        </div>
+                     </div>
+                     <div className="space-y-4">
+                        <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Current Medications</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {(details.medications || []).map((m: string) => (
+                            <span key={m} className="px-4 py-2 bg-blue-50 text-blue-600 rounded-2xl text-xs font-bold border border-blue-100">{m}</span>
+                          ))}
+                          {!(details.medications || []).length && <span className="text-sm text-gray-400 italic">No medications logged</span>}
+                        </div>
+                     </div>
+                   </div>
+
+                   <div className="mt-12 pt-8 border-t border-gray-50">
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Care Scores</h4>
+                      <div className="grid grid-cols-3 gap-4">
+                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 text-center">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Emotional</p>
+                            <p className="text-3xl font-black text-blue-600">{details.emotionalScore || '8.0'}</p>
+                         </div>
+                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 text-center">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Health</p>
+                            <p className="text-3xl font-black text-green-600">{details.healthScore || '7.5'}</p>
+                         </div>
+                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 text-center">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Medication</p>
+                            <p className="text-3xl font-black text-orange-600">{details.medicationScore || '100'}%</p>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+              </TabsContent>
+
+              {/* Assignment Tab */}
+              <TabsContent value="assign" className="space-y-6 mt-0 outline-none">
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                  <div className="flex items-center justify-between mb-8">
+                     <div>
+                        <h3 className="text-lg font-black text-gray-800">Staff Assignment</h3>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Manage Care Companions & Field Managers</p>
+                     </div>
+                     {details.pincode && (
+                        <div className="bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 flex items-center gap-2">
+                           <MapPin size={14} className="text-[#FF7A00]" />
+                           <span className="text-xs font-black text-[#FF7A00]">PIN: {details.pincode}</span>
+                        </div>
+                     )}
+                  </div>
+
+                  {!details.pincode ? (
+                    <div className="flex flex-col items-center gap-3 py-16 text-center bg-gray-50 rounded-[32px] border border-dashed border-gray-200">
+                      <MapPin className="w-12 h-12 text-gray-200" />
+                      <p className="font-bold text-gray-400 uppercase tracking-widest text-sm">Pincode missing on profile</p>
+                      <button className="text-[#FF7A00] font-black text-[10px] uppercase tracking-widest underline underline-offset-4">Add Pincode to continue</button>
+                    </div>
+                  ) : loadingStaff ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-4">
+                      <RefreshCw className="w-10 h-10 animate-spin text-[#FF7A00]" />
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Searching Zone Staff...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-10">
+                      {staffPool.zones.length > 0 && (
+                        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-100 rounded-2xl text-xs font-bold text-green-700 uppercase tracking-tight">
+                          <UserCheck className="w-5 h-5 flex-shrink-0" /> 
+                          Successfully matched with Zone: <span className="underline ml-1">{staffPool.zones[0].name}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Primary CC Selection */}
+                        <div className="space-y-4">
+                          <Label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-orange-500"></div> Primary Companion
+                          </Label>
+                          <div className="space-y-2">
+                            {staffPool.careCompanions.map(cc => (
+                              <button 
+                                key={cc.id} 
+                                onClick={() => setPendingPrimary(cc.id)} 
+                                className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${effectivePrimary === cc.id ? 'bg-orange-50 border-[#FF7A00] shadow-sm' : 'bg-white border-gray-100 hover:border-orange-200 hover:bg-gray-50/50'}`}
+                              >
+                                <div className="text-left">
+                                  <p className="font-bold text-gray-800 text-sm">{cc.name}</p>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{cc.isAvailable ? 'Available' : 'Limited availability'}</p>
+                                </div>
+                                {effectivePrimary === cc.id && <div className="w-6 h-6 rounded-full bg-[#FF7A00] flex items-center justify-center text-white shadow-sm shadow-orange-200"><UserCheck size={12} /></div>}
+                              </button>
+                            ))}
+                            <button onClick={() => setPendingPrimary(null)} className={`w-full p-4 rounded-2xl border border-dashed transition-all text-center text-[10px] font-black uppercase tracking-widest ${effectivePrimary === null ? 'bg-red-50 border-red-200 text-red-600' : 'border-gray-100 text-gray-400 hover:border-red-200 hover:text-red-500'}`}>
+                               Unassign Primary
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Secondary CC Selection */}
+                        <div className="space-y-4">
+                          <Label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-blue-500"></div> Secondary / Temporary
+                          </Label>
+                          <div className="space-y-2">
+                            {staffPool.careCompanions.filter(cc => cc.id !== effectivePrimary).map(cc => (
+                              <button 
+                                key={cc.id} 
+                                onClick={() => setPendingSecondary(cc.id)} 
+                                className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${effectiveSecondary === cc.id ? 'bg-blue-50 border-blue-400 shadow-sm' : 'bg-white border-gray-100 hover:border-blue-200 hover:bg-gray-50/50'}`}
+                              >
+                                <div className="text-left">
+                                  <p className="font-bold text-gray-800 text-sm">{cc.name}</p>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{cc.isAvailable ? 'Available' : 'Assigned'}</p>
+                                </div>
+                                {effectiveSecondary === cc.id && <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-sm shadow-blue-200"><UserCheck size={12} /></div>}
+                              </button>
+                            ))}
+                            <button onClick={() => setPendingSecondary(null)} className={`w-full p-4 rounded-2xl border border-dashed transition-all text-center text-[10px] font-black uppercase tracking-widest ${effectiveSecondary === null ? 'bg-red-50 border-red-200 text-red-600' : 'border-gray-100 text-gray-400 hover:border-red-200 hover:text-red-500'}`}>
+                               Unassign Secondary
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-8 border-t border-gray-50">
+                        <Button 
+                          onClick={handleAssignStaff} 
+                          disabled={!hasChanges || assigning} 
+                          className="w-full h-16 bg-[#FF7A00] hover:bg-orange-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-orange-100 transition-all active:scale-[0.98] disabled:opacity-50"
+                        >
+                          {assigning ? <><RefreshCw className="w-5 h-5 mr-3 animate-spin" /> Committing Changes...</> : 'Save Assignment Configuration'}
+                        </Button>
+                        <p className="text-center mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Assignment will sync with live visit schedule immediately</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* Clinical Tab */}
+              <TabsContent value="clinical" className="space-y-6 mt-0 outline-none">
+                 <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                    <h3 className="text-lg font-black text-gray-800 mb-2">Vitals Monitoring</h3>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">Configure live tracking parameters</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       {Object.entries(details.clinicalConfiguration || {}).map(([key, config]: [string, any]) => {
+                          const Icon = vitalIcons[key] || Activity;
+                          const vitalLabel = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                          return (
+                             <div key={key} className={`flex items-center justify-between p-6 rounded-[24px] border transition-all ${config.enabled ? 'bg-white border-orange-100 shadow-sm' : 'bg-gray-50/50 border-gray-100 opacity-60'}`}>
+                                <div className="flex items-center gap-4">
+                                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${config.enabled ? 'bg-orange-50 text-[#FF7A00]' : 'bg-gray-200 text-gray-400'}`}>
+                                      <Icon size={24} />
+                                   </div>
+                                   <div>
+                                      <p className="font-bold text-gray-800 text-sm">{vitalLabel}</p>
+                                      <p className="text-[10px] font-black text-gray-400 uppercase mt-1">Freq: {config.frequency}</p>
+                                   </div>
+                                </div>
+                                <Switch 
+                                   checked={config.enabled} 
+                                   onCheckedChange={(checked) => handleVitalToggle(key, checked)} 
+                                   className="data-[state=checked]:bg-[#FF7A00]"
+                                />
+                             </div>
+                          );
+                       })}
+                    </div>
+                 </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

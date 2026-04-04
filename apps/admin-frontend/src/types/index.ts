@@ -177,6 +177,8 @@ export interface Beneficiary {
     phone: string;
     relation: string;
   };
+  primaryCcId?: string;
+  secondaryCcId?: string;
   isActive: boolean;
   createdAt: string;
 }

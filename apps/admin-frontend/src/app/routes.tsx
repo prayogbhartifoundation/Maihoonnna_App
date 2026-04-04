@@ -30,6 +30,9 @@ import BenefitTypesPage from './pages/BenefitTypesPage';
 import BenefitsPage from './pages/BenefitsPage';
 import VitalsPage from './pages/VitalsPage';
 import CouponsPage from './pages/CouponsPage';
+import SubscriberProfilePage from './pages/SubscriberProfilePage';
+import BeneficiaryProfilePage from './pages/BeneficiaryProfilePage';
+
 
 export const router = createBrowserRouter([
   {
@@ -77,8 +80,16 @@ export const router = createBrowserRouter([
         Component: SubscribersPage,
       },
       {
+        path: 'subscribers/:id',
+        Component: SubscriberProfilePage,
+      },
+      {
         path: 'beneficiaries',
         Component: BeneficiariesPage,
+      },
+      {
+        path: 'beneficiaries/:id',
+        Component: BeneficiaryProfilePage,
       },
       {
         path: 'support',
@@ -132,6 +143,7 @@ export const router = createBrowserRouter([
         path: 'vitals',
         Component: VitalsPage,
       },
+
       {
         path: 'coupons',
         Component: CouponsPage,
