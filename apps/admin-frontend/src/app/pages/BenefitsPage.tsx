@@ -29,7 +29,17 @@ interface Benefit {
   benefitType: BenefitType;
 }
 
-const BLANK_FORM = { name: '', description: '', benefitTypeId: '', unitLabel: '', defaultUnits: 1, isChargeable: false, unitCost: undefined as number | undefined };
+const BLANK_FORM = { name: '', description: '', benefitTypeId: '', unitLabel: 'per visit', defaultUnits: 1, isChargeable: false, unitCost: undefined as number | undefined };
+
+const STANDARD_UNITS = [
+  { value: 'per hour', label: 'Per Hour' },
+  { value: 'per visit', label: 'Per Visit' },
+  { value: 'per session', label: 'Per Session' },
+  { value: 'per test', label: 'Per Test' },
+  { value: 'per trip', label: 'Per Trip' },
+  { value: 'per consult', label: 'Per Consult' },
+  { value: 'per order', label: 'Per Order' },
+];
 
 export default function BenefitsPage() {
   const [benefits, setBenefits] = useState<Benefit[]>([]);
@@ -135,8 +145,17 @@ export default function BenefitsPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Unit Label</Label>
-                <Input value={form.unitLabel} onChange={e => setForm(f => ({ ...f, unitLabel: e.target.value }))} placeholder="per visit" />
+                <Label>Unit Type *</Label>
+                <Select value={form.unitLabel} onValueChange={v => setForm(f => ({ ...f, unitLabel: v }))}>
+                  <SelectTrigger className="bg-input-background">
+                    <SelectValue placeholder="Select unit…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STANDARD_UNITS.map(u => (
+                      <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>Default Units</Label>

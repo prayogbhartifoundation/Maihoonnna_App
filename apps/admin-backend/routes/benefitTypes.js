@@ -38,6 +38,15 @@ router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const { name, description, iconCode, displayOrder, isActive } = req.body;
   try {
+    const existing = await prisma.benefitType.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Benefit type not found' });
+    if (existing.isSystem) {
+      // If system type, only allow some fields? No, user said lock them.
+      // We block name and isActive for sure.
+      if (name !== undefined && name !== existing.name) return res.status(403).json({ success: false, message: 'Cannot rename a system benefit type' });
+      if (isActive !== undefined && isActive !== existing.isActive) return res.status(403).json({ success: false, message: 'Cannot deactivate a system benefit type' });
+    }
+
     const type = await prisma.benefitType.update({
       where: { id },
       data: { name, description, iconCode, displayOrder, isActive },
@@ -54,6 +63,10 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
+    const existing = await prisma.benefitType.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Benefit type not found' });
+    if (existing.isSystem) return res.status(403).json({ success: false, message: 'Cannot deactivate a system benefit type' });
+
     await prisma.benefitType.update({ where: { id }, data: { isActive: false } });
     res.json({ success: true, message: 'Benefit type deactivated' });
   } catch (err) {

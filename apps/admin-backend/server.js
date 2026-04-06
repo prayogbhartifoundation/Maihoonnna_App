@@ -39,6 +39,8 @@ app.use('/api/beneficiaries', verifyToken, require('./routes/beneficiaries'));
 app.use('/api/benefit-types', verifyToken, require('./routes/benefitTypes'));
 app.use('/api/benefits',      verifyToken, require('./routes/benefits'));
 app.use('/api/packages',      verifyToken, require('./routes/packages'));
+app.use('/api/subscriptions', verifyToken, require('./routes/subscriptions'));
+app.use('/api/visits',        verifyToken, require('./routes/visits'));
 app.use('/api/vitals',        verifyToken, require('./routes/vitals'));
 app.use('/api/coupons',       verifyToken, require('./routes/coupons'));
 

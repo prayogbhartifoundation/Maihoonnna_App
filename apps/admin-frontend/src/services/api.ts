@@ -268,12 +268,13 @@ export const careCompanionApi = {
   async getAll(): Promise<any[]> {
     return apiJson('/users/care-companions');
   },
-  async getAllPaginated(params: { search: string; searchBy?: string; page: number; limit: number }): Promise<any> {
+  async getAllPaginated(params: { search: string; searchBy?: string; page: number; limit: number; ccType?: string }): Promise<any> {
     const query = new URLSearchParams({
       search: params.search,
       searchBy: params.searchBy || '',
       page: params.page.toString(),
-      limit: params.limit.toString()
+      limit: params.limit.toString(),
+      ccType: params.ccType || 'all'
     }).toString();
     return apiJson(`/users/care-companions?${query}`);
   },
@@ -577,10 +578,10 @@ export const benefitApi = {
 export const packageApi = {
   async getAll(): Promise<any[]> { return apiJson('/packages'); },
   async getOne(id: string): Promise<any> { return apiJson(`/packages/${id}`); },
-  async create(data: { name: string; totalCost: number; activeFrom: string; benefits?: any[]; [key: string]: any }): Promise<any> {
+  async create(data: { name: string; packageCost: number; mrp: number; discountPercentage: number; activeFrom: string; benefits?: any[]; [key: string]: any }): Promise<any> {
     return apiJson('/packages', { method: 'POST', body: JSON.stringify(data) });
   },
-  async update(id: string, data: { name?: string; totalCost?: number; activeFrom?: string; benefits?: any[]; [key: string]: any }): Promise<any> {
+  async update(id: string, data: { name?: string; packageCost?: number; mrp?: number; discountPercentage?: number; activeFrom?: string; benefits?: any[]; [key: string]: any }): Promise<any> {
     return apiJson(`/packages/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   },
   async delete(id: string): Promise<void> { return apiJson(`/packages/${id}`, { method: 'DELETE' }); },
@@ -610,6 +611,37 @@ export const couponApi = {
   },
   async getStats(): Promise<any> {
     return apiJson('/coupons/analytics/stats');
+  }
+};
+
+export const subscriptionApi = {
+  async getBalances(subscriptionId: string): Promise<any> {
+    return apiJson(`/subscriptions/${subscriptionId}/balances`);
+  },
+  async consume(subscriptionId: string, data: { benefitId: string; units: number; notes?: string }): Promise<any> {
+    return apiJson(`/subscriptions/${subscriptionId}/consume`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async enroll(data: { subscriberId: string; beneficiaryId: string; packageId: string; duration: string }): Promise<any> {
+    return apiJson('/subscriptions/enroll', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+};
+
+export const visitApi = {
+  async getAll(params: { beneficiaryId?: string; careCompanionId?: string; date?: string }): Promise<any[]> {
+    const query = new URLSearchParams(params as any).toString();
+    return apiJson(`/visits?${query}`);
+  },
+  async create(data: { beneficiaryId: string; careCompanionId: string; scheduledTime: string; durationMinutes: number; benefitId?: string }): Promise<any> {
+    return apiJson('/visits', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 };
 

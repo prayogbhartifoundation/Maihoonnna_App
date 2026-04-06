@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { X, User, Phone, Mail, MapPin, Package, Calendar, Loader2, Users, Heart, Activity, Thermometer, Droplet, Scale, RefreshCw, UserCheck, ChevronRight } from 'lucide-react';
 import { subscriberApi, beneficiaryApi } from '../../../services/api';
 import { StatusChip } from '../common/StatusChip';
@@ -27,6 +28,7 @@ interface StaffPool {
 }
 
 export default function SubscriberDetailsModal({ subscriberId, onClose }: SubscriberDetailsModalProps) {
+  const navigate = useNavigate();
   const [details, setDetails] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,28 +59,8 @@ export default function SubscriberDetailsModal({ subscriberId, onClose }: Subscr
     fetchDetails();
   }, [subscriberId]);
 
-  const openBeneficiary = async (ben: any) => {
-    // Fetch fresh full beneficiary data (normalised, same as BeneficiariesPage)
-    try {
-      const fresh = await beneficiaryApi.getById(ben.id);
-      setSelectedBen(fresh || ben);
-    } catch {
-      setSelectedBen(ben);
-    }
-    setPendingPrimary(undefined);
-    setPendingSecondary(undefined);
-    setStaffPool({ careCompanions: [], fieldManagers: [], zones: [] });
-    setBenDialogOpen(true);
-
-    if (ben.pincode) {
-      setLoadingStaff(true);
-      try {
-        const pool = await beneficiaryApi.getAvailableStaff(ben.pincode);
-        setStaffPool(pool);
-      } catch { } finally {
-        setLoadingStaff(false);
-      }
-    }
+  const openBeneficiary = (ben: any) => {
+    navigate(`/beneficiaries/${ben.id}`);
   };
 
   const handleAssignStaff = async () => {

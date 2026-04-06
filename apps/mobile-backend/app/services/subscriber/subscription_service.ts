@@ -272,6 +272,17 @@ export const getUserDashboard = async (userId: string) => {
 export const getSubscriptionPackages = async () => {
   let packages = await prisma.subscriptionPackage.findMany({
     where: { isActive: true, isGlobal: true },
+    include: {
+      packageBenefits: {
+        include: {
+          benefit: {
+            include: {
+              benefitType: true
+            }
+          }
+        }
+      }
+    },
     orderBy: { basePrice: 'asc' }
   });
 

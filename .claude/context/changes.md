@@ -327,3 +327,34 @@
 - **Unified Seeder**: Created a robust `prisma/seed.js` script that populates the entire system (Subscribers, Beneficiaries, Managers, CCs, Packages, and Zones) in one pass.
 - **Integration**: Registered the seed command in `prisma.config.ts` for native `npx prisma db seed` support.
 - **Verification**: Built and ran `verify-seed.js` to ensure data integrity across all relational models.
+---
+
+## Session: Subscription Package Overhaul & Refined Pricing (2026-04-06)
+
+### Database & Schema Evolution
+- **Prisma Schema**: Added `mrp`, `discountPercentage`, and `miscellaneousCost` (Float) fields to the `SubscriptionPackage` model.
+- **Synchronization**: Successfully executed `npx prisma db push` and regenerated the Prisma Client across all backend services (`admin-backend`, `mobile-backend`).
+
+### Admin Backend Hardening
+- **Fixed 500 Error**: Resolved a critical crash in `POST /api/packages` caused by an attempt to write to the non-existent legacy `totalHours` field.
+- **Enhanced Routes**: Updated `POST` and `PATCH /api/packages` to correctly handle `mrp`, `discountPercentage`, and `miscellaneousCost`. 
+- **Type Safety**: Ensured `parseFloat` mapping for all incoming pricing strings to prevent database type mismatches.
+
+### Admin Frontend (Product Factory 2.0)
+- **UI Streamlining**: Hidden legacy "Duration (Months)" and "Total Allocated Hours" fields from the creation wizard to focus on unit-based benefits.
+- **Pricing Logic Engine**:
+    - **Formula**: `(Benefit Subtotal × (1 - Discount/100)) + Miscellaneous Cost`.
+    - **MRP Auto-Calculation**: Automatically sets MRP as `Benefit Subtotal + Miscellaneous Cost`.
+- **Manual Pricing Override**:
+    - Implemented `isManualPrice` state to allow admins to precisely set the final package price regardless of the calculated suggestion.
+    - Added a "Reset to calculated" feature to easily revert manual changes.
+- **Cost Breakdown UI**: Added a detailed breakdown in the **Review Step**: `Benefit Subtotal` → `Discount` → `Miscellaneous` → `Final Cost`.
+- **Formatting**: Updated benefit unit rendering to a cleaner `[Benefit Name] [Amount][Label]` format with bolded quantities.
+
+### Mobile App Discovery & Benefits
+- **Backend Service**: Updated `subscription_service.ts` to include nested `packageBenefits` and their associated `BenefitTypes` in the packges payload.
+- **UI Redesign**: Overhauled `subscription-packages.tsx` for a clearer visual hierarchy:
+    - **Price Transparency**: Added strike-through MRP and a prominent discount badge (e.g., "20% OFF").
+    - **Benefit-Centric Cards**: Replaced static feature strings with dynamic database benefits (e.g., **12 Sessions** of Physiotherapy).
+    - **Bold Formatting**: Applied `800` font weight to unit quantities for better readability.
+    - **Simplicity**: Removed legacy 6-month/Annual toggles to provide a more direct, benefit-focused choice.

@@ -66,26 +66,28 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/packages — create package + packageBenefits in a transaction
-// Body: { name, description, packageCost, billingCycle, activeFrom, activeTo, benefits: [{benefitId, unitsIncluded, unitsPeriod, isUnlimited}] }
+// Body: { name, description, packageCost, mrp, discountPercentage, billingCycle, activeFrom, activeTo, benefits: [{benefitId, unitsIncluded, unitsPeriod, isUnlimited}] }
 router.post('/', async (req, res) => {
-  const { name, description, packageCost, currency, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, benefits = [], discounts = [], isGlobal, totalHours } = req.body;
+  const { name, description, packageCost, mrp, discountPercentage, miscellaneousCost, currency, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, benefits = [], discounts = [], isGlobal } = req.body;
 
   if (!name || !activeFrom) {
     return res.status(400).json({ success: false, message: 'name and activeFrom are required' });
   }
 
   try {
-    // Generate a code for the "type" field since mobile expects a unique string like "silver" or "custom_package"
     const typeCode = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
     
     const pkg = await prisma.$transaction(async (tx) => {
       // 1. Create the package header
       const created = await tx.subscriptionPackage.create({
         data: {
-          type: typeCode,
+          type: typeCode + '_' + Date.now(), // Append timestamp for uniqueness
           name,
           description: description || name,
-          basePrice: packageCost ?? (req.body.totalCost ? parseInt(req.body.totalCost) : 0),
+          basePrice: packageCost ?? (req.body.totalCost ? parseFloat(req.body.totalCost) : 0),
+          mrp: mrp ? parseFloat(mrp) : 0,
+          discountPercentage: discountPercentage ? parseFloat(discountPercentage) : 0,
+          miscellaneousCost: miscellaneousCost ? parseFloat(miscellaneousCost) : 0,
           currency: currency ?? 'INR',
           billingCycle: billingCycle ?? 'monthly',
           isFreeTrial: isFreeTrial ?? false,
@@ -94,7 +96,6 @@ router.post('/', async (req, res) => {
           activeTo: activeTo ? new Date(activeTo) : null,
           sortOrder: displayOrder ?? 0,
           isGlobal: isGlobal ?? true,
-          totalHours: totalHours ? parseFloat(totalHours) : 0,
         },
       });
 
@@ -145,23 +146,25 @@ router.post('/', async (req, res) => {
 // PATCH /api/packages/:id — update package header
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, description, packageCost, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, isActive, isGlobal, totalHours } = req.body;
+  const { name, description, packageCost, mrp, discountPercentage, miscellaneousCost, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, isActive, isGlobal } = req.body;
   try {
     const pkg = await prisma.subscriptionPackage.update({
       where: { id },
       data: {
-        name, 
-        description, 
-        basePrice: packageCost, 
-        billingCycle, 
-        isFreeTrial, 
+        name,
+        description,
+        basePrice: packageCost ? parseFloat(packageCost) : undefined,
+        mrp: mrp ? parseFloat(mrp) : undefined,
+        discountPercentage: discountPercentage ? parseFloat(discountPercentage) : undefined,
+        miscellaneousCost: miscellaneousCost ? parseFloat(miscellaneousCost) : undefined,
+        billingCycle,
+        isFreeTrial,
         trialDurationDays,
         activeFrom: activeFrom ? new Date(activeFrom) : undefined,
         activeTo: activeTo ? new Date(activeTo) : undefined,
-        sortOrder: displayOrder, 
+        sortOrder: displayOrder,
         isActive,
-        isGlobal: isGlobal,
-        totalHours: totalHours !== undefined ? parseFloat(totalHours) : undefined,
+        isGlobal,
       },
     });
     res.json({ success: true, data: pkg });

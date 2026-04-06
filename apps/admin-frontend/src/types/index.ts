@@ -295,13 +295,15 @@ export interface PackageBenefit {
 export interface SubscriptionPackage {
   id: string;
   name: string;
-  duration: number; // in months
   benefits: PackageBenefit[];
-  totalCost: number;
+  totalCost: number; // mapped from basePrice
+  basePrice: number; // The current price in DB
+  mrp: number;
+  discountPercentage: number;
+  miscellaneousCost: number;
   isActive: boolean;
   activeFrom: string;
   activeTo: string;
-  totalHours: number;
   isGlobal: boolean;
   createdBy: string;
   createdAt: string;
@@ -430,6 +432,7 @@ export interface StaffOnboardingPayload {
     hasTwoWheeler?: boolean;
     canApproveRoster?: boolean;
     canOnboardCCs?: boolean;
+    ccType?: string;
   };
   assignment: {
     zoneId?: string;

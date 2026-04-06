@@ -208,6 +208,7 @@ function mapCareCompanion(companion) {
     },
     bgvVerified: staffProfile?.bgvVerified ?? false,
     kycVerified: staffProfile?.kycVerified ?? false,
+    ccType: companion.ccType || 'care_assistant',
     joinedAt: companion.joinedAt || staffProfile?.joinedAt || companion.createdAt,
     createdAt: companion.createdAt,
   };
@@ -691,6 +692,8 @@ router.post('/staff/onboard', async (req, res) => {
           zoneId: primaryZoneId,
           teamId,
           reportsToUserId,
+          bgvType: backgroundCheckType,
+          bgvAgency: backgroundCheckAgency,
           bgvVerified: Boolean(assignment.bgvVerified),
           kycVerified: Boolean(assignment.kycVerified),
           employmentStatus,
@@ -712,6 +715,7 @@ router.post('/staff/onboard', async (req, res) => {
             languages: languageList,
             nursingRegistrationNumber: asNullableString(professional.nursingRegistrationNumber),
             nursingCouncil: asNullableString(professional.nursingCouncil),
+            ccType: asTrimmedString(professional.ccType) || 'care_assistant',
             shiftPreference,
             maxDailyVisits: asOptionalInt(professional.maxDailyVisits),
             willingClinicVisits: Boolean(professional.willingClinicVisits),
@@ -868,8 +872,12 @@ router.get('/care-companions', async (req, res) => {
   try {
     if (!ensureOnboardingModels(res)) return;
 
-    const { search, searchBy, page, limit } = req.query;
+    const { search, searchBy, page, limit, ccType } = req.query;
     const filterParams = { user: { isActive: true } };
+
+    if (ccType && ccType !== 'all') {
+      filterParams.ccType = ccType;
+    }
 
     if (search) {
       if (searchBy === 'name') {
@@ -1040,14 +1048,15 @@ router.get('/staff/:userId', async (req, res) => {
         hasTwoWheeler: user.careCompanionProfile?.hasTwoWheeler || false,
         canApproveRoster: user.fieldManagerProfile?.canApproveRoster !== false,
         canOnboardCCs: user.fieldManagerProfile?.canOnboardCCs || false,
+        ccType: user.careCompanionProfile?.ccType || 'care_assistant',
       },
       assignment: {
         zoneId: user.staffProfile?.zoneId || '',
         zoneIds: user.zonesAsOperationsManager?.map((z) => z.id) || [],
         teamId: user.careCompanionProfile?.teamId || '',
         reportsToUserId: user.fieldManagerProfile?.reportsToUserId || user.staffProfile?.reportsToUserId || '',
-        bgvType: user.staffProfile?.backgroundChecks?.[0]?.backgroundCheckType || 'police_clearance',
-        bgvAgency: user.staffProfile?.backgroundChecks?.[0]?.agency || '',
+        bgvType: user.staffProfile?.bgvType || 'police_clearance',
+        bgvAgency: user.staffProfile?.bgvAgency || '',
         bgvVerified: user.staffProfile?.bgvVerified ?? false,
         kycVerified: user.staffProfile?.kycVerified ?? false,
       },
@@ -1110,6 +1119,8 @@ router.put('/staff/:userId', async (req, res) => {
           reportsToUser: role === 'field_manager' && asNullableString(assignment.reportsToUserId)
             ? { connect: { id: asNullableString(assignment.reportsToUserId) } }
             : { disconnect: true },
+          bgvType: asTrimmedString(assignment.bgvType),
+          bgvAgency: asNullableString(assignment.bgvAgency),
           bgvVerified: Boolean(assignment.bgvVerified),
           kycVerified: Boolean(assignment.kycVerified),
           notes: asNullableString(notes),
@@ -1130,6 +1141,7 @@ router.put('/staff/:userId', async (req, res) => {
             specialization: asStringArray(professional.specialization),
             nursingRegistrationNumber: asNullableString(professional.nursingRegistrationNumber),
             nursingCouncil: asNullableString(professional.nursingCouncil),
+            ccType: asTrimmedString(professional.ccType) || 'care_assistant',
             shiftPreference: asTrimmedString(professional.preferredShift) || 'any',
             maxDailyVisits: asOptionalInt(professional.maxDailyVisits),
             willingClinicVisits: Boolean(professional.willingClinicVisits),

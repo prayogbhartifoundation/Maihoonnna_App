@@ -96,3 +96,11 @@
   - [x] Implemented strict frontend validation (Phone, Aadhaar, PAN, Dates)
   - [x] Created unified `seed.js` for relational test data population
   - [x] Successfully synchronized and pushed all backend changes to `dev` branch
+
+- [x] Subscription Package Overhaul & Refined Pricing (2026-04-06)
+  - [x] Supported `mrp`, `discountPercentage`, and `miscellaneousCost` in Prisma
+  - [x] Fixed 500 server error on package publication
+  - [x] Redesigned Admin Wizard with automated formula pricing and manual override
+  - [x] Updated Mobile App to show dynamic units, strike-through MRP, and discount badges
+  - [x] Synced schema across `admin-backend` and `mobile-backend`
+  - [x] Refined price calculation logic to apply discounts strictly to benefit subtotals

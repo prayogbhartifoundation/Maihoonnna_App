@@ -12,7 +12,6 @@ import { CallbackButton } from '../../components/CallbackButton';
 
 export default function SubscriptionPackagesScreen() {
     const router = useRouter();
-    const [activeDuration, setActiveDuration] = useState<PlanDuration>('basic');
     const [packages, setPackages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -42,19 +41,7 @@ export default function SubscriptionPackagesScreen() {
     };
 
     const getPrice = (pkg: any) => {
-        const basePrice = pkg.basePrice || 0;
-        if (activeDuration === '6months') {
-            return Math.round(basePrice * 6 * (1 - (pkg.discountSixMonths || 0) / 100));
-        } else if (activeDuration === 'annual') {
-            return Math.round(basePrice * 12 * (1 - (pkg.discountAnnual || 0) / 100));
-        }
-        return basePrice;
-    };
-
-    const getDurationText = () => {
-        if (activeDuration === '6months') return '6 months';
-        if (activeDuration === 'annual') return '12 months';
-        return '30 days';
+        return pkg.basePrice || 0;
     };
 
     if (loading) {
@@ -89,32 +76,6 @@ export default function SubscriptionPackagesScreen() {
                     <Text style={styles.subTitle}>Personalized plans designed for peace of mind.</Text>
                 </View>
 
-                {/* Segmented Toggle Control */}
-                <View style={styles.toggleContainer}>
-                    <TouchableOpacity
-                        style={[styles.toggleBtn, activeDuration === 'basic' && styles.toggleBtnActive]}
-                        onPress={() => setActiveDuration('basic')}
-                    >
-                        <Text style={[styles.toggleText, activeDuration === 'basic' && styles.toggleTextActive]}>Basic Care</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.toggleBtn, activeDuration === '6months' && styles.toggleBtnActive]}
-                        onPress={() => setActiveDuration('6months')}
-                    >
-                        <Text style={[styles.toggleText, activeDuration === '6months' && styles.toggleTextActive]}>6 Months</Text>
-                        <Text style={styles.discountText}>-{discount6m}% off</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.toggleBtn, activeDuration === 'annual' && styles.toggleBtnActive]}
-                        onPress={() => setActiveDuration('annual')}
-                    >
-                        <Text style={[styles.toggleText, activeDuration === 'annual' && styles.toggleTextActive]}>Annual</Text>
-                        <Text style={styles.discountText}>-{discountAnnual}% off</Text>
-                    </TouchableOpacity>
-                </View>
-
                 {/* Dynamic DB Driven Cards */}
                 {packages.map((pkg: any) => {
                     const isPopular = pkg.type === 'gold';
@@ -129,18 +90,27 @@ export default function SubscriptionPackagesScreen() {
                             )}
 
                             <View style={styles.cardHeaderRow}>
-                                <View>
+                                <View style={{ flex: 1 }}>
                                     <Text style={styles.planName}>{pkg.name}</Text>
-                                    <Text style={isPopular ? styles.planPriceColor : styles.planPrice}>
-                                        ₹{getPrice(pkg).toLocaleString('en-IN')}
-                                    </Text>
-                                    <Text style={styles.planDuration}>{getDurationText()}</Text>
+                                    <View style={styles.priceRow}>
+                                        <Text style={isPopular ? styles.planPriceColor : styles.planPrice}>
+                                            ₹{getPrice(pkg).toLocaleString('en-IN')}
+                                        </Text>
+                                        {pkg.mrp > pkg.basePrice && (
+                                            <View style={styles.discountInfo}>
+                                                <Text style={styles.mrpText}>₹{pkg.mrp.toLocaleString('en-IN')}</Text>
+                                                <View style={styles.discountBadge}>
+                                                    <Text style={styles.discountBadgeText}>{pkg.discountPercentage}% OFF</Text>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
                                 </View>
                                 <Image
                                     source={
-                                        pkg.type === "silver"
+                                        pkg.type?.includes("silver")
                                             ? require("../../assets/images/group1.png")
-                                            : pkg.type === "gold"
+                                            : pkg.type?.includes("gold")
                                                 ? require("../../assets/images/group2.png")
                                                 : require("../../assets/images/group3.png")
                                     }
@@ -148,15 +118,21 @@ export default function SubscriptionPackagesScreen() {
                                 />
                             </View>
 
-                            <Text style={styles.hoursText}>{pkg.hoursPerMonth || (pkg.visitsPerWeek || 0) * 10} hours/month</Text>
-
                             <View style={styles.featureList}>
-                                {(pkg.features || []).map((feature: string, fIdx: number) => (
-                                    <View key={fIdx} style={styles.featureRow}>
-                                        <Ionicons name="checkmark-circle" size={16} color="#F97316" />
-                                        <Text style={styles.featureText}>{feature}</Text>
-                                    </View>
-                                ))}
+                                {(pkg.packageBenefits || []).map((pb: any, fIdx: number) => {
+                                    const label = (pb.benefit?.unitLabel || '').replace(/^per\s+/i, '');
+                                    return (
+                                        <View key={fIdx} style={styles.featureRow}>
+                                            <Ionicons name="checkmark-circle" size={18} color="#F97316" />
+                                            <Text style={styles.featureText}>
+                                                {pb.benefit?.name}{' '}
+                                                <Text style={{ fontWeight: '800', color: '#111827' }}>
+                                                    {pb.unitsIncluded}{label}
+                                                </Text>
+                                            </Text>
+                                        </View>
+                                    );
+                                })}
                             </View>
 
                             <TouchableOpacity
@@ -171,36 +147,6 @@ export default function SubscriptionPackagesScreen() {
                     );
                 })}
 
-                {/* Elite Care Card (Matching Screenshot) */}
-                <View style={styles.card}>
-                    <View style={styles.cardHeaderRow}>
-                        <View>
-                            <Text style={styles.planName}>Elite Care</Text>
-                            <Text style={styles.planPrice}>₹9,999</Text>
-                            <Text style={styles.planDuration}>30 days</Text>
-                        </View>
-                        {/* Replace with your local illustration asset */}
-                        <Image
-                            source={require("../../assets/images/group3.png")}
-                            style={{ width: 80, height: 80 }}
-                        />
-                    </View>
-
-                    <Text style={styles.hoursText}>50 hours/month</Text>
-
-                    <View style={styles.featureList}>
-                        {['Daily health monitoring', 'Full vitals tracking with reports', 'Priority emergency response', 'Medication management', 'Social & recreational activities', 'Physical therapy support'].map((item, idx) => (
-                            <View key={idx} style={styles.featureRow}>
-                                <Ionicons name="checkmark-circle" size={18} color="#F97316" />
-                                <Text style={styles.featureText}>{item}</Text>
-                            </View>
-                        ))}
-                    </View>
-
-                    <TouchableOpacity style={styles.selectBtnOutline} onPress={() => handleSelectPackage('elite')}>
-                        <Text style={styles.selectBtnOutlineText}>Select Package</Text>
-                    </TouchableOpacity>
-                </View>
 
                 {/* How It Works Section */}
                 <View style={styles.howItWorksContainer}>
@@ -302,10 +248,14 @@ const styles = StyleSheet.create({
 
     card: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24, marginBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
     cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    planName: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
-    planPrice: { fontSize: 32, fontWeight: '800', color: '#F97316' },
-    planPriceColor: { fontSize: 32, fontWeight: '800', color: '#F97316' },
-    planDuration: { fontSize: 14, color: '#9CA3AF' },
+    planName: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 6 },
+    planPrice: { fontSize: 28, fontWeight: '800', color: '#F97316' },
+    planPriceColor: { fontSize: 28, fontWeight: '800', color: '#F97316' },
+    priceRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+    discountInfo: { marginBottom: 4 },
+    mrpText: { fontSize: 14, color: '#9CA3AF', textDecorationLine: 'line-through', marginBottom: 2 },
+    discountBadge: { backgroundColor: '#FDE6D5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    discountBadgeText: { fontSize: 10, fontWeight: '700', color: '#EA580C' },
 
     illustrationPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FFF5ED', alignItems: 'center', justifyContent: 'center' },
     iconCircleBasic: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },

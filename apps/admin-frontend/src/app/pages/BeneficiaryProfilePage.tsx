@@ -4,7 +4,7 @@ import {
   User, Phone, Mail, MapPin, Calendar, Loader2, Heart, Activity, 
   Thermometer, Droplet, Scale, RefreshCw, UserCheck, ArrowLeft, Edit2
 } from 'lucide-react';
-import { beneficiaryApi } from '../../services/api';
+import { beneficiaryApi, subscriptionApi } from '../../services/api';
 import { StatusChip } from '../components/common/StatusChip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Label } from '../components/ui/label';
@@ -91,7 +91,6 @@ export default function BeneficiaryProfilePage() {
   const handleVitalToggle = async (vitalKey: string, enabled: boolean) => {
     if (!details) return;
     try {
-      // Assuming beneficiaryApi.updateClinicalConfig exists as seen in BeneficiariesPage
       await beneficiaryApi.updateClinicalConfig(details.id, {
         [vitalKey]: { ...details.clinicalConfiguration?.[vitalKey], enabled },
       });
@@ -142,7 +141,6 @@ export default function BeneficiaryProfilePage() {
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: Profile Card */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
               <div className="flex flex-col items-center text-center">
@@ -199,7 +197,6 @@ export default function BeneficiaryProfilePage() {
               </button>
             </div>
 
-            {/* Subscriber Info Card */}
             <div className="bg-white rounded-[32px] p-6 shadow-sm border border-[#E7DED6]">
                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Subscriber Info</h4>
                <div className="flex items-center gap-3">
@@ -208,7 +205,7 @@ export default function BeneficiaryProfilePage() {
                   </div>
                   <div className="flex-1">
                      <p className="text-sm font-bold text-gray-800">{details.subscriber?.name || 'Unknown'}</p>
-                     <p className="text-xs text-gray-500">{details.subscriber?.phone}</p>
+                     <p className="text-xs font-bold text-gray-500">{details.subscriber?.phone}</p>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => navigate(`/subscribers/${details.subscriberId}`)}>
                      View
@@ -217,20 +214,18 @@ export default function BeneficiaryProfilePage() {
             </div>
           </div>
 
-          {/* Right Column: Dynamic Tabs Content */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="profile" className="space-y-8">
               <TabsList className="bg-white/50 p-1.5 rounded-3xl h-auto flex gap-1 border border-[#E7DED6] backdrop-blur-sm">
                 <TabsTrigger value="profile" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Health Profile</TabsTrigger>
+                <TabsTrigger value="membership" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Membership</TabsTrigger>
                 <TabsTrigger value="assign" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Staff Assignment</TabsTrigger>
                 <TabsTrigger value="clinical" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Clinical Config</TabsTrigger>
               </TabsList>
 
-              {/* Profile Tab */}
               <TabsContent value="profile" className="space-y-8 mt-0 outline-none">
                 <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
                    <h3 className="text-lg font-black text-gray-800 mb-6">Medical Summary</h3>
-                   
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                      <div className="space-y-4">
                         <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Medical History</Label>
@@ -251,7 +246,6 @@ export default function BeneficiaryProfilePage() {
                         </div>
                      </div>
                    </div>
-
                    <div className="mt-12 pt-8 border-t border-gray-50">
                       <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Care Scores</h4>
                       <div className="grid grid-cols-3 gap-4">
@@ -272,7 +266,85 @@ export default function BeneficiaryProfilePage() {
                 </div>
               </TabsContent>
 
-              {/* Assignment Tab */}
+              <TabsContent value="membership" className="space-y-6 mt-0 outline-none">
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                   {details.subscriptions?.[0] ? (
+                     <div className="space-y-8">
+                       <div className="flex items-center justify-between">
+                         <div>
+                            <h3 className="text-xl font-black text-gray-800">{details.subscriptions[0].package?.name || 'Active Package'}</h3>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Valid until {new Date(details.subscriptions[0].endDate).toLocaleDateString()}</p>
+                         </div>
+                         <StatusChip status="Active" />
+                       </div>
+                       <div className="pt-6 border-t border-gray-50">
+                          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Benefit Balances</h4>
+                          <div className="space-y-4">
+                             {(details.subscriptions[0].balances || []).length > 0 ? (
+                               details.subscriptions[0].balances.map((bal: any) => (
+                                 <div key={bal.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#FDFBF9] rounded-2xl border border-orange-50 gap-4">
+                                   <div className="flex items-center gap-4">
+                                      <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-[#FF7A00] font-bold text-lg">
+                                         {bal.benefit?.benefitType?.iconCode || '🎁'}
+                                      </div>
+                                      <div>
+                                         <p className="text-sm font-black text-gray-800">{bal.benefit?.name}</p>
+                                         <p className="text-[10px] font-bold text-gray-400 uppercase">{bal.benefit?.unitLabel || 'units'}</p>
+                                      </div>
+                                   </div>
+                                   <div className="flex items-center gap-6 justify-between sm:justify-end">
+                                      <div className="text-right">
+                                         <p className="text-sm font-black text-gray-900">{bal.totalUnits === -1 ? '∞' : (bal.totalUnits - bal.usedUnits)} / {bal.totalUnits === -1 ? '∞' : bal.totalUnits}</p>
+                                         <p className="text-[10px] font-bold text-gray-400 uppercase">Remaining</p>
+                                      </div>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={async () => {
+                                          if (confirm(`Consume 1 unit of ${bal.benefit?.name}?`)) {
+                                            try {
+                                              await subscriptionApi.consume(details.subscriptions[0].id, {
+                                                benefitId: bal.benefitId,
+                                                units: 1,
+                                                notes: 'Manual deduction from Admin Panel'
+                                              });
+                                              toast.success('Benefit unit consumed');
+                                              fetchDetails();
+                                            } catch (e: any) {
+                                              toast.error(e.message);
+                                            }
+                                          }
+                                        }}
+                                        className="h-8 rounded-xl border-orange-200 text-[#FF7A00] hover:bg-orange-50 font-black uppercase text-[9px] tracking-widest"
+                                      >
+                                        Consume
+                                      </Button>
+                                   </div>
+                                 </div>
+                               ))
+                             ) : (
+                               <div className="py-12 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                                  <p className="text-sm font-bold text-gray-400 uppercase">No active benefit balances found</p>
+                               </div>
+                             )}
+                          </div>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-center gap-4 py-20 text-center">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center text-gray-300">
+                           <Activity size={32} />
+                        </div>
+                        <div>
+                           <h3 className="text-lg font-black text-gray-800">No Active Subscription</h3>
+                           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 max-w-xs mx-auto">This beneficiary is not currently enrolled in any silver, gold, or platinum packages.</p>
+                        </div>
+                        <Button className="mt-4 bg-[#FF7A00] rounded-2xl px-8 h-12 font-black uppercase tracking-widest text-[10px]">Enroll in Package</Button>
+                     </div>
+                   )}
+                </div>
+              </TabsContent>
+
               <TabsContent value="assign" className="space-y-6 mt-0 outline-none">
                 <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
                   <div className="flex items-center justify-between mb-8">
@@ -307,7 +379,6 @@ export default function BeneficiaryProfilePage() {
                           Successfully matched with Zone: <span className="underline ml-1">{staffPool.zones[0].name}</span>
                         </div>
                       )}
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Primary CC Selection */}
                         <div className="space-y-4">
@@ -316,11 +387,7 @@ export default function BeneficiaryProfilePage() {
                           </Label>
                           <div className="space-y-2">
                             {staffPool.careCompanions.map(cc => (
-                              <button 
-                                key={cc.id} 
-                                onClick={() => setPendingPrimary(cc.id)} 
-                                className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${effectivePrimary === cc.id ? 'bg-orange-50 border-[#FF7A00] shadow-sm' : 'bg-white border-gray-100 hover:border-orange-200 hover:bg-gray-50/50'}`}
-                              >
+                              <button key={cc.id} onClick={() => setPendingPrimary(cc.id)} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${effectivePrimary === cc.id ? 'bg-orange-50 border-[#FF7A00] shadow-sm' : 'bg-white border-gray-100 hover:border-orange-200 hover:bg-gray-50/50'}`}>
                                 <div className="text-left">
                                   <p className="font-bold text-gray-800 text-sm">{cc.name}</p>
                                   <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{cc.isAvailable ? 'Available' : 'Limited availability'}</p>
@@ -333,7 +400,6 @@ export default function BeneficiaryProfilePage() {
                             </button>
                           </div>
                         </div>
-
                         {/* Secondary CC Selection */}
                         <div className="space-y-4">
                           <Label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
@@ -341,11 +407,7 @@ export default function BeneficiaryProfilePage() {
                           </Label>
                           <div className="space-y-2">
                             {staffPool.careCompanions.filter(cc => cc.id !== effectivePrimary).map(cc => (
-                              <button 
-                                key={cc.id} 
-                                onClick={() => setPendingSecondary(cc.id)} 
-                                className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${effectiveSecondary === cc.id ? 'bg-blue-50 border-blue-400 shadow-sm' : 'bg-white border-gray-100 hover:border-blue-200 hover:bg-gray-50/50'}`}
-                              >
+                              <button key={cc.id} onClick={() => setPendingSecondary(cc.id)} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${effectiveSecondary === cc.id ? 'bg-blue-50 border-blue-400 shadow-sm' : 'bg-white border-gray-100 hover:border-blue-200 hover:bg-gray-50/50'}`}>
                                 <div className="text-left">
                                   <p className="font-bold text-gray-800 text-sm">{cc.name}</p>
                                   <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{cc.isAvailable ? 'Available' : 'Assigned'}</p>
@@ -359,28 +421,20 @@ export default function BeneficiaryProfilePage() {
                           </div>
                         </div>
                       </div>
-
                       <div className="pt-8 border-t border-gray-50">
-                        <Button 
-                          onClick={handleAssignStaff} 
-                          disabled={!hasChanges || assigning} 
-                          className="w-full h-16 bg-[#FF7A00] hover:bg-orange-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-orange-100 transition-all active:scale-[0.98] disabled:opacity-50"
-                        >
+                        <Button onClick={handleAssignStaff} disabled={!hasChanges || assigning} className="w-full h-16 bg-[#FF7A00] hover:bg-orange-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-orange-100 transition-all active:scale-[0.98] disabled:opacity-50">
                           {assigning ? <><RefreshCw className="w-5 h-5 mr-3 animate-spin" /> Committing Changes...</> : 'Save Assignment Configuration'}
                         </Button>
-                        <p className="text-center mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Assignment will sync with live visit schedule immediately</p>
                       </div>
                     </div>
                   )}
                 </div>
               </TabsContent>
 
-              {/* Clinical Tab */}
               <TabsContent value="clinical" className="space-y-6 mt-0 outline-none">
                  <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
                     <h3 className="text-lg font-black text-gray-800 mb-2">Vitals Monitoring</h3>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">Configure live tracking parameters</p>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                        {Object.entries(details.clinicalConfiguration || {}).map(([key, config]: [string, any]) => {
                           const Icon = vitalIcons[key] || Activity;
@@ -396,11 +450,7 @@ export default function BeneficiaryProfilePage() {
                                       <p className="text-[10px] font-black text-gray-400 uppercase mt-1">Freq: {config.frequency}</p>
                                    </div>
                                 </div>
-                                <Switch 
-                                   checked={config.enabled} 
-                                   onCheckedChange={(checked) => handleVitalToggle(key, checked)} 
-                                   className="data-[state=checked]:bg-[#FF7A00]"
-                                />
+                                <Switch checked={config.enabled} onCheckedChange={(checked) => handleVitalToggle(key, checked)} className="data-[state=checked]:bg-[#FF7A00]" />
                              </div>
                           );
                        })}

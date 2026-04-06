@@ -306,6 +306,53 @@ async function main() {
   }
   console.log(`✅ Vital definitions created`);
 
+  // ─── 8d. Create Benefit Types ──────────────────────────────────────────
+  console.log('Creating benefit types...');
+  const benefitTypes = [
+    { name: 'Nurse', description: 'Trained nursing home visit', iconCode: '🏥' },
+    { name: 'Care Assistant', description: 'Non-medical companionship', iconCode: '🤝' },
+    { name: 'Ambulance', description: 'Emergency ambulance', iconCode: '🚑' },
+    { name: 'Tele-consultation', description: 'Remote doctor consult', iconCode: '📞' },
+    { name: 'Physio Session', description: 'Physiotherapy sessions', iconCode: '🧘' },
+    { name: 'Lab Test', description: 'Diagnostic lab collection', iconCode: '🔬' },
+    { name: 'Pharmacy', description: 'Medicine delivery & mgmt', iconCode: '💊' },
+  ];
+
+  for (let i = 0; i < benefitTypes.length; i++) {
+    const bt = benefitTypes[i];
+    await prisma.benefitType.upsert({
+      where: { name: bt.name },
+      update: { description: bt.description, iconCode: bt.iconCode, displayOrder: i + 1, isSystem: true },
+      create: { 
+        id: generateUUID(),
+        ...bt,
+        displayOrder: i + 1,
+        isActive: true,
+        isSystem: true
+      }
+    });
+  }
+  console.log(`✅ Benefit Types created`);
+
+  // ─── 8e. Create System Config ──────────────────────────────────────────
+  console.log('Creating system configs...');
+  const configs = [
+    { key: 'globalLunchStart', value: '13:00', group: 'scheduling', description: 'Global lunch start time for all CCs' },
+    { key: 'globalLunchEnd', value: '14:00', group: 'scheduling', description: 'Global lunch end time for all CCs' },
+  ];
+
+  for (const cfg of configs) {
+    await prisma.systemConfig.upsert({
+      where: { key: cfg.key },
+      update: { value: cfg.value, description: cfg.description },
+      create: {
+        id: generateUUID(),
+        ...cfg
+      }
+    });
+  }
+  console.log(`✅ System Configs created`);
+
   // ─── 8c. Create Medical Conditions ────────────────────────────────────────
   console.log('Creating common medical conditions...');
   const conditions = [

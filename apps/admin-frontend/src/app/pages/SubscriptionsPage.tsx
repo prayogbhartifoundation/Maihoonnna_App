@@ -27,13 +27,16 @@ export default function SubscriptionsPage() {
   // Wizard state
   const [currentStep, setCurrentStep] = useState<WizardStep>('define');
   const [packageName, setPackageName] = useState('');
-  const [duration, setDuration] = useState('12');
-  const [totalHours, setTotalHours] = useState('120');
+  const [mrp, setMrp] = useState('0');
+  const [discountPercentage, setDiscountPercentage] = useState('0');
+  const [miscellaneousCost, setMiscellaneousCost] = useState('0');
+  const [benefitSubtotal, setBenefitSubtotal] = useState(0);
+  const [isManualPrice, setIsManualPrice] = useState(false);
   const [activeFrom, setActiveFrom] = useState('2026-01-01');
   const [activeTo, setActiveTo] = useState('2026-12-31');
   const [selectedBenefits, setSelectedBenefits] = useState<Set<string>>(new Set());
   const [benefitUnits, setBenefitUnits] = useState<Record<string, number>>({});
-  const [totalCost, setTotalCost] = useState('15000');
+  const [totalCost, setTotalCost] = useState('0');
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
   const [isGlobal, setIsGlobal] = useState(true);
 
@@ -41,7 +44,7 @@ export default function SubscriptionsPage() {
     loadData();
   }, []);
 
-  // Automatic cost calculation
+  // Automatic cost calculation (only if not manually edited or on benefit change)
   useEffect(() => {
     if (!showWizard) return;
     
@@ -54,10 +57,25 @@ export default function SubscriptionsPage() {
       }
     });
 
-    const months = parseInt(duration) || 0;
-    const calculatedTotal = monthlySubtotal * months;
-    setTotalCost(String(calculatedTotal));
-  }, [selectedBenefits, benefitUnits, duration, benefits, showWizard]);
+    const subtotal = monthlySubtotal;
+    setBenefitSubtotal(subtotal);
+
+    // Discount applies ONLY to benefit subtotal
+    const discVal = parseFloat(discountPercentage) || 0;
+    const discountedSubtotal = subtotal * (1 - discVal / 100);
+    
+    // Final Price = Discounted Benefit Subtotal + Miscellaneous Cost
+    const misc = parseFloat(miscellaneousCost) || 0;
+    const finalCalculated = discountedSubtotal + misc;
+    
+    if (!isManualPrice) {
+      setTotalCost(String(Math.round(finalCalculated)));
+    }
+
+    // MRP = Subtotal + Miscellaneous Cost (Original full price)
+    setMrp(String(Math.round(subtotal + misc)));
+
+  }, [selectedBenefits, benefitUnits, discountPercentage, miscellaneousCost, benefits, showWizard, isManualPrice]);
 
   const loadData = async () => {
     const [pkgs, bnfs] = await Promise.all([
@@ -97,10 +115,11 @@ export default function SubscriptionsPage() {
 
     const payload = {
       name: packageName,
-      duration: parseInt(duration),
       benefits: packageBenefits,
-      totalCost: parseInt(totalCost),
-      totalHours: parseFloat(totalHours) || 0,
+      packageCost: parseFloat(totalCost),
+      mrp: parseFloat(mrp),
+      discountPercentage: parseFloat(discountPercentage),
+      miscellaneousCost: parseFloat(miscellaneousCost),
       isActive: true,
       activeFrom: new Date(activeFrom).toISOString(),
       activeTo: activeTo ? new Date(activeTo).toISOString() : null,
@@ -130,12 +149,14 @@ export default function SubscriptionsPage() {
     }
   };
 
-  const handleEdit = (pkg: SubscriptionPackage) => {
+  const handleEdit = (pkg: any) => {
     setEditingPackageId(pkg.id);
     setPackageName(pkg.name);
-    setDuration(String(pkg.duration));
-    setTotalHours(String(pkg.totalHours || 0));
-    setTotalCost(String(pkg.totalCost));
+    setMrp(String(pkg.mrp || 0));
+    setDiscountPercentage(String(pkg.discountPercentage || 0));
+    setMiscellaneousCost(String(pkg.miscellaneousCost || 0));
+    setTotalCost(String(pkg.basePrice || pkg.totalCost));
+    setIsManualPrice(true); // Don't auto-recalculate when editing existing
     // Date strings for input[type="date"] need to be YYYY-MM-DD
     setActiveFrom(pkg.activeFrom ? pkg.activeFrom.split('T')[0] : '');
     setActiveTo(pkg.activeTo ? pkg.activeTo.split('T')[0] : '');
@@ -169,11 +190,13 @@ export default function SubscriptionsPage() {
     setShowWizard(false);
     setCurrentStep('define');
     setPackageName('');
-    setDuration('12');
-    setTotalHours('120');
+    setMrp('0');
+    setDiscountPercentage('0');
+    setMiscellaneousCost('0');
     setSelectedBenefits(new Set());
     setBenefitUnits({});
-    setTotalCost('15000');
+    setTotalCost('0');
+    setIsManualPrice(false);
     setEditingPackageId(null);
     setIsGlobal(true);
   };
@@ -267,41 +290,65 @@ export default function SubscriptionsPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="duration">Duration (Months)</Label>
+                        <Label htmlFor="discount">Benefits Discount (%)</Label>
                         <Input
-                          id="duration"
+                          id="discount"
                           type="number"
-                          value={duration}
-                          onChange={(e) => setDuration(e.target.value)}
+                          value={discountPercentage}
+                          onChange={(e) => setDiscountPercentage(e.target.value)}
+                          placeholder="e.g., 20"
                           className="bg-input-background"
                         />
+                        <p className="text-[10px] text-muted-foreground">Applies to ₹{benefitSubtotal} (Benefit Total)</p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="totalHours">Total Allocated Hours</Label>
+                        <Label htmlFor="misc">Miscellaneous Cost (₹)</Label>
                         <Input
-                          id="totalHours"
+                          id="misc"
                           type="number"
-                          value={totalHours}
-                          onChange={(e) => setTotalHours(e.target.value)}
-                          placeholder="e.g., 120"
+                          value={miscellaneousCost}
+                          onChange={(e) => setMiscellaneousCost(e.target.value)}
+                          placeholder="e.g., 500"
                           className="bg-input-background"
                         />
+                        <p className="text-[10px] text-muted-foreground">Non-discountable extra costs</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="cost">Total Cost (₹) — <span className="text-[10px] text-primary uppercase font-bold">Auto-calculated</span></Label>
+                        <Label htmlFor="mrp">Total MRP (₹)</Label>
                         <Input
-                          id="cost"
-                          type="number"
-                          value={totalCost}
-                          onChange={(e) => setTotalCost(e.target.value)}
-                          className="bg-input-background font-bold text-primary border-primary/20"
-                          placeholder="Calculated from benefits..."
+                            id="mrp"
+                            disabled
+                            value={mrp}
+                            className="bg-secondary/50 text-muted-foreground"
                         />
-                        <p className="text-[10px] text-muted-foreground">
-                          Sum of (Benefit Cost × Units) × {duration} months
-                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cost">Final Price (₹)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="cost"
+                            type="number"
+                            value={totalCost}
+                            onChange={(e) => {
+                              setTotalCost(e.target.value);
+                              setIsManualPrice(true);
+                            }}
+                            className={`font-bold border-primary/20 ${isManualPrice ? 'bg-orange-50 text-orange-700' : 'bg-input-background text-primary'}`}
+                            placeholder="Set final cost..."
+                          />
+                          {isManualPrice && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setIsManualPrice(false)}
+                              className="text-[10px] h-10"
+                            >
+                              Reset
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -433,26 +480,38 @@ export default function SubscriptionsPage() {
                   <div className="space-y-4">
                     <div className="p-4 bg-secondary rounded-lg">
                       <h3 className="font-semibold text-lg">{packageName}</h3>
-                      <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                      <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Duration:</span>
-                          <span className="ml-2 font-medium">{duration} months</span>
+                          <span className="text-muted-foreground">Original Benefit Cost:</span>
+                          <span className="ml-2 font-medium">₹{benefitSubtotal}</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Cost:</span>
-                          <span className="ml-2 font-medium">₹{totalCost}</span>
+                          <span className="text-muted-foreground">Benefit Discount:</span>
+                          <span className="ml-2 font-medium text-success-foreground">-{discountPercentage}%</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Allocated Hours:</span>
-                          <span className="ml-2 font-medium">{totalHours} Hours</span>
+                          <span className="text-muted-foreground">Miscellaneous:</span>
+                          <span className="ml-2 font-medium">₹{miscellaneousCost}</span>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Active From:</span>
-                          <span className="ml-2 font-medium">{activeFrom}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Active To:</span>
-                          <span className="ml-2 font-medium">{activeTo}</span>
+                        <div className="pt-2 border-t">
+                          <Label className="text-muted-foreground font-bold mb-1 block">Final Cost (₹) — <span className="text-[10px] text-primary">Edit if needed</span></Label>
+                          <Input 
+                            type="number"
+                            value={totalCost}
+                            onChange={(e) => {
+                              setTotalCost(e.target.value);
+                              setIsManualPrice(true);
+                            }}
+                            className="font-bold text-primary text-lg bg-white h-12"
+                          />
+                          {isManualPrice && (
+                            <button 
+                              onClick={() => setIsManualPrice(false)}
+                              className="text-[10px] text-primary underline mt-1"
+                            >
+                              Reset to calculated: ₹{Math.round((benefitSubtotal * (1 - (parseFloat(discountPercentage)||0)/100)) + (parseFloat(miscellaneousCost)||0))}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -466,8 +525,11 @@ export default function SubscriptionsPage() {
                           return (
                             <div key={benefitId} className="flex items-center justify-between p-3 border border-border rounded">
                               <span className="font-medium">{benefit.name}</span>
-                              <span className="text-sm text-muted-foreground">
-                                {benefitUnits[benefitId]} {benefit.unitLabel}/month
+                              <span className="text-sm">
+                                <span className="font-bold text-foreground">
+                                  {benefitUnits[benefitId]} 
+                                  {(benefit.unitLabel || '').replace(/^per\s+/i, '')}
+                                </span>
                               </span>
                             </div>
                           );
@@ -543,14 +605,19 @@ export default function SubscriptionsPage() {
                       </CardTitle>
                       <StatusChip status={pkg.isActive ? 'Active' : 'Inactive'} />
                     </div>
-                    <CardDescription>{pkg.duration} months</CardDescription>
+                    {pkg.discountPercentage > 0 && (
+                      <CardDescription>
+                        <span className="line-through mr-2 text-xs">₹{pkg.mrp}</span>
+                        <span className="text-success-foreground text-xs font-bold">{pkg.discountPercentage}% OFF on Benefits</span>
+                        {pkg.miscellaneousCost > 0 && (
+                          <span className="text-[10px] ml-2 text-muted-foreground">(+ ₹{pkg.miscellaneousCost} misc)</span>
+                        )}
+                      </CardDescription>
+                    )}
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold text-primary">₹{pkg.totalCost}</span>
-                      <span className="text-sm font-medium bg-orange-50 text-orange-700 px-3 py-1 rounded-lg">
-                        {pkg.totalHours || 0} Hours
-                      </span>
+                      <span className="text-2xl font-bold text-primary">₹{pkg.basePrice || pkg.totalCost}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       <p>Active: {pkg.activeFrom} to {pkg.activeTo}</p>

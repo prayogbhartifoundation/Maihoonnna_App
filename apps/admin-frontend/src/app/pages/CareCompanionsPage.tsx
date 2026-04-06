@@ -21,6 +21,7 @@ interface CareCompanionItem {
   teamName?: string;
   bgvVerified: boolean;
   kycVerified: boolean;
+  ccType: string;
 }
 
 const CareCompanions = () => {
@@ -35,6 +36,7 @@ const CareCompanions = () => {
 
   const [search, setSearch] = useState('');
   const [searchBy, setSearchBy] = useState('');
+  const [ccTypeFilter, setCcTypeFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -45,7 +47,7 @@ const CareCompanions = () => {
     try {
       const [zones, ccResponse] = await Promise.all([
         teamApi.getZones(),
-        careCompanionApi.getAllPaginated({ search, searchBy, page, limit })
+        careCompanionApi.getAllPaginated({ search, searchBy, page, limit, ccType: ccTypeFilter })
       ]);
 
       setNodalCenters(zones);
@@ -62,6 +64,7 @@ const CareCompanions = () => {
         teamName: cc.teamName,
         bgvVerified: cc.bgvVerified || false,
         kycVerified: cc.kycVerified || false,
+        ccType: cc.ccType || 'care_assistant',
       }));
 
       setCompanions(dbCompanions);
@@ -77,7 +80,7 @@ const CareCompanions = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData, search, searchBy, page]);
+  }, [fetchData, search, searchBy, page, ccTypeFilter]);
 
   const handleAddCC = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -143,17 +146,36 @@ const CareCompanions = () => {
       </div>
 
       {/* Data Filter */}
-      <DataFilter 
-        searchByOptions={[
-          { label: 'Name', value: 'name' },
-          { label: 'Zone', value: 'zone' }
-        ]}
-        onFilterChange={(state) => {
-          setSearch(state.search);
-          setSearchBy(state.searchBy || '');
-          setPage(1);
-        }} 
-      />
+      <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="flex-1">
+          <DataFilter 
+            searchByOptions={[
+              { label: 'Name', value: 'name' },
+              { label: 'Zone', value: 'zone' }
+            ]}
+            onFilterChange={(state) => {
+              setSearch(state.search);
+              setSearchBy(state.searchBy || '');
+              setPage(1);
+            }} 
+          />
+        </div>
+        <div className="flex items-center gap-3 bg-white px-6 py-2 rounded-2xl border border-[#E7DED6]">
+          <Filter size={18} className="text-gray-400" />
+          <select 
+            value={ccTypeFilter}
+            onChange={(e) => {
+              setCcTypeFilter(e.target.value);
+              setPage(1);
+            }}
+            className="bg-transparent text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer"
+          >
+            <option value="all">All Staff Types</option>
+            <option value="nurse">Nurses</option>
+            <option value="care_assistant">Care Assistants</option>
+          </select>
+        </div>
+      </div>
 
       {/* Results Area */}
       <div className="relative min-h-[400px]">
@@ -190,7 +212,9 @@ const CareCompanions = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-800">{cc.name}</h3>
-                    <p className="text-xs text-gray-400 uppercase font-bold">{cc.gender}</p>
+                    <p className="text-xs text-[#FF7A00] uppercase font-black tracking-tight mt-0.5">
+                      {cc.ccType === 'nurse' ? '👨‍⚕️ Nurse' : '🏠 Care Assistant'}
+                    </p>
                   </div>
                 </div>
                 <span className={`h-fit px-3 py-1 rounded-full text-[10px] font-black uppercase ${cc.isAvailable ? 'bg-[#DFF4E6] text-green-700' : 'bg-gray-100 text-gray-400'}`}>

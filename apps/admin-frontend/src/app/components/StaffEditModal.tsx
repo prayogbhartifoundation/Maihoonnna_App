@@ -399,6 +399,37 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                         className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
                       />
                     </div>
+                    <div className="md:col-span-2 space-y-2 mb-4">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Type of Care Companion</label>
+                      <div className="flex gap-4">
+                        {[
+                          { id: 'nurse', label: 'Nurse' },
+                          { id: 'care_assistant', label: 'Care Assistant' },
+                        ].map((type) => (
+                          <label
+                            key={type.id}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                              formState.professional.ccType === type.id
+                                ? 'bg-[#FF7A00] border-[#FF7A00] text-white'
+                                : 'bg-white border-[#E7DED6] text-gray-600 hover:border-[#FF7A00]'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="ccType"
+                              value={type.id}
+                              checked={formState.professional.ccType === type.id}
+                              onChange={(e) => updateNestedField('professional', 'ccType', e.target.value)}
+                              className="hidden"
+                            />
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formState.professional.ccType === type.id ? 'border-white' : 'border-gray-300'}`}>
+                              {formState.professional.ccType === type.id && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
+                            <span className="font-bold text-xs">{type.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   </>
                 )}
 
@@ -572,7 +603,34 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
 
                     {/* Verification Status */}
                     <div className="mt-8 pt-6 border-t border-[#E7DED6]">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Verification Status</p>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Verification Status & Initiation</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">BGV Initiation Type</label>
+                          <select
+                            value={formState.assignment.bgvType || 'police_clearance'}
+                            onChange={(e) => updateNestedField('assignment', 'bgvType', e.target.value)}
+                            className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                          >
+                            <option value="police_clearance">Police clearance</option>
+                            <option value="address_verification">Address verification</option>
+                            <option value="employment_history">Employment history</option>
+                            <option value="education_verification">Education verification</option>
+                            <option value="identity_verification">Identity verification</option>
+                            <option value="reference_check">Reference check</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">BGV Agency Name</label>
+                          <input
+                            value={formState.assignment.bgvAgency || ''}
+                            onChange={(e) => updateNestedField('assignment', 'bgvAgency', e.target.value)}
+                            placeholder="Agency / Partner Name"
+                            className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                          />
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label className="flex items-center justify-between bg-white rounded-2xl p-4 border border-[#E7DED6] cursor-pointer hover:border-[#FF7A00] transition-colors">
                           <div className="flex items-center gap-3">

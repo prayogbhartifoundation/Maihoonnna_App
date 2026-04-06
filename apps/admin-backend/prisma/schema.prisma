@@ -542,8 +542,11 @@ model CareCompanion {
   qualifications            String[]        @default([])
   nursingRegistrationNumber String?
   nursingCouncil            String?
+  ccType                    String?         @default("care_assistant") // nurse | care_assistant
   shiftPreference           ShiftPreference @default(any)
   maxDailyVisits            Int?
+  maxPrimaryBeneficiaries   Int             @default(5)
+  maxSecondaryBeneficiaries Int             @default(5)
   willingClinicVisits       Boolean         @default(false)
   hasTwoWheeler             Boolean         @default(false)
   rating                    Float           @default(5.0)
@@ -555,12 +558,13 @@ model CareCompanion {
   createdAt                 DateTime        @default(now())
   updatedAt                 DateTime        @updatedAt
 
-  user         User          @relation("CareCompanionToUser", fields: [userId], references: [id])
-  team         Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  user         User                       @relation("CareCompanionToUser", fields: [userId], references: [id])
+  team         Team?                      @relation(fields: [teamId], references: [id], onDelete: SetNull)
   visits       Visit[]
   appointments Appointment[]
-  primaryFor   Beneficiary[] @relation("PrimaryCC")
-  secondaryFor Beneficiary[] @relation("SecondaryCC")
+  primaryFor   Beneficiary[]              @relation("PrimaryCC")
+  secondaryFor Beneficiary[]              @relation("SecondaryCC")
+  blockers     StaffAvailabilityBlocker[]
 
   @@index([name])
   @@index([teamId])
@@ -635,6 +639,8 @@ model StaffProfile {
   teamId                 String?
   reportsToUserId        String?
   employmentStatus       StaffEmploymentStatus @default(draft)
+  bgvType                String?
+  bgvAgency              String?
   bgvVerified            Boolean               @default(false)
   kycVerified            Boolean               @default(false)
   joinedAt               DateTime?
@@ -730,14 +736,14 @@ model StaffTraining {
 model Team {
   id             String   @id @default(uuid())
   name           String
-  fieldManagerId String?
+  fieldManagerId String
   zone           String
   description    String?
   maxCapacity    Int      @default(15)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  fieldManager   FieldManager?   @relation(fields: [fieldManagerId], references: [id])
+  fieldManager   FieldManager    @relation(fields: [fieldManagerId], references: [id])
   careCompanions CareCompanion[]
   staffProfiles  StaffProfile[]
 
@@ -751,6 +757,7 @@ model BenefitType {
   iconCode     String?
   displayOrder Int      @default(0)
   isActive     Boolean  @default(true)
+  isSystem     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -774,8 +781,9 @@ model Benefit {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  benefitType     BenefitType      @relation(fields: [benefitTypeId], references: [id])
+  benefitType     BenefitType                  @relation(fields: [benefitTypeId], references: [id])
   packageBenefits PackageBenefit[]
+  balances        SubscriptionBenefitBalance[]
 
   @@map("benefits")
 }
@@ -820,34 +828,36 @@ model PackageDiscount {
 }
 
 model SubscriptionPackage {
-  id                String    @id @default(uuid())
-  type              String    @unique
-  name              String
-  tagline           String?
-  description       String
-  basePrice         Float
-  currency          String    @default("INR")
-  billingCycle      String    @default("monthly")
-  isFreeTrial       Boolean   @default(false)
-  trialDurationDays Int?
-  activeFrom        DateTime  @default(now())
-  activeTo          DateTime?
-  discountSixMonths Float     @default(10.0)
-  discountAnnual    Float     @default(20.0)
-  durationMonths    Int       @default(1)
-  visitsPerWeek     Int       @default(0)
-  hoursPerMonth     Float     @default(0)
-  totalHours        Float     @default(0)
-  maxBeneficiaries  Int       @default(1)
-  features          String[]  @default([])
-  highlightFeatures String[]  @default([])
-  color             String?
-  isPopular         Boolean   @default(false)
-  isGlobal          Boolean   @default(true)
-  isActive          Boolean   @default(true)
-  sortOrder         Int       @default(0)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                 String    @id @default(uuid())
+  type               String    @unique
+  name               String
+  tagline            String?
+  description        String
+  basePrice          Float
+  mrp                Float     @default(0)
+  discountPercentage Float     @default(0)
+  miscellaneousCost  Float     @default(0)
+  currency           String    @default("INR")
+  billingCycle       String    @default("monthly")
+  isFreeTrial        Boolean   @default(false)
+  trialDurationDays  Int?
+  activeFrom         DateTime  @default(now())
+  activeTo           DateTime?
+  discountSixMonths  Float     @default(10.0)
+  discountAnnual     Float     @default(20.0)
+  durationMonths     Int       @default(1)
+  visitsPerWeek      Int       @default(0)
+  hoursPerMonth      Float     @default(0)
+  maxBeneficiaries   Int       @default(1)
+  features           String[]  @default([])
+  highlightFeatures  String[]  @default([])
+  color              String?
+  isPopular          Boolean   @default(false)
+  isGlobal           Boolean   @default(true)
+  isActive           Boolean   @default(true)
+  sortOrder          Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   subscriptions    Subscription[]
   packageBenefits  PackageBenefit[]
@@ -876,11 +886,12 @@ model Subscription {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
-  subscriber  User                @relation("SubscriberSubscriptions", fields: [subscriberId], references: [id])
-  beneficiary Beneficiary         @relation(fields: [beneficiaryId], references: [id])
-  package     SubscriptionPackage @relation(fields: [packageType], references: [type])
-  payments    Payment[]
-  hoursLogs   PackageHoursLog[]
+  subscriber      User                         @relation("SubscriberSubscriptions", fields: [subscriberId], references: [id])
+  beneficiary     Beneficiary                  @relation(fields: [beneficiaryId], references: [id])
+  package         SubscriptionPackage          @relation(fields: [packageType], references: [type])
+  payments        Payment[]
+  hoursLogs       PackageHoursLog[]
+  benefitBalances SubscriptionBenefitBalance[]
 
   @@index([subscriberId])
   @@index([beneficiaryId])
@@ -1336,4 +1347,47 @@ model CouponAttemptLog {
   @@index([userId])
   @@index([couponCode])
   @@map("coupon_attempt_logs")
+}
+
+model SubscriptionBenefitBalance {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  benefitId      String
+  totalUnits     Int      @default(0)
+  usedUnits      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  benefit      Benefit      @relation(fields: [benefitId], references: [id])
+
+  @@unique([subscriptionId, benefitId])
+  @@map("subscription_benefit_balances")
+}
+
+model StaffAvailabilityBlocker {
+  id              String   @id @default(uuid())
+  careCompanionId String
+  startTime       DateTime
+  endTime         DateTime
+  reason          String? // "Lunch", "Personal Work", "Training"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  careCompanion CareCompanion @relation(fields: [careCompanionId], references: [id], onDelete: Cascade)
+
+  @@index([careCompanionId])
+  @@map("staff_availability_blockers")
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g., "globalLunchStart", "globalLunchEnd"
+  value       String
+  group       String? // e.g., "scheduling"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_configs")
 }

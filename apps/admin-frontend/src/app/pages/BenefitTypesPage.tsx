@@ -10,8 +10,10 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { benefitTypeApi } from '../../services/api';
-import { Plus, Pencil, ToggleLeft, ToggleRight, Loader2, Tag } from 'lucide-react';
+import { Plus, Pencil, ToggleLeft, ToggleRight, Loader2, Tag, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '../components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 
 interface BenefitType {
   id: string;
@@ -20,6 +22,7 @@ interface BenefitType {
   iconCode?: string;
   displayOrder: number;
   isActive: boolean;
+  isSystem: boolean;
   _count?: { benefits: number };
 }
 
@@ -125,7 +128,14 @@ export default function BenefitTypesPage() {
           <CardContent className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="bt-name">Name *</Label>
-              <Input id="bt-name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Nurse, Pharmacy" />
+              <Input 
+                id="bt-name" 
+                value={name} 
+                onChange={e => setName(e.target.value)} 
+                placeholder="e.g. Nurse, Pharmacy" 
+                disabled={editing?.isSystem}
+              />
+              {editing?.isSystem && <p className="text-[10px] text-muted-foreground flex items-center mt-1"><Lock className="w-2 h-2 mr-1"/> System type names cannot be changed</p>}
             </div>
             <div className="space-y-1">
               <Label htmlFor="bt-desc">Description</Label>
@@ -179,20 +189,49 @@ export default function BenefitTypesPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <h3 className="font-semibold truncate">{type.name}</h3>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${type.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {type.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="flex gap-1">
+                      {type.isSystem && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-amber-50 text-amber-700 border-amber-200">
+                          <Lock className="w-2.5 h-2.5 mr-0.5" /> System
+                        </Badge>
+                      )}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${type.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {type.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
                   </div>
                   {type.description && <p className="text-xs text-muted-foreground mb-2">{type.description}</p>}
                   <p className="text-xs text-muted-foreground">{type._count?.benefits ?? 0} benefits</p>
                   <div className="flex gap-2 mt-3">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(type)} className="h-7 px-2 text-xs">
-                      <Pencil className="w-3 h-3 mr-1" /> Edit
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => toggleActive(type)} className="h-7 px-2 text-xs">
-                      {type.isActive ? <ToggleRight className="w-3 h-3 mr-1 text-green-600" /> : <ToggleLeft className="w-3 h-3 mr-1" />}
-                      {type.isActive ? 'Deactivate' : 'Activate'}
-                    </Button>
+                    {type.isSystem ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" disabled className="h-7 px-2 text-xs opacity-50 cursor-not-allowed">
+                                <Pencil className="w-3 h-3 mr-1" /> Edit
+                              </Button>
+                              <Button size="sm" variant="ghost" disabled className="h-7 px-2 text-xs opacity-50 cursor-not-allowed">
+                                <ToggleRight className="w-3 h-3 mr-1 text-green-600" /> Deactivate
+                              </Button>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">System types are required for tracking</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => openEdit(type)} className="h-7 px-2 text-xs">
+                          <Pencil className="w-3 h-3 mr-1" /> Edit
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => toggleActive(type)} className="h-7 px-2 text-xs">
+                          {type.isActive ? <ToggleRight className="w-3 h-3 mr-1 text-green-600" /> : <ToggleLeft className="w-3 h-3 mr-1" />}
+                          {type.isActive ? 'Deactivate' : 'Activate'}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>

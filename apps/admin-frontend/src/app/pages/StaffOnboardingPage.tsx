@@ -154,6 +154,7 @@ function createInitialFormState(role: StaffOnboardingRole): FormState {
       hasTwoWheeler: false,
       canApproveRoster: true,
       canOnboardCCs: false,
+      ccType: 'care_assistant',
     },
     assignment: {
       zoneId: '',
@@ -860,6 +861,46 @@ export default function StaffOnboardingPage() {
                       </>
                     )}
                   </div>
+
+                  {role === 'care_companion' && (
+                    <div className="mt-8 mb-4">
+                      <p className="text-sm font-black text-gray-700 mb-3 uppercase tracking-wider">Type of Care Companion</p>
+                      <div className="flex gap-4">
+                        {[
+                          { id: 'nurse', label: 'Nurse' },
+                          { id: 'care_assistant', label: 'Care Assistant' },
+                        ].map((type) => (
+                          <label
+                            key={type.id}
+                            className={`flex items-center gap-3 px-6 py-4 rounded-3xl border-2 transition-all cursor-pointer ${
+                              formState.professional.ccType === type.id
+                                ? 'bg-[#FF7A00] border-[#FF7A00] text-white shadow-lg'
+                                : 'bg-white border-[#E7DED6] text-gray-600 hover:border-[#FF7A00]'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="ccType"
+                              value={type.id}
+                              checked={formState.professional.ccType === type.id}
+                              onChange={(e) => setProfessionalField('ccType', e.target.value)}
+                              className="hidden"
+                            />
+                            <div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                formState.professional.ccType === type.id ? 'border-white' : 'border-gray-300'
+                              }`}
+                            >
+                              {formState.professional.ccType === type.id && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                              )}
+                            </div>
+                            <span className="font-bold text-sm tracking-tight">{type.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mt-6">
                     <p className="text-sm font-black text-gray-700 mb-3">Expert skills & specializations</p>

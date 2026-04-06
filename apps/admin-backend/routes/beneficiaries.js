@@ -3,6 +3,7 @@ const router = express.Router();
 const path = require('path');
 
 const { prisma } = require('../lib/prisma');
+const { checkCCAvailability } = require('../services/scheduling');
 
 // ── GET /api/beneficiaries ───────────────────────────────────────────────────
 router.get('/', async (req, res) => {
@@ -174,14 +175,28 @@ router.get('/available-staff', async (req, res) => {
             }
         });
 
-        const careCompanions = ccProfiles
+        const careCompanions = await Promise.all(ccProfiles
             .filter(p => p.user?.careCompanionProfile)
-            .map(p => ({
-                id: p.user.careCompanionProfile.id,
-                userId: p.userId,
-                name: p.user.careCompanionProfile.name || p.user?.name,
-                zone: p.user.careCompanionProfile.zone,
-                isAvailable: p.user.careCompanionProfile.isAvailable,
+            .map(async (p) => {
+                const baseInfo = {
+                    id: p.user.careCompanionProfile.id,
+                    userId: p.userId,
+                    name: p.user.careCompanionProfile.name || p.user?.name,
+                    zone: p.user.careCompanionProfile.zone,
+                    isAvailable: p.user.careCompanionProfile.isAvailable,
+                };
+
+                // If time and duration are provided, check real availability
+                if (req.query.dateTime && req.query.duration) {
+                    const { isAvailable, reason } = await checkCCAvailability(
+                        baseInfo.id,
+                        new Date(req.query.dateTime),
+                        parseInt(req.query.duration)
+                    );
+                    return { ...baseInfo, isAvailable, reason };
+                }
+
+                return baseInfo;
             }));
 
         const fieldManagers = fmProfiles
@@ -211,8 +226,27 @@ router.put('/:id/assign-staff', async (req, res) => {
     const { primaryCcId, secondaryCcId, fieldManagerId } = req.body;
     try {
         const data = {};
-        if (primaryCcId !== undefined)   data.primaryCcId   = primaryCcId   || null;
-        if (secondaryCcId !== undefined) data.secondaryCcId = secondaryCcId || null;
+        if (primaryCcId !== undefined) {
+            if (primaryCcId) {
+                // Check capacity
+                const count = await prisma.beneficiary.count({ where: { primaryCcId, isActive: true } });
+                const cc = await prisma.careCompanion.findUnique({ where: { id: primaryCcId } });
+                if (count >= (cc?.maxPrimaryBeneficiaries || 5)) {
+                    return res.status(400).json({ success: false, message: `Care Companion ${cc?.name || ''} has reached maximum primary capacity (5)` });
+                }
+            }
+            data.primaryCcId = primaryCcId || null;
+        }
+        if (secondaryCcId !== undefined) {
+            if (secondaryCcId) {
+                const count = await prisma.beneficiary.count({ where: { secondaryCcId, isActive: true } });
+                const cc = await prisma.careCompanion.findUnique({ where: { id: secondaryCcId } });
+                if (count >= (cc?.maxSecondaryBeneficiaries || 5)) {
+                    return res.status(400).json({ success: false, message: `Care Companion ${cc?.name || ''} has reached maximum secondary capacity (5)` });
+                }
+            }
+            data.secondaryCcId = secondaryCcId || null;
+        }
         if (fieldManagerId !== undefined) data.fieldManagerId = fieldManagerId || null;
 
         const updated = await prisma.beneficiary.update({
