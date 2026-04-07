@@ -32,6 +32,7 @@ import VitalsPage from './pages/VitalsPage';
 import CouponsPage from './pages/CouponsPage';
 import SubscriberProfilePage from './pages/SubscriberProfilePage';
 import BeneficiaryProfilePage from './pages/BeneficiaryProfilePage';
+import EnrollmentWizardPage from './pages/EnrollmentWizardPage';
 
 
 export const router = createBrowserRouter([
@@ -147,6 +148,10 @@ export const router = createBrowserRouter([
       {
         path: 'coupons',
         Component: CouponsPage,
+      },
+      {
+        path: 'enroll',
+        Component: EnrollmentWizardPage,
       },
     ],
   },

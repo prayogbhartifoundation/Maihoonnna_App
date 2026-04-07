@@ -13,6 +13,7 @@ import {
 import { useState, useRef } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Update this if you run on a physical device to your computer's local IP (e.g., http://192.168.1.5:3000/api)
 import { API_URL } from '@/constants/api';
@@ -44,53 +45,58 @@ export default function VerifyOtpScreen() {
     };
 
     const handleVerify = async () => {
-        // TEMPORARILY BYPASSED FOR TESTING
-        // const enteredOtp = otp.join("");
-        // if (enteredOtp.length !== 6) {
-        //   Alert.alert("Invalid OTP", "Please fill in all 6 digits.");
-        //   return;
-        // }
+        const enteredOtp = otp.join("");
+        if (enteredOtp.length !== 6) {
+          Alert.alert("Invalid OTP", "Please fill in all 6 digits.");
+          return;
+        }
 
-        // if (!phone) {
-        //   Alert.alert("Error", "Phone number is missing. Go back and try logging in again.");
-        //   return;
-        // }
+        if (!phone) {
+          Alert.alert("Error", "Phone number is missing. Go back and try logging in again.");
+          return;
+        }
 
         setIsLoading(true);
 
         try {
             // 1. Call your real backend to verify the code
-            // const response = await fetch(`${API_URL}/auth/verify-otp`, {
-            //   method: "POST",
-            //   headers: {
-            //     "Content-Type": "application/json",
-            //   },
-            //   body: JSON.stringify({ phone, otp: enteredOtp }), // Pass phone & otp
-            // });
+            const response = await fetch(`${API_URL}/auth/verify-otp`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ phone, otp: enteredOtp }), // Pass phone & otp
+            });
 
-            // const data = await response.json();
+            const data = await response.json();
 
-            // if (data.success) {
-            // 2. Authentication Succeeded! Proceed to next Location Screen
-            // In a real app, you would also securely store `data.token` here so the user stays logged in
-            //
-            // // NEW LOGIC FOR BENEFICIARY LOGIN:
-            // if (data.user.role === 'beneficiary') {
-            //    router.replace('/(beneficiary)');
-            // } else {
-            //    router.push("/(setup)/subscription-packages");
-            // }
+            if (data.success) {
+                // 2. Authentication Succeeded! 
+                
+                if (data.isNewUser) {
+                    // Navigate to registration if user profile doesn't exist yet
+                    router.push({ pathname: "/(auth)/register", params: { phone } });
+                } else if (data.user) {
+                    // 3. PERSIST THE SESSION
+                    await AsyncStorage.setItem("userToken", data.token);
+                    await AsyncStorage.setItem("userData", JSON.stringify(data.user));
 
-            // TEMPORARY BYPASS (Assuming subscriber for now until backend testing is active)
-            router.replace("/(subscriber)");
-
-            // } else {
-            //   // 3. Failed validation (Wrong OTP, Expired, etc)
-            //   Alert.alert("Verification Failed", data.message || "Invalid OTP entered.");
-            //   // Clear all OTP input fields so they can try again quickly
-            //   setOtp(["", "", "", "", "", ""]);
-            //   inputRefs.current[0]?.focus();
-            // }
+                    // 4. ROLE-BASED REDIRECTION
+                    if (data.user.role === 'beneficiary') {
+                        router.replace('/(beneficiary)');
+                    } else if (data.user.role === 'care_companion' || data.user.role === 'volunteer') {
+                        router.replace('/(care-companion)');
+                    } else {
+                        router.replace("/(subscriber)");
+                    }
+                }
+            } else {
+                // 3. Failed validation (Wrong OTP, Expired, etc)
+                Alert.alert("Verification Failed", data.message || "Invalid OTP entered.");
+                // Clear all OTP input fields so they can try again quickly
+                setOtp(["", "", "", "", "", ""]);
+                inputRefs.current[0]?.focus();
+            }
         } catch (error) {
             console.error("Verify OTP Error:", error);
             Alert.alert("Network Error", "Could not connect to the backend server.");

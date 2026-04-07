@@ -104,3 +104,12 @@
   - [x] Updated Mobile App to show dynamic units, strike-through MRP, and discount badges
   - [x] Synced schema across `admin-backend` and `mobile-backend`
   - [x] Refined price calculation logic to apply discounts strictly to benefit subtotals
+
+- [x] Pincode Serviceability & Enrollment Wizard UI Modernization (2026-04-07)
+  - [x] Standardized `GET /api/zones/check-pincode/:pincode` backend response
+  - [x] Updated `PincodeCheck.tsx` to return full zone data
+  - [x] Integrated auto-fill for Subscriber/Beneficiary City & State in Enrollment Wizard
+  - [x] Redesigned "Medical & Life" step with dynamic Conditions, Medications, and Hobbies
+  - [x] Integrated structured Medication scheduling (slots, reminders) in UI and Backend
+  - [x] Implemented dynamic MedicalCondition auto-creation/linking in `admin-enroll` route
+  - [x] Fixed JSX structural breakages and restored wizard stability

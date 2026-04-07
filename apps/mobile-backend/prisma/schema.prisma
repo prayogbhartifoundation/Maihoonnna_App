@@ -470,6 +470,7 @@ model Beneficiary {
   latitude              Float?
   longitude             Float?
   relationship          String?
+  maritalStatus         String?
   primaryPhysicianName  String?
   primaryPhysicianPhone String?
   primaryPhysicianSpec  String?
@@ -638,6 +639,8 @@ model StaffProfile {
   teamId                 String?
   reportsToUserId        String?
   employmentStatus       StaffEmploymentStatus @default(draft)
+  bgvType                String?
+  bgvAgency               String?
   bgvVerified            Boolean               @default(false)
   kycVerified            Boolean               @default(false)
   joinedAt               DateTime?

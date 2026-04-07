@@ -776,4 +776,85 @@ export const staffOnboardingApi = {
   },
 };
 
+// ============================================================================
+// ENROLLMENT API — Admin-side subscriber + beneficiary enrollment
+// ============================================================================
 
+export const enrollmentApi = {
+  /** Check if a phone number already exists in DB and fetch their beneficiaries */
+  async checkPhone(phone: string): Promise<{
+    exists: boolean;
+    id?: string;
+    name?: string;
+    role?: string;
+    isActive?: boolean;
+    beneficiaries?: any[];
+  }> {
+    return apiJson(`/subscriptions/check-phone?phone=${encodeURIComponent(phone)}`);
+  },
+
+  /** Full admin enrollment: creates subscriber + beneficiary + subscription + payment in one shot */
+  async adminEnroll(payload: {
+    subscriberPhone: string;
+    subscriberName: string;
+    subscriberEmail?: string;
+    subscriberAddress?: string;
+    subscriberPincode?: string;
+    subscriberCity?: string;
+    subscriberState?: string;
+    sameAsSubscriber: boolean;
+    beneficiaryPhone?: string;
+    beneficiaryName?: string;
+    beneficiaryAge?: number;
+    beneficiaryDob?: string;
+    beneficiaryGender?: string;
+    maritalStatus?: string;
+    profilePhoto?: string;
+    beneficiaryAddress?: string;
+    beneficiaryPincode?: string;
+    beneficiaryCity?: string;
+    beneficiaryState?: string;
+    relationship?: string;
+    medicalConditions?: any[];
+    medications?: any[];
+    vitalsToTrack?: any;
+    primaryPhysicianName?: string;
+    primaryPhysicianPhone?: string;
+    hobbiesInterests?: string[];
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    emergencyContactRelationship?: string;
+    emergencyContactEmail?: string;
+    secondaryContactName?: string;
+    secondaryContactPhone?: string;
+    secondaryContactRelationship?: string;
+    secondaryContactEmail?: string;
+    preferredSlot?: string;
+    packageId: string;
+    duration: string;
+    startDate: string;
+    amountPaid: number;
+    paymentMethod: string;
+    paymentNote?: string;
+  }): Promise<{
+    subscription: any;
+    subscriber: { id: string; name: string; phone: string };
+    beneficiary: { id: string; name: string };
+    package: { name: string; type: string; basePrice: number };
+    invoiceNumber: string;
+  }> {
+    return apiJson('/subscriptions/admin-enroll', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /** Check if a pincode is serviceable by any active zone */
+  async checkPincode(pincode: string): Promise<{
+    success: boolean;
+    serviceable: boolean;
+    zone: { id: string; name: string; city: string; state: string } | null;
+  }> {
+    return apiJson(`/zones/check-pincode/${encodeURIComponent(pincode)}`);
+  },
+};

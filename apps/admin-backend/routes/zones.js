@@ -58,6 +58,38 @@ router.get('/', async (req, res) => {
     }
 });
 
+// ── GET /api/zones/check-pincode/:pincode ──────────────────────────────────
+router.get('/check-pincode/:pincode', async (req, res) => {
+    try {
+        const { pincode } = req.params;
+        if (!pincode) return res.status(400).json({ success: false, message: 'pincode is required' });
+
+        const zone = await prisma.zone.findFirst({
+            where: {
+                pincode: pincode,
+                isActive: true
+            },
+            select: {
+                id: true,
+                name: true,
+                city: true,
+                state: true
+            }
+        });
+
+        res.json({
+            success: true,
+            data: {
+                serviceable: !!zone,
+                zone: zone || null
+            }
+        });
+    } catch (err) {
+        console.error('GET /check-pincode error:', err);
+        res.status(500).json({ success: false, message: 'Failed to check pincode' });
+    }
+});
+
 // ── GET /api/zones/:id ─────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
     try {

@@ -6,7 +6,7 @@ export const sendOtpSchema = Joi.object({
 
 export const verifyOtpSchema = Joi.object({
   phone: Joi.string().required(),
-  otp: Joi.string().length(6).pattern(/^\d+$/).required(),
+  otp: Joi.string().min(4).max(6).pattern(/^\d+$/).required(),
 });
 
 export const checkLocationSchema = Joi.object({

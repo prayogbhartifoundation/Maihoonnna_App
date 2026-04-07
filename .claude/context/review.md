@@ -42,3 +42,20 @@
 - **StaffProfile Dependency**: The `available-staff` filtering logic relies on `StaffProfile.zoneId`. Seeding must include both `CareCompanion` (profile) and `StaffProfile` (role/zone link) for the Admin UI to function correctly.
 - **Pincode String Matching**: Uses exact string matching for `pincode` in `Zone` and `Beneficiary` models to bridge staff assignments.
 
+---
+
+## Architecture Notes: Enrollment Wizard & Medical Synchronization (2026-04-07)
+- **Single-Step Admin Enrollment**: The `admin-enroll` route (`subscriptions.js`) handles the creation of a Subscriber User, Beneficiary User, Beneficiary Profile, Emergency Contacts, Medications, and a fresh Subscription in a single Prisma `$transaction`.
+- **Dynamic Medical Condition Resolution**: 
+    - The frontend sends a simple `string[]` of medical conditions. 
+    - The backend performs a "find-or-create" on `MedicalCondition` by name.
+    - Slug generation (`toLowerCase`, `replace spaces with hyphens`) ensures URI-safe lookups.
+    - `BeneficiaryCondition` links are created with `upsert` to handle repeat enrollments or existing data gracefully.
+- **Structured Medication Persistence**: 
+    - `Medication` model now stores UI-selected `timeSlots` (`morning`, `afternoon`, `evening`) in a `String[]` column.
+    - `setReminders` is passed directly to the DB to enable push notifications for medicine intake via the mobile app.
+- **Pincode Serviceability Auto-Fill**:
+    - `PincodeCheck` component abstracts the `GET /api/zones/check-pincode/:pincode` call.
+    - `EnrollmentWizardPage` listens for the `onCheck` callback to auto-populate `City` and `State` fields, reducing manual entry for admins.
+- **Relationship Persistence**: `relationship` (e.g. "Father", "Mother") is captured during beneficiary creation and persisted to the `Beneficiary` table for emergency dispatch context.
+

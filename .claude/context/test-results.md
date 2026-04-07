@@ -19,3 +19,8 @@
 - Global TypeScript Check: `npx tsc --noEmit` Success (all subscription enum errors fixed)
 - Database Force-Reset: `npx prisma db push --force-reset` Success (merged SubscriptionPackage model)
 - Test Data Seeding: `npx ts-node prisma/seed_test.ts` Success (beneficiaries and packages populated)
+- Pincode Serviceability Check: Success — `GET /api/zones/check-pincode` returns correct area metadata.
+- Enrollment Wizard UI (Step 3): Manual Verification — Dynamic Condition/Medication/Hobby dialogs and lists functioning correctly.
+- Pincode Auto-Fill integration: Manual Verification — Subscriber/Beneficiary City & State auto-populate on 10-digit pincode entry.
+- Backend Admin-Enroll Pipeline: Success — Nested `medicationList` with slots and dynamically resolved `MedicalCondition` links persisted atomically.
+- JSX structural integrity: `EnrollmentWizardPage.tsx` compiles and transitions through all 5 steps without runtime crashes.

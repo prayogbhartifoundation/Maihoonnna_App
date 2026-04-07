@@ -766,5 +766,6 @@ export const mockStaffOnboardingMetadata: StaffOnboardingMetadata = {
         { id: 'Z002', name: 'Koramangala Nodal Center', city: 'Bangalore', pincode: '560095' }
       ] 
     },
-  ]
+  ],
+  specializations: ['Nursing', 'Physiotherapy', 'Dementia Care', 'Post-Op Recovery', 'Palliative Care']
 };

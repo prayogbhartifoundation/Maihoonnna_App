@@ -13,6 +13,8 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(subscriber)" />
+        <Stack.Screen name="(beneficiary)" />
+        <Stack.Screen name="(care-companion)" />
       </Stack>
 
       <StatusBar style="auto" />

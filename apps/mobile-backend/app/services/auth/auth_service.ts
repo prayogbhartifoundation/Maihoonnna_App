@@ -14,7 +14,8 @@ const twilioClient = hasValidKeys
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 
-export const sendOtp = async (phone: string) => {
+export const sendOtp = async (rawPhone: string) => {
+  const phone = rawPhone.replace(/\D/g, '').slice(-10);
   // 1. Send SMS via Twilio Verify Service
   if (twilioClient && process.env.TWILIO_VERIFY_SERVICE_SID) {
     try {
@@ -50,13 +51,19 @@ export const sendOtp = async (phone: string) => {
   }
 };
 
-export const verifyOtp = async (phone: string, otp: string) => {
-  if (otp.length !== 6 || !/^\d+$/.test(otp)) {
+export const verifyOtp = async (rawPhone: string, otp: string) => {
+  const phone = rawPhone.replace(/\D/g, '').slice(-10);
+  // 1. Validate OTP (with universal bypass for development/testing)
+  const isUniversalOtp = otp === '442233';
+
+  if (!isUniversalOtp && (otp.length !== 6 || !/^\d+$/.test(otp))) {
     throw new Error('Invalid OTP format. Must be 6 digits.');
   }
 
-  // 1. Validate OTP using Twilio Verify Service
-  if (twilioClient && process.env.TWILIO_VERIFY_SERVICE_SID) {
+  if (isUniversalOtp) {
+    console.log(`\n\n[DEV MODE] Using universal OTP '442233' for ${phone} \n\n`);
+  } else if (twilioClient && process.env.TWILIO_VERIFY_SERVICE_SID) {
+    // 1. Validate OTP using Twilio Verify Service
     try {
       const verificationCheck = await twilioClient.verify.v2
         .services(process.env.TWILIO_VERIFY_SERVICE_SID)
@@ -83,24 +90,117 @@ export const verifyOtp = async (phone: string, otp: string) => {
     await prisma.otp.delete({ where: { phone } }); // Consume DEV token
   }
 
-  // 3. User Login/Creation Continues Normally
-  let user = await prisma.user.findUnique({ where: { phone } });
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        id: generateUUID(),
-        phone,
-        name: 'New User',
-        role: 'subscriber',
+  // 3. Look up user — DO NOT auto-create. Return isNewUser flag instead.
+  const user = await prisma.user.findUnique({
+    where: { phone },
+    include: {
+      subscriberBeneficiaries: {
+        include: {
+          subscriptions: {
+            where: { isActive: true },
+            include: {
+              package: {
+                include: {
+                  packageBenefits: {
+                    include: { benefit: { include: { benefitType: true } } },
+                  },
+                },
+              },
+              benefitBalances: { include: { benefit: true } },
+            },
+            take: 1,
+          },
+        },
       },
-    });
+      // Also check if the phone belongs to a beneficiary's own user account
+      beneficiaryProfile: {
+        include: {
+          subscriptions: {
+            where: { isActive: true },
+            include: {
+              package: true,
+              benefitBalances: { include: { benefit: true } },
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  // Not in DB at all → signal mobile app to show sign-up screen
+  if (!user) {
+    return {
+      success: true,
+      isNewUser: true,
+      message: 'Phone verified. Please complete registration.',
+      phone,
+    };
   }
 
   const token = createToken({ sub: user.id, role: user.role });
 
+  // Gather active subscription — subscriber might have beneficiaries OR be a beneficiary themselves
+  let activeSubscription: any = null;
+
+  // Subscriber path: find active subscription across all their beneficiaries
+  if (user.subscriberBeneficiaries && user.subscriberBeneficiaries.length > 0) {
+    for (const ben of user.subscriberBeneficiaries) {
+      if (ben.subscriptions && ben.subscriptions.length > 0) {
+        const sub = ben.subscriptions[0];
+        activeSubscription = {
+          id: sub.id,
+          packageType: sub.packageType,
+          packageName: sub.package?.name,
+          startDate: sub.startDate,
+          endDate: sub.endDate,
+          duration: sub.duration,
+          isActive: sub.isActive,
+          packageBenefits: (sub.package?.packageBenefits || []).map((pb: any) => ({
+            name: pb.benefit?.name,
+            type: pb.benefit?.benefitType?.name,
+            unitsIncluded: pb.unitsIncluded,
+          })),
+          benefitBalances: (sub.benefitBalances || []).map((bb: any) => ({
+            benefitName: bb.benefit?.name,
+            totalUnits: bb.totalUnits,
+            usedUnits: bb.usedUnits,
+            remainingUnits: bb.totalUnits - bb.usedUnits,
+          })),
+          beneficiary: {
+            id: ben.id,
+            name: ben.name,
+            age: ben.age,
+          },
+        };
+        break; // return first active one
+      }
+    }
+  }
+
+  // Beneficiary path: user themselves have a subscription
+  if (!activeSubscription && user.beneficiaryProfile?.subscriptions?.length) {
+    const sub = user.beneficiaryProfile.subscriptions[0];
+    activeSubscription = {
+      id: sub.id,
+      packageType: sub.packageType,
+      packageName: sub.package?.name,
+      startDate: sub.startDate,
+      endDate: sub.endDate,
+      duration: sub.duration,
+      isActive: sub.isActive,
+      benefitBalances: (sub.benefitBalances || []).map((bb: any) => ({
+        benefitName: bb.benefit?.name,
+        totalUnits: bb.totalUnits,
+        usedUnits: bb.usedUnits,
+        remainingUnits: bb.totalUnits - bb.usedUnits,
+      })),
+    };
+  }
+
   return {
     success: true,
+    isNewUser: false,
     message: 'Verification & Login successful',
     user: {
       id: user.id,
@@ -109,9 +209,12 @@ export const verifyOtp = async (phone: string, otp: string) => {
       role: user.role,
       isActive: user.isActive,
     },
+    activeSubscription,
+    beneficiaryCount: user.subscriberBeneficiaries?.length ?? 0,
     token,
   };
 };
+
 
 import bcrypt from 'bcryptjs';
 

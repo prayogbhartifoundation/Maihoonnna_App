@@ -470,6 +470,7 @@ model Beneficiary {
   latitude              Float?
   longitude             Float?
   relationship          String?
+  maritalStatus         String?
   primaryPhysicianName  String?
   primaryPhysicianPhone String?
   primaryPhysicianSpec  String?

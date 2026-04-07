@@ -296,15 +296,16 @@ export interface SubscriptionPackage {
   id: string;
   name: string;
   benefits: PackageBenefit[];
-  totalCost: number; // mapped from basePrice
-  basePrice: number; // The current price in DB
-  mrp: number;
-  discountPercentage: number;
-  miscellaneousCost: number;
+  duration?: number;
+  totalCost: number;
+  basePrice?: number;
+  mrp?: number;
+  discountPercentage?: number;
+  miscellaneousCost?: number;
   isActive: boolean;
   activeFrom: string;
   activeTo: string;
-  isGlobal: boolean;
+  isGlobal?: boolean;
   createdBy: string;
   createdAt: string;
 }

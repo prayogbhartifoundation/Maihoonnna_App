@@ -358,3 +358,50 @@
     - **Benefit-Centric Cards**: Replaced static feature strings with dynamic database benefits (e.g., **12 Sessions** of Physiotherapy).
     - **Bold Formatting**: Applied `800` font weight to unit quantities for better readability.
     - **Simplicity**: Removed legacy 6-month/Annual toggles to provide a more direct, benefit-focused choice.
+
+---
+
+## Session: System Benefit Types Locking & UI Governance (2026-04-06)
+
+### Database & Protection Layer
+- **Prisma Schema**: Added `isSystem: Boolean` (default: false) to the `BenefitType` model.
+- **Database Sync**: Pushed schema changes to Supabase via `npx prisma db push`.
+- **System Marking**: Executed a targeted migration script to mark the 7 core benefit types (**Nurse, Care Assistant, Ambulance, Tele-consultation, Physio Session, Lab Test, Pharmacy**) as `isSystem: true`.
+- **Backend Hardening**: Updated `benefitTypes.js` routes (`PATCH`, `DELETE`) to strictly block renaming or deactivation of system-protected types.
+
+### Admin Dashboard UI (`BenefitTypesPage.tsx`)
+- **System Badge**: Implemented a prominent amber "System" badge with a `Lock` icon for protected benefit types.
+- **Action Governance**: 
+    - Disabled **Edit** and **Deactivate** buttons for system types to prevent accidental modification.
+    - Integrated `TooltipProvider` to explain *why* these actions are disabled ("System types are required for tracking").
+- **Edit Form Protection**: Specifically disabled the "Name" input field when editing a system type to maintain data integrity for downstream hour-tracking systems.
+- **Lucide Integration**: Added `Lock` icon to the benefit cards for immediate visual recognition of protected status.
+
+### Source Control
+- Committed and pushed all changes to `main` branch with descriptive tracking.
+
+---
+
+## Session: Pincode Serviceability & Enrollment Wizard UI Modernization (2026-04-07)
+
+### Pincode Serviceability Check
+- **Backend Router (`zones.js`)**: Implemented `GET /api/zones/check-pincode/:pincode` returning standardized JSON wrapped in a `data` object.
+- **Frontend Component (`PincodeCheck.tsx`)**: Updated to pass the full `Zone` object to the parent on success.
+- **Wizard Integration**: Implemented auto-fill logic in `EnrollmentWizardPage.tsx` for City and State based on pincode serviceability results for both Subscriber and Beneficiary.
+
+### Enrollment Wizard: Medical & Life Modernization
+- **UI Redesign**: Replaced static text inputs with dynamic, interactive lists matching the mobile app's core UX.
+- **Medical Conditions**: Added a token-based system with a `Dialog` modal for adding custom conditions.
+- **Medication Scheduling**: Implemented a comprehensive `Add Medicine` form capturing Dosage, Frequency, Time Slots (Morning/Afternoon/Evening), and a `setReminders` toggle.
+- **Hobbies & Interests**: Added a badge-based system with a `Dialog` modal for capturing personal interests to aid social connection matching.
+- **Vitals Tracking**: Replaced standard checkboxes with a cleaner, grid-based toggle system for vital signs monitoring.
+
+### Backend Enrollment Logic (`subscriptions.js`)
+- **Medication Persistence**: Updated the `medicationList.create` mapping to correctly persist `timeSlots` (String[]) and `setReminders` (Boolean).
+- **Condition Synchronization**: Implemented dynamic `MedicalCondition` resolution: automatically finds existing conditions or creates new ones via slug-generation before linking to the beneficiary via `BeneficiaryCondition`.
+- **Relationship & Physician**: Ensured physician names, phones, and relationship fields are correctly persisted in the single-step admin enrollment flow.
+
+### Structural Integrity & Stability
+- Refactored `EnrollmentWizardPage.tsx` into a robust, multi-step conditional rendering architecture.
+- Resolved JSX syntax errors caused by nested component breakages during the complex UI overhaul.
+- Verified that the 5-step wizard correctly handles state transitions from Subscriber → Beneficiary → Medical → Emergency → Package → Payment.

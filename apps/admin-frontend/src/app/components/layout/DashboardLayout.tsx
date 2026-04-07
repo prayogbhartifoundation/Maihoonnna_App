@@ -40,6 +40,7 @@ const navigationItems = [
   { path: '/field-management', label: 'Field Management', icon: Calendar, roles: ['master_admin', 'operations_manager', 'field_manager'] },
   { path: '/operations-managers', label: 'Operations Managers', icon: Users, roles: ['master_admin', 'operations_manager'] },
   { path: '/subscribers', label: 'Subscribers', icon: UserCircle, roles: [] },
+  { path: '/enroll', label: 'Enroll Subscriber', icon: UserPlus, roles: [] },
   { path: '/beneficiaries', label: 'Beneficiaries', icon: Heart, roles: [] },
   { path: '/support', label: 'Support Team', icon: HeadphonesIcon, roles: ['master_admin', 'support_team'] },
   { path: '/activity-logs', label: 'Activity Logs', icon: FileText, roles: ['master_admin'] },
