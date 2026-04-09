@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 
@@ -9,6 +10,7 @@ const SUPPORTED_ONBOARDING_ROLES = new Set([
   'care_companion',
   'field_manager',
   'operations_manager',
+  'sales',
 ]);
 
 const SUPPORTED_BACKGROUND_CHECK_TYPES = new Set([
@@ -661,15 +663,22 @@ router.post('/staff/onboard', async (req, res) => {
     const primaryZone = zones.find((zone) => zone.id === primaryZoneId) || null;
 
     const created = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
+      const userData = {
           name: fullName,
           phone: mobileNumber,
           email,
           role,
           isActive: true,
           isVerified: false,
-        },
+      };
+
+      if (personal.newPassword && personal.newPassword.trim().length >= 6) {
+          const salt = await bcrypt.genSalt(10);
+          userData.password = await bcrypt.hash(personal.newPassword.trim(), salt);
+      }
+
+      const user = await tx.user.create({
+        data: userData,
       });
 
       const staffProfile = await tx.staffProfile.create({
@@ -892,6 +901,28 @@ router.get('/care-companions', async (req, res) => {
       }
     }
 
+    // RBAC: Field Manager only sees CCs in their team(s)
+    if (req.user && req.user.role === 'field_manager') {
+      const fm = await prisma.fieldManager.findUnique({
+        where: { userId: req.user.id },
+        select: { id: true }
+      });
+      if (fm) {
+        const teams = await prisma.team.findMany({
+          where: { fieldManagerId: fm.id },
+          select: { id: true }
+        });
+        const teamIds = teams.map(t => t.id);
+        filterParams.user = {
+          isActive: true,
+          staffProfile: { teamId: { in: teamIds } }
+        };
+      } else {
+        // FM has no profile, return empty
+        return res.json({ success: true, data: [] });
+      }
+    }
+
     const listQuery = {
       where: filterParams,
       include: {
@@ -1084,13 +1115,20 @@ router.put('/staff/:userId', async (req, res) => {
 
     await prisma.$transaction(async (tx) => {
       // 1. Update Core User Info
-      await tx.user.update({
-        where: { id: userId },
-        data: {
+      const userDataToUpdate = {
           name: asTrimmedString(personal.fullName),
           phone: asTrimmedString(personal.mobileNumber),
           email: asNullableString(personal.email)?.toLowerCase(),
-        },
+      };
+      
+      if (personal.newPassword && personal.newPassword.trim().length >= 6) {
+          const salt = await bcrypt.genSalt(10);
+          userDataToUpdate.password = await bcrypt.hash(personal.newPassword.trim(), salt);
+      }
+
+      await tx.user.update({
+        where: { id: userId },
+        data: userDataToUpdate,
       });
 
       // 2. Update Staff Profile

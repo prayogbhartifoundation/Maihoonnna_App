@@ -23,4 +23,10 @@
 - Enrollment Wizard UI (Step 3): Manual Verification — Dynamic Condition/Medication/Hobby dialogs and lists functioning correctly.
 - Pincode Auto-Fill integration: Manual Verification — Subscriber/Beneficiary City & State auto-populate on 10-digit pincode entry.
 - Backend Admin-Enroll Pipeline: Success — Nested `medicationList` with slots and dynamically resolved `MedicalCondition` links persisted atomically.
-- JSX structural integrity: `EnrollmentWizardPage.tsx` compiles and transitions through all 5 steps without runtime crashes.
+- **JSX structural integrity**: `EnrollmentWizardPage.tsx` compiles and transitions through all 5 steps without runtime crashes.
+- **Staff Auth Integration**: Manual Verification — Staff logins (Sales/FM/OM) now authenticated against DB via bcrypt hashing.
+- **RBAC Data Filtering**: Manual Verification — Field Managers correctly see only their assigned beneficiaries and available staff in their zone.
+- **CC Notification Dispatch**: Success — `Notification` records automatically created upon CC assignment within `assign-staff` Prisma transaction.
+- **Assigned Beneficiaries Endpoint**: Success — `GET /api/care-companion/profile/assigned-beneficiaries` returns correct data for CC app dashboard.
+- **Service Usage Deduction**: Success — `checkOut` Prisma transaction correctly subtracts hours from `Subscription` and logs audit trace in `PackageHoursLog`.
+- **Database Schema Sync**: Success — `npx prisma db push` run to fix missing `maritalStatus` column in Supabase DB, resolving `mobile-backend` startup crash.

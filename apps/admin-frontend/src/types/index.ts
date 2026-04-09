@@ -417,6 +417,7 @@ export interface StaffOnboardingPayload {
     pincode?: string;
     aadhaarNumber: string;
     panNumber?: string;
+    newPassword?: string;
   };
   professional: {
     qualification: string;

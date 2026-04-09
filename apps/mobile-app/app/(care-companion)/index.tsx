@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Activit
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { API_URL } from '@/constants/api';
 
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { CompanionBottomNav } from '../../components/care-companion/CompanionBottomNav';
@@ -43,7 +44,7 @@ export default function DashboardScreen() {
                 setLoading(true);
                 try {
                     // WHEN BACKEND IS READY, UNCOMMENT THIS:
-                    // const response = await fetch('http://your-api.com/dashboard');
+                    // const response = await fetch(`${API_URL}/care-companion/dashboard`);
                     // const data = await response.json();
                     // setDashboardData(data);
 

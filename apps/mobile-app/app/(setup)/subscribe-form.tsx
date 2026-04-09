@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,8 +8,10 @@ import {
     SafeAreaView,
     ScrollView,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    ActivityIndicator
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -27,6 +29,7 @@ export default function SubscribeFormScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
     const [selectedPackage, setSelectedPackage] = useState<PackageDetails>({
         id: 'loading...',
         name: 'Loading Package...',
@@ -35,9 +38,41 @@ export default function SubscribeFormScreen() {
         hoursString: '...'
     });
 
-    React.useEffect(() => {
-        const fetchPackage = async () => {
+    const [subscriberForm, setSubscriberForm] = useState({
+        fullName: '',
+        phone: '',
+        email: '',
+        address: ''
+    });
+
+    useEffect(() => {
+        const checkAuthAndFetchPackage = async () => {
             try {
+                // 1. Check for existing session
+                const stored = await AsyncStorage.getItem('userData');
+                if (stored) {
+                    const user = JSON.parse(stored);
+                    
+                    // If user is logged in, auto-fill and redirect "immediately"
+                    const subscriberData = {
+                        fullName: user.name || '',
+                        phone: user.phone?.replace('+91', '') || '',
+                        email: user.email || '',
+                        address: user.address || ''
+                    };
+
+                    // Skip the screen
+                    router.replace({
+                        pathname: '/(setup)/beneficiary-info',
+                        params: {
+                            packageId: params.packageId || 'silver',
+                            subscriberData: JSON.stringify(subscriberData)
+                        }
+                    });
+                    return; // Stop execution here
+                }
+
+                // 2. Fetch package details if not logged in
                 const response = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
                 const json = await response.json();
                 if (json.success) {
@@ -54,18 +89,13 @@ export default function SubscribeFormScreen() {
                     }
                 }
             } catch (err) {
-                console.error('Failed to fetch package:', err);
+                console.error('Failed to fetch package or auth:', err);
+            } finally {
+                setIsCheckingAuth(false);
             }
         };
-        fetchPackage();
+        checkAuthAndFetchPackage();
     }, [params.packageId]);
-
-    const [subscriberForm, setSubscriberForm] = useState({
-        fullName: '',
-        phone: '',
-        email: '',
-        address: ''
-    });
 
     const handleNext = () => {
         router.push({
@@ -80,6 +110,15 @@ export default function SubscribeFormScreen() {
     const handleBack = () => {
         router.back();
     };
+
+    if (isCheckingAuth) {
+        return (
+            <SafeAreaView style={styles.centerContainer}>
+                <ActivityIndicator size="large" color="#F97316" />
+                <Text style={styles.loadingText}>Checking session...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -201,6 +240,8 @@ export default function SubscribeFormScreen() {
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FFF5ED' },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF5ED' },
+    loadingText: { marginTop: 15, fontSize: 16, color: '#6B7280', fontWeight: '500' },
     header: { backgroundColor: '#FFFFFF', paddingTop: 10 },
     headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 10 },
     headerIcons: { flexDirection: 'row', alignItems: 'center' },

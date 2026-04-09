@@ -14,7 +14,7 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-// Update this if you run on a physical device to your computer's local IP (e.g., http://192.168.1.5:3000/api)
+// API source of truth from central constants
 import { API_URL } from '@/constants/api';
 
 export default function AuthScreen() {
@@ -33,14 +33,6 @@ export default function AuthScreen() {
 
     try {
       // 2. Call the Real Backend API to trigger the Twilio/Dev OTP
-      // Make sure your backend (npm run dev) is running on port 3000
-      // const response = await fetch(`${API_URL}/auth/send-otp`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({ phone: `+91${phone}` }), // Add country code
-      // });
 
       // const data = await response.json();
 

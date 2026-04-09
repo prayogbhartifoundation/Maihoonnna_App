@@ -12,6 +12,7 @@ import dashboardRouter from './api/subscriber/dashboard.routes';
 import subscriptionsRouter from './api/subscriber/subscriptions.routes';
 import beneficiariesRouter from './api/subscriber/beneficiaries.routes';
 import couponsRouter from './api/subscriber/coupons.routes';
+import subscriberRouter from './api/subscriber/subscriber.routes';
 
 // Care Companion Routes
 import visitsRouter from './api/care_companion/visits.routes';
@@ -57,6 +58,7 @@ app.use(`${API}/subscriber/dashboard`, dashboardRouter);
 app.use(`${API}/subscriber/subscriptions`, subscriptionsRouter);
 app.use(`${API}/subscriber/beneficiaries`, beneficiariesRouter);
 app.use(`${API}/subscriber/coupons`, couponsRouter);
+app.use(`${API}/subscriber`, subscriberRouter);
 
 // Role: Care Companion endpoints
 app.use(`${API}/care-companion/visits`, visitsRouter);

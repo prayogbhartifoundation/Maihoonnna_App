@@ -135,14 +135,23 @@ export default function SubscriptionPackagesScreen() {
                                 })}
                             </View>
 
-                            <TouchableOpacity
-                                style={isPopular ? styles.selectBtnSolid : styles.selectBtnOutline}
-                                onPress={() => handleSelectPackage(pkg.type)}
-                            >
-                                <Text style={isPopular ? styles.selectBtnSolidText : styles.selectBtnOutlineText}>
-                                    Select Package
-                                </Text>
-                            </TouchableOpacity>
+                            <View style={styles.cardActions}>
+                                <TouchableOpacity
+                                    style={[styles.detailsBtn, isPopular && styles.detailsBtnPopular]}
+                                    onPress={() => router.push(`/(subscriber)/package-details/${pkg.type}`)}
+                                >
+                                    <Text style={[styles.detailsBtnText, isPopular && styles.detailsBtnTextPopular]}>View Details</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={isPopular ? styles.selectBtnSolid : styles.selectBtnOutline}
+                                    onPress={() => handleSelectPackage(pkg.type)}
+                                >
+                                    <Text style={isPopular ? styles.selectBtnSolidText : styles.selectBtnOutlineText}>
+                                        Select
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     );
                 })}
@@ -266,10 +275,25 @@ const styles = StyleSheet.create({
     featureRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
     featureText: { fontSize: 14, color: '#4B5563', marginLeft: 10 },
 
-    selectBtnOutline: { borderWidth: 1, borderColor: '#F97316', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-    selectBtnOutlineText: { color: '#F97316', fontSize: 16, fontWeight: '600' },
-    selectBtnSolid: { backgroundColor: '#F97316', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-    selectBtnSolidText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+    cardActions: { flexDirection: 'row', gap: 12, marginTop: 10 },
+    detailsBtn: { 
+        flex: 1, borderWidth: 1, borderColor: '#F97316', 
+        borderRadius: 12, justifyContent: 'center', alignItems: 'center', height: 48 
+    },
+    detailsBtnPopular: { borderColor: '#FFFFFF' },
+    detailsBtnText: { color: '#F97316', fontSize: 13, fontWeight: '700' },
+    detailsBtnTextPopular: { color: '#FFFFFF' },
+
+    selectBtnOutline: { 
+        flex: 1, borderWidth: 1, borderColor: '#F97316', height: 48, 
+        borderRadius: 12, alignItems: 'center', justifyContent: 'center' 
+    },
+    selectBtnOutlineText: { color: '#F97316', fontSize: 13, fontWeight: '700' },
+    selectBtnSolid: { 
+        flex: 1, backgroundColor: '#F97316', height: 48, 
+        borderRadius: 12, alignItems: 'center', justifyContent: 'center' 
+    },
+    selectBtnSolidText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 
     popularCard: { borderWidth: 2, borderColor: '#F97316', marginTop: 10 },
     popularBadge: { position: 'absolute', top: -14, alignSelf: 'center', backgroundColor: '#F97316', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, flexDirection: 'row', alignItems: 'center' },

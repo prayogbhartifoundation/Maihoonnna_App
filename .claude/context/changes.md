@@ -405,3 +405,24 @@
 - Refactored `EnrollmentWizardPage.tsx` into a robust, multi-step conditional rendering architecture.
 - Resolved JSX syntax errors caused by nested component breakages during the complex UI overhaul.
 - Verified that the 5-step wizard correctly handles state transitions from Subscriber → Beneficiary → Medical → Emergency → Package → Payment.
+
+## Core Service Delivery Logic & Staff Password Management (2026-04-07)
+
+### Staff Authentication & RBAC
+- **Admin Backend (`auth.js`)**: Extended `/login` to support DB-backed `bcrypt` login for **Sales**, **Field Manager**, and **Operations Manager**.
+- **Admin Backend (`users.js`)**: Added `sales` to onboarding roles and implemented password hashing during staff creation.
+- **Admin Backend (`beneficiaries.js`)**: Applied zone/FM-based filtering on list and available-staff endpoints.
+- **Admin Frontend**: Added "Access & Security" settings to `StaffOnboardingPage` and updated `StaffOnboardingPayload` types.
+
+### Allocation & Notifications
+- **Admin Backend (`beneficiaries.js`)**: Wrapped `assign-staff` in a Prisma transaction that automatically dispatches `Notification` records to Care Companions upon assignment.
+
+### Care Companion Dashboard
+- **Mobile Backend (`profile.routes.ts`)**: Created `GET /api/care-companion/profile/assigned-beneficiaries` to serve assigned client lists to the CC mobile app.
+
+### Service Usage Deduction
+- **Mobile Backend (`visit_service.ts`)**: Implemented transactional `checkOut` logic that:
+  - Calculates visit duration.
+  - Deducts units/hours from active `Subscription.hoursUsed`.
+  - Logs deduction audit via `PackageHoursLog`.
+  - Updates beneficiary emotional score.

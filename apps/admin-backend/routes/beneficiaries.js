@@ -11,6 +11,11 @@ router.get('/', async (req, res) => {
         const { search, searchBy, page, limit } = req.query;
         const filterParams = {};
 
+        // RBAC Filtering
+        if (req.user && req.user.role === 'field_manager') {
+            filterParams.fieldManagerId = req.user.id;
+        }
+
         if (search) {
             if (searchBy === 'name') {
                 filterParams.name = { contains: search, mode: 'insensitive' };
@@ -135,7 +140,11 @@ router.get('/available-staff', async (req, res) => {
             select: { id: true, name: true, pincode: true }
         });
 
-        const zoneIds = matchingZones.map(z => z.id);
+        let zoneIds = matchingZones.map(z => z.id);
+
+        if (req.user && req.user.role === 'field_manager' && req.user.zoneId) {
+            zoneIds = zoneIds.filter(id => id === req.user.zoneId);
+        }
 
         // Get CCs whose staffProfile.zoneId matches one of these zones
         const ccProfiles = await prisma.staffProfile.findMany({
@@ -225,39 +234,112 @@ router.put('/:id/assign-staff', async (req, res) => {
     const { id } = req.params;
     const { primaryCcId, secondaryCcId, fieldManagerId } = req.body;
     try {
+        const beneficiary = await prisma.beneficiary.findUnique({
+            where: { id },
+            select: { name: true, primaryCcId: true, secondaryCcId: true }
+        });
+        
+        if (!beneficiary) {
+            return res.status(404).json({ success: false, message: 'Beneficiary not found' });
+        }
+
         const data = {};
+        let newPrimaryCcUserId = null;
+
         if (primaryCcId !== undefined) {
             if (primaryCcId) {
                 // Check capacity
                 const count = await prisma.beneficiary.count({ where: { primaryCcId, isActive: true } });
-                const cc = await prisma.careCompanion.findUnique({ where: { id: primaryCcId } });
+                const cc = await prisma.careCompanion.findUnique({ 
+                    where: { id: primaryCcId },
+                    select: { name: true, userId: true, maxPrimaryBeneficiaries: true }
+                });
                 if (count >= (cc?.maxPrimaryBeneficiaries || 5)) {
                     return res.status(400).json({ success: false, message: `Care Companion ${cc?.name || ''} has reached maximum primary capacity (5)` });
+                }
+                
+                if (beneficiary.primaryCcId !== primaryCcId && cc && cc.userId) {
+                    newPrimaryCcUserId = cc.userId;
                 }
             }
             data.primaryCcId = primaryCcId || null;
         }
+
+        let newSecondaryCcUserId = null;
         if (secondaryCcId !== undefined) {
             if (secondaryCcId) {
                 const count = await prisma.beneficiary.count({ where: { secondaryCcId, isActive: true } });
-                const cc = await prisma.careCompanion.findUnique({ where: { id: secondaryCcId } });
+                const cc = await prisma.careCompanion.findUnique({ 
+                    where: { id: secondaryCcId },
+                    select: { name: true, userId: true, maxSecondaryBeneficiaries: true }
+                });
                 if (count >= (cc?.maxSecondaryBeneficiaries || 5)) {
                     return res.status(400).json({ success: false, message: `Care Companion ${cc?.name || ''} has reached maximum secondary capacity (5)` });
+                }
+
+                if (beneficiary.secondaryCcId !== secondaryCcId && cc && cc.userId) {
+                    newSecondaryCcUserId = cc.userId;
                 }
             }
             data.secondaryCcId = secondaryCcId || null;
         }
         if (fieldManagerId !== undefined) data.fieldManagerId = fieldManagerId || null;
 
-        const updated = await prisma.beneficiary.update({
-            where: { id },
-            data,
-            include: {
-                primaryCC:    { select: { id: true, name: true, zone: true } },
-                secondaryCC:  { select: { id: true, name: true, zone: true } },
-                fieldManager: { select: { id: true, name: true } },
+        const updated = await prisma.$transaction(async (tx) => {
+            const benUpdate = await tx.beneficiary.update({
+                where: { id },
+                data,
+                include: {
+                    user: { select: { id: true } },
+                    primaryCC:    { select: { id: true, name: true, zone: true } },
+                    secondaryCC:  { select: { id: true, name: true, zone: true } },
+                    fieldManager: { select: { id: true, name: true } },
+                }
+            });
+
+            // Notify the newly assigned Primary CC
+            if (newPrimaryCcUserId) {
+                await tx.notification.create({
+                    data: {
+                        userId: newPrimaryCcUserId,
+                        type: 'system',
+                        title: 'New Assignment',
+                        body: `You have been assigned as the Primary Care Companion for beneficiary: ${beneficiary.name}.`
+                    }
+                });
             }
+
+            // Notify the newly assigned Secondary CC
+            if (newSecondaryCcUserId) {
+                await tx.notification.create({
+                    data: {
+                        userId: newSecondaryCcUserId,
+                        type: 'system',
+                        title: 'New Assignment',
+                        body: `You have been assigned as the Secondary Care Companion for beneficiary: ${beneficiary.name}.`
+                    }
+                });
+            }
+
+            // Notify the Beneficiary when a primary CC is newly assigned
+            if (newPrimaryCcUserId && benUpdate.user?.id) {
+                const ccRecord = await tx.careCompanion.findUnique({
+                    where: { userId: newPrimaryCcUserId },
+                    select: { name: true }
+                });
+                await tx.notification.create({
+                    data: {
+                        userId: benUpdate.user.id,
+                        type: 'system',
+                        title: 'Care Companion Assigned',
+                        body: `Your care companion ${ccRecord?.name || 'a care companion'} has been assigned to you. They will be visiting you soon.`
+                    }
+                });
+            }
+
+            return benUpdate;
         });
+
         res.json({ success: true, data: updated });
     } catch (err) {
         console.error('PUT /beneficiaries/:id/assign-staff error:', err);

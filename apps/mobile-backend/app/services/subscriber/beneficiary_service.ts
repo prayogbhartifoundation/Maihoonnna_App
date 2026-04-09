@@ -76,3 +76,126 @@ export const getCareCompanion = async (ccId: string) => {
   if (!cc) throw new Error('Care companion not found');
   return cc;
 };
+
+export const getBeneficiaryProfile = async (beneficiaryId: string) => {
+  const now = new Date();
+
+  const beneficiary = await prisma.beneficiary.findUnique({
+    where: { id: beneficiaryId },
+    include: {
+      conditions: {
+        include: {
+          condition: true
+        }
+      },
+      medicationList: true,
+      medicalRecords: {
+        where: { isActive: true },
+        orderBy: { recordDate: 'desc' }
+      },
+      vitalHistory: {
+        orderBy: { recordedAt: 'desc' },
+        take: 30 // To get enough data for 7-day trend
+      },
+      subscriptions: {
+        where: { isActive: true },
+        include: {
+          benefitBalances: {
+            include: {
+              benefit: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1
+      },
+      visits: {
+        include: {
+          careCompanion: true
+        },
+        orderBy: { scheduledTime: 'desc' }
+      }
+    }
+  });
+
+  if (!beneficiary) throw new Error('Beneficiary not found');
+
+  // Calculate Hours Used ONLY for benefits labeled as 'hours'
+  let hoursUsedPercent = 0;
+  const activeSub = beneficiary.subscriptions[0];
+  if (activeSub && activeSub.benefitBalances.length > 0) {
+    const hourBalances = activeSub.benefitBalances.filter(
+      b => b.benefit.unitLabel?.toLowerCase() === 'hours' || b.benefit.unitLabel?.toLowerCase() === 'hour'
+    );
+    const totalUnits = hourBalances.reduce((sum, b) => sum + (b.totalUnits || 0), 0);
+    const usedUnits = hourBalances.reduce((sum, b) => sum + (b.usedUnits || 0), 0);
+    if (totalUnits > 0) {
+      hoursUsedPercent = Math.round((usedUnits / totalUnits) * 100);
+    }
+  }
+
+  // Separate Past and Next Visits
+  // Next visit: Earliest scheduled visit in the future
+  const upcomingVisits = beneficiary.visits
+    .filter(v => v.status === 'scheduled' && v.scheduledTime > now)
+    .sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime());
+  
+  const nextVisit = upcomingVisits[0] || null;
+
+  // Past visits: Completed, Cancelled, or scheduled in the past
+  const pastVisits = beneficiary.visits
+    .filter(v => (v.status === 'completed' || v.status === 'cancelled' || v.scheduledTime <= now) && v.id !== nextVisit?.id)
+    .slice(0, 10);
+
+  // Filter vitals based on tracking flags (Latest Reading)
+  const latestReadings = beneficiary.vitalHistory[0] || null;
+  const vitalsData = [];
+  if (latestReadings) {
+    if (beneficiary.trackHeartRate) vitalsData.push({ label: 'Heart Rate', value: `${latestReadings.heartRate || '--'} bpm`, icon: 'heart-pulse', color: '#EF4444', trend: 'Normal' });
+    if (beneficiary.trackBloodPressure) vitalsData.push({ label: 'Blood Pressure', value: latestReadings.bpSystolic ? `${latestReadings.bpSystolic}/${latestReadings.bpDiastolic}` : '--', icon: 'blood-bag', color: '#8B5CF6', trend: 'Normal' });
+    if (beneficiary.trackBloodSugar) vitalsData.push({ label: 'Blood Sugar', value: `${latestReadings.bloodSugarFasting || latestReadings.bloodSugarPostMeal || '--'} mg/dL`, icon: 'water', color: '#F59E0B', trend: 'Normal' });
+    if (beneficiary.trackTemperature) vitalsData.push({ label: 'Temperature', value: `${latestReadings.temperature || '--'} °F`, icon: 'thermometer', color: '#06B6D4', trend: 'Normal' });
+    if (beneficiary.trackOxygenSaturation) vitalsData.push({ label: 'Oxygen Saturation', value: `${latestReadings.oxygenLevel || '--'}%`, icon: 'air-humidifier', color: '#10B981', trend: 'Good' });
+    if (beneficiary.trackWeight) vitalsData.push({ label: 'Weight', value: `${latestReadings.weight || '--'} kg`, icon: 'scale-bathroom', color: '#3B82F6', trend: 'Stable' });
+  }
+
+  // Group vitals by date for Trends (Last 7 Days)
+  const last7Days = new Date();
+  last7Days.setDate(last7Days.getDate() - 7);
+  const trendHistory = beneficiary.vitalHistory.filter(v => v.recordedAt >= last7Days);
+  
+  const vitalsTrends = {
+    labels: trendHistory.map(v => v.recordedAt.toLocaleDateString([], { month: 'short', day: 'numeric' })).reverse(),
+    bpSystolic: trendHistory.map(v => v.bpSystolic || 0).reverse(),
+    heartRate: trendHistory.map(v => v.heartRate || 0).reverse(),
+    bloodSugar: trendHistory.map(v => (v.bloodSugarFasting || v.bloodSugarPostMeal || 0)).reverse(),
+  };
+
+  return {
+    ...beneficiary,
+    hoursUsedPercent,
+    vitalsData,
+    vitalsTrends,
+    nextVisit: nextVisit ? {
+      id: nextVisit.id,
+      companionName: nextVisit.careCompanion?.name,
+      companionPhoto: nextVisit.careCompanion?.photo,
+      dateStr: nextVisit.scheduledTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }),
+      timeStr: nextVisit.scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    } : null,
+    timeline: pastVisits.map(v => ({
+      id: v.id,
+      companionName: v.careCompanion?.name,
+      companionPhoto: v.careCompanion?.photo,
+      dateStr: v.scheduledTime.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' • ' + v.scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      duration: `Duration: ${v.durationMinutes || 0} mins`,
+      rated: v.rating !== null,
+      rating: v.rating,
+      activities: v.activitiesDone,
+      bp: v.bpSystolic ? `${v.bpSystolic}/${v.bpDiastolic}` : null,
+      heartRate: v.heartRate ? `${v.heartRate} bpm` : null,
+      bloodSugar: v.bloodSugarFasting ? `${v.bloodSugarFasting} mg/dL` : null,
+      notes: v.visitSummary || v.notes
+    }))
+  };
+};

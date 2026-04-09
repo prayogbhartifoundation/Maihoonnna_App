@@ -12,6 +12,8 @@ import { useRouter } from 'expo-router';
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '@/components/CallbackButton';
 import { logoutWithConfirm } from '@/utils/logout';
+import { GlobalHeader } from './components/shared/GlobalHeader';
+import { GlobalDrawer } from './components/shared/GlobalDrawer';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -28,12 +30,21 @@ export default function SubscriberDashboardScreen() {
     /* ─── API ─────────────────────────────────────────────── */
     const fetchDashboard = async () => {
         try {
-            const stored = await AsyncStorage.getItem('userData');
-            if (!stored) { router.replace('/(auth)'); return; }
-            const user = JSON.parse(stored);
+            const [storedUser, storedToken] = await Promise.all([
+                AsyncStorage.getItem('userData'),
+                AsyncStorage.getItem('userToken')
+            ]);
+            
+            if (!storedUser) { router.replace('/(auth)'); return; }
+            const user = JSON.parse(storedUser);
             setUserData(user);
 
-            const res = await fetch(`${API_URL}/subscriber/dashboard/user/${user.id}`);
+            const res = await fetch(`${API_URL}/subscriber/dashboard/user/${user.id}`, {
+                headers: {
+                    'Authorization': storedToken ? `Bearer ${storedToken}` : '',
+                    'Content-Type': 'application/json'
+                }
+            });
             const data = await res.json();
             if (data.success !== false) setDashboard(data);
         } catch (e) {
@@ -82,19 +93,10 @@ export default function SubscriberDashboardScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* ── Header ── */}
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Dashboard</Text>
-                <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.notificationIcon}>
-                        <Ionicons name="notifications-outline" size={26} color="#111827" />
-                        <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={openDrawer}>
-                        <Ionicons name="menu-outline" size={32} color="#111827" />
-                    </TouchableOpacity>
-                </View>
-            </View>
+            <GlobalHeader 
+                title="Dashboard" 
+                onMenuPress={openDrawer} 
+            />
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
@@ -237,47 +239,12 @@ export default function SubscriberDashboardScreen() {
 
             </ScrollView>
 
-            {/* ── Side Drawer ── */}
-            <Modal visible={drawerOpen} transparent animationType="none" onRequestClose={closeDrawer}>
-                <TouchableOpacity style={styles.drawerOverlay} activeOpacity={1} onPress={closeDrawer} />
-                <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
-                    <SafeAreaView style={{ flex: 1 }}>
-                        {/* Drawer Header */}
-                        <View style={styles.drawerHeader}>
-                            <View style={styles.drawerAvatar}>
-                                <Ionicons name="person" size={28} color="#F97316" />
-                            </View>
-                            <Text style={styles.drawerName}>{userData?.name || 'Subscriber'}</Text>
-                            <Text style={styles.drawerPhone}>{userData?.phone || userData?.email || ''}</Text>
-                        </View>
-
-                        <View style={styles.drawerDivider} />
-
-                        {/* Drawer Menu Items */}
-                        <ScrollView style={{ flex: 1 }}>
-                            {[
-                                { label: 'Dashboard', icon: 'home-outline', action: closeDrawer },
-                                { label: 'My Profile', icon: 'person-outline', action: () => { closeDrawer(); setTimeout(() => router.push('/(subscriber)/profile'), 300); } },
-                                { label: 'My Beneficiaries', icon: 'people-outline', action: () => { closeDrawer(); } },
-                                { label: 'Browse Packages', icon: 'ribbon-outline', action: () => { closeDrawer(); setTimeout(() => router.push('/(setup)/subscription-packages'), 300); } },
-                                { label: 'Explore', icon: 'search-outline', action: () => { closeDrawer(); setTimeout(() => router.push('/(subscriber)/explore'), 300); } },
-                            ].map((item, i) => (
-                                <TouchableOpacity key={i} style={styles.drawerItem} onPress={item.action}>
-                                    <Ionicons name={item.icon as any} size={22} color="#4B5563" style={{ marginRight: 16 }} />
-                                    <Text style={styles.drawerItemText}>{item.label}</Text>
-                                </TouchableOpacity>
-                            ))}
-
-                            <View style={styles.drawerDivider} />
-
-                            <TouchableOpacity style={styles.drawerItem} onPress={() => { closeDrawer(); setTimeout(() => logoutWithConfirm(), 300); }}>
-                                <Ionicons name="log-out-outline" size={22} color="#EF4444" style={{ marginRight: 16 }} />
-                                <Text style={[styles.drawerItemText, { color: '#EF4444' }]}>Logout</Text>
-                            </TouchableOpacity>
-                        </ScrollView>
-                    </SafeAreaView>
-                </Animated.View>
-            </Modal>
+            <GlobalDrawer 
+                isOpen={drawerOpen} 
+                onClose={closeDrawer} 
+                drawerAnim={drawerAnim} 
+                userData={userData} 
+            />
 
         </SafeAreaView>
     );
@@ -286,22 +253,6 @@ export default function SubscriberDashboardScreen() {
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FAF5F0' },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF5F0' },
-
-    /* Header */
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 20 : 10, paddingBottom: 14,
-        backgroundColor: '#FFFFFF',
-    },
-    headerTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
-    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    notificationIcon: { position: 'relative' },
-    badge: {
-        position: 'absolute', top: -3, right: -4, backgroundColor: '#F97316',
-        borderRadius: 10, width: 16, height: 16, justifyContent: 'center', alignItems: 'center',
-        borderWidth: 1.5, borderColor: '#FFF'
-    },
-    badgeText: { color: '#FFF', fontSize: 9, fontWeight: '700' },
 
     scrollContent: { paddingBottom: 40 },
 
@@ -415,31 +366,4 @@ const styles = StyleSheet.create({
         width: 50, height: 50, borderRadius: 12, backgroundColor: '#FFF5ED',
         justifyContent: 'center', alignItems: 'center'
     },
-
-    /* Drawer */
-    drawerOverlay: {
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-    },
-    drawer: {
-        position: 'absolute', right: 0, top: 0, bottom: 0, width: DRAWER_WIDTH,
-        backgroundColor: '#FFFFFF',
-        ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: -4, height: 0 }, shadowOpacity: 0.15, shadowRadius: 12 },
-            android: { elevation: 16 },
-        }),
-    },
-    drawerHeader: { padding: 24, paddingTop: 32, alignItems: 'flex-start' },
-    drawerAvatar: {
-        width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF5ED',
-        justifyContent: 'center', alignItems: 'center', marginBottom: 12,
-    },
-    drawerName: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
-    drawerPhone: { fontSize: 13, color: '#6B7280' },
-    drawerDivider: { height: 1, backgroundColor: '#F3F4F6', marginHorizontal: 20, marginVertical: 8 },
-    drawerItem: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 24, paddingVertical: 14,
-    },
-    drawerItemText: { fontSize: 15, fontWeight: '500', color: '#374151' },
 });

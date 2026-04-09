@@ -15,7 +15,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Update this if you run on a physical device to your computer's local IP (e.g., http://192.168.1.5:3000/api)
+// API source of truth from central constants
 import { API_URL } from '@/constants/api';
 
 export default function VerifyOtpScreen() {

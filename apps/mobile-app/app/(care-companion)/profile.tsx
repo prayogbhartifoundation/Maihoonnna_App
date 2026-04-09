@@ -23,8 +23,8 @@ const DEEP_ORANGE = '#FE6700';
 const VIBRANT_ORANGE = '#FF8C42';
 const LIGHT_BEIGE = '#FAF3EB';
 
-// Change this to your real backend URL when you deploy
-const API_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000/api' : 'http://localhost:8000/api';
+import { API_URL } from '@/constants/api';
+const API_BASE_URL = API_URL;
 
 // 🚀 PREMIUM REANIMATED TOGGLE COMPONENT
 const CustomToggle = ({ value, onValueChange }: { value: boolean, onValueChange: (val: boolean) => void }) => {

@@ -792,6 +792,20 @@ export default function StaffOnboardingPage() {
                     />
                   </div>
                 </section>
+
+                <section>
+                  <h3 className="text-base font-black text-gray-800 mb-4">Access & Security</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      value={formState.personal.newPassword || ''}
+                      onChange={(event) => setPersonalField('newPassword', event.target.value)}
+                      placeholder="Initial Password (Optional)"
+                      className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
+                    />
+                    <p className="text-xs text-gray-400 mt-3">If set, user can log in with their phone number and this password. Minimum 6 characters required.</p>
+                  </div>
+                </section>
               </div>
             )}
             {currentStep === 2 && (

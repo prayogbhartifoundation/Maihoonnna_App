@@ -59,3 +59,10 @@
     - `EnrollmentWizardPage` listens for the `onCheck` callback to auto-populate `City` and `State` fields, reducing manual entry for admins.
 - **Relationship Persistence**: `relationship` (e.g. "Father", "Mother") is captured during beneficiary creation and persisted to the `Beneficiary` table for emergency dispatch context.
 
+## Architecture Notes: Core Service Delivery Logic (2026-04-07)
+- **Staff Password Management**: Integrated `bcryptjs` for hashing passwords during onboarding and updates. Staff roles (`sales`, `field_manager`, `operations_manager`) are now enabled for DB-backed login.
+- **RBAC Enforcement**: `GET /api/beneficiaries` and `GET /api/beneficiaries/available-staff` use `req.user.id` and `req.user.zoneId` (from JWT) to filter results for Field Managers.
+- **Transactional CC Assignment**: `assign-staff` endpoint wrapped in `$transaction` to ensure `Notification` records are created atomically when a CC is assigned.
+- **Transactional Visit Check-Out**: `visit_service.ts` in `mobile-backend` now handles hour/unit deduction during check-out using a `$transaction`. It updates the Visit, Subscription balance, and creates an audit `PackageHoursLog`.
+- **CC Dashboard Endpoint**: Centralized `GET /assigned-beneficiaries` in `mobile-backend` to simplify CC app dashboard development.
+

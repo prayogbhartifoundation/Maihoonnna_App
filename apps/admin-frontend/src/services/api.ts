@@ -258,6 +258,43 @@ export const fieldManagerApi = {
     }).toString();
     return apiJson(`/users/field-managers?${query}`);
   },
+  async getById(id: string): Promise<any | undefined> {
+    const managers = await this.getAll();
+    return managers.find((manager: any) => manager.id === id);
+  },
+
+  // ── Field Manager Portal ────────────────────────────────────────────────────
+  /** Get all CCs in the FM's team (admin sees all) */
+  async getMyTeam(): Promise<any[]> {
+    const data = await apiJson<any>('/field-manager/my-team');
+    return data?.data || data || [];
+  },
+
+  /** Get schedule for FM's team. date: 'YYYY-MM-DD' (defaults to today+7days) */
+  async getTeamSchedule(date?: string): Promise<any[]> {
+    const query = date ? `?date=${date}` : '';
+    const data = await apiJson<any>(`/field-manager/my-team/schedule${query}`);
+    return data?.data || data || [];
+  },
+
+  /** Get beneficiaries assigned to this FM */
+  async getBeneficiaries(): Promise<any[]> {
+    const data = await apiJson<any>('/field-manager/beneficiaries');
+    return data?.data || data || [];
+  },
+
+  /** Get individual benefit balances + hours log for a beneficiary */
+  async getBenefitUsage(beneficiaryId: string): Promise<any> {
+    return apiJson<any>(`/field-manager/beneficiaries/${beneficiaryId}/benefit-usage`);
+  },
+
+  /** Assign CC to beneficiary */
+  async assignCC(beneficiaryId: string, payload: { primaryCcId?: string | null; secondaryCcId?: string | null }): Promise<any> {
+    return apiJson<any>(`/beneficiaries/${beneficiaryId}/assign-staff`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
 };
 
 // ============================================================================
@@ -418,14 +455,29 @@ export const beneficiaryApi = {
 };
 
 
+
 // ============================================================================
 // SCHEDULE / VISITS API
 // ============================================================================
 
 export const scheduleApi = {
   async getTodayVisits(): Promise<VisitBlock[]> {
-    await delay();
-    return [...mockTodayVisits];
+    try {
+      const data = await apiJson<any>('/field-manager/my-team/schedule');
+      return (data?.data || []).map((v: any) => ({
+        id: v.id,
+        beneficiaryName: v.beneficiaryName,
+        visitType: 'Home Visit',
+        careCompanionId: v.careCompanionId,
+        timeSlot: new Date(v.scheduledTime).getHours() < 12 ? 'morning' :
+                  new Date(v.scheduledTime).getHours() < 17 ? 'afternoon' : 'evening',
+        startTime: new Date(v.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        endTime: '',
+        status: v.status as VisitBlock['status'],
+      }));
+    } catch {
+      return [...mockTodayVisits];
+    }
   },
 
   async assignCareCompanion(visitId: string, careCompanionId: string): Promise<VisitBlock> {

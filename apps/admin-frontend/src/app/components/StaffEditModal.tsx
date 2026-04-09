@@ -603,6 +603,24 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
 
                     {/* Verification Status */}
                     <div className="mt-8 pt-6 border-t border-[#E7DED6]">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Access & Security</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Set / Reset Password</label>
+                          <input
+                            type="text"
+                            placeholder="Type new password..."
+                            value={formState.personal.newPassword || ''}
+                            onChange={(e) => updateNestedField('personal', 'newPassword', e.target.value)}
+                            className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00]"
+                          />
+                          <p className="text-[9px] text-gray-400 px-1">Leave blank to keep existing password. Minimum 6 characters.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Verification Status */}
+                    <div className="mt-8 pt-6 border-t border-[#E7DED6]">
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Verification Status & Initiation</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div className="space-y-1">

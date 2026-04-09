@@ -57,27 +57,74 @@ export const checkOut = async (data: {
   medicationAdherence: boolean;
   notes?: string;
 }) => {
-  const visit = await prisma.visit.update({
-    where: { id: data.visitId },
-    data: {
-      checkOutTime: new Date(),
-      status: 'completed',
-      medicationAdherence: data.medicationAdherence,
-      extraVitals: data.vitals ? (data.vitals as Prisma.InputJsonValue) : undefined,
-      mood: data.mood as any,
-      notes: data.notes,
-    },
-  });
+  return prisma.$transaction(async (tx) => {
+    // 1. Get the visit to know checkInTime
+    const existingVisit = await tx.visit.findUnique({ where: { id: data.visitId } });
+    if (!existingVisit) throw new Error('Visit not found');
 
-  // Update emotional score if mood is sad/depressed
-  if (data.mood === 'sad' || data.mood === 'depressed') {
-    await prisma.beneficiary.update({
-      where: { id: visit.beneficiaryId },
-      data: { emotionalScore: data.mood === 'sad' ? 5.0 : 3.0 },
+    const checkOutTime = new Date();
+    let durationMinutes = 0;
+    if (existingVisit.checkInTime) {
+      durationMinutes = Math.round((checkOutTime.getTime() - existingVisit.checkInTime.getTime()) / 60000);
+    }
+
+    // 2. Update the Visit
+    const visit = await tx.visit.update({
+      where: { id: data.visitId },
+      data: {
+        checkOutTime,
+        durationMinutes,
+        status: 'completed',
+        medicationAdherence: data.medicationAdherence,
+        extraVitals: data.vitals ? (data.vitals as Prisma.InputJsonValue) : undefined,
+        mood: data.mood as any,
+        notes: data.notes,
+      },
     });
-  }
 
-  return visit;
+    // 3. Deduct from Subscription
+    if (durationMinutes > 0) {
+      const hoursConsumed = durationMinutes / 60;
+      const activeSubscription = await tx.subscription.findFirst({
+        where: { beneficiaryId: visit.beneficiaryId, isActive: true },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (activeSubscription && activeSubscription.hoursTotal !== null) {
+        const balanceBefore = activeSubscription.hoursTotal - activeSubscription.hoursUsed;
+        const balanceAfter = Math.max(0, balanceBefore - hoursConsumed);
+
+        await tx.subscription.update({
+          where: { id: activeSubscription.id },
+          data: {
+            hoursUsed: activeSubscription.hoursUsed + hoursConsumed
+          }
+        });
+
+        await tx.packageHoursLog.create({
+          data: {
+            subscriptionId: activeSubscription.id,
+            beneficiaryId: visit.beneficiaryId,
+            visitId: visit.id,
+            hoursConsumed,
+            balanceBefore,
+            balanceAfter,
+            description: `Visit completed by Care Companion. Duration: ${durationMinutes} mins.`
+          }
+        });
+      }
+    }
+
+    // 4. Update emotional score if mood is sad/depressed
+    if (data.mood === 'sad' || data.mood === 'depressed') {
+      await tx.beneficiary.update({
+        where: { id: visit.beneficiaryId },
+        data: { emotionalScore: data.mood === 'sad' ? 5.0 : 3.0 },
+      });
+    }
+
+    return visit;
+  });
 };
 
 export const rateVisit = async (data: { visitId: string; rating: number; feedback?: string }) => {

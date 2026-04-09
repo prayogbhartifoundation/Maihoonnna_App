@@ -2,93 +2,24 @@ import prisma from '../../core/database';
 import { createToken } from '../../core/security';
 import { generateUUID } from '../../utils/helpers';
 
-import twilio from 'twilio';
-
-// Safe Twilio Initialization: Only initialize if keys exist and aren't the default mockup placeholders
-const hasValidKeys =
-  process.env.TWILIO_ACCOUNT_SID &&
-  process.env.TWILIO_AUTH_TOKEN &&
-  process.env.TWILIO_ACCOUNT_SID.startsWith('AC');
-
-const twilioClient = hasValidKeys
-  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-  : null;
+import { OtpFactory } from '../../core/otp/OtpFactory';
 
 export const sendOtp = async (rawPhone: string) => {
   const phone = rawPhone.replace(/\D/g, '').slice(-10);
-  // 1. Send SMS via Twilio Verify Service
-  if (twilioClient && process.env.TWILIO_VERIFY_SERVICE_SID) {
-    try {
-      // Twilio Verify handles OTP generation and storage internally! No DB needed.
-      const verification = await twilioClient.verify.v2
-        .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-        .verifications.create({
-          to: phone,
-          channel: "sms",
-        });
-
-      return { success: true, message: `OTP sent to ${phone} successfully via Twilio Verify. Status: ${verification.status}` };
-    } catch (error: any) {
-      console.error("Twilio Verify Error (Send):", error);
-      throw new Error(`Failed to send real SMS. Twilio Error: ${error.message || 'Check your keys and Verify Service SID.'}`);
-    }
-  } else {
-    // 2. Development Fallback (if real Twilio keys not configured in .env yet)
-    const mockOtpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // In Dev Mode, we still need to store it somewhere since we aren't using Twilio Verify
-    await prisma.otp.upsert({
-      where: { phone },
-      update: { code: mockOtpCode, expiresAt: new Date(Date.now() + 5 * 60 * 1000) },
-      create: { phone, code: mockOtpCode, expiresAt: new Date(Date.now() + 5 * 60 * 1000) }
-    });
-
-    console.log(`\n\n[DEV MODE] Generated OTP for ${phone}: 👉 ${mockOtpCode} 👈\n\n`);
-    return {
-      success: true,
-      message: `[DEV MODE] Twilio is not configured. The OTP is visible in your backend terminal log.`,
-    };
-  }
+  const provider = OtpFactory.getProvider();
+  return await provider.send(phone);
 };
 
-export const verifyOtp = async (rawPhone: string, otp: string) => {
+export const verifyOtp = async (rawPhone: string, otpCode: string) => {
   const phone = rawPhone.replace(/\D/g, '').slice(-10);
-  // 1. Validate OTP (with universal bypass for development/testing)
-  const isUniversalOtp = otp === '442233';
-
-  if (!isUniversalOtp && (otp.length !== 6 || !/^\d+$/.test(otp))) {
-    throw new Error('Invalid OTP format. Must be 6 digits.');
+  const provider = OtpFactory.getProvider();
+  
+  const isValid = await provider.verify(phone, otpCode);
+  if (!isValid) {
+    throw new Error('Invalid or expired OTP code entered.');
   }
 
-  if (isUniversalOtp) {
-    console.log(`\n\n[DEV MODE] Using universal OTP '442233' for ${phone} \n\n`);
-  } else if (twilioClient && process.env.TWILIO_VERIFY_SERVICE_SID) {
-    // 1. Validate OTP using Twilio Verify Service
-    try {
-      const verificationCheck = await twilioClient.verify.v2
-        .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-        .verificationChecks.create({
-          to: phone,
-          code: otp,
-        });
-
-      if (verificationCheck.status !== "approved") {
-        throw new Error("Incorrect OTP code entered.");
-      }
-    } catch (error: any) {
-      console.error("Twilio Verify Error (Check):", error);
-      throw new Error("Invalid or Expired OTP.");
-    }
-  } else {
-    // 2. Development Fallback Validation Check
-    const otpRecord = await prisma.otp.findUnique({ where: { phone } });
-
-    if (!otpRecord) throw new Error('No OTP requested for this number.');
-    if (otpRecord.code !== otp) throw new Error('Incorrect OTP code entered');
-    if (otpRecord.expiresAt < new Date()) throw new Error('OTP has expired.');
-
-    await prisma.otp.delete({ where: { phone } }); // Consume DEV token
-  }
+  // 3. Look up user — DO NOT auto-create. Return isNewUser flag instead.
 
   // 3. Look up user — DO NOT auto-create. Return isNewUser flag instead.
   const user = await prisma.user.findUnique({

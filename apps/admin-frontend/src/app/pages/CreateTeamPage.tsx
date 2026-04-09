@@ -18,6 +18,23 @@ export default function CreateTeamPage() {
   const [availableZones, setAvailableZones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Filter staff based on selected zone
+  const filteredFMs = React.useMemo(() => {
+    if (!zone) return availableFMs;
+    return availableFMs.filter(fm => fm.zone === zone);
+  }, [availableFMs, zone]);
+
+  const filteredCCs = React.useMemo(() => {
+    if (!zone) return availableCCs;
+    return availableCCs.filter(cc => cc.zone === zone);
+  }, [availableCCs, zone]);
+
+  // Clear selections when zone changes to prevent cross-zone assignments
+  useEffect(() => {
+    setSelectedFM('');
+    setSelectedCCs([]);
+  }, [zone]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -50,7 +67,7 @@ export default function CreateTeamPage() {
     try {
       await teamApi.createTeam({
         name,
-        fieldManagerId: selectedFM === 'none' ? undefined : selectedFM,
+        fieldManagerId: selectedFM === 'none' || !selectedFM ? undefined : selectedFM,
         zone,
         careCompanionIds: selectedCCs
       });
@@ -118,12 +135,13 @@ export default function CreateTeamPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Field Manager Assigned</SelectItem>
-                  {availableFMs.map(fm => (
+                  {filteredFMs.map(fm => (
                     <SelectItem key={fm.id} value={fm.id}>
                       {fm.user.name} ({fm.zone})
                     </SelectItem>
                   ))}
-                  {availableFMs.length === 0 && <SelectItem value="none" disabled>No available FMs</SelectItem>}
+                  {filteredFMs.length === 0 && zone && <SelectItem value="none" disabled>No FMs available in this zone</SelectItem>}
+                  {filteredFMs.length === 0 && !zone && <SelectItem value="none" disabled>Select a zone first</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -147,7 +165,7 @@ export default function CreateTeamPage() {
             <div className="text-center py-12 text-gray-400 italic">Loading staff availability...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {availableCCs.map(cc => (
+              {filteredCCs.map(cc => (
                 <div 
                   key={cc.id}
                   onClick={() => toggleCCSelection(cc.id)}
@@ -175,9 +193,9 @@ export default function CreateTeamPage() {
                   </div>
                 </div>
               ))}
-              {availableCCs.length === 0 && (
+              {filteredCCs.length === 0 && (
                 <div className="col-span-2 text-center py-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 text-gray-400">
-                  No available Care Companions found. Onboard more to create a team.
+                  {zone ? `No available Care Companions found in ${zone}.` : 'Select a Target Zone to see available Care Companions.'}
                 </div>
               )}
             </div>

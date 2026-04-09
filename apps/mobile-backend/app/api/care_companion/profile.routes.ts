@@ -61,4 +61,41 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/care-companion/profile/assigned-beneficiaries
+router.get('/assigned-beneficiaries', authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+
+    const cc = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        careCompanionProfile: true,
+      },
+    });
+
+    if (!cc || !cc.careCompanionProfile) {
+      return res.status(404).json({ success: false, message: 'Care Companion profile not found' });
+    }
+
+    const beneficiaries = await prisma.beneficiary.findMany({
+      where: {
+        OR: [
+          { primaryCcId: cc.careCompanionProfile.id },
+          { secondaryCcId: cc.careCompanionProfile.id }
+        ],
+        isActive: true
+      },
+      include: {
+        subscriber: {
+          select: { name: true, phone: true }
+        }
+      }
+    });
+
+    res.json({ success: true, data: beneficiaries });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

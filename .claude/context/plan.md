@@ -113,3 +113,13 @@
   - [x] Integrated structured Medication scheduling (slots, reminders) in UI and Backend
   - [x] Implemented dynamic MedicalCondition auto-creation/linking in `admin-enroll` route
   - [x] Fixed JSX structural breakages and restored wizard stability
+
+- [x] Core Service Delivery Logic & Staff Password Management (2026-04-07)
+  - [x] Integrated `bcryptjs` for secure staff password management (Sales, FM, OM)
+  - [x] Implemented DB-backed login for staff roles in `admin-backend`
+  - [x] Added RBAC filtering to `beneficiaries.js` (FMs only see their assigned data)
+  - [x] Automated `Notification` dispatch on CC/Nurse assignment via Prisma transaction
+  - [x] Developed transactional visit `checkOut` in `mobile-backend` with automatic hour/unit deduction
+  - [x] Implemented `PackageHoursLog` for service usage auditing
+  - [x] Created `assigned-beneficiaries` dashboard endpoint for CC/Nurse mobile app
+  - [x] Updated Staff Onboarding frontend with Access & Security settings

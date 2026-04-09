@@ -43,6 +43,7 @@ app.use('/api/subscriptions', verifyToken, require('./routes/subscriptions'));
 app.use('/api/visits',        verifyToken, require('./routes/visits'));
 app.use('/api/vitals',        verifyToken, require('./routes/vitals'));
 app.use('/api/coupons',       verifyToken, require('./routes/coupons'));
+app.use('/api/field-manager', verifyToken, require('./routes/field-manager'));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
