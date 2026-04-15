@@ -20,14 +20,23 @@ router.get('/', async (req, res) => {
 // POST /api/benefit-types — create
 router.post('/', async (req, res) => {
   const { name, description, iconCode, displayOrder } = req.body;
-  if (!name) return res.status(400).json({ success: false, message: 'name is required' });
+  if (!name)
+    return res
+      .status(400)
+      .json({ success: false, message: 'name is required' });
   try {
     const type = await prisma.benefitType.create({
       data: { name, description, iconCode, displayOrder: displayOrder ?? 0 },
     });
     res.status(201).json({ success: true, data: type });
   } catch (err) {
-    if (err.code === 'P2002') return res.status(409).json({ success: false, message: 'A benefit type with this name already exists' });
+    if (err.code === 'P2002')
+      return res
+        .status(409)
+        .json({
+          success: false,
+          message: 'A benefit type with this name already exists',
+        });
     console.error('POST benefit-types error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
@@ -39,12 +48,27 @@ router.patch('/:id', async (req, res) => {
   const { name, description, iconCode, displayOrder, isActive } = req.body;
   try {
     const existing = await prisma.benefitType.findUnique({ where: { id } });
-    if (!existing) return res.status(404).json({ success: false, message: 'Benefit type not found' });
+    if (!existing)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Benefit type not found' });
     if (existing.isSystem) {
       // If system type, only allow some fields? No, user said lock them.
       // We block name and isActive for sure.
-      if (name !== undefined && name !== existing.name) return res.status(403).json({ success: false, message: 'Cannot rename a system benefit type' });
-      if (isActive !== undefined && isActive !== existing.isActive) return res.status(403).json({ success: false, message: 'Cannot deactivate a system benefit type' });
+      if (name !== undefined && name !== existing.name)
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: 'Cannot rename a system benefit type',
+          });
+      if (isActive !== undefined && isActive !== existing.isActive)
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: 'Cannot deactivate a system benefit type',
+          });
     }
 
     const type = await prisma.benefitType.update({
@@ -53,7 +77,10 @@ router.patch('/:id', async (req, res) => {
     });
     res.json({ success: true, data: type });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Benefit type not found' });
+    if (err.code === 'P2025')
+      return res
+        .status(404)
+        .json({ success: false, message: 'Benefit type not found' });
     console.error('PATCH benefit-types error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
@@ -64,13 +91,28 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const existing = await prisma.benefitType.findUnique({ where: { id } });
-    if (!existing) return res.status(404).json({ success: false, message: 'Benefit type not found' });
-    if (existing.isSystem) return res.status(403).json({ success: false, message: 'Cannot deactivate a system benefit type' });
+    if (!existing)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Benefit type not found' });
+    if (existing.isSystem)
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: 'Cannot deactivate a system benefit type',
+        });
 
-    await prisma.benefitType.update({ where: { id }, data: { isActive: false } });
+    await prisma.benefitType.update({
+      where: { id },
+      data: { isActive: false },
+    });
     res.json({ success: true, message: 'Benefit type deactivated' });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Benefit type not found' });
+    if (err.code === 'P2025')
+      return res
+        .status(404)
+        .json({ success: false, message: 'Benefit type not found' });
     res.status(500).json({ success: false, message: err.message });
   }
 });

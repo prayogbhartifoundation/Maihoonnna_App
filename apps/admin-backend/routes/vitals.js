@@ -25,8 +25,13 @@ router.get('/', async (req, res) => {
 // GET /api/vitals/:id — get one
 router.get('/:id', async (req, res) => {
   try {
-    const vital = await prisma.vitalDefinition.findUnique({ where: { id: req.params.id } });
-    if (!vital) return res.status(404).json({ success: false, message: 'Vital not found' });
+    const vital = await prisma.vitalDefinition.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!vital)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Vital not found' });
     res.json({ success: true, data: vital });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -35,9 +40,12 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/vitals — create
 router.post('/', async (req, res) => {
-  const { name, unit, description, iconCode, fieldKey, displayOrder } = req.body;
+  const { name, unit, description, iconCode, fieldKey, displayOrder } =
+    req.body;
   if (!name || !fieldKey) {
-    return res.status(400).json({ success: false, message: 'name and fieldKey are required' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'name and fieldKey are required' });
   }
   try {
     const vital = await prisma.vitalDefinition.create({
@@ -54,7 +62,12 @@ router.post('/', async (req, res) => {
     res.status(201).json({ success: true, data: vital });
   } catch (err) {
     if (err.code === 'P2002') {
-      return res.status(409).json({ success: false, message: `A vital with fieldKey "${fieldKey}" already exists` });
+      return res
+        .status(409)
+        .json({
+          success: false,
+          message: `A vital with fieldKey "${fieldKey}" already exists`,
+        });
     }
     console.error('POST vitals error:', err);
     res.status(500).json({ success: false, message: err.message });
@@ -64,16 +77,38 @@ router.post('/', async (req, res) => {
 // PATCH /api/vitals/:id — update
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, unit, description, iconCode, fieldKey, displayOrder, isActive } = req.body;
+  const {
+    name,
+    unit,
+    description,
+    iconCode,
+    fieldKey,
+    displayOrder,
+    isActive,
+  } = req.body;
   try {
     const vital = await prisma.vitalDefinition.update({
       where: { id },
-      data: { name, unit, description, iconCode, fieldKey, displayOrder, isActive },
+      data: {
+        name,
+        unit,
+        description,
+        iconCode,
+        fieldKey,
+        displayOrder,
+        isActive,
+      },
     });
     res.json({ success: true, data: vital });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Vital not found' });
-    if (err.code === 'P2002') return res.status(409).json({ success: false, message: `fieldKey already in use` });
+    if (err.code === 'P2025')
+      return res
+        .status(404)
+        .json({ success: false, message: 'Vital not found' });
+    if (err.code === 'P2002')
+      return res
+        .status(409)
+        .json({ success: false, message: `fieldKey already in use` });
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -81,10 +116,16 @@ router.patch('/:id', async (req, res) => {
 // DELETE /api/vitals/:id — soft delete
 router.delete('/:id', async (req, res) => {
   try {
-    await prisma.vitalDefinition.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await prisma.vitalDefinition.update({
+      where: { id: req.params.id },
+      data: { isActive: false },
+    });
     res.json({ success: true, message: 'Vital deactivated' });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Vital not found' });
+    if (err.code === 'P2025')
+      return res
+        .status(404)
+        .json({ success: false, message: 'Vital not found' });
     res.status(500).json({ success: false, message: err.message });
   }
 });

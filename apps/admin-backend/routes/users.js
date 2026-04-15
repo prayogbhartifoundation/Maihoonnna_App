@@ -49,15 +49,30 @@ const REQUIRED_DOCUMENTS_BY_ROLE = {
 
 const TRAININGS_BY_ROLE = {
   care_companion: [
-    { trainingType: 'geriatric_care_orientation', title: 'Geriatric care orientation' },
-    { trainingType: 'first_aid_emergency_response', title: 'First aid and emergency response' },
-    { trainingType: 'vitals_capture_documentation', title: 'Vitals capture and documentation' },
+    {
+      trainingType: 'geriatric_care_orientation',
+      title: 'Geriatric care orientation',
+    },
+    {
+      trainingType: 'first_aid_emergency_response',
+      title: 'First aid and emergency response',
+    },
+    {
+      trainingType: 'vitals_capture_documentation',
+      title: 'Vitals capture and documentation',
+    },
   ],
   field_manager: [
-    { trainingType: 'geriatric_care_orientation', title: 'MaiHoonNa field leadership orientation' },
+    {
+      trainingType: 'geriatric_care_orientation',
+      title: 'MaiHoonNa field leadership orientation',
+    },
   ],
   operations_manager: [
-    { trainingType: 'geriatric_care_orientation', title: 'MaiHoonNa operations leadership orientation' },
+    {
+      trainingType: 'geriatric_care_orientation',
+      title: 'MaiHoonNa operations leadership orientation',
+    },
   ],
 };
 
@@ -70,7 +85,9 @@ const REQUIRED_ONBOARDING_MODELS = [
 ];
 
 function ensureOnboardingModels(res) {
-  const missingModels = REQUIRED_ONBOARDING_MODELS.filter((modelName) => typeof prisma[modelName] === 'undefined');
+  const missingModels = REQUIRED_ONBOARDING_MODELS.filter(
+    (modelName) => typeof prisma[modelName] === 'undefined'
+  );
 
   if (missingModels.length === 0) {
     return true;
@@ -155,8 +172,12 @@ function normalizeDocuments(documents, role) {
 
 function buildEmploymentStatus(role, documents, backgroundCheckType) {
   const requiredDocuments = REQUIRED_DOCUMENTS_BY_ROLE[role] || [];
-  const providedDocumentTypes = new Set(documents.map((document) => document.documentType));
-  const hasAllRequiredDocuments = requiredDocuments.every((documentType) => providedDocumentTypes.has(documentType));
+  const providedDocumentTypes = new Set(
+    documents.map((document) => document.documentType)
+  );
+  const hasAllRequiredDocuments = requiredDocuments.every((documentType) =>
+    providedDocumentTypes.has(documentType)
+  );
 
   if (!hasAllRequiredDocuments) {
     return 'pending_documents';
@@ -201,17 +222,21 @@ function mapCareCompanion(companion) {
     shiftPreference: companion.shiftPreference,
     maxDailyVisits: companion.maxDailyVisits,
     utilization: 0, // Mock for UI; will be calculated from visits later
-    isAvailable: Boolean(companion.isAvailable && (companion.user?.isActive ?? true)),
+    isAvailable: Boolean(
+      companion.isAvailable && (companion.user?.isActive ?? true)
+    ),
     isActive: companion.user?.isActive ?? true,
     employmentStatus: staffProfile?.employmentStatus || 'draft',
     bgvStatus: latestBackgroundCheck?.status || null,
     backgroundVerification: {
-      policeVerificationStatus: latestBackgroundCheck?.status === 'cleared' ? 'verified' : 'pending',
+      policeVerificationStatus:
+        latestBackgroundCheck?.status === 'cleared' ? 'verified' : 'pending',
     },
     bgvVerified: staffProfile?.bgvVerified ?? false,
     kycVerified: staffProfile?.kycVerified ?? false,
     ccType: companion.ccType || 'care_assistant',
-    joinedAt: companion.joinedAt || staffProfile?.joinedAt || companion.createdAt,
+    joinedAt:
+      companion.joinedAt || staffProfile?.joinedAt || companion.createdAt,
     createdAt: companion.createdAt,
   };
 }
@@ -233,11 +258,14 @@ function mapFieldManager(manager) {
     maxTeamSize: manager.maxTeamSize,
     canApproveRoster: manager.canApproveRoster,
     canOnboardCCs: manager.canOnboardCCs,
-    isAvailable: Boolean(manager.isAvailable && (manager.user?.isActive ?? true)),
+    isAvailable: Boolean(
+      manager.isAvailable && (manager.user?.isActive ?? true)
+    ),
     isActive: manager.user?.isActive ?? true,
     teamCount: manager.teams?.length || 0,
     teamNames: (manager.teams || []).map((team) => team.name),
-    reportsToUserId: manager.reportsToUserId || staffProfile?.reportsToUserId || null,
+    reportsToUserId:
+      manager.reportsToUserId || staffProfile?.reportsToUserId || null,
     employmentStatus: staffProfile?.employmentStatus || 'draft',
     bgvVerified: staffProfile?.bgvVerified ?? false,
     kycVerified: staffProfile?.kycVerified ?? false,
@@ -255,14 +283,18 @@ function mapOperationsManager(manager) {
     email: manager.user?.email || null,
     qualification: manager.qualification,
     experience: manager.experience,
-    isAvailable: Boolean(manager.isAvailable && (manager.user?.isActive ?? true)),
+    isAvailable: Boolean(
+      manager.isAvailable && (manager.user?.isActive ?? true)
+    ),
     isActive: manager.user?.isActive ?? true,
-    assignedZones: (manager.user?.zonesAsOperationsManager || []).map((zone) => ({
-      id: zone.id,
-      name: zone.name,
-      city: zone.city,
-      pincode: zone.pincode,
-    })),
+    assignedZones: (manager.user?.zonesAsOperationsManager || []).map(
+      (zone) => ({
+        id: zone.id,
+        name: zone.name,
+        city: zone.city,
+        pincode: zone.pincode,
+      })
+    ),
     bgvVerified: manager.user?.staffProfile?.bgvVerified ?? false,
     kycVerified: manager.user?.staffProfile?.kycVerified ?? false,
     joinedAt: manager.createdAt,
@@ -336,7 +368,10 @@ async function buildOnboardingMetadata() {
       maxCapacity: team.maxCapacity,
       currentCapacity: team._count?.careCompanions || 0,
       fieldManagerId: team.fieldManagerId,
-      fieldManagerName: team.fieldManager?.user?.name || team.fieldManager?.name || 'Unassigned',
+      fieldManagerName:
+        team.fieldManager?.user?.name ||
+        team.fieldManager?.name ||
+        'Unassigned',
     })),
     operationsManagers: operationsManagers.map(mapOperationsManager),
     specializations: [
@@ -347,8 +382,8 @@ async function buildOnboardingMetadata() {
       'Physiotherapy Assistance',
       'Palliative Care',
       'Emergency First Aid',
-      'Medication Management'
-    ]
+      'Medication Management',
+    ],
   };
 }
 
@@ -362,7 +397,7 @@ router.get('/field-managers', async (req, res) => {
     if (search) {
       filterParams.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { zone: { contains: search, mode: 'insensitive' } }
+        { zone: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -409,7 +444,7 @@ router.get('/field-managers', async (req, res) => {
 
     const [managers, total] = await Promise.all([
       prisma.fieldManager.findMany(listQuery),
-      prisma.fieldManager.count({ where: filterParams })
+      prisma.fieldManager.count({ where: filterParams }),
     ]);
 
     const mapped = managers.map(mapFieldManager);
@@ -428,7 +463,9 @@ router.get('/field-managers', async (req, res) => {
     }
   } catch (err) {
     console.error('GET /field-managers error:', err);
-    res.status(500).json({ success: false, message: 'Failed to fetch field managers' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to fetch field managers' });
   }
 });
 
@@ -484,7 +521,7 @@ router.get('/operations-managers', async (req, res) => {
 
     const [managers, total] = await Promise.all([
       prisma.operationsManager.findMany(listQuery),
-      prisma.operationsManager.count({ where: filterParams })
+      prisma.operationsManager.count({ where: filterParams }),
     ]);
 
     const mapped = managers.map(mapOperationsManager);
@@ -503,7 +540,9 @@ router.get('/operations-managers', async (req, res) => {
     }
   } catch (err) {
     console.error('GET /operations-managers error:', err);
-    res.status(500).json({ success: false, message: 'Failed to fetch operations managers' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to fetch operations managers' });
   }
 });
 
@@ -515,7 +554,9 @@ router.get('/staff/onboarding-metadata', async (req, res) => {
     res.json({ success: true, data: metadata });
   } catch (err) {
     console.error('GET /staff/onboarding-metadata error:', err);
-    res.status(500).json({ success: false, message: 'Failed to fetch onboarding metadata' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to fetch onboarding metadata' });
   }
 });
 
@@ -530,7 +571,9 @@ router.post('/staff/onboard', async (req, res) => {
     const documents = normalizeDocuments(req.body?.documents, role);
 
     if (!role) {
-      return res.status(400).json({ success: false, message: 'A valid staff role is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'A valid staff role is required' });
     }
 
     const fullName = asTrimmedString(personal.fullName);
@@ -538,7 +581,8 @@ router.post('/staff/onboard', async (req, res) => {
     const email = asNullableString(personal.email)?.toLowerCase() || null;
     const preferredName = asNullableString(personal.preferredName);
     const aadhaarNumber = asNullableString(personal.aadhaarNumber);
-    const panNumber = asNullableString(personal.panNumber)?.toUpperCase() || null;
+    const panNumber =
+      asNullableString(personal.panNumber)?.toUpperCase() || null;
     const languageList = asStringArray(professional.languages);
 
     if (!fullName || !mobileNumber || !aadhaarNumber) {
@@ -549,71 +593,113 @@ router.post('/staff/onboard', async (req, res) => {
     }
 
     if (mobileNumber.length < 10) {
-      return res.status(400).json({ success: false, message: 'Mobile number should be at least 10 digits' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: 'Mobile number should be at least 10 digits',
+        });
     }
 
-    const zoneIds = role === 'operations_manager'
-      ? asStringArray(assignment.zoneIds)
-      : [asTrimmedString(assignment.zoneId)].filter(Boolean);
+    const zoneIds =
+      role === 'operations_manager'
+        ? asStringArray(assignment.zoneIds)
+        : [asTrimmedString(assignment.zoneId)].filter(Boolean);
     const primaryZoneId = zoneIds[0] || null;
-    const teamId = role === 'care_companion' ? asNullableString(assignment.teamId) : null;
-    const reportsToUserId = role === 'field_manager' ? asNullableString(assignment.reportsToUserId) : null;
+    const teamId =
+      role === 'care_companion' ? asNullableString(assignment.teamId) : null;
+    const reportsToUserId =
+      role === 'field_manager'
+        ? asNullableString(assignment.reportsToUserId)
+        : null;
     const backgroundCheckType = asTrimmedString(assignment.bgvType);
     const backgroundCheckAgency = asNullableString(assignment.bgvAgency);
 
     if (!zoneIds.length) {
-      return res.status(400).json({ success: false, message: 'At least one zone must be selected' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: 'At least one zone must be selected',
+        });
     }
 
-    if (backgroundCheckType && !SUPPORTED_BACKGROUND_CHECK_TYPES.has(backgroundCheckType)) {
-      return res.status(400).json({ success: false, message: 'Invalid BGV type selected' });
+    if (
+      backgroundCheckType &&
+      !SUPPORTED_BACKGROUND_CHECK_TYPES.has(backgroundCheckType)
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid BGV type selected' });
     }
 
-    if (role === 'care_companion' && !asTrimmedString(professional.qualification)) {
-      return res.status(400).json({ success: false, message: 'Qualification is required for care companions' });
+    if (
+      role === 'care_companion' &&
+      !asTrimmedString(professional.qualification)
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: 'Qualification is required for care companions',
+        });
     }
 
-    if (role === 'field_manager' && !asTrimmedString(professional.qualification)) {
-      return res.status(400).json({ success: false, message: 'Qualification is required for field managers' });
+    if (
+      role === 'field_manager' &&
+      !asTrimmedString(professional.qualification)
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: 'Qualification is required for field managers',
+        });
     }
 
-    if (role === 'operations_manager' && !asTrimmedString(professional.qualification)) {
-      return res.status(400).json({ success: false, message: 'Qualification is required for operations managers' });
+    if (
+      role === 'operations_manager' &&
+      !asTrimmedString(professional.qualification)
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: 'Qualification is required for operations managers',
+        });
     }
 
-    const [existingUser, zones, selectedTeam, reportsToUser] = await Promise.all([
-      prisma.user.findFirst({
-        where: {
-          OR: [
-            { phone: mobileNumber },
-            ...(email ? [{ email }] : []),
-          ],
-        },
-        select: { id: true, phone: true, email: true },
-      }),
-      prisma.zone.findMany({
-        where: { id: { in: zoneIds } },
-        orderBy: { name: 'asc' },
-      }),
-      teamId
-        ? prisma.team.findUnique({
-            where: { id: teamId },
-            include: {
-              _count: {
-                select: {
-                  careCompanions: true,
+    const [existingUser, zones, selectedTeam, reportsToUser] =
+      await Promise.all([
+        prisma.user.findFirst({
+          where: {
+            OR: [{ phone: mobileNumber }, ...(email ? [{ email }] : [])],
+          },
+          select: { id: true, phone: true, email: true },
+        }),
+        prisma.zone.findMany({
+          where: { id: { in: zoneIds } },
+          orderBy: { name: 'asc' },
+        }),
+        teamId
+          ? prisma.team.findUnique({
+              where: { id: teamId },
+              include: {
+                _count: {
+                  select: {
+                    careCompanions: true,
+                  },
                 },
               },
-            },
-          })
-        : Promise.resolve(null),
-      reportsToUserId
-        ? prisma.user.findUnique({
-            where: { id: reportsToUserId },
-            select: { id: true, role: true, name: true },
-          })
-        : Promise.resolve(null),
-    ]);
+            })
+          : Promise.resolve(null),
+        reportsToUserId
+          ? prisma.user.findUnique({
+              where: { id: reportsToUserId },
+              select: { id: true, role: true, name: true },
+            })
+          : Promise.resolve(null),
+      ]);
 
     if (existingUser) {
       return res.status(409).json({
@@ -623,21 +709,42 @@ router.post('/staff/onboard', async (req, res) => {
     }
 
     if (zones.length !== zoneIds.length) {
-      return res.status(400).json({ success: false, message: 'One or more selected zones are invalid' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: 'One or more selected zones are invalid',
+        });
     }
 
     if (selectedTeam && primaryZoneId) {
       const selectedZone = zones.find((zone) => zone.id === primaryZoneId);
-      const teamMatchesZone = selectedZone && (selectedTeam.zone === selectedZone.id || selectedTeam.zone === selectedZone.name);
+      const teamMatchesZone =
+        selectedZone &&
+        (selectedTeam.zone === selectedZone.id ||
+          selectedTeam.zone === selectedZone.name);
       if (!teamMatchesZone) {
-        return res.status(400).json({ success: false, message: 'Selected team does not belong to the chosen zone' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: 'Selected team does not belong to the chosen zone',
+          });
       }
       if (selectedTeam._count?.careCompanions >= selectedTeam.maxCapacity) {
-        return res.status(400).json({ success: false, message: 'Selected team is already at full capacity' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: 'Selected team is already at full capacity',
+          });
       }
     }
 
-    if (reportsToUserId && (!reportsToUser || reportsToUser.role !== 'operations_manager')) {
+    if (
+      reportsToUserId &&
+      (!reportsToUser || reportsToUser.role !== 'operations_manager')
+    ) {
       return res.status(400).json({
         success: false,
         message: 'Reports-to user must be an operations manager',
@@ -654,27 +761,37 @@ router.post('/staff/onboard', async (req, res) => {
       }
     }
 
-    const normalizedShiftPreference = asTrimmedString(professional.preferredShift) || 'any';
-    const shiftPreference = SUPPORTED_SHIFT_PREFERENCES.has(normalizedShiftPreference)
+    const normalizedShiftPreference =
+      asTrimmedString(professional.preferredShift) || 'any';
+    const shiftPreference = SUPPORTED_SHIFT_PREFERENCES.has(
+      normalizedShiftPreference
+    )
       ? normalizedShiftPreference
       : 'any';
 
-    const employmentStatus = buildEmploymentStatus(role, documents, backgroundCheckType);
+    const employmentStatus = buildEmploymentStatus(
+      role,
+      documents,
+      backgroundCheckType
+    );
     const primaryZone = zones.find((zone) => zone.id === primaryZoneId) || null;
 
     const created = await prisma.$transaction(async (tx) => {
       const userData = {
-          name: fullName,
-          phone: mobileNumber,
-          email,
-          role,
-          isActive: true,
-          isVerified: false,
+        name: fullName,
+        phone: mobileNumber,
+        email,
+        role,
+        isActive: true,
+        isVerified: false,
       };
 
       if (personal.newPassword && personal.newPassword.trim().length >= 6) {
-          const salt = await bcrypt.genSalt(10);
-          userData.password = await bcrypt.hash(personal.newPassword.trim(), salt);
+        const salt = await bcrypt.genSalt(10);
+        userData.password = await bcrypt.hash(
+          personal.newPassword.trim(),
+          salt
+        );
       }
 
       const user = await tx.user.create({
@@ -720,9 +837,13 @@ router.post('/staff/onboard', async (req, res) => {
             name: fullName,
             zone: primaryZone?.name || '',
             experience: asOptionalInt(professional.experience),
-            qualifications: [asTrimmedString(professional.qualification)].filter(Boolean),
+            qualifications: [
+              asTrimmedString(professional.qualification),
+            ].filter(Boolean),
             languages: languageList,
-            nursingRegistrationNumber: asNullableString(professional.nursingRegistrationNumber),
+            nursingRegistrationNumber: asNullableString(
+              professional.nursingRegistrationNumber
+            ),
             nursingCouncil: asNullableString(professional.nursingCouncil),
             ccType: asTrimmedString(professional.ccType) || 'care_assistant',
             shiftPreference,
@@ -873,7 +994,9 @@ router.post('/staff', async (req, res) => {
     res.json({ success: true, data: user });
   } catch (err) {
     console.error('POST /staff error:', err);
-    res.status(500).json({ success: false, message: 'Failed to create staff member' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to create staff member' });
   }
 });
 
@@ -896,7 +1019,7 @@ router.get('/care-companions', async (req, res) => {
       } else {
         filterParams.OR = [
           { name: { contains: search, mode: 'insensitive' } },
-          { zone: { contains: search, mode: 'insensitive' } }
+          { zone: { contains: search, mode: 'insensitive' } },
         ];
       }
     }
@@ -905,17 +1028,17 @@ router.get('/care-companions', async (req, res) => {
     if (req.user && req.user.role === 'field_manager') {
       const fm = await prisma.fieldManager.findUnique({
         where: { userId: req.user.id },
-        select: { id: true }
+        select: { id: true },
       });
       if (fm) {
         const teams = await prisma.team.findMany({
           where: { fieldManagerId: fm.id },
-          select: { id: true }
+          select: { id: true },
         });
-        const teamIds = teams.map(t => t.id);
+        const teamIds = teams.map((t) => t.id);
         filterParams.user = {
           isActive: true,
-          staffProfile: { teamId: { in: teamIds } }
+          staffProfile: { teamId: { in: teamIds } },
         };
       } else {
         // FM has no profile, return empty
@@ -981,7 +1104,7 @@ router.get('/care-companions', async (req, res) => {
 
     const [companions, total] = await Promise.all([
       prisma.careCompanion.findMany(listQuery),
-      prisma.careCompanion.count({ where: filterParams })
+      prisma.careCompanion.count({ where: filterParams }),
     ]);
 
     const mapped = companions.map(mapCareCompanion);
@@ -1000,7 +1123,9 @@ router.get('/care-companions', async (req, res) => {
     }
   } catch (err) {
     console.error('GET /care-companions error:', err);
-    res.status(500).json({ success: false, message: 'Failed to fetch care companions' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to fetch care companions' });
   }
 });
 
@@ -1034,7 +1159,10 @@ router.get('/staff/:userId', async (req, res) => {
       },
     });
 
-    if (!user) return res.status(404).json({ success: false, message: 'Staff member not found' });
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Staff member not found' });
 
     // Adapt data structure to match the frontend form state
     const data = {
@@ -1042,7 +1170,9 @@ router.get('/staff/:userId', async (req, res) => {
       personal: {
         fullName: user.name || '',
         preferredName: user.staffProfile?.preferredName || '',
-        dateOfBirth: user.staffProfile?.dateOfBirth ? user.staffProfile.dateOfBirth.toISOString().split('T')[0] : '',
+        dateOfBirth: user.staffProfile?.dateOfBirth
+          ? user.staffProfile.dateOfBirth.toISOString().split('T')[0]
+          : '',
         gender: user.staffProfile?.gender || 'female',
         mobileNumber: user.phone || '',
         whatsappNumber: user.staffProfile?.whatsappPhone || '',
@@ -1068,14 +1198,16 @@ router.get('/staff/:userId', async (req, res) => {
             user.operationsManagerProfile?.experience ||
             ''
         ),
-        nursingRegistrationNumber: user.careCompanionProfile?.nursingRegistrationNumber || '',
+        nursingRegistrationNumber:
+          user.careCompanionProfile?.nursingRegistrationNumber || '',
         nursingCouncil: user.careCompanionProfile?.nursingCouncil || '',
         previousEmployer: user.fieldManagerProfile?.previousEmployer || '',
         maxTeamSize: String(user.fieldManagerProfile?.maxTeamSize || 15),
         languages: user.staffProfile?.languages || [],
         preferredShift: user.careCompanionProfile?.shiftPreference || 'any',
         maxDailyVisits: String(user.careCompanionProfile?.maxDailyVisits || 4),
-        willingClinicVisits: user.careCompanionProfile?.willingClinicVisits || false,
+        willingClinicVisits:
+          user.careCompanionProfile?.willingClinicVisits || false,
         hasTwoWheeler: user.careCompanionProfile?.hasTwoWheeler || false,
         canApproveRoster: user.fieldManagerProfile?.canApproveRoster !== false,
         canOnboardCCs: user.fieldManagerProfile?.canOnboardCCs || false,
@@ -1085,7 +1217,10 @@ router.get('/staff/:userId', async (req, res) => {
         zoneId: user.staffProfile?.zoneId || '',
         zoneIds: user.zonesAsOperationsManager?.map((z) => z.id) || [],
         teamId: user.careCompanionProfile?.teamId || '',
-        reportsToUserId: user.fieldManagerProfile?.reportsToUserId || user.staffProfile?.reportsToUserId || '',
+        reportsToUserId:
+          user.fieldManagerProfile?.reportsToUserId ||
+          user.staffProfile?.reportsToUserId ||
+          '',
         bgvType: user.staffProfile?.bgvType || 'police_clearance',
         bgvAgency: user.staffProfile?.bgvAgency || '',
         bgvVerified: user.staffProfile?.bgvVerified ?? false,
@@ -1097,7 +1232,9 @@ router.get('/staff/:userId', async (req, res) => {
     res.json({ success: true, data });
   } catch (err) {
     console.error(`GET /staff/${userId} error:`, err);
-    res.status(500).json({ success: false, message: 'Failed to fetch staff details' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to fetch staff details' });
   }
 });
 
@@ -1107,7 +1244,9 @@ router.put('/staff/:userId', async (req, res) => {
   const role = normalizeRole(req.body?.role);
 
   if (!role) {
-    return res.status(400).json({ success: false, message: 'Valid staff role is required' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Valid staff role is required' });
   }
 
   try {
@@ -1116,14 +1255,17 @@ router.put('/staff/:userId', async (req, res) => {
     await prisma.$transaction(async (tx) => {
       // 1. Update Core User Info
       const userDataToUpdate = {
-          name: asTrimmedString(personal.fullName),
-          phone: asTrimmedString(personal.mobileNumber),
-          email: asNullableString(personal.email)?.toLowerCase(),
+        name: asTrimmedString(personal.fullName),
+        phone: asTrimmedString(personal.mobileNumber),
+        email: asNullableString(personal.email)?.toLowerCase(),
       };
-      
+
       if (personal.newPassword && personal.newPassword.trim().length >= 6) {
-          const salt = await bcrypt.genSalt(10);
-          userDataToUpdate.password = await bcrypt.hash(personal.newPassword.trim(), salt);
+        const salt = await bcrypt.genSalt(10);
+        userDataToUpdate.password = await bcrypt.hash(
+          personal.newPassword.trim(),
+          salt
+        );
       }
 
       await tx.user.update({
@@ -1146,17 +1288,26 @@ router.put('/staff/:userId', async (req, res) => {
           state: asNullableString(personal.state),
           pincode: asNullableString(personal.pincode),
           aadhaarNumberEncrypted: asNullableString(personal.aadhaarNumber),
-          panNumberEncrypted: asNullableString(personal.panNumber)?.toUpperCase(),
+          panNumberEncrypted: asNullableString(
+            personal.panNumber
+          )?.toUpperCase(),
           languages: asStringArray(professional.languages),
-          zone: role === 'operations_manager' || !asNullableString(assignment.zoneId)
-            ? { disconnect: true }
-            : { connect: { id: asNullableString(assignment.zoneId) } },
-          team: role === 'care_companion' && asNullableString(assignment.teamId)
-            ? { connect: { id: asNullableString(assignment.teamId) } }
-            : { disconnect: true },
-          reportsToUser: role === 'field_manager' && asNullableString(assignment.reportsToUserId)
-            ? { connect: { id: asNullableString(assignment.reportsToUserId) } }
-            : { disconnect: true },
+          zone:
+            role === 'operations_manager' ||
+            !asNullableString(assignment.zoneId)
+              ? { disconnect: true }
+              : { connect: { id: asNullableString(assignment.zoneId) } },
+          team:
+            role === 'care_companion' && asNullableString(assignment.teamId)
+              ? { connect: { id: asNullableString(assignment.teamId) } }
+              : { disconnect: true },
+          reportsToUser:
+            role === 'field_manager' &&
+            asNullableString(assignment.reportsToUserId)
+              ? {
+                  connect: { id: asNullableString(assignment.reportsToUserId) },
+                }
+              : { disconnect: true },
           bgvType: asTrimmedString(assignment.bgvType),
           bgvAgency: asNullableString(assignment.bgvAgency),
           bgvVerified: Boolean(assignment.bgvVerified),
@@ -1167,20 +1318,27 @@ router.put('/staff/:userId', async (req, res) => {
 
       // 3. Update Role-Specific Record
       if (role === 'care_companion') {
-        const primaryZone = await tx.zone.findUnique({ where: { id: assignment.zoneId || '' } });
+        const primaryZone = await tx.zone.findUnique({
+          where: { id: assignment.zoneId || '' },
+        });
         await tx.careCompanion.update({
           where: { userId },
           data: {
             name: asTrimmedString(personal.fullName),
             zone: primaryZone?.name || '',
             experience: asOptionalInt(professional.experience),
-            qualifications: [asTrimmedString(professional.qualification)].filter(Boolean),
+            qualifications: [
+              asTrimmedString(professional.qualification),
+            ].filter(Boolean),
             languages: asStringArray(professional.languages),
             specialization: asStringArray(professional.specialization),
-            nursingRegistrationNumber: asNullableString(professional.nursingRegistrationNumber),
+            nursingRegistrationNumber: asNullableString(
+              professional.nursingRegistrationNumber
+            ),
             nursingCouncil: asNullableString(professional.nursingCouncil),
             ccType: asTrimmedString(professional.ccType) || 'care_assistant',
-            shiftPreference: asTrimmedString(professional.preferredShift) || 'any',
+            shiftPreference:
+              asTrimmedString(professional.preferredShift) || 'any',
             maxDailyVisits: asOptionalInt(professional.maxDailyVisits),
             willingClinicVisits: Boolean(professional.willingClinicVisits),
             hasTwoWheeler: Boolean(professional.hasTwoWheeler),
@@ -1190,7 +1348,9 @@ router.put('/staff/:userId', async (req, res) => {
           },
         });
       } else if (role === 'field_manager') {
-        const primaryZone = await tx.zone.findUnique({ where: { id: assignment.zoneId || '' } });
+        const primaryZone = await tx.zone.findUnique({
+          where: { id: assignment.zoneId || '' },
+        });
         await tx.fieldManager.update({
           where: { userId },
           data: {
@@ -1239,7 +1399,12 @@ router.put('/staff/:userId', async (req, res) => {
     res.json({ success: true, message: 'Staff member updated successfully' });
   } catch (err) {
     console.error(`PUT /staff/${userId} error:`, err);
-    res.status(500).json({ success: false, message: err?.message || 'Failed to update staff member' });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: err?.message || 'Failed to update staff member',
+      });
   }
 });
 
@@ -1258,10 +1423,15 @@ router.put('/staff/:userId/deactivate', async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Staff member not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Staff member not found' });
     }
 
-    const startDate = user.staffProfile?.activatedAt || user.staffProfile?.joinedAt || user.createdAt;
+    const startDate =
+      user.staffProfile?.activatedAt ||
+      user.staffProfile?.joinedAt ||
+      user.createdAt;
     const endDate = new Date();
     const diffTime = Math.abs(endDate - startDate);
     const workingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -1293,7 +1463,10 @@ router.put('/staff/:userId/deactivate', async (req, res) => {
           where: { userId },
           data: { isAvailable: false },
         });
-      } else if (user.role === 'operations_manager' && user.operationsManagerProfile) {
+      } else if (
+        user.role === 'operations_manager' &&
+        user.operationsManagerProfile
+      ) {
         await tx.operationsManager.update({
           where: { userId },
           data: { isAvailable: false },
@@ -1313,7 +1486,12 @@ router.put('/staff/:userId/deactivate', async (req, res) => {
     });
   } catch (err) {
     console.error(`PUT /staff/${userId}/deactivate error:`, err);
-    res.status(500).json({ success: false, message: err?.message || 'Failed to deactivate staff member' });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: err?.message || 'Failed to deactivate staff member',
+      });
   }
 });
 

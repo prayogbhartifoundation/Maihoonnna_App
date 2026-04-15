@@ -13,7 +13,9 @@ router.get('/', async (req, res) => {
     const benefits = await prisma.benefit.findMany({
       where,
       orderBy: [{ benefitTypeId: 'asc' }, { displayOrder: 'asc' }],
-      include: { benefitType: { select: { id: true, name: true, iconCode: true } } },
+      include: {
+        benefitType: { select: { id: true, name: true, iconCode: true } },
+      },
     });
     res.json({ success: true, data: benefits });
   } catch (err) {
@@ -29,7 +31,10 @@ router.get('/:id', async (req, res) => {
       where: { id: req.params.id },
       include: { benefitType: true },
     });
-    if (!benefit) return res.status(404).json({ success: false, message: 'Benefit not found' });
+    if (!benefit)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Benefit not found' });
     res.json({ success: true, data: benefit });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -38,9 +43,20 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/benefits — create
 router.post('/', async (req, res) => {
-  const { benefitTypeId, name, description, isChargeable, unitCost, unitLabel, defaultUnits, displayOrder } = req.body;
+  const {
+    benefitTypeId,
+    name,
+    description,
+    isChargeable,
+    unitCost,
+    unitLabel,
+    defaultUnits,
+    displayOrder,
+  } = req.body;
   if (!benefitTypeId || !name) {
-    return res.status(400).json({ success: false, message: 'benefitTypeId and name are required' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'benefitTypeId and name are required' });
   }
   try {
     const benefit = await prisma.benefit.create({
@@ -66,16 +82,39 @@ router.post('/', async (req, res) => {
 // PATCH /api/benefits/:id — update
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const { benefitTypeId, name, description, isChargeable, unitCost, unitLabel, defaultUnits, displayOrder, isActive } = req.body;
+  const {
+    benefitTypeId,
+    name,
+    description,
+    isChargeable,
+    unitCost,
+    unitLabel,
+    defaultUnits,
+    displayOrder,
+    isActive,
+  } = req.body;
   try {
     const benefit = await prisma.benefit.update({
       where: { id },
-      data: { benefitTypeId, name, description, isChargeable, unitCost, unitLabel, defaultUnits, displayOrder, isActive },
+      data: {
+        benefitTypeId,
+        name,
+        description,
+        isChargeable,
+        unitCost,
+        unitLabel,
+        defaultUnits,
+        displayOrder,
+        isActive,
+      },
       include: { benefitType: { select: { id: true, name: true } } },
     });
     res.json({ success: true, data: benefit });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Benefit not found' });
+    if (err.code === 'P2025')
+      return res
+        .status(404)
+        .json({ success: false, message: 'Benefit not found' });
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -83,10 +122,16 @@ router.patch('/:id', async (req, res) => {
 // DELETE /api/benefits/:id — soft delete
 router.delete('/:id', async (req, res) => {
   try {
-    await prisma.benefit.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await prisma.benefit.update({
+      where: { id: req.params.id },
+      data: { isActive: false },
+    });
     res.json({ success: true, message: 'Benefit deactivated' });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Benefit not found' });
+    if (err.code === 'P2025')
+      return res
+        .status(404)
+        .json({ success: false, message: 'Benefit not found' });
     res.status(500).json({ success: false, message: err.message });
   }
 });

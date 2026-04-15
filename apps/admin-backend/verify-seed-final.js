@@ -10,7 +10,7 @@ async function check() {
       cc: await prisma.careCompanion.count(),
       beneficiaries: await prisma.beneficiary.count(),
       packages: await prisma.subscriptionPackage.count(),
-      subscriptions: await prisma.subscription.count()
+      subscriptions: await prisma.subscription.count(),
     };
     console.log('Database Record Counts:', JSON.stringify(counts, null, 2));
   } catch (err) {

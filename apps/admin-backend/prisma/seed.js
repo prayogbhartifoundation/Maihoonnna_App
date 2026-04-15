@@ -27,7 +27,9 @@ async function main() {
       isActive: true,
     },
   });
-  console.log(`✅ Subscriber: ${subscriberUser.name} (${subscriberUser.phone})`);
+  console.log(
+    `✅ Subscriber: ${subscriberUser.name} (${subscriberUser.phone})`
+  );
 
   // ─── 3. Create Beneficiary User ──────────────────────────────────────────
   console.log('Creating beneficiary user...');
@@ -43,7 +45,9 @@ async function main() {
       isActive: true,
     },
   });
-  console.log(`✅ Beneficiary User: ${beneficiaryUser.name} (${beneficiaryUser.phone})`);
+  console.log(
+    `✅ Beneficiary User: ${beneficiaryUser.name} (${beneficiaryUser.phone})`
+  );
 
   // ─── 4. Create Care Companion User ───────────────────────────────────────
   console.log('Creating care companion user...');
@@ -231,14 +235,29 @@ async function main() {
   // ─── 7. Create Medications for Beneficiary ───────────────────────────────
   console.log('Creating medications...');
   const medsData = [
-    { name: 'Metformin', dosage: '500mg', frequency: 'twice_daily', timeSlots: ['08:00 AM', '08:00 PM'] },
-    { name: 'Lisinopril', dosage: '10mg', frequency: 'once_daily', timeSlots: ['09:00 AM'] },
-    { name: 'Aspirin', dosage: '75mg', frequency: 'once_daily', timeSlots: ['08:00 AM'] },
+    {
+      name: 'Metformin',
+      dosage: '500mg',
+      frequency: 'twice_daily',
+      timeSlots: ['08:00 AM', '08:00 PM'],
+    },
+    {
+      name: 'Lisinopril',
+      dosage: '10mg',
+      frequency: 'once_daily',
+      timeSlots: ['09:00 AM'],
+    },
+    {
+      name: 'Aspirin',
+      dosage: '75mg',
+      frequency: 'once_daily',
+      timeSlots: ['08:00 AM'],
+    },
   ];
 
   for (const med of medsData) {
     const existing = await prisma.medication.findFirst({
-      where: { beneficiaryId: beneficiaryProfile.id, name: med.name }
+      where: { beneficiaryId: beneficiaryProfile.id, name: med.name },
     });
     if (!existing) {
       await prisma.medication.create({
@@ -263,7 +282,10 @@ async function main() {
   tomorrow.setHours(10, 0, 0, 0);
 
   const existingVisit = await prisma.visit.findFirst({
-    where: { beneficiaryId: beneficiaryProfile.id, careCompanionId: ccProfile.id }
+    where: {
+      beneficiaryId: beneficiaryProfile.id,
+      careCompanionId: ccProfile.id,
+    },
   });
 
   if (!existingVisit) {
@@ -284,13 +306,43 @@ async function main() {
   // ─── 8b. Create Vital Definitions ─────────────────────────────────────────
   console.log('Creating vital definitions...');
   const vitals = [
-    { name: 'Blood Pressure', unit: 'mmHg', fieldKey: 'trackBloodPressure', displayOrder: 1 },
-    { name: 'Heart Rate', unit: 'bpm', fieldKey: 'trackHeartRate', displayOrder: 2 },
-    { name: 'Blood Sugar', unit: 'mg/dL', fieldKey: 'trackBloodSugar', displayOrder: 3 },
-    { name: 'Oxygen Saturation', unit: '%', fieldKey: 'trackOxygenSaturation', displayOrder: 4 },
-    { name: 'Temperature', unit: '°F', fieldKey: 'trackTemperature', displayOrder: 5 },
+    {
+      name: 'Blood Pressure',
+      unit: 'mmHg',
+      fieldKey: 'trackBloodPressure',
+      displayOrder: 1,
+    },
+    {
+      name: 'Heart Rate',
+      unit: 'bpm',
+      fieldKey: 'trackHeartRate',
+      displayOrder: 2,
+    },
+    {
+      name: 'Blood Sugar',
+      unit: 'mg/dL',
+      fieldKey: 'trackBloodSugar',
+      displayOrder: 3,
+    },
+    {
+      name: 'Oxygen Saturation',
+      unit: '%',
+      fieldKey: 'trackOxygenSaturation',
+      displayOrder: 4,
+    },
+    {
+      name: 'Temperature',
+      unit: '°F',
+      fieldKey: 'trackTemperature',
+      displayOrder: 5,
+    },
     { name: 'Weight', unit: 'kg', fieldKey: 'trackWeight', displayOrder: 6 },
-    { name: 'Respiratory Rate', unit: 'breaths/min', fieldKey: 'trackRespiratoryRate', displayOrder: 7 },
+    {
+      name: 'Respiratory Rate',
+      unit: 'breaths/min',
+      fieldKey: 'trackRespiratoryRate',
+      displayOrder: 7,
+    },
   ];
 
   for (const v of vitals) {
@@ -300,8 +352,8 @@ async function main() {
       create: {
         id: generateUUID(),
         ...v,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
   }
   console.log(`✅ Vital definitions created`);
@@ -309,27 +361,56 @@ async function main() {
   // ─── 8d. Create Benefit Types ──────────────────────────────────────────
   console.log('Creating benefit types...');
   const benefitTypes = [
-    { name: 'Nurse', description: 'Trained nursing home visit', iconCode: '🏥' },
-    { name: 'Care Assistant', description: 'Non-medical companionship', iconCode: '🤝' },
+    {
+      name: 'Nurse',
+      description: 'Trained nursing home visit',
+      iconCode: '🏥',
+    },
+    {
+      name: 'Care Assistant',
+      description: 'Non-medical companionship',
+      iconCode: '🤝',
+    },
     { name: 'Ambulance', description: 'Emergency ambulance', iconCode: '🚑' },
-    { name: 'Tele-consultation', description: 'Remote doctor consult', iconCode: '📞' },
-    { name: 'Physio Session', description: 'Physiotherapy sessions', iconCode: '🧘' },
-    { name: 'Lab Test', description: 'Diagnostic lab collection', iconCode: '🔬' },
-    { name: 'Pharmacy', description: 'Medicine delivery & mgmt', iconCode: '💊' },
+    {
+      name: 'Tele-consultation',
+      description: 'Remote doctor consult',
+      iconCode: '📞',
+    },
+    {
+      name: 'Physio Session',
+      description: 'Physiotherapy sessions',
+      iconCode: '🧘',
+    },
+    {
+      name: 'Lab Test',
+      description: 'Diagnostic lab collection',
+      iconCode: '🔬',
+    },
+    {
+      name: 'Pharmacy',
+      description: 'Medicine delivery & mgmt',
+      iconCode: '💊',
+    },
   ];
 
   for (let i = 0; i < benefitTypes.length; i++) {
     const bt = benefitTypes[i];
     await prisma.benefitType.upsert({
       where: { name: bt.name },
-      update: { description: bt.description, iconCode: bt.iconCode, displayOrder: i + 1, isSystem: true },
-      create: { 
+      update: {
+        description: bt.description,
+        iconCode: bt.iconCode,
+        displayOrder: i + 1,
+        isSystem: true,
+      },
+      create: {
         id: generateUUID(),
         ...bt,
         displayOrder: i + 1,
         isActive: true,
-        isSystem: true
-      }
+        isSystem: true,
+      },
     });
   }
   console.log(`✅ Benefit Types created`);
@@ -337,8 +418,18 @@ async function main() {
   // ─── 8e. Create System Config ──────────────────────────────────────────
   console.log('Creating system configs...');
   const configs = [
-    { key: 'globalLunchStart', value: '13:00', group: 'scheduling', description: 'Global lunch start time for all CCs' },
-    { key: 'globalLunchEnd', value: '14:00', group: 'scheduling', description: 'Global lunch end time for all CCs' },
+    {
+      key: 'globalLunchStart',
+      value: '13:00',
+      group: 'scheduling',
+      description: 'Global lunch start time for all CCs',
+    },
+    {
+      key: 'globalLunchEnd',
+      value: '14:00',
+      group: 'scheduling',
+      description: 'Global lunch end time for all CCs',
+    },
   ];
 
   for (const cfg of configs) {
@@ -347,8 +438,8 @@ async function main() {
       update: { value: cfg.value, description: cfg.description },
       create: {
         id: generateUUID(),
-        ...cfg
-      }
+        ...cfg,
+      },
     });
   }
   console.log(`✅ System Configs created`);
@@ -377,8 +468,8 @@ async function main() {
         slug: slug,
         category: c.category,
         isCommon: true,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
   }
   console.log(`✅ Medical conditions created`);
@@ -389,7 +480,8 @@ async function main() {
     {
       type: 'silver',
       name: 'Silver Care',
-      description: 'Essential care for your loved ones. Includes regular home visits, medication reminders, and basic health monitoring.',
+      description:
+        'Essential care for your loved ones. Includes regular home visits, medication reminders, and basic health monitoring.',
       basePrice: 4999,
       durationMonths: 1,
       visitsPerWeek: 2,
@@ -408,7 +500,8 @@ async function main() {
     {
       type: 'gold',
       name: 'Gold Care',
-      description: 'Comprehensive care with more frequent visits and advanced health tracking. Ideal for elders needing regular supervision.',
+      description:
+        'Comprehensive care with more frequent visits and advanced health tracking. Ideal for elders needing regular supervision.',
       basePrice: 8999,
       durationMonths: 1,
       visitsPerWeek: 4,
@@ -429,7 +522,8 @@ async function main() {
     {
       type: 'platinum',
       name: 'Platinum Care',
-      description: 'Our most complete care package. Daily visits, specialist consultations, and premium services for full peace of mind.',
+      description:
+        'Our most complete care package. Daily visits, specialist consultations, and premium services for full peace of mind.',
       basePrice: 14999,
       durationMonths: 1,
       visitsPerWeek: 7,

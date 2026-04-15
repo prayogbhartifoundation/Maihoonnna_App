@@ -8,7 +8,10 @@ const path = require('path');
  * don't allow relative path access to other monorepo packages.
  */
 
-const sourcePath = path.resolve(__dirname, '../../../packages/database/prisma/schema.prisma');
+const sourcePath = path.resolve(
+  __dirname,
+  '../../../packages/database/prisma/schema.prisma'
+);
 const destDir = path.resolve(__dirname, '../prisma');
 const destPath = path.resolve(destDir, 'schema.prisma');
 

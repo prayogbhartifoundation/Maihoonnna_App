@@ -7,7 +7,7 @@ const { prisma } = require('../lib/prisma');
 router.get('/', async (req, res) => {
   try {
     const coupons = await prisma.coupon.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
     res.json({ success: true, data: coupons });
   } catch (error) {
@@ -21,9 +21,12 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const coupon = await prisma.coupon.findUnique({
-      where: { id }
+      where: { id },
     });
-    if (!coupon) return res.status(404).json({ success: false, message: 'Coupon not found' });
+    if (!coupon)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Coupon not found' });
     res.json({ success: true, data: coupon });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -34,11 +37,15 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const data = req.body;
-    
+
     // Check if code exists
-    const existing = await prisma.coupon.findUnique({ where: { code: data.code } });
+    const existing = await prisma.coupon.findUnique({
+      where: { code: data.code },
+    });
     if (existing) {
-      return res.status(400).json({ success: false, message: 'Coupon code already exists' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Coupon code already exists' });
     }
 
     const newCoupon = await prisma.coupon.create({
@@ -48,15 +55,21 @@ router.post('/', async (req, res) => {
         description: data.description,
         type: data.type,
         discountValue: parseFloat(data.discountValue),
-        minOrderAmount: data.minOrderAmount ? parseFloat(data.minOrderAmount) : null,
-        maxDiscountAmount: data.maxDiscountAmount ? parseFloat(data.maxDiscountAmount) : null,
+        minOrderAmount: data.minOrderAmount
+          ? parseFloat(data.minOrderAmount)
+          : null,
+        maxDiscountAmount: data.maxDiscountAmount
+          ? parseFloat(data.maxDiscountAmount)
+          : null,
         startDate: new Date(data.startDate),
         endDate: new Date(data.endDate),
         isActive: data.isActive !== undefined ? data.isActive : true,
         isVisible: data.isVisible !== undefined ? data.isVisible : true,
         isAutoApply: data.isAutoApply || false,
         usageLimit: data.usageLimit ? parseInt(data.usageLimit, 10) : null,
-        perUserLimit: data.perUserLimit ? parseInt(data.perUserLimit, 10) : null,
+        perUserLimit: data.perUserLimit
+          ? parseInt(data.perUserLimit, 10)
+          : null,
         allowedPackages: data.allowedPackages || [],
         allowedUserRoles: data.allowedUserRoles || [],
         firstTimeOnly: data.firstTimeOnly || false,
@@ -65,14 +78,16 @@ router.post('/', async (req, res) => {
         ipLimit: data.ipLimit ? parseInt(data.ipLimit, 10) : null,
         campaignName: data.campaignName,
         source: data.source,
-        createdBy: data.createdBy || 'Admin'
-      }
+        createdBy: data.createdBy || 'Admin',
+      },
     });
 
     res.json({ success: true, data: newCoupon });
   } catch (error) {
     console.error('Create coupon error:', error);
-    res.status(500).json({ success: false, message: 'Failed to create coupon' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to create coupon' });
   }
 });
 
@@ -84,9 +99,13 @@ router.put('/:id', async (req, res) => {
 
     // Check code conflict if changing code (though code shouldn't change normally)
     if (data.code) {
-      const existing = await prisma.coupon.findUnique({ where: { code: data.code } });
+      const existing = await prisma.coupon.findUnique({
+        where: { code: data.code },
+      });
       if (existing && existing.id !== id) {
-        return res.status(400).json({ success: false, message: 'Coupon code already exists' });
+        return res
+          .status(400)
+          .json({ success: false, message: 'Coupon code already exists' });
       }
     }
 
@@ -97,16 +116,25 @@ router.put('/:id', async (req, res) => {
         name: data.name,
         description: data.description,
         type: data.type,
-        discountValue: data.discountValue !== undefined ? parseFloat(data.discountValue) : undefined,
-        minOrderAmount: data.minOrderAmount ? parseFloat(data.minOrderAmount) : null,
-        maxDiscountAmount: data.maxDiscountAmount ? parseFloat(data.maxDiscountAmount) : null,
+        discountValue:
+          data.discountValue !== undefined
+            ? parseFloat(data.discountValue)
+            : undefined,
+        minOrderAmount: data.minOrderAmount
+          ? parseFloat(data.minOrderAmount)
+          : null,
+        maxDiscountAmount: data.maxDiscountAmount
+          ? parseFloat(data.maxDiscountAmount)
+          : null,
         startDate: data.startDate ? new Date(data.startDate) : undefined,
         endDate: data.endDate ? new Date(data.endDate) : undefined,
         isActive: data.isActive,
         isVisible: data.isVisible,
         isAutoApply: data.isAutoApply,
         usageLimit: data.usageLimit ? parseInt(data.usageLimit, 10) : null,
-        perUserLimit: data.perUserLimit ? parseInt(data.perUserLimit, 10) : null,
+        perUserLimit: data.perUserLimit
+          ? parseInt(data.perUserLimit, 10)
+          : null,
         allowedPackages: data.allowedPackages,
         allowedUserRoles: data.allowedUserRoles,
         firstTimeOnly: data.firstTimeOnly,
@@ -114,14 +142,16 @@ router.put('/:id', async (req, res) => {
         deviceLimit: data.deviceLimit ? parseInt(data.deviceLimit, 10) : null,
         ipLimit: data.ipLimit ? parseInt(data.ipLimit, 10) : null,
         campaignName: data.campaignName,
-        source: data.source
-      }
+        source: data.source,
+      },
     });
 
     res.json({ success: true, data: updatedCoupon });
   } catch (error) {
     console.error('Update coupon error:', error);
-    res.status(500).json({ success: false, message: 'Failed to update coupon' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to update coupon' });
   }
 });
 
@@ -131,11 +161,13 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     await prisma.coupon.update({
       where: { id },
-      data: { isActive: false, isVisible: false }
+      data: { isActive: false, isVisible: false },
     });
     res.json({ success: true, message: 'Coupon deactivated successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to deactivate coupon' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to deactivate coupon' });
   }
 });
 
@@ -143,18 +175,20 @@ router.delete('/:id', async (req, res) => {
 router.get('/analytics/stats', async (req, res) => {
   try {
     const totalCoupons = await prisma.coupon.count();
-    const activeCoupons = await prisma.coupon.count({ where: { isActive: true } });
-    
+    const activeCoupons = await prisma.coupon.count({
+      where: { isActive: true },
+    });
+
     // Total usages
     const usages = await prisma.couponUsage.aggregate({
       _sum: { discountApplied: true, orderAmount: true },
-      _count: true
+      _count: true,
     });
 
     // Recent attempts (success vs fail)
     const attempts = await prisma.couponAttemptLog.groupBy({
       by: ['status'],
-      _count: true
+      _count: true,
     });
 
     res.json({
@@ -165,12 +199,17 @@ router.get('/analytics/stats', async (req, res) => {
         totalUsages: usages._count || 0,
         totalDiscountGiven: usages._sum.discountApplied || 0,
         totalOrderValueWithCoupons: usages._sum.orderAmount || 0,
-        attempts: attempts.reduce((acc, curr) => ({ ...acc, [curr.status]: curr._count }), {})
-      }
+        attempts: attempts.reduce(
+          (acc, curr) => ({ ...acc, [curr.status]: curr._count }),
+          {}
+        ),
+      },
     });
   } catch (error) {
     console.error('Analytics error:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch analytics' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to fetch analytics' });
   }
 });
 

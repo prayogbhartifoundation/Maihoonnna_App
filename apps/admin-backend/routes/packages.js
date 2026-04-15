@@ -11,20 +11,26 @@ router.get('/', async (req, res) => {
       include: {
         packageBenefits: {
           orderBy: { displayOrder: 'asc' },
-          include: { benefit: { include: { benefitType: { select: { name: true, iconCode: true } } } } },
+          include: {
+            benefit: {
+              include: {
+                benefitType: { select: { name: true, iconCode: true } },
+              },
+            },
+          },
         },
         packageDiscounts: { where: { isActive: true } },
       },
     });
 
     // Map fields for frontend compatibility
-    const mappedPackages = packages.map(pkg => ({
+    const mappedPackages = packages.map((pkg) => ({
       ...pkg,
       totalCost: pkg.basePrice,
-      benefits: (pkg.packageBenefits || []).map(pb => ({
+      benefits: (pkg.packageBenefits || []).map((pb) => ({
         ...pb,
-        monthlyUnits: pb.unitsIncluded
-      }))
+        monthlyUnits: pb.unitsIncluded,
+      })),
     }));
 
     res.json({ success: true, data: mappedPackages });
@@ -42,21 +48,26 @@ router.get('/:id', async (req, res) => {
       include: {
         packageBenefits: {
           orderBy: { displayOrder: 'asc' },
-          include: { benefit: { include: { benefitType: { select: { name: true } } } } },
+          include: {
+            benefit: { include: { benefitType: { select: { name: true } } } },
+          },
         },
         packageDiscounts: true,
       },
     });
-    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+    if (!pkg)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Package not found' });
 
     // Map fields for frontend compatibility
     const mappedPackage = {
       ...pkg,
       totalCost: pkg.basePrice,
-      benefits: (pkg.packageBenefits || []).map(pb => ({
+      benefits: (pkg.packageBenefits || []).map((pb) => ({
         ...pb,
-        monthlyUnits: pb.unitsIncluded
-      }))
+        monthlyUnits: pb.unitsIncluded,
+      })),
     };
 
     res.json({ success: true, data: mappedPackage });
@@ -68,15 +79,34 @@ router.get('/:id', async (req, res) => {
 // POST /api/packages — create package + packageBenefits in a transaction
 // Body: { name, description, packageCost, mrp, discountPercentage, billingCycle, activeFrom, activeTo, benefits: [{benefitId, unitsIncluded, unitsPeriod, isUnlimited}] }
 router.post('/', async (req, res) => {
-  const { name, description, packageCost, mrp, discountPercentage, miscellaneousCost, currency, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, benefits = [], discounts = [], isGlobal } = req.body;
+  const {
+    name,
+    description,
+    packageCost,
+    mrp,
+    discountPercentage,
+    miscellaneousCost,
+    currency,
+    billingCycle,
+    isFreeTrial,
+    trialDurationDays,
+    activeFrom,
+    activeTo,
+    displayOrder,
+    benefits = [],
+    discounts = [],
+    isGlobal,
+  } = req.body;
 
   if (!name || !activeFrom) {
-    return res.status(400).json({ success: false, message: 'name and activeFrom are required' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'name and activeFrom are required' });
   }
 
   try {
     const typeCode = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    
+
     const pkg = await prisma.$transaction(async (tx) => {
       // 1. Create the package header
       const created = await tx.subscriptionPackage.create({
@@ -84,10 +114,16 @@ router.post('/', async (req, res) => {
           type: typeCode + '_' + Date.now(), // Append timestamp for uniqueness
           name,
           description: description || name,
-          basePrice: packageCost ?? (req.body.totalCost ? parseFloat(req.body.totalCost) : 0),
+          basePrice:
+            packageCost ??
+            (req.body.totalCost ? parseFloat(req.body.totalCost) : 0),
           mrp: mrp ? parseFloat(mrp) : 0,
-          discountPercentage: discountPercentage ? parseFloat(discountPercentage) : 0,
-          miscellaneousCost: miscellaneousCost ? parseFloat(miscellaneousCost) : 0,
+          discountPercentage: discountPercentage
+            ? parseFloat(discountPercentage)
+            : 0,
+          miscellaneousCost: miscellaneousCost
+            ? parseFloat(miscellaneousCost)
+            : 0,
           currency: currency ?? 'INR',
           billingCycle: billingCycle ?? 'monthly',
           isFreeTrial: isFreeTrial ?? false,
@@ -105,7 +141,7 @@ router.post('/', async (req, res) => {
           data: benefits.map((b, idx) => ({
             packageId: created.id,
             benefitId: b.benefitId,
-            unitsIncluded: b.unitsIncluded ?? (b.monthlyUnits ?? 1),
+            unitsIncluded: b.unitsIncluded ?? b.monthlyUnits ?? 1,
             unitsPeriod: b.unitsPeriod ?? 'monthly',
             isUnlimited: b.isUnlimited ?? false,
             allowRollover: b.allowRollover ?? false,
@@ -146,7 +182,22 @@ router.post('/', async (req, res) => {
 // PATCH /api/packages/:id — update package header
 router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, description, packageCost, mrp, discountPercentage, miscellaneousCost, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, isActive, isGlobal } = req.body;
+  const {
+    name,
+    description,
+    packageCost,
+    mrp,
+    discountPercentage,
+    miscellaneousCost,
+    billingCycle,
+    isFreeTrial,
+    trialDurationDays,
+    activeFrom,
+    activeTo,
+    displayOrder,
+    isActive,
+    isGlobal,
+  } = req.body;
   try {
     const pkg = await prisma.subscriptionPackage.update({
       where: { id },
@@ -155,8 +206,12 @@ router.patch('/:id', async (req, res) => {
         description,
         basePrice: packageCost ? parseFloat(packageCost) : undefined,
         mrp: mrp ? parseFloat(mrp) : undefined,
-        discountPercentage: discountPercentage ? parseFloat(discountPercentage) : undefined,
-        miscellaneousCost: miscellaneousCost ? parseFloat(miscellaneousCost) : undefined,
+        discountPercentage: discountPercentage
+          ? parseFloat(discountPercentage)
+          : undefined,
+        miscellaneousCost: miscellaneousCost
+          ? parseFloat(miscellaneousCost)
+          : undefined,
         billingCycle,
         isFreeTrial,
         trialDurationDays,
@@ -169,7 +224,10 @@ router.patch('/:id', async (req, res) => {
     });
     res.json({ success: true, data: pkg });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Package not found' });
+    if (err.code === 'P2025')
+      return res
+        .status(404)
+        .json({ success: false, message: 'Package not found' });
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -177,7 +235,22 @@ router.patch('/:id', async (req, res) => {
 // PUT /api/packages/:id — full update (header + benefits + discounts)
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, description, packageCost, currency, billingCycle, isFreeTrial, trialDurationDays, activeFrom, activeTo, displayOrder, benefits = [], discounts = [], isGlobal, totalHours } = req.body;
+  const {
+    name,
+    description,
+    packageCost,
+    currency,
+    billingCycle,
+    isFreeTrial,
+    trialDurationDays,
+    activeFrom,
+    activeTo,
+    displayOrder,
+    benefits = [],
+    discounts = [],
+    isGlobal,
+    totalHours,
+  } = req.body;
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
@@ -187,7 +260,9 @@ router.put('/:id', async (req, res) => {
         data: {
           name,
           description: description || name,
-          basePrice: packageCost ?? (req.body.totalCost ? parseInt(req.body.totalCost) : undefined),
+          basePrice:
+            packageCost ??
+            (req.body.totalCost ? parseInt(req.body.totalCost) : undefined),
           currency: currency ?? 'INR',
           billingCycle: billingCycle ?? 'monthly',
           isFreeTrial: isFreeTrial ?? false,
@@ -207,7 +282,7 @@ router.put('/:id', async (req, res) => {
           data: benefits.map((b, idx) => ({
             packageId: id,
             benefitId: b.benefitId,
-            unitsIncluded: b.unitsIncluded ?? (b.monthlyUnits ?? 1),
+            unitsIncluded: b.unitsIncluded ?? b.monthlyUnits ?? 1,
             unitsPeriod: b.unitsPeriod ?? 'monthly',
             isUnlimited: b.isUnlimited ?? false,
             allowRollover: b.allowRollover ?? false,
@@ -249,10 +324,16 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/packages/:id — soft delete
 router.delete('/:id', async (req, res) => {
   try {
-    await prisma.subscriptionPackage.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await prisma.subscriptionPackage.update({
+      where: { id: req.params.id },
+      data: { isActive: false },
+    });
     res.json({ success: true, message: 'Package deactivated' });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Package not found' });
+    if (err.code === 'P2025')
+      return res
+        .status(404)
+        .json({ success: false, message: 'Package not found' });
     res.status(500).json({ success: false, message: err.message });
   }
 });

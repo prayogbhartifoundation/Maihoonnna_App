@@ -2,18 +2,27 @@ const fs = require('fs');
 const path = require('path');
 
 const routesDir = path.join(__dirname, 'routes');
-const files = fs.readdirSync(routesDir).filter(f => f.endsWith('.js'));
+const files = fs.readdirSync(routesDir).filter((f) => f.endsWith('.js'));
 
 for (const file of files) {
   const filePath = path.join(routesDir, file);
   let content = fs.readFileSync(filePath, 'utf8');
 
   // Regex replacement for PrismaClient initialization
-  content = content.replace(/const { PrismaClient } = require\(path\.join\(__dirname, '\.\.\/\.\.\/\.\.\/backend\/node_modules\/@prisma\/client'\)\);\n?/g, '');
-  content = content.replace(/const prisma = new PrismaClient\(\);\n?/g, "const { prisma } = require('../lib/prisma');\n");
-  
+  content = content.replace(
+    /const { PrismaClient } = require\(path\.join\(__dirname, '\.\.\/\.\.\/\.\.\/backend\/node_modules\/@prisma\/client'\)\);\n?/g,
+    ''
+  );
+  content = content.replace(
+    /const prisma = new PrismaClient\(\);\n?/g,
+    "const { prisma } = require('../lib/prisma');\n"
+  );
+
   // also check other variations just in case
-  content = content.replace(/const { PrismaClient } = require\(['"]@prisma\/client['"]\);\n?/g, '');
+  content = content.replace(
+    /const { PrismaClient } = require\(['"]@prisma\/client['"]\);\n?/g,
+    ''
+  );
 
   fs.writeFileSync(filePath, content);
 }
@@ -39,11 +48,11 @@ if (fs.existsSync(beneficiariesFile)) {
     ]);`;
   // Just generalizing the regex for Promise.all related to beneficiaries
   let newBContent = bContent.replace(
-      /const \[([a-zA-Z0-9]+),\s*([a-zA-Z0-9]+)\]\s*=\s*await Promise\.all\(\[\s*prisma\.([a-zA-Z0-9]+)\.findMany\((.*?)\),\s*prisma\.\3\.count\((.*?)\)\s*\]\);/gs, 
-      (match, var1, var2, model, findArgs, countArgs) => {
-        return `const ${var1} = await prisma.${model}.findMany(${findArgs});
+    /const \[([a-zA-Z0-9]+),\s*([a-zA-Z0-9]+)\]\s*=\s*await Promise\.all\(\[\s*prisma\.([a-zA-Z0-9]+)\.findMany\((.*?)\),\s*prisma\.\3\.count\((.*?)\)\s*\]\);/gs,
+    (match, var1, var2, model, findArgs, countArgs) => {
+      return `const ${var1} = await prisma.${model}.findMany(${findArgs});
     const ${var2} = await prisma.${model}.count(${countArgs});`;
-      }
+    }
   );
 
   fs.writeFileSync(beneficiariesFile, newBContent);
@@ -53,8 +62,8 @@ if (fs.existsSync(beneficiariesFile)) {
 const serverFile = path.join(__dirname, 'server.js');
 if (fs.existsSync(serverFile)) {
   let sContent = fs.readFileSync(serverFile, 'utf8');
-  
-  if (!sContent.includes('process.on(\'SIGINT\'')) {
+
+  if (!sContent.includes("process.on('SIGINT'")) {
     sContent += `\n
 // Graceful shutdown
 const { prisma } = require('./lib/prisma');

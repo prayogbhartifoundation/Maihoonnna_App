@@ -4,21 +4,31 @@ const StorageService = require('./storageInterface');
 class SupabaseStorage extends StorageService {
   constructor() {
     super();
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    const supabaseUrl =
+      process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.VITE_SUPABASE_ANON_KEY;
 
     this.bucketName = process.env.STORAGE_BUCKET || 'staff-documents';
 
-    const isPlaceholder = !supabaseKey || supabaseKey === 'your-service-role-key-here';
+    const isPlaceholder =
+      !supabaseKey || supabaseKey === 'your-service-role-key-here';
 
     if (!supabaseUrl || isPlaceholder) {
       const missing = [];
       if (!supabaseUrl) missing.push('SUPABASE_URL');
       if (isPlaceholder) missing.push('SUPABASE_SERVICE_ROLE_KEY');
-      console.error(`[SupabaseStorage] Missing env vars: ${missing.join(', ')}. Set them in Admin_panel/backend/.env`);
+      console.error(
+        `[SupabaseStorage] Missing env vars: ${missing.join(', ')}. Set them in Admin_panel/backend/.env`
+      );
     } else {
       this.supabase = createClient(supabaseUrl, supabaseKey);
-      console.log('[SupabaseStorage] Initialized with bucket:', this.bucketName);
+      console.log(
+        '[SupabaseStorage] Initialized with bucket:',
+        this.bucketName
+      );
     }
   }
 
@@ -29,7 +39,7 @@ class SupabaseStorage extends StorageService {
       .from(this.bucketName)
       .upload(path, fileBuffer, {
         contentType: mimeType,
-        upsert: false // we generate unique paths, no need to upsert
+        upsert: false, // we generate unique paths, no need to upsert
       });
 
     if (error) {
@@ -40,7 +50,7 @@ class SupabaseStorage extends StorageService {
 
     return {
       path: data.path,
-      url: url
+      url: url,
     };
   }
 
