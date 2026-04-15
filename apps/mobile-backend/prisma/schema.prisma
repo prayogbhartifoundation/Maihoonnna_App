@@ -1353,6 +1353,7 @@ model ActivityLog {
   type      String   // SECURITY, PROFILE, SUBSCRIPTION
   action    String   // PASSWORD_CHANGED, PROFILE_UPDATED, PLAN_RENEWED
   details   Json?
+  status    String   @default("success") // success, failure
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())

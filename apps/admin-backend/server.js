@@ -77,6 +77,7 @@ app.use('/api/visits', verifyToken, require('./routes/visits'));
 app.use('/api/vitals', verifyToken, require('./routes/vitals'));
 app.use('/api/coupons', verifyToken, require('./routes/coupons'));
 app.use('/api/field-manager', verifyToken, require('./routes/field-manager'));
+app.use('/api/activity-logs', verifyToken, require('./routes/activity-logs'));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {

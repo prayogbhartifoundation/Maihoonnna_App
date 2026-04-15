@@ -110,14 +110,7 @@ export default function BenefitTypesPage() {
       <PageHeader
         title="Benefit Types"
         description="Manage the categories of benefits offered (Nurse, Pharmacy, Lab Test, etc.)"
-        action={
-          !showForm && (
-            <Button onClick={() => setShowForm(true)} className="bg-primary">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Benefit Type
-            </Button>
-          )
-        }
+        action={null /* Add button disabled by user request */}
       />
 
       {showForm && (
@@ -203,13 +196,13 @@ export default function BenefitTypesPage() {
                   {type.description && <p className="text-xs text-muted-foreground mb-2">{type.description}</p>}
                   <p className="text-xs text-muted-foreground">{type._count?.benefits ?? 0} benefits</p>
                   <div className="flex gap-2 mt-3">
-                    {type.isSystem ? (
+                    {/* {type.isSystem ? (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div className="flex gap-2">
                               <Button size="sm" variant="outline" disabled className="h-7 px-2 text-xs opacity-50 cursor-not-allowed">
-                                <Pencil className="w-3 h-3 mr-1" /> Edit
+                                Edit
                               </Button>
                               <Button size="sm" variant="ghost" disabled className="h-7 px-2 text-xs opacity-50 cursor-not-allowed">
                                 <ToggleRight className="w-3 h-3 mr-1 text-green-600" /> Deactivate
@@ -223,15 +216,15 @@ export default function BenefitTypesPage() {
                       </TooltipProvider>
                     ) : (
                       <>
-                        <Button size="sm" variant="outline" onClick={() => openEdit(type)} className="h-7 px-2 text-xs">
-                          <Pencil className="w-3 h-3 mr-1" /> Edit
+                        <Button size="sm" variant="outline" disabled className="h-7 px-2 text-xs opacity-50 cursor-not-allowed">
+                          Edit
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => toggleActive(type)} className="h-7 px-2 text-xs">
                           {type.isActive ? <ToggleRight className="w-3 h-3 mr-1 text-green-600" /> : <ToggleLeft className="w-3 h-3 mr-1" />}
                           {type.isActive ? 'Deactivate' : 'Activate'}
                         </Button>
                       </>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </CardContent>

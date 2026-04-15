@@ -559,22 +559,15 @@ export const supportApi = {
 
 export const activityLogApi = {
   async getAll(limit?: number): Promise<ActivityLog[]> {
-    await delay();
-    const logs = [...mockActivityLogs].sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-    return limit ? logs.slice(0, limit) : logs;
+    const query = limit ? `?limit=${limit}` : '';
+    return apiJson(`/activity-logs${query}`);
   },
 
   async logActivity(activity: Omit<ActivityLog, 'id' | 'timestamp'>): Promise<ActivityLog> {
-    await delay();
-    const newLog: ActivityLog = {
-      ...activity,
-      id: `LOG${String(mockActivityLogs.length + 1).padStart(3, '0')}`,
-      timestamp: new Date().toISOString(),
-    };
-    mockActivityLogs.unshift(newLog);
-    return newLog;
+    return apiJson('/activity-logs', {
+      method: 'POST',
+      body: JSON.stringify(activity),
+    });
   },
 };
 

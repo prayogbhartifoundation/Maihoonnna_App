@@ -13,8 +13,12 @@ export default function ActivityLogsPage() {
   }, []);
 
   const loadData = async () => {
-    const data = await activityLogApi.getAll();
-    setLogs(data);
+    try {
+      const data = await activityLogApi.getAll();
+      setLogs(data);
+    } catch (err) {
+      console.error('Failed to load activity logs:', err);
+    }
   };
 
   const formatTimestamp = (timestamp: string) => {
