@@ -15,7 +15,7 @@ interface SubscriptionTabProps {
     beneficiaries: any[];
 }
 
-export const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
+const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
     const router = useRouter();
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
@@ -101,7 +101,11 @@ export const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) =
 
                 {beneficiaries?.length > 0 ? (
                     beneficiaries.map((b, i) => (
-                        <TouchableOpacity key={b.id || i} style={styles.benCard}>
+                        <TouchableOpacity 
+                            key={b.id || i} 
+                            style={styles.benCard}
+                            onPress={() => router.push({ pathname: '/(subscriber)/beneficiary-profile', params: { id: b.id } })}
+                        >
                             <View style={[styles.benAvatar]}>
                                 {b.photo ? (
                                     <Image source={{ uri: b.photo }} style={styles.benPhoto} />
@@ -179,3 +183,5 @@ const styles = StyleSheet.create({
     benName: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
     benMeta: { fontSize: 12, color: '#6B7280' },
 });
+
+export default SubscriptionTab;

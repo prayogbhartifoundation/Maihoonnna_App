@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity, 
     ScrollView, ActivityIndicator, Platform 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { API_URL } from '@/constants/api';
@@ -14,9 +14,9 @@ import { logoutWithConfirm } from '@/utils/logout';
 import { ProfileHero } from './components/profile/ProfileHero';
 import { PersonalTab } from './components/profile/PersonalTab';
 import { SecurityTab } from './components/profile/SecurityTab';
-import { SubscriptionTab } from './components/profile/SubscriptionTab';
-import { GlobalHeader } from './components/shared/GlobalHeader';
-import { GlobalDrawer } from './components/shared/GlobalDrawer';
+import SubscriptionTab from './components/profile/SubscriptionTab';
+import GlobalHeader from './components/shared/GlobalHeader';
+import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
 
 type TabType = 'Personal' | 'Security' | 'Subscription';
@@ -66,9 +66,11 @@ export default function ProfileScreen() {
         }
     };
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchProfile();
+        }, [])
+    );
 
     if (loading) {
         return (

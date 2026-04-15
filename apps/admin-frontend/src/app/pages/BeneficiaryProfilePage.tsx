@@ -6,11 +6,15 @@ import {
 } from 'lucide-react';
 import { beneficiaryApi, subscriptionApi } from '../../services/api';
 import { StatusChip } from '../components/common/StatusChip';
+import { RefreshButton } from '../components/common/RefreshButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
 import { toast } from 'sonner';
+import { EditBeneficiaryDialog } from '../components/forms/EditBeneficiaryDialog';
+import { AddMedicineDialog } from '../components/forms/AddMedicineDialog';
+import { AddConditionDialog } from '../components/forms/AddConditionDialog';
 
 interface StaffPool {
   careCompanions: { id: string; userId: string; name: string; zone: string; isAvailable: boolean }[];
@@ -29,6 +33,9 @@ export default function BeneficiaryProfilePage() {
   const [details, setDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddMedOpen, setIsAddMedOpen] = useState(false);
+  const [isAddConditionOpen, setIsAddConditionOpen] = useState(false);
 
   const [staffPool, setStaffPool] = useState<StaffPool>({ careCompanions: [], fieldManagers: [], zones: [] });
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -50,6 +57,18 @@ export default function BeneficiaryProfilePage() {
       setError(err.message || 'Failed to load beneficiary details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshDetailsBackground = async () => {
+    if (!id) return;
+    try {
+      const data = await beneficiaryApi.getById(id);
+      setDetails(data);
+      // Optional: don't auto-fetch staff pool to avoid heavy nested calls unless needed, 
+      // but here we just update the details to catch relationship/med change.
+    } catch (err) {
+      console.error('Background refresh failed', err);
     }
   };
 
@@ -133,12 +152,16 @@ export default function BeneficiaryProfilePage() {
   return (
     <div className="p-8 bg-[#F4EAE3] min-h-screen">
       <div className="max-w-5xl mx-auto">
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors mb-6"
-        >
-          <ArrowLeft size={16} /> Back
-        </button>
+        <div className="flex items-center justify-between mb-6">
+          <button 
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+          
+          <RefreshButton onRefresh={refreshDetailsBackground} label="Refresh Data" />
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-6">
@@ -155,7 +178,7 @@ export default function BeneficiaryProfilePage() {
                 <div className="mt-2">
                   <StatusChip status={details.isActive ? 'Active' : 'Inactive'} />
                 </div>
-                <p className="text-xs font-bold text-gray-400 mt-4 uppercase tracking-[0.2em]">Age: {details.age} • {details.gender}</p>
+                <p className="text-xs font-bold text-gray-400 mt-4 uppercase tracking-[0.2em]">Age: {details.age} • {details.gender}{details.relationship ? ` • ${details.relationship}` : ''}</p>
               </div>
 
               <div className="mt-8 space-y-4 pt-8 border-t border-gray-50">
@@ -192,7 +215,9 @@ export default function BeneficiaryProfilePage() {
                 </div>
               </div>
 
-              <button className="w-full mt-8 py-3 rounded-2xl bg-[#F4EAE3] text-gray-700 font-black uppercase tracking-widest text-[10px] border border-[#E7DED6] hover:bg-[#E7DED6] transition-colors flex items-center justify-center gap-2">
+              <button 
+                onClick={() => setIsEditModalOpen(true)}
+                className="w-full mt-8 py-3 rounded-2xl bg-[#F4EAE3] text-gray-700 font-black uppercase tracking-widest text-[10px] border border-[#E7DED6] hover:bg-[#E7DED6] transition-colors flex items-center justify-center gap-2">
                 <Edit2 size={14} /> Edit Care Profile
               </button>
             </div>
@@ -223,26 +248,43 @@ export default function BeneficiaryProfilePage() {
                 <TabsTrigger value="clinical" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Clinical Config</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="profile" className="space-y-8 mt-0 outline-none">
+               <TabsContent value="profile" className="space-y-8 mt-0 outline-none">
                 <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
                    <h3 className="text-lg font-black text-gray-800 mb-6">Medical Summary</h3>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                      <div className="space-y-4">
-                        <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Medical History</Label>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Medical Information</Label>
+                          <button onClick={() => setIsAddConditionOpen(true)} className="text-[#FF7A00] font-black text-[10px] uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full">+ Add</button>
+                        </div>
                         <div className="flex flex-wrap gap-2">
-                          {(details.medicalHistory || []).map((c: string) => (
-                            <span key={c} className="px-4 py-2 bg-[#FFF5EE] text-[#FF7A00] rounded-2xl text-xs font-bold border border-orange-100">{c}</span>
-                          ))}
-                          {!(details.medicalHistory || []).length && <span className="text-sm text-gray-400 italic">None recorded</span>}
+                          {(details.conditions || []).length > 0 ? (
+                            details.conditions.map((bc: any) => (
+                              <span key={bc.conditionId} className="px-4 py-2 bg-[#FFF5EE] text-[#FF7A00] rounded-2xl text-xs font-bold border border-orange-100">{bc.condition?.name}</span>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-400 italic">None recorded</span>
+                          )}
                         </div>
                      </div>
                      <div className="space-y-4">
-                        <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Current Medications</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {(details.medications || []).map((m: string) => (
-                            <span key={m} className="px-4 py-2 bg-blue-50 text-blue-600 rounded-2xl text-xs font-bold border border-blue-100">{m}</span>
-                          ))}
-                          {!(details.medications || []).length && <span className="text-sm text-gray-400 italic">No medications logged</span>}
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Current Medications</Label>
+                          <button onClick={() => setIsAddMedOpen(true)} className="text-blue-600 font-black text-[10px] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">+ Add</button>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          {(details.medications && details.medications.length > 0 && typeof details.medications[0] === 'object') ? (
+                            details.medications.map((m: any) => (
+                              <div key={m.id} className="flex flex-col p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
+                                <span className="text-sm font-black text-blue-900">{m.name} <span className="font-bold text-blue-600 opacity-80">{m.dosage}</span></span>
+                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
+                                  {m.frequency.replace('_', ' ')} &bull; {m.timeSlots.join(', ')} {m.setReminders ? '🔔' : ''}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-400 italic">No structured medications logged</span>
+                          )}
                         </div>
                      </div>
                    </div>
@@ -461,6 +503,36 @@ export default function BeneficiaryProfilePage() {
           </div>
         </div>
       </div>
+
+      <EditBeneficiaryDialog
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        beneficiary={details}
+        onSuccess={() => {
+          setIsEditModalOpen(false);
+          refreshDetailsBackground();
+        }}
+      />
+
+      <AddMedicineDialog 
+        isOpen={isAddMedOpen} 
+        onClose={() => setIsAddMedOpen(false)} 
+        beneficiaryId={details.id} 
+        onSuccess={() => {
+          setIsAddMedOpen(false);
+          refreshDetailsBackground();
+        }} 
+      />
+
+      <AddConditionDialog 
+        isOpen={isAddConditionOpen} 
+        onClose={() => setIsAddConditionOpen(false)} 
+        beneficiaryId={details.id} 
+        onSuccess={() => {
+          setIsAddConditionOpen(false);
+          refreshDetailsBackground();
+        }} 
+      />
     </div>
   );
 }

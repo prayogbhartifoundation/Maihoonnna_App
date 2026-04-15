@@ -221,3 +221,5 @@ const styles = StyleSheet.create({
     verifiedText: { fontSize: 10, fontWeight: '700', color: '#059669' },
     divider: { height: 1, backgroundColor: '#F3F4F6', marginLeft: 55 }
 });
+
+export default PersonalTab;

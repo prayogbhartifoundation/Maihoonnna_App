@@ -46,8 +46,8 @@ export default function RegisterScreen() {
                     const response = await fetch(`${API_URL}/public/zones/check-pincode?pincode=${form.pincode}`);
                     const data = await response.json();
                     
-                    if (data.success && data.available) {
-                        setZoneDetails(data);
+                    if (data.success && data.data && data.data.available) {
+                        setZoneDetails(data.data);
                     } else {
                         setZoneDetails(false); // Indicates checked but not available
                     }
@@ -106,14 +106,17 @@ export default function RegisterScreen() {
             const data = await response.json();
 
             if (data.success) {
+                // The actual payload is inside the 'data' property of ApiResponse
+                const result = data.data;
+
                 // Save user session!
-                await AsyncStorage.setItem('userToken', data.token);
-                await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+                await AsyncStorage.setItem('userToken', result.token);
+                await AsyncStorage.setItem('userData', JSON.stringify(result.user));
 
                 // Registration successful! Store tokens/details and go to dashboard
-                if (data.user.role === 'care_companion') {
+                if (result.user.role === 'care_companion') {
                     router.replace("/(care-companion)");
-                } else if (data.user.role === 'beneficiary') {
+                } else if (result.user.role === 'beneficiary') {
                     router.replace("/(beneficiary)");
                 } else {
                     router.replace("/(subscriber)");

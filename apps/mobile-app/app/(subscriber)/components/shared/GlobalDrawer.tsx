@@ -14,7 +14,7 @@ interface GlobalDrawerProps {
     userData: any;
 }
 
-export const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerProps) => {
+const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerProps) => {
     const router = useRouter();
 
     const navigateTo = (path: string) => {
@@ -154,3 +154,5 @@ const styles = StyleSheet.create({
     drawerFooter: { padding: 20, alignItems: 'center' },
     versionText: { fontSize: 11, color: '#9CA3AF' }
 });
+
+export default GlobalDrawer;

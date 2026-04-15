@@ -5,7 +5,6 @@ dist/
 *err.txt
 *output.txt
 *check.txt
-.prisma/
 bins.json
 out.json
 test-db.ts

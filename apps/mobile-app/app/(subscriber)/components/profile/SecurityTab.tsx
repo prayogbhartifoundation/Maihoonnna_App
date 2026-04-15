@@ -113,3 +113,5 @@ const styles = StyleSheet.create({
     statusText: { fontSize: 10, fontWeight: '600', color: '#6B7280' },
     divider: { height: 1, backgroundColor: '#F3F4F6', marginLeft: 55 }
 });
+
+export default SecurityTab;

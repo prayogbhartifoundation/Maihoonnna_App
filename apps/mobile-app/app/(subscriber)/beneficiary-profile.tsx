@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView,
     TouchableOpacity, Image, Platform, ActivityIndicator
@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '@/components/CallbackButton';
@@ -15,8 +15,8 @@ import { VitalsTab } from './components/beneficiary/VitalsTab';
 import { MedicalTab } from './components/beneficiary/MedicalTab';
 
 import { NextVisitCard } from './components/beneficiary/NextVisitCard';
-import { GlobalHeader } from './components/shared/GlobalHeader';
-import { GlobalDrawer } from './components/shared/GlobalDrawer';
+import GlobalHeader from './components/shared/GlobalHeader';
+import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
 
 type TabType = 'Timeline' | 'Vitals' | 'Medical';
@@ -83,7 +83,11 @@ export default function BeneficiaryProfileScreen() {
         }
     };
 
-    useEffect(() => { if (id) fetchBeneficiary(); }, [id]);
+    useFocusEffect(
+        useCallback(() => {
+            if (id) fetchBeneficiary();
+        }, [id])
+    );
 
     if (loading) {
         return (
@@ -114,6 +118,11 @@ export default function BeneficiaryProfileScreen() {
                 title="Beneficiary Details" 
                 onMenuPress={openDrawer} 
                 showBack={true} 
+                rightIcon="pencil"
+                onRightIconPress={() => router.push({
+                    pathname: '/(subscriber)/beneficiary-edit',
+                    params: { id }
+                })}
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

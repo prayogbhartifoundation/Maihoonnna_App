@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView,
     TouchableOpacity, RefreshControl, Image, Platform,
@@ -7,13 +7,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '@/components/CallbackButton';
 import { logoutWithConfirm } from '@/utils/logout';
-import { GlobalHeader } from './components/shared/GlobalHeader';
-import { GlobalDrawer } from './components/shared/GlobalDrawer';
+import GlobalHeader from './components/shared/GlobalHeader';
+import GlobalDrawer from './components/shared/GlobalDrawer';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -52,7 +52,11 @@ export default function SubscriberDashboardScreen() {
         } finally { setLoading(false); setRefreshing(false); }
     };
 
-    useEffect(() => { fetchDashboard(); }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchDashboard();
+        }, [])
+    );
     const onRefresh = () => { setRefreshing(true); fetchDashboard(); };
 
     /* ─── Drawer helpers ─────────────────────────────────── */

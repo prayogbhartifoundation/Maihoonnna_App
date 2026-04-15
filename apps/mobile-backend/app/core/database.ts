@@ -12,4 +12,4 @@ const prisma = new PrismaClient({
   log: config.nodeEnv === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
 
-export default prisma;
+export default prisma; 

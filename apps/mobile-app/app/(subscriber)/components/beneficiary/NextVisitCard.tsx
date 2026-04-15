@@ -67,3 +67,5 @@ const styles = StyleSheet.create({
     statusBadge: { backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
     statusText: { color: '#16A34A', fontSize: 11, fontWeight: '600' },
 });
+
+export default NextVisitCard;

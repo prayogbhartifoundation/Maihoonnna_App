@@ -63,3 +63,5 @@ const styles = StyleSheet.create({
     empty: { padding: 40, alignItems: 'center' },
     emptyText: { color: '#9CA3AF', fontSize: 14 },
 });
+
+export default VitalsCharts;

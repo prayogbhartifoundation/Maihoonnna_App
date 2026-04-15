@@ -71,20 +71,21 @@ export default function VerifyOtpScreen() {
             const data = await response.json();
 
             if (data.success) {
-                // 2. Authentication Succeeded! 
+                // The actual payload is inside the 'data' property of ApiResponse
+                const result = data.data;
                 
-                if (data.isNewUser) {
+                if (result.isNewUser) {
                     // Navigate to registration if user profile doesn't exist yet
                     router.push({ pathname: "/(auth)/register", params: { phone } });
-                } else if (data.user) {
+                } else if (result.user) {
                     // 3. PERSIST THE SESSION
-                    await AsyncStorage.setItem("userToken", data.token);
-                    await AsyncStorage.setItem("userData", JSON.stringify(data.user));
+                    await AsyncStorage.setItem("userToken", result.token);
+                    await AsyncStorage.setItem("userData", JSON.stringify(result.user));
 
                     // 4. ROLE-BASED REDIRECTION
-                    if (data.user.role === 'beneficiary') {
+                    if (result.user.role === 'beneficiary') {
                         router.replace('/(beneficiary)');
-                    } else if (data.user.role === 'care_companion' || data.user.role === 'volunteer') {
+                    } else if (result.user.role === 'care_companion' || result.user.role === 'volunteer') {
                         router.replace('/(care-companion)');
                     } else {
                         router.replace("/(subscriber)");

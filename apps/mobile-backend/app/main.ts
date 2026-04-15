@@ -3,6 +3,9 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+import { config } from './core/config';
+import { ApiError } from './utils/ApiError';
 
 // Auth Routes
 import authRouter from './api/auth/auth.routes';
@@ -37,11 +40,41 @@ import publicEnrollmentRouter from './api/public/enrollment.routes';
 const app = express();
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: config.rateLimitWindowMs,
+  max: config.rateLimitMaxRequests,
+  message: { success: false, message: 'Too many requests from this IP, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(helmet());
-app.use(cors({ origin: '*', credentials: true }));
+app.use(globalLimiter);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile app, curl, etc.)
+      if (!origin) return callback(null, true);
+
+      // If allowed origin is '*', allow everything
+      if (config.corsOrigin === '*') return callback(null, true);
+
+      // Check if current origin is in the allowed list
+      if (Array.isArray(config.corsOrigin) && config.corsOrigin.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // If literal match
+      if (config.corsOrigin === origin) return callback(null, true);
+
+      callback(new Error(`CORS: Origin ${origin} not allowed`));
+    },
+    credentials: true,
+  })
+);
 app.use(morgan('dev'));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: config.jsonLimit }));
+app.use(express.urlencoded({ extended: true, limit: config.jsonLimit }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 const API = '/api';
@@ -81,14 +114,21 @@ app.use(`${API}/public/zones`, publicZonesRouter);
 app.use(`${API}/public`, publicEnrollmentRouter);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
-app.use((_req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+app.use((req, res, next) => {
+  next(new ApiError(404, 'Route not found'));
 });
 
 // ─── Global Error Handler ─────────────────────────────────────────────────────
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ success: false, message: err.message || 'Internal server error' });
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+
+  res.status(statusCode).json({
+    success: false,
+    message,
+    errors: err.errors || [],
+    stack: config.nodeEnv === 'development' ? err.stack : undefined,
+  });
 });
 
 export default app;

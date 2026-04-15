@@ -2,6 +2,43 @@ import prisma from '../../core/database';
 import { generateUUID, generateRandomPhone } from '../../utils/helpers';
 import { Prisma } from '@prisma/client';
 
+// Map free-text frequencies from the mobile UI to valid DB enum values
+const frequencyMap: Record<string, string> = {
+  'once daily': 'once_daily',
+  'daily': 'once_daily',
+  'once a day': 'once_daily',
+  'twice daily': 'twice_daily',
+  'two times daily': 'twice_daily',
+  'twice a day': 'twice_daily',
+  'thrice daily': 'thrice_daily',
+  'three times daily': 'thrice_daily',
+  'thrice a day': 'thrice_daily',
+  '4 times daily': 'four_times_daily',
+  'four times daily': 'four_times_daily',
+  'every 6 hours': 'every_6_hours',
+  'every 8 hours': 'every_8_hours',
+  'every 12 hours': 'every_12_hours',
+  'weekly': 'weekly',
+  'fortnightly': 'fortnightly',
+  'monthly': 'monthly',
+  'as needed': 'as_needed',
+  'as required': 'as_needed',
+  'prn': 'as_needed',
+};
+
+const normalizeFrequency = (raw: string): string => {
+  if (!raw) return 'once_daily';
+  const key = raw.toLowerCase().trim();
+  return frequencyMap[key] ?? 'once_daily'; // fallback to once_daily if unrecognized
+};
+
+const normalizeGender = (raw: string): string => {
+  if (!raw) return 'prefer_not_to_say';
+  const g = raw.toLowerCase().trim();
+  if (['male', 'female', 'other', 'prefer_not_to_say'].includes(g)) return g;
+  return 'prefer_not_to_say';
+};
+
 export const createBeneficiary = async (data: {
   subscriberId: string;
   phone: string; // Add real phone property
@@ -61,8 +98,106 @@ export const getSubscriberBeneficiaries = async (subscriberId: string) => {
   return prisma.beneficiary.findMany({ where: { subscriberId } });
 };
 
-export const updateBeneficiary = async (beneficiaryId: string, updates: Prisma.BeneficiaryUpdateInput) => {
-  return prisma.beneficiary.update({ where: { id: beneficiaryId }, data: updates });
+export const updateBeneficiary = async (beneficiaryId: string, updates: any) => {
+  const { medicalConditions, medications, emergencyContacts, ...coreUpdates } = updates;
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Update Core Beneficiary Fields
+    // Sanitize coreUpdates: remove NaN/undefined and normalize enum-like fields
+    const sanitizedCore: any = {};
+    Object.entries(coreUpdates).forEach(([key, value]) => {
+      if (value === undefined || (typeof value === 'number' && isNaN(value))) return;
+      if (key === 'gender') {
+        sanitizedCore[key] = normalizeGender(value as string);
+      } else {
+        sanitizedCore[key] = value;
+      }
+    });
+
+    const beneficiary = await tx.beneficiary.update({
+      where: { id: beneficiaryId },
+      data: sanitizedCore,
+      include: { user: true }
+    });
+
+    // 2. Sync Medications (Replace Completely as per user request)
+    if (medications) {
+      // Remove old medications
+      await tx.medication.deleteMany({
+        where: { beneficiaryId }
+      });
+
+      // Add new ones
+      if (medications.length > 0) {
+        await tx.medication.createMany({
+          data: medications.map((m: any) => ({
+            id: generateUUID(),
+            beneficiaryId,
+            name: m.name,
+            dosage: m.dosage,
+            frequency: normalizeFrequency(m.frequency) as any,
+            timeSlots: m.timeSlots || [],
+            setReminders: !!m.setReminders,
+            instructions: m.instructions || '',
+            startDate: new Date(), // Default to now if not provided
+          }))
+        });
+      }
+    }
+
+    // 3. Sync Medical Conditions
+    if (medicalConditions) {
+      // Remove current links
+      await tx.beneficiaryCondition.deleteMany({
+        where: { beneficiaryId }
+      });
+
+      // Link new ones
+      for (const condName of medicalConditions) {
+        // Find or create the master medical condition entry
+        let condition = await tx.medicalCondition.findUnique({
+          where: { name: condName }
+        });
+
+        if (!condition) {
+          condition = await tx.medicalCondition.create({
+            data: {
+              id: generateUUID(),
+              name: condName,
+              slug: condName.toLowerCase().replace(/\s+/g, '-'),
+              category: 'General'
+            }
+          });
+        }
+
+        // Link beneficiary to this condition
+        await tx.beneficiaryCondition.create({
+          data: {
+            id: generateUUID(),
+            beneficiaryId,
+            conditionId: condition.id
+          }
+        });
+      }
+    }
+
+    // 4. Log Activity
+    await tx.activityLog.create({
+      data: {
+        id: generateUUID(),
+        userId: beneficiary.subscriberId, // The subscriber who made the update
+        type: 'PROFILE',
+        action: 'BENEFICIARY_UPDATED',
+        details: {
+          beneficiaryId,
+          beneficiaryName: beneficiary.name,
+          updatedFields: Object.keys(updates)
+        } as any
+      }
+    });
+
+    return beneficiary;
+  });
 };
 
 export const getCareCompanions = async (zone?: string) => {
@@ -198,4 +333,18 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
       notes: v.visitSummary || v.notes
     }))
   };
+};
+
+export const updateMedicalRecord = async (recordId: string, data: { title: string }) => {
+  return prisma.medicalRecord.update({
+    where: { id: recordId },
+    data: { title: data.title }
+  });
+};
+
+export const deleteMedicalRecord = async (recordId: string) => {
+  return prisma.medicalRecord.update({
+    where: { id: recordId },
+    data: { isActive: false } // Soft delete
+  });
 };

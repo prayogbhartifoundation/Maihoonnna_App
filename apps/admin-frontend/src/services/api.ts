@@ -357,6 +357,13 @@ export const subscriberApi = {
       return mockSubscribers.find(s => s.id === id);
     }
   },
+
+  async update(id: string, updates: Partial<Subscriber>): Promise<Subscriber> {
+    return apiJson(`/subscribers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
 };
 
 // ============================================================================
@@ -424,6 +431,27 @@ export const beneficiaryApi = {
   async getBySubscriber(subscriberId: string): Promise<any[]> {
     await delay();
     return mockBeneficiaries.filter(b => b.subscriberId === subscriberId);
+  },
+
+  async update(id: string, updates: Partial<Beneficiary>): Promise<Beneficiary> {
+    return apiJson(`/beneficiaries/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  async addMedication(id: string, data: any): Promise<any> {
+    return apiJson(`/beneficiaries/${id}/medications`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async addCondition(id: string, data: { name: string }): Promise<any> {
+    return apiJson(`/beneficiaries/${id}/conditions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   async updateClinicalConfig(id: string, config: Partial<Beneficiary['clinicalConfiguration']>): Promise<Beneficiary> {

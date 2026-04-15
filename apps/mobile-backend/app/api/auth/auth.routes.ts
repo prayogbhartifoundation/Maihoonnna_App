@@ -3,6 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { validate } from '../shared/deps';
 import { sendOtpSchema, verifyOtpSchema, checkLocationSchema, registerPasswordSchema, loginPasswordSchema } from '../../schemas/auth';
 import * as authService from '../../services/auth/auth_service';
+import { asyncHandler } from '../../utils/asyncHandler';
+import { ApiResponse } from '../../utils/ApiResponse';
 
 const router = Router();
 
@@ -25,43 +27,31 @@ const loginLimiter = rateLimit({
 });
 
 
-router.post('/send-otp', otpLimiter, validate(sendOtpSchema), async (req: Request, res: Response) => {
+router.post('/send-otp', otpLimiter, validate(sendOtpSchema), asyncHandler(async (req: Request, res: Response) => {
   const result = await authService.sendOtp(req.body.phone);
-  res.json(result);
-});
+  res.json(new ApiResponse(200, result, 'OTP sent successfully'));
+}));
 
-router.post('/verify-otp', otpLimiter, validate(verifyOtpSchema), async (req: Request, res: Response) => {
-  try {
-    const result = await authService.verifyOtp(req.body.phone, req.body.otp);
-    res.json(result);
-  } catch (e: unknown) {
-    res.status(400).json({ success: false, message: (e as Error).message });
-  }
-});
+router.post('/verify-otp', otpLimiter, validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.verifyOtp(req.body.phone, req.body.otp);
+  res.json(new ApiResponse(200, result, 'OTP verified successfully'));
+}));
 
-router.post('/check-location', validate(checkLocationSchema), async (req: Request, res: Response) => {
+router.post('/check-location', validate(checkLocationSchema), asyncHandler(async (req: Request, res: Response) => {
   const result = await authService.checkLocation(req.body.location);
-  res.json(result);
-});
+  res.json(new ApiResponse(200, result, 'Location check completed'));
+}));
 
-router.post('/register-password', loginLimiter, validate(registerPasswordSchema), async (req: Request, res: Response) => {
-  try {
-    const { phone, name, age, password } = req.body;
-    const result = await authService.registerWithPassword(phone, name, age, password);
-    res.json(result);
-  } catch (e: unknown) {
-    res.status(400).json({ success: false, message: (e as Error).message });
-  }
-});
+router.post('/register-password', loginLimiter, validate(registerPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
+  const { phone, name, age, password } = req.body;
+  const result = await authService.registerWithPassword(phone, name, age, password);
+  res.json(new ApiResponse(201, result, 'Registration successful'));
+}));
 
-router.post('/login-password', loginLimiter, validate(loginPasswordSchema), async (req: Request, res: Response) => {
-  try {
-    const { phone, password } = req.body;
-    const result = await authService.loginWithPassword(phone, password);
-    res.json(result);
-  } catch (e: unknown) {
-    res.status(400).json({ success: false, message: (e as Error).message });
-  }
-});
+router.post('/login-password', loginLimiter, validate(loginPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
+  const { phone, password } = req.body;
+  const result = await authService.loginWithPassword(phone, password);
+  res.json(new ApiResponse(200, result, 'Login successful'));
+}));
 
 export default router;

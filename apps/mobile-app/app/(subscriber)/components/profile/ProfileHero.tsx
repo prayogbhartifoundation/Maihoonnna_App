@@ -130,3 +130,5 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
     statDivider: { width: 1, backgroundColor: '#E5E7EB', height: '60%', alignSelf: 'center' },
 });
+
+export default ProfileHero;

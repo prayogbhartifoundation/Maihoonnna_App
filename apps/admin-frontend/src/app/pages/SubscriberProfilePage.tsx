@@ -7,6 +7,7 @@ import {
 import { subscriberApi } from '../../services/api';
 import { StatusChip } from '../components/common/StatusChip';
 import { Button } from '../components/ui/button';
+import { EditSubscriberDialog } from '../components/forms/EditSubscriberDialog';
 
 export default function SubscriberProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,7 @@ export default function SubscriberProfilePage() {
   const [details, setDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const fetchDetails = async () => {
     if (!id) return;
@@ -130,7 +132,9 @@ export default function SubscriberProfilePage() {
                 </div>
               </div>
 
-              <button className="w-full mt-8 py-3 rounded-2xl bg-[#F4EAE3] text-gray-700 font-black uppercase tracking-widest text-[10px] border border-[#E7DED6] hover:bg-[#E7DED6] transition-colors flex items-center justify-center gap-2">
+              <button 
+                onClick={() => setIsEditModalOpen(true)}
+                className="w-full mt-8 py-3 rounded-2xl bg-[#F4EAE3] text-gray-700 font-black uppercase tracking-widest text-[10px] border border-[#E7DED6] hover:bg-[#E7DED6] transition-colors flex items-center justify-center gap-2">
                 <Edit2 size={14} /> Edit Profile
               </button>
             </div>
@@ -229,7 +233,15 @@ export default function SubscriberProfilePage() {
         </div>
       </div>
 
-      {/* Beneficiary Details Modal Removed */}
+      <EditSubscriberDialog
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        subscriber={details}
+        onSuccess={() => {
+          setIsEditModalOpen(false);
+          fetchDetails();
+        }}
+      />
     </div>
   );
 }

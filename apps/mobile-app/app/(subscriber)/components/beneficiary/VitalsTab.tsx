@@ -51,3 +51,5 @@ const styles = StyleSheet.create({
     trendBadge: { alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
     trendText: { fontSize: 11, fontWeight: '600' },
 });
+
+export default VitalsTab;

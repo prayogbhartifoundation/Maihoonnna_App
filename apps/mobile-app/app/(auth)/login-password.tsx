@@ -49,14 +49,17 @@ export default function LoginPasswordScreen() {
             const data = await response.json();
 
             if (data.success) {
+                // The actual payload is inside the 'data' property of ApiResponse
+                const result = data.data;
+
                 // Save user session!
-                await AsyncStorage.setItem('userToken', data.token);
-                await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+                await AsyncStorage.setItem('userToken', result.token);
+                await AsyncStorage.setItem('userData', JSON.stringify(result.user));
 
                 // Login successful! Drop them on the appropriate dashboard
-                if (data.user.role === 'care_companion') {
+                if (result.user.role === 'care_companion') {
                     router.replace("/(care-companion)");
-                } else if (data.user.role === 'beneficiary') {
+                } else if (result.user.role === 'beneficiary') {
                     router.replace("/(beneficiary)");
                 } else {
                     router.replace("/(subscriber)");

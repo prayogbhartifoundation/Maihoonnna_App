@@ -7,9 +7,11 @@ interface GlobalHeaderProps {
     title: string;
     onMenuPress: () => void;
     showBack?: boolean;
+    rightIcon?: 'pencil' | 'notifications';
+    onRightIconPress?: () => void;
 }
 
-export const GlobalHeader = ({ title, onMenuPress, showBack = false }: GlobalHeaderProps) => {
+const GlobalHeader = ({ title, onMenuPress, showBack = false, rightIcon, onRightIconPress }: GlobalHeaderProps) => {
     const router = useRouter();
 
     return (
@@ -27,10 +29,16 @@ export const GlobalHeader = ({ title, onMenuPress, showBack = false }: GlobalHea
             <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
 
             <View style={styles.rightSection}>
-                <TouchableOpacity style={styles.iconBtn}>
-                    <Ionicons name="notifications-outline" size={24} color="#111827" />
-                    <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
-                </TouchableOpacity>
+                {rightIcon === 'pencil' ? (
+                    <TouchableOpacity onPress={onRightIconPress} style={styles.iconBtn}>
+                        <Ionicons name="pencil-outline" size={24} color="#F97316" />
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity style={styles.iconBtn}>
+                        <Ionicons name="notifications-outline" size={24} color="#111827" />
+                        <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity onPress={onMenuPress} style={styles.iconBtn}>
                     <Ionicons name="menu-outline" size={28} color="#111827" />
                 </TouchableOpacity>
@@ -38,6 +46,8 @@ export const GlobalHeader = ({ title, onMenuPress, showBack = false }: GlobalHea
         </View>
     );
 };
+
+export default GlobalHeader;
 
 const styles = StyleSheet.create({
     header: {

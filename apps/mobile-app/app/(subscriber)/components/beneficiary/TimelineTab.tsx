@@ -117,3 +117,5 @@ const styles = StyleSheet.create({
     vitalValue: { fontSize: 12, fontWeight: '700', color: '#111827' },
     visitNotes: { fontSize: 13, color: '#4B5563', lineHeight: 19 },
 });
+
+export default TimelineTab;

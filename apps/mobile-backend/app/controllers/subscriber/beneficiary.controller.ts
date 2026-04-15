@@ -36,6 +36,26 @@ export const updateBeneficiary = async (req: Request, res: Response) => {
     const data = await beneficiaryService.updateBeneficiary(beneficiaryId, req.body);
     res.json({ success: true, data });
   } catch (error: any) {
+    console.error(`[updateBeneficiary Error] beneficiaryId: ${req.params.beneficiaryId}:`, error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+export const updateMedicalRecord = async (req: Request, res: Response) => {
+  try {
+    const recordId = req.params.recordId as string;
+    const data = await beneficiaryService.updateMedicalRecord(recordId, req.body);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteMedicalRecord = async (req: Request, res: Response) => {
+  try {
+    const recordId = req.params.recordId as string;
+    await beneficiaryService.deleteMedicalRecord(recordId);
+    res.json({ success: true, message: 'Medical record deleted' });
+  } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }
 };

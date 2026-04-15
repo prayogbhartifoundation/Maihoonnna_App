@@ -11,4 +11,8 @@ router.get('/subscriber/:subscriberId', authenticate, beneficiaryController.getS
 router.get('/:beneficiaryId/profile', authenticate, beneficiaryController.getBeneficiaryProfile);
 router.put('/:beneficiaryId', authenticate, validate(updateBeneficiarySchema), beneficiaryController.updateBeneficiary);
 
+// Medical Records Management
+router.put('/medical-records/:recordId', authenticate, beneficiaryController.updateMedicalRecord);
+router.delete('/medical-records/:recordId', authenticate, beneficiaryController.deleteMedicalRecord);
+
 export default router;
