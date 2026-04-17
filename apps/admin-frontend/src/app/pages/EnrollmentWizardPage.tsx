@@ -280,7 +280,21 @@ export default function EnrollmentWizardPage() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Package</span>
-              <span className="font-semibold">{enrolledResult.package?.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">{enrolledResult.package?.name}</span>
+                {enrolledResult.package && (
+                  <Badge 
+                    variant="secondary" 
+                    className={`text-[8px] uppercase px-1 h-3.5 border-none ${
+                      enrolledResult.package.isGlobal 
+                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {enrolledResult.package.isGlobal ? 'Global' : 'Private'}
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex justify-between text-sm border-t pt-3">
               <span className="text-muted-foreground">Amount Collected</span>
@@ -1003,6 +1017,16 @@ export default function EnrollmentWizardPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-semibold">{pkg.name}</p>
+                          <Badge 
+                            variant="secondary" 
+                            className={`text-[9px] uppercase px-1.5 h-4 border-none ${
+                              pkg.isGlobal 
+                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' 
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            {pkg.isGlobal ? 'Global' : 'Private'}
+                          </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">₹{pkg.basePrice} / month</p>
                       </div>
@@ -1108,7 +1132,24 @@ export default function EnrollmentWizardPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Subscriber</span><span className="font-medium">{subscriberName} ({subscriberPhone})</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Beneficiary</span><span className="font-medium">{sameAsSubscriber ? subscriberName : beneficiaryName} {!sameAsSubscriber && beneficiaryPhone ? `(${beneficiaryPhone})` : ''}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Package</span><span className="font-medium">{selectedPackage?.name}</span></div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Package</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{selectedPackage?.name}</span>
+                    {selectedPackage && (
+                      <Badge 
+                        variant="secondary" 
+                        className={`text-[8px] uppercase px-1 h-3.5 border-none ${
+                          selectedPackage.isGlobal 
+                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' 
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {selectedPackage.isGlobal ? 'Global' : 'Private'}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Duration</span><span className="font-medium capitalize">{duration.replace('_', ' ')} · until {endDate}</span></div>
                 <div className="flex justify-between border-t pt-2"><span className="text-muted-foreground">Amount</span><span className="font-bold text-green-700">₹{amountPaid} via {paymentMethod}</span></div>
               </div>

@@ -434,7 +434,12 @@ router.post('/admin-enroll', async (req, res) => {
           phone: subscriberUser.phone,
         },
         beneficiary: { id: beneficiary.id, name: beneficiary.name },
-        package: { name: pkg.name, type: pkg.type, basePrice: pkg.basePrice },
+        package: { 
+          name: pkg.name, 
+          type: pkg.type, 
+          basePrice: pkg.basePrice,
+          isGlobal: pkg.isGlobal
+        },
         invoiceNumber,
       };
     });

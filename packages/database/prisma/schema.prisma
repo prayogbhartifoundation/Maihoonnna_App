@@ -54,6 +54,7 @@ model User {
   vitalHistoryRecords        VitalHistory[]         @relation("VitalRecordedBy")
   zonesAsFieldManager        Zone[]                 @relation("ZoneFieldManager")
   zonesAsOperationsManager   Zone[]                 @relation("ZoneOperationsManager")
+  activityLogs               ActivityLog[]
 
   @@index([name])
   @@index([role])
@@ -1344,4 +1345,21 @@ enum CouponType {
   fixed
   free_trial
   free_benefit
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String // SECURITY, PROFILE, SUBSCRIPTION
+  action    String // PASSWORD_CHANGED, PROFILE_UPDATED, PLAN_RENEWED
+  details   Json?
+  status    String   @default("success") // success, failure
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@map("activity_logs")
 }
