@@ -11,16 +11,35 @@ const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const ALLOWED_ORIGINS = FRONTEND_URL.split(',').map((s) => s.trim());
 
+const { JWT_SECRET } = require('./middleware/auth');
+const jwt = require('jsonwebtoken');
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '2000', 10),
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.',
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for authenticated admin users
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        // If it's a valid token, skip rate limiting
+        return !!decoded;
+      } catch (err) {
+        // Invalid token, don't skip
+        return false;
+      }
+    }
+    return false;
+  },
 });
 
 const loginLimiter = rateLimit({
