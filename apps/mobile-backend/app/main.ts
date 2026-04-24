@@ -53,21 +53,24 @@ app.use(globalLimiter);
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile app, curl, etc.)
-      if (!origin) return callback(null, true);
+      // Allow all origins to resolve CORS issue for APK testing
+      return callback(null, true);
 
-      // If allowed origin is '*', allow everything
-      if (config.corsOrigin === '*') return callback(null, true);
+      // // Allow requests with no origin (mobile app, curl, etc.)
+      // if (!origin) return callback(null, true);
 
-      // Check if current origin is in the allowed list
-      if (Array.isArray(config.corsOrigin) && config.corsOrigin.includes(origin)) {
-        return callback(null, true);
-      }
+      // // If allowed origin is '*', allow everything
+      // if (config.corsOrigin === '*') return callback(null, true);
 
-      // If literal match
-      if (config.corsOrigin === origin) return callback(null, true);
+      // // Check if current origin is in the allowed list
+      // if (Array.isArray(config.corsOrigin) && config.corsOrigin.includes(origin)) {
+      //   return callback(null, true);
+      // }
 
-      callback(new Error(`CORS: Origin ${origin} not allowed`));
+      // // If literal match
+      // if (config.corsOrigin === origin) return callback(null, true);
+
+      // // callback(new Error(`CORS: Origin ${origin} not allowed`));
     },
     credentials: true,
   })
