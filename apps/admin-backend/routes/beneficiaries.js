@@ -473,6 +473,47 @@ router.put('/:id', async (req, res) => {
       data: dataToUpdate
     });
 
+    // Sync Vitals Configuration (New Relational System)
+    const vitalFields = Object.keys(dataToUpdate).filter(k => k.startsWith('track'));
+    if (vitalFields.length > 0) {
+      const vitalDefs = await prisma.vitalDefinition.findMany();
+      for (const field of vitalFields) {
+        const isActive = dataToUpdate[field];
+        let code = '';
+        if (field === 'trackBloodPressure') code = 'BP'; 
+        if (field === 'trackHeartRate') code = 'PULSE';
+        if (field === 'trackBloodSugar') code = 'BLOOD_GLUCOSE';
+        if (field === 'trackTemperature') code = 'TEMP';
+        if (field === 'trackOxygenSaturation') code = 'SPO2';
+        if (field === 'trackWeight') code = 'WEIGHT';
+        if (field === 'trackPainLevel') code = 'PAIN';
+        if (field === 'trackRespiratoryRate') code = 'RESP';
+        
+        if (code) {
+          const def = vitalDefs.find(d => d.code === code);
+          if (def) {
+            await prisma.beneficiaryVitalConfig.upsert({
+              where: {
+                beneficiaryId_vitalDefinitionId_effectiveFrom: {
+                  beneficiaryId: id,
+                  vitalDefinitionId: def.id,
+                  effectiveFrom: new Date(new Date().setHours(0,0,0,0))
+                }
+              },
+              update: { isActive },
+              create: {
+                beneficiaryId: id,
+                vitalDefinitionId: def.id,
+                isActive,
+                frequency: 'every_visit',
+                effectiveFrom: new Date(new Date().setHours(0,0,0,0))
+              }
+            });
+          }
+        }
+      }
+    }
+
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error(`PUT /beneficiaries/:id error:`, err);

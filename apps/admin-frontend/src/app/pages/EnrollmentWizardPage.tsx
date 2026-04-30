@@ -10,7 +10,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { enrollmentApi, packageApi, staffOnboardingApi } from '../../services/api';
+import { enrollmentApi, packageApi, staffOnboardingApi, vitalApi } from '../../services/api';
 import { toast } from 'sonner';
 import {
   UserPlus, ArrowLeft, ArrowRight, Check, Phone, User, Package,
@@ -62,7 +62,12 @@ const PAYMENT_METHODS = ['Cash', 'Bank Transfer', 'Cheque', 'UPI', 'NEFT/RTGS', 
 const COMMON_HOBBIES = [
   'Reading', 'Gardening', 'Yoga', 'Walking', 'Cooking', 'Music', 'Movies',
   'Traveling', 'Painting', 'Meditation', 'Sudoku/Puzzles', 'Socializing',
-  'Crafting', 'Photography', 'Writing', 'Sports'
+  'Crafting', 'Photography', 'Writing', 'Sports', 'Other'
+];
+
+const RELATIONSHIPS = [
+  'Father', 'Mother', 'Spouse', 'Son', 'Daughter', 'Sibling', 
+  'Grandparent', 'Father-in-law', 'Mother-in-law', 'Relative', 'Friend', 'Other'
 ];
 
 export default function EnrollmentWizardPage() {
@@ -102,17 +107,14 @@ export default function EnrollmentWizardPage() {
   // ── Medical & Vitals
   const [medicalConditions, setMedicalConditions] = useState<string[]>([]); 
   const [medications, setMedications] = useState<any[]>([]); // { name, dosage, frequency, timeSlots, setReminders }
-  const [vitalsToTrack, setVitalsToTrack] = useState({
-    bloodPressure: true,
-    heartRate: true,
-    bloodSugar: true,
-    temperature: true,
-    oxygenSaturation: true,
-    weight: true,
-  });
+  const [vitalsToTrack, setVitalsToTrack] = useState<Record<string, boolean>>({});
+  const [availableVitals, setAvailableVitals] = useState<any[]>([]);
+  const [loadingVitals, setLoadingVitals] = useState(false);
   const [primaryPhysicianName, setPrimaryPhysicianName] = useState('');
   const [primaryPhysicianPhone, setPrimaryPhysicianPhone] = useState('');
   const [hobbiesInterests, setHobbiesInterests] = useState<string[]>([]);
+  const [customHobby, setCustomHobby] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Emergency Contacts
   const [emergencyContactName, setEmergencyContactName] = useState('');
@@ -144,6 +146,19 @@ export default function EnrollmentWizardPage() {
 
   useEffect(() => {
     packageApi.getAll().then(setPackages).catch(() => toast.error('Failed to load packages'));
+    
+    setLoadingVitals(true);
+    vitalApi.getAll({ activeOnly: true })
+      .then(vitals => {
+        setAvailableVitals(vitals);
+        const initialVitals: Record<string, boolean> = {};
+        vitals.forEach(v => {
+          initialVitals[v.code] = true; // Default all to true as per previous hardcoded logic
+        });
+        setVitalsToTrack(initialVitals);
+      })
+      .catch(() => toast.error('Failed to load vitals'))
+      .finally(() => setLoadingVitals(false));
   }, []);
 
   // Auto-set amount to package price when package is selected
@@ -217,7 +232,9 @@ export default function EnrollmentWizardPage() {
         vitalsToTrack,
         primaryPhysicianName,
         primaryPhysicianPhone,
-        hobbiesInterests,
+        hobbiesInterests: hobbiesInterests.includes('Other') && customHobby 
+          ? [...hobbiesInterests.filter(h => h !== 'Other'), customHobby]
+          : hobbiesInterests,
         emergencyContactName,
         emergencyContactPhone,
         emergencyContactRelationship: emergencyContactRel,
@@ -281,9 +298,23 @@ export default function EnrollmentWizardPage() {
               <span className="text-muted-foreground">Subscriber</span>
               <span className="font-semibold">{enrolledResult.subscriber?.name} ({enrolledResult.subscriber?.phone})</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Beneficiary</span>
-              <span className="font-semibold">{enrolledResult.beneficiary?.name}</span>
+            <div className="flex justify-between items-center py-2 border-b border-dashed mb-2">
+              <div className="flex items-center gap-3">
+                {profilePhoto ? (
+                  <img src={profilePhoto} alt="Beneficiary" className="w-12 h-12 rounded-full object-cover border-2 border-primary/20" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
+                    <UserSquare className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div>
+                  <span className="text-muted-foreground text-xs block uppercase font-bold tracking-tighter">Beneficiary</span>
+                  <span className="font-bold text-lg leading-none">{enrolledResult.beneficiary?.name}</span>
+                </div>
+              </div>
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                {relationship || 'Self'}
+              </Badge>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Package</span>
@@ -505,39 +536,54 @@ export default function EnrollmentWizardPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 flex justify-center mb-2">
                   <div className="relative group">
-                    <div className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-dashed border-muted-foreground/30 relative">
+                    <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      accept="image/*"
+                      className="hidden" 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          setUploadingPhoto(true);
+                          const res = await staffOnboardingApi.uploadFile(file);
+                          if (res.success) {
+                            setProfilePhoto(res.url);
+                            toast.success('Photo uploaded');
+                          }
+                        } catch (err) {
+                          toast.error('Upload failed');
+                        } finally {
+                          setUploadingPhoto(false);
+                          if (e.target) e.target.value = '';
+                        }
+                      }} 
+                    />
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-dashed border-muted-foreground/30 relative cursor-pointer hover:border-primary transition-colors group"
+                    >
                       {uploadingPhoto ? (
                         <Loader2 className="w-8 h-8 text-primary animate-spin" />
                       ) : profilePhoto ? (
                         <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
-                        <Camera className="w-8 h-8 text-muted-foreground/50" />
+                        <Camera className="w-8 h-8 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                      )}
+                      
+                      {!profilePhoto && !uploadingPhoto && (
+                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-primary uppercase">Upload</span>
+                        </div>
                       )}
                     </div>
-                    <label className="absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full cursor-pointer shadow-lg hover:scale-105 transition-transform">
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full cursor-pointer shadow-lg hover:scale-110 active:scale-95 transition-all z-10"
+                    >
                       <Plus className="w-4 h-4" />
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        className="hidden" 
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          try {
-                            setUploadingPhoto(true);
-                            const res = await staffOnboardingApi.uploadFile(file);
-                            if (res.success) {
-                              setProfilePhoto(res.url);
-                              toast.success('Photo uploaded');
-                            }
-                          } catch (err) {
-                            toast.error('Upload failed');
-                          } finally {
-                            setUploadingPhoto(false);
-                          }
-                        }} 
-                      />
-                    </label>
+                    </button>
                   </div>
                 </div>
 
@@ -647,7 +693,16 @@ export default function EnrollmentWizardPage() {
                 {!sameAsSubscriber && (
                   <div className="space-y-1 col-span-2">
                     <Label htmlFor="ben-rel">Relationship to Subscriber</Label>
-                    <Input id="ben-rel" value={relationship} onChange={e => setRelationship(e.target.value)} placeholder="e.g. Father, Mother" />
+                    <Select value={relationship} onValueChange={setRelationship}>
+                      <SelectTrigger id="ben-rel">
+                        <SelectValue placeholder="Select relationship" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RELATIONSHIPS.map(rel => (
+                          <SelectItem key={rel} value={rel}>{rel}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>
@@ -888,22 +943,27 @@ export default function EnrollmentWizardPage() {
                   </div>
 
                   <div className="pt-2">
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="Custom hobby..." 
-                        className="h-9 text-xs"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const val = e.currentTarget.value.trim();
-                            if (val && !hobbiesInterests.includes(val)) {
-                              setHobbiesInterests([...hobbiesInterests, val]);
-                              e.currentTarget.value = '';
+                    {(hobbiesInterests.includes('Other') || hobbiesInterests.some(h => !COMMON_HOBBIES.includes(h))) && (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                        <Label className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Specify Other Hobby</Label>
+                        <Input 
+                          placeholder="Type custom hobby and press enter..." 
+                          className="h-9 text-xs border-orange-200 focus-visible:ring-orange-500"
+                          value={customHobby}
+                          onChange={e => setCustomHobby(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const val = customHobby.trim();
+                              if (val && !hobbiesInterests.includes(val)) {
+                                setHobbiesInterests([...hobbiesInterests.filter(h => h !== 'Other'), val]);
+                                setCustomHobby('');
+                              }
                             }
-                          }
-                        }}
-                      />
-                    </div>
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -914,15 +974,23 @@ export default function EnrollmentWizardPage() {
                 <CardTitle className="text-sm flex items-center gap-2"><HeartPulse className="w-4 h-4 text-primary" /> Vitals to Track</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3 py-2">
-                {Object.entries(vitalsToTrack).map(([key, val]) => (
-                  <div key={key} className="flex items-center gap-2">
+                {loadingVitals ? (
+                  <div className="col-span-2 py-4 flex items-center justify-center text-xs text-muted-foreground">
+                    <Loader2 className="w-3 h-3 animate-spin mr-2" /> Loading vitals...
+                  </div>
+                ) : availableVitals.length === 0 ? (
+                  <div className="col-span-2 py-4 text-center text-xs text-muted-foreground italic">
+                    No vitals defined
+                  </div>
+                ) : availableVitals.map((v) => (
+                  <div key={v.id} className="flex items-center gap-2">
                     <Checkbox 
-                      id={`vital-${key}`} 
-                      checked={val} 
-                      onCheckedChange={checked => setVitalsToTrack({ ...vitalsToTrack, [key]: !!checked })} 
+                      id={`vital-${v.code}`} 
+                      checked={vitalsToTrack[v.code]} 
+                      onCheckedChange={checked => setVitalsToTrack({ ...vitalsToTrack, [v.code]: !!checked })} 
                     />
-                    <label htmlFor={`vital-${key}`} className="text-xs font-medium cursor-pointer capitalize">
-                      {key.replace(/([A-Z])/g, ' $1')}
+                    <label htmlFor={`vital-${v.code}`} className="text-xs font-medium cursor-pointer">
+                      {v.name} {v.unit ? `(${v.unit})` : ''}
                     </label>
                   </div>
                 ))}

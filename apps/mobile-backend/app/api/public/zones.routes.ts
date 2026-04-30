@@ -41,11 +41,13 @@ router.get('/check-pincode', async (req: Request, res: Response) => {
 
       return res.json({
         success: true,
-        available: true,
-        location: `${zone.city}, ${zone.state}`,
-        stats: {
-          companions: careCompanionCount > 0 ? careCompanionCount : 15, // fallback if 0 matches
-          centers: centersCount > 0 ? centersCount : 2,                 // fallback if 0 matches
+        data: {
+          available: true,
+          location: `${zone.city}, ${zone.state}`,
+          stats: {
+            companions: careCompanionCount > 0 ? careCompanionCount : 15,
+            centers: centersCount > 0 ? centersCount : 2,
+          }
         }
       });
     }
@@ -53,7 +55,9 @@ router.get('/check-pincode', async (req: Request, res: Response) => {
     // Pincode doesn't match an active zone
     return res.json({
       success: true,
-      available: false,
+      data: {
+        available: false,
+      }
     });
     
   } catch (error: any) {

@@ -16,13 +16,17 @@ router.get('/', async (req: Request, res: Response) => {
 
     const vitals = await prisma.vitalDefinition.findMany({
       where,
-      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+      orderBy: { displayOrder: 'asc' },
     });
     
     res.json({ success: true, data: vitals });
   } catch (error: any) {
-    console.error('Error fetching vitals:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch vitals' });
+    console.error('Error fetching vitals in mobile-backend:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch vitals',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

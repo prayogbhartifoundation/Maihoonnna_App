@@ -621,6 +621,29 @@ export const vitalApi = {
   async remove(id: string): Promise<void> {
     return apiJson(`/vitals/${id}`, { method: 'DELETE' });
   },
+  
+  // Templates
+  async getTemplates(): Promise<any[]> {
+    return apiJson('/vitals/templates');
+  },
+  async createTemplate(data: any): Promise<any> {
+    return apiJson('/vitals/templates', { method: 'POST', body: JSON.stringify(data) });
+  },
+  
+  // Beneficiary Config
+  async getBeneficiaryConfigs(params?: { zoneId?: string; templateId?: string }): Promise<any[]> {
+    const query = new URLSearchParams(params as any).toString();
+    return apiJson(`/vitals/beneficiary-configs?${query}`);
+  },
+  async updateBeneficiaryConfig(beneficiaryId: string, data: any): Promise<any> {
+    return apiJson(`/vitals/beneficiary-configs/${beneficiaryId}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  
+  // Readings / Capture Log
+  async getReadings(params?: { beneficiaryId?: string; date?: string; status?: string }): Promise<any[]> {
+    const query = new URLSearchParams(params as any).toString();
+    return apiJson(`/vitals/readings?${query}`);
+  },
 };
 
 export const benefitTypeApi = {

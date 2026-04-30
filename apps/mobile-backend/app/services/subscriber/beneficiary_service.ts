@@ -99,7 +99,7 @@ export const getSubscriberBeneficiaries = async (subscriberId: string) => {
 };
 
 export const updateBeneficiary = async (beneficiaryId: string, updates: any) => {
-  const { medicalConditions, medications, emergencyContacts, ...coreUpdates } = updates;
+  const { medicalConditions, medications, emergencyContacts, vitalsData, ...coreUpdates } = updates;
 
   return prisma.$transaction(async (tx) => {
     // 1. Update Core Beneficiary Fields
@@ -181,7 +181,57 @@ export const updateBeneficiary = async (beneficiaryId: string, updates: any) => 
       }
     }
 
-    // 4. Log Activity
+    // 4. Sync Vitals Configuration (Dynamic Relational System)
+    if (vitalsData && typeof vitalsData === 'object') {
+      const vitalIds = Object.keys(vitalsData);
+      
+      for (const vitalDefId of vitalIds) {
+        const isActive = !!vitalsData[vitalDefId];
+        
+        await tx.beneficiaryVitalConfig.upsert({
+          where: {
+            beneficiaryId_vitalDefinitionId_effectiveFrom: {
+              beneficiaryId,
+              vitalDefinitionId: vitalDefId,
+              effectiveFrom: new Date(new Date().setHours(0,0,0,0))
+            }
+          },
+          update: { isActive },
+          create: {
+            beneficiaryId,
+            vitalDefinitionId: vitalDefId,
+            isActive,
+            frequency: 'every_visit',
+            effectiveFrom: new Date(new Date().setHours(0,0,0,0))
+          }
+        });
+
+        // Also sync back to legacy boolean flags for backward compatibility if needed
+        // (Optional: identify the code and update the core tracking flag)
+        const def = await tx.vitalDefinition.findUnique({ where: { id: vitalDefId } });
+        if (def) {
+          const fieldMap: Record<string, string> = {
+            'BP': 'trackBloodPressure',
+            'PULSE': 'trackHeartRate',
+            'BLOOD_GLUCOSE': 'trackBloodSugar',
+            'TEMP': 'trackTemperature',
+            'SPO2': 'trackOxygenSaturation',
+            'WEIGHT': 'trackWeight',
+            'PAIN': 'trackPainLevel',
+            'RESP': 'trackRespiratoryRate'
+          };
+          const legacyField = fieldMap[def.code];
+          if (legacyField) {
+            await tx.beneficiary.update({
+              where: { id: beneficiaryId },
+              data: { [legacyField]: isActive }
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Log Activity
     await tx.activityLog.create({
       data: {
         id: generateUUID(),

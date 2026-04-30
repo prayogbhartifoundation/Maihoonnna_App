@@ -19,16 +19,25 @@ export const createServiceRequest = async (req: Request, res: Response, _next: N
   }
 
 
-  // Get the beneficiary associated with this user
-  let actualBeneficiaryId = beneficiaryId;
-  const beneficiary = await prisma.beneficiary.findFirst({
-    where: { userId },
-  });
-
-  if (!beneficiary) {
-    return res.status(404).json({ success: false, message: 'Beneficiary profile not found.' });
+  // Get the beneficiary associated with this subscriber
+  let targetBeneficiaryId = beneficiaryId;
+  
+  if (!targetBeneficiaryId) {
+    const firstBeneficiary = await prisma.beneficiary.findFirst({
+      where: { subscriberId: userId },
+    });
+    
+    if (!firstBeneficiary) {
+      return res.status(404).json({ success: false, message: 'No beneficiaries found for this subscriber.' });
+    }
+    targetBeneficiaryId = firstBeneficiary.id;
+  } else {
+    // Verify this beneficiary belongs to the subscriber
+    const b = await prisma.beneficiary.findFirst({
+      where: { id: targetBeneficiaryId, subscriberId: userId }
+    });
+    if (!b) return res.status(403).json({ success: false, message: 'Beneficiary not found or access denied.' });
   }
-  actualBeneficiaryId = beneficiary.id;
 
   // Get address to ensure it exists and belongs to user
   const address = await prisma.address.findFirst({
@@ -41,7 +50,7 @@ export const createServiceRequest = async (req: Request, res: Response, _next: N
 
   const appointment = await prisma.appointment.create({
     data: {
-      beneficiaryId: actualBeneficiaryId,
+      beneficiaryId: targetBeneficiaryId,
       addressId,
       scheduledDate: new Date(scheduledDate),
       notes: notes || 'Care service request from subscriber',

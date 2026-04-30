@@ -69,7 +69,7 @@ export default function MedicalInfoScreen() {
                 if (data.success && data.data) {
                     setVitalsConfig(data.data);
                     const initial: Record<string, boolean> = {};
-                    data.data.forEach((v: any) => initial[v.fieldKey] = false);
+                    data.data.forEach((v: any) => initial[v.code] = false);
                     setVitals(initial);
                 }
             } catch (err) {
@@ -255,8 +255,8 @@ export default function MedicalInfoScreen() {
                             <Checkbox 
                                 key={v.id} 
                                 label={v.name} 
-                                checked={!!vitals[v.fieldKey]} 
-                                onPress={() => setVitals({ ...vitals, [v.fieldKey]: !vitals[v.fieldKey] })} 
+                                checked={!!vitals[v.code]} 
+                                onPress={() => setVitals({ ...vitals, [v.code]: !vitals[v.code] })} 
                             />
                         ))}
 
