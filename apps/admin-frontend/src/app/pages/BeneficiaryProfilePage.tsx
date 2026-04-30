@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { beneficiaryApi, subscriptionApi } from '../../services/api';
 import { StatusChip } from '../components/common/StatusChip';
+import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
 import { RefreshButton } from '../components/common/RefreshButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Label } from '../components/ui/label';
@@ -167,12 +168,26 @@ export default function BeneficiaryProfilePage() {
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
               <div className="flex flex-col items-center text-center">
-                <div className="w-24 h-24 rounded-[32px] bg-orange-100 flex items-center justify-center mb-4 border-4 border-white shadow-sm overflow-hidden text-[#FF7A00]">
-                   {details.photo ? (
-                      <img src={details.photo} alt={details.name} className="w-full h-full object-cover" />
-                   ) : (
-                      <User size={40} />
-                   )}
+                {/* Profile Photo Uploader */}
+                <div className="mb-4">
+                  <ProfilePhotoUploader
+                    config={{
+                      targetType: 'beneficiary',
+                      targetId: details.id,
+                      currentPhotoUrl: details.photo || null,
+                      name: details.name,
+                      size: 96,
+                      editable: true,
+                      accentColor: '#FF7A00',
+                      onSuccess: (url) => {
+                        setDetails((prev: any) => ({ ...prev, photo: url }));
+                        toast.success('Beneficiary photo updated successfully');
+                      },
+                      onError: (err) => {
+                        toast.error(`Photo upload failed: ${err}`);
+                      },
+                    }}
+                  />
                 </div>
                 <h1 className="text-2xl font-black text-gray-900 tracking-tight">{details.name}</h1>
                 <div className="mt-2">

@@ -831,6 +831,28 @@ export const staffOnboardingApi = {
     return result.data;
   },
 
+  /**
+   * General upload of a file for temporary usage or before linking to an entity.
+   */
+  async uploadFile(file: File): Promise<{ success: boolean; url: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiFetch(`${API_BASE}/upload-document/general`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const text = await response.text();
+    const result = text ? JSON.parse(text) : {};
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || `File upload failed with status ${response.status}`);
+    }
+
+    return result;
+  },
+
   async getStaffDetails(userId: string): Promise<any> {
     return apiJson(`/users/staff/${userId}`);
   },
@@ -931,3 +953,48 @@ export const enrollmentApi = {
     return apiJson(`/zones/check-pincode/${encodeURIComponent(pincode)}`);
   },
 };
+
+// ============================================================================
+// UPLOAD API — Profile photos & documents
+// ============================================================================
+
+export const uploadApi = {
+  /**
+   * Upload or update a profile photo for any entity.
+   *
+   * @param targetType - 'subscriber' | 'care_companion' | 'field_manager' | 'operations_manager' | 'beneficiary'
+   * @param targetId   - User.id for subscriber/staff, Beneficiary.id for beneficiary
+   * @param file       - The image File object from the file input
+   * @returns          - { url, data, entityType, targetId }
+   */
+  async uploadProfilePhoto(
+    targetType: 'subscriber' | 'care_companion' | 'field_manager' | 'operations_manager' | 'beneficiary',
+    targetId: string,
+    file: File
+  ): Promise<{ url: string; data: any; entityType: string; targetId: string }> {
+    const formData = new FormData();
+    formData.append('targetType', targetType);
+    formData.append('targetId', targetId);
+    formData.append('file', file);
+
+    const response = await apiFetch(`${API_BASE}/upload-document/profile-photo`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const text = await response.text();
+    const result = text ? JSON.parse(text) : {};
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || `Photo upload failed with status ${response.status}`);
+    }
+
+    return {
+      url: result.url,
+      data: result.data,
+      entityType: result.entityType,
+      targetId: result.targetId,
+    };
+  },
+};
+

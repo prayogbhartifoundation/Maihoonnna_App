@@ -55,6 +55,7 @@ model User {
   zonesAsFieldManager        Zone[]                 @relation("ZoneFieldManager")
   zonesAsOperationsManager   Zone[]                 @relation("ZoneOperationsManager")
   activityLogs               ActivityLog[]
+  addresses                  Address[]
 
   @@index([name])
   @@index([role])
@@ -381,6 +382,7 @@ model StaffProfile {
   aadhaarNumberEncrypted String?
   panNumberEncrypted     String?
   languages              String[]               @default([])
+  specialization         String[]               @default([])
   zoneId                 String?
   teamId                 String?
   reportsToUserId        String?
@@ -698,7 +700,8 @@ model Payment {
 model Appointment {
   id               String            @id @default(uuid())
   beneficiaryId    String
-  careCompanionId  String
+  careCompanionId  String?
+  addressId        String?
   scheduledDate    DateTime
   durationMinutes  Int               @default(60)
   status           AppointmentStatus @default(pending)
@@ -710,15 +713,18 @@ model Appointment {
   confirmedAt      DateTime?
   reminderSentAt   DateTime?
   cancellationNote String?
+  isServiceRequest Boolean           @default(false)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  address          Address?          @relation(fields: [addressId], references: [id])
   beneficiary      Beneficiary       @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
   bookedByUser     User?             @relation("AppointmentBookedBy", fields: [bookedBy], references: [id])
-  careCompanion    CareCompanion     @relation(fields: [careCompanionId], references: [id])
+  careCompanion    CareCompanion?    @relation(fields: [careCompanionId], references: [id])
   visit            Visit?
 
   @@index([beneficiaryId])
   @@index([careCompanionId])
+  @@index([addressId])
   @@index([status])
   @@index([scheduledDate])
   @@map("appointments")
@@ -1362,4 +1368,24 @@ model ActivityLog {
   @@index([userId])
   @@index([type])
   @@map("activity_logs")
+}
+
+model Address {
+  id             String       @id @default(uuid())
+  userId         String
+  label          String       @default("Home")
+  addressLine    String
+  city           String
+  state          String
+  pincode        String
+  latitude       Float?
+  longitude      Float?
+  isDefault      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments   Appointment[]
+
+  @@index([userId])
+  @@map("addresses")
 }

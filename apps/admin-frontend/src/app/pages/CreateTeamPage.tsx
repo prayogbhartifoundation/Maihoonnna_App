@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { teamApi } from '../../services/api';
 import { toast } from 'sonner';
 import { Users, UserCheck, ShieldCheck, MapPin } from 'lucide-react';
+import { EntityAvatar } from '../components/common/EntityAvatar';
 
 export default function CreateTeamPage() {
   const [name, setName] = useState('');
@@ -176,9 +177,12 @@ export default function CreateTeamPage() {
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-[#F4EAE3] flex items-center justify-center font-bold text-[#FF7A00]">
-                      {cc.name.charAt(0)}
-                    </div>
+                    <EntityAvatar 
+                      name={cc.name} 
+                      photoUrl={cc.photo} 
+                      type="care_companion" 
+                      className="w-12 h-12 text-lg" 
+                    />
                     <div>
                       <h3 className="font-bold text-gray-800 text-sm">{cc.name}</h3>
                       <p className="text-xs text-gray-400">{cc.zone}</p>

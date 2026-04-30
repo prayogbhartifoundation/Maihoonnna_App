@@ -256,7 +256,7 @@ export default function BeneficiaryDashboard() {
                 </View>
 
                 <View style={styles.quickActionsGrid}>
-                    <TouchableOpacity style={styles.actionCard}>
+                    <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(beneficiary)/request-service' as any)}>
                         <View style={[styles.actionIconBadge, { backgroundColor: '#F3E8FF' }]}>
                             <Feather name="calendar" size={24} color="#9B51E0" />
                         </View>

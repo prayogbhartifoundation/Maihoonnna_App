@@ -8,6 +8,7 @@ import { MapPin, Users, Package, Phone, Mail, RefreshCw, Loader2 } from 'lucide-
 import { Button } from '../components/ui/button';
 import DataFilter from '../components/common/DataFilter';
 import SubscriberDetailsModal from '../components/subscribers/SubscriberDetailsModal';
+import { EntityAvatar } from '../components/common/EntityAvatar';
 
 export default function SubscribersPage() {
   const navigate = useNavigate();
@@ -88,6 +89,7 @@ export default function SubscribersPage() {
                   key={sub.id} 
                   title={sub.name} 
                   description={`Subscriber`}
+                  avatar={<EntityAvatar name={sub.name} photoUrl={sub.profilePhoto} type="subscriber" className="w-12 h-12" />}
                   onClick={() => setSelectedSubscriber(sub.id)}
                 >
                   <div className="space-y-3">

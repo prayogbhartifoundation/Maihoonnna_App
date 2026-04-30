@@ -153,6 +153,13 @@ router.get('/available-staff', async (req, res) => {
       zoneIds = zoneIds.filter((id) => id === req.user.zoneId);
     }
 
+    if (zoneIds.length === 0) {
+      return res.json({
+        success: true,
+        data: { careCompanions: [], fieldManagers: [], zones: [] },
+      });
+    }
+
     // Get CCs whose staffProfile.zoneId matches one of these zones
     const ccProfiles = await prisma.staffProfile.findMany({
       where: {

@@ -2,13 +2,21 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Modal, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { AddressPicker, SelectedAddress } from '../../components/ui/AddressPicker';
+import { useLocationPermission } from '../../hooks/useLocationPermission';
+import { PhotoPickerInput } from '../../components/ui/PhotoPickerInput';
 
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
     const [showRelationshipModal, setShowRelationshipModal] = useState(false);
+    const [showAddressPicker, setShowAddressPicker] = useState(false);
+    const [pickedPhotoUri, setPickedPhotoUri] = useState<string | null>(null);
     const relationships = ['Self', 'Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Sibling', 'Guardian', 'Friend', 'Other'];
+
+    // Request location permission immediately on screen load
+    const { location: userLocation } = useLocationPermission({ requestOnMount: true });
 
     const [beneficiaryForm, setBeneficiaryForm] = useState({
         fullName: '',
@@ -17,7 +25,9 @@ export default function BeneficiaryInfoScreen() {
         maritalStatus: '',
         relationship: '',
         phone: '',
-        address: ''
+        address: '',
+        latitude: 0,
+        longitude: 0,
     });
 
     const handleNext = () => {
@@ -82,14 +92,16 @@ export default function BeneficiaryInfoScreen() {
                         {/* Profile Photo Upload UI */}
                         <Text style={styles.label}>Profile Photo</Text>
                         <View style={styles.photoUploadContainer}>
-                            <TouchableOpacity style={styles.photoBox}>
-                                <MaterialCommunityIcons name="image-plus" size={32} color="#4B5563" />
-                                <Text style={styles.uploadLabel}>Upload Photo</Text>
-                                <TouchableOpacity style={styles.editIconBadge}>
-                                    <Ionicons name="pencil" size={12} color="white" />
-                                </TouchableOpacity>
-                            </TouchableOpacity>
-                            <Text style={styles.photoHint}>Add a clear photo for identification</Text>
+                            <PhotoPickerInput
+                                currentUri={pickedPhotoUri}
+                                onPhotoSelected={(uri) => setPickedPhotoUri(uri)}
+                                onPhotoClear={() => setPickedPhotoUri(null)}
+                                size={120}
+                                shape="square"
+                                accentColor="#F97316"
+                                label="Upload Photo"
+                                hint="Add a clear photo for identification"
+                            />
                         </View>
 
                         {/* Beneficiary Name */}
@@ -196,14 +208,25 @@ export default function BeneficiaryInfoScreen() {
                         {/* Address Area */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Address *</Text>
-                            <TextInput
-                                style={[styles.input, styles.textArea]}
-                                placeholder="Enter complete address"
-                                placeholderTextColor="#9CA3AF"
-                                multiline
-                                value={beneficiaryForm.address}
-                                onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, address: t })}
-                            />
+                            <TouchableOpacity
+                                style={[styles.inputWithIcon, { minHeight: 48, alignItems: 'flex-start', paddingTop: 14 }]}
+                                onPress={() => setShowAddressPicker(true)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={[
+                                    styles.flexInput,
+                                    !beneficiaryForm.address && { color: '#9CA3AF' }
+                                ]} numberOfLines={3}>
+                                    {beneficiaryForm.address || 'Tap to select address on map'}
+                                </Text>
+                                <Ionicons name="map-outline" size={20} color="#F97316" style={{ marginTop: 2 }} />
+                            </TouchableOpacity>
+                            {beneficiaryForm.latitude !== 0 && (
+                                <View style={styles.coordsBadge}>
+                                    <Ionicons name="location" size={12} color="#10B981" />
+                                    <Text style={styles.coordsText}>GPS coordinates saved</Text>
+                                </View>
+                            )}
                         </View>
                     </View>
 
@@ -254,6 +277,24 @@ export default function BeneficiaryInfoScreen() {
                         </ScrollView>
                     </View>
                 </Pressable>
+            </Modal>
+
+            {/* Address Picker Modal */}
+            <Modal visible={showAddressPicker} animationType="slide">
+                <AddressPicker
+                    onAddressSelected={(addr: SelectedAddress) => {
+                        setBeneficiaryForm({
+                            ...beneficiaryForm,
+                            address: addr.address,
+                            latitude: addr.latitude,
+                            longitude: addr.longitude,
+                        });
+                        setShowAddressPicker(false);
+                    }}
+                    onCancel={() => setShowAddressPicker(false)}
+                    title="Beneficiary Address"
+                    subtitle="Pin the beneficiary's home location"
+                />
             </Modal>
 
             </KeyboardAvoidingView>
@@ -312,5 +353,7 @@ const styles = StyleSheet.create({
     optionBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 10, borderRadius: 10, marginBottom: 5 },
     optionBtnActive: { backgroundColor: '#FFF5ED' },
     optionText: { fontSize: 16, color: '#4B5563' },
-    optionTextActive: { color: '#F97316', fontWeight: '600' }
+    optionTextActive: { color: '#F97316', fontWeight: '600' },
+    coordsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+    coordsText: { fontSize: 12, color: '#10B981', fontWeight: '500' },
 });

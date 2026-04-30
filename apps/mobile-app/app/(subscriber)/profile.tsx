@@ -105,7 +105,11 @@ export default function ProfileScreen() {
                 contentContainerStyle={{ paddingBottom: 40 }}
             >
                 {/* Hero section */}
-                <ProfileHero user={profileData.user} stats={profileData.stats} />
+                <ProfileHero
+                    user={profileData.user}
+                    stats={profileData.stats}
+                    onPhotoUpdated={fetchProfile}
+                />
 
                 {/* Tabs Selector */}
                 <View style={styles.tabsWrapper}>

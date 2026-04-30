@@ -16,6 +16,8 @@ import subscriptionsRouter from './api/subscriber/subscriptions.routes';
 import beneficiariesRouter from './api/subscriber/beneficiaries.routes';
 import couponsRouter from './api/subscriber/coupons.routes';
 import subscriberRouter from './api/subscriber/subscriber.routes';
+import serviceRequestsRouter from './api/subscriber/service-requests.routes';
+import addressesRouter from './api/subscriber/addresses.routes';
 
 // Care Companion Routes
 import visitsRouter from './api/care_companion/visits.routes';
@@ -26,6 +28,7 @@ import usersRouter from './api/admin/users.routes';
 
 // Shared Routes
 import medicationsRouter from './api/shared/medications.routes';
+import profilePhotoRouter from './api/shared/profile-photo.routes';
 import emergencyRouter from './api/shared/emergency.routes';
 import callbackRouter from './api/shared/callback.routes';
 
@@ -94,6 +97,8 @@ app.use(`${API}/subscriber/dashboard`, dashboardRouter);
 app.use(`${API}/subscriber/subscriptions`, subscriptionsRouter);
 app.use(`${API}/subscriber/beneficiaries`, beneficiariesRouter);
 app.use(`${API}/subscriber/coupons`, couponsRouter);
+app.use(`${API}/subscriber/service-requests`, serviceRequestsRouter);
+app.use(`${API}/subscriber/addresses`, addressesRouter);
 app.use(`${API}/subscriber`, subscriberRouter);
 
 // Role: Care Companion endpoints
@@ -110,6 +115,9 @@ app.use(`${API}/beneficiary/dashboard`, beneficiaryDashboardRouter);
 app.use(`${API}/shared/medications`, medicationsRouter);
 app.use(`${API}/shared/emergency`, emergencyRouter);
 app.use(`${API}/shared/callbacks`, callbackRouter);
+
+// Profile Photo Upload (all roles)
+app.use(`${API}/profile-photo`, profilePhotoRouter);
 
 // Public endpoints
 app.use(`${API}/public/vitals`, publicVitalsRouter);

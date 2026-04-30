@@ -5,6 +5,7 @@ import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { ProfilePhotoUploader } from '@/components/ui/ProfilePhotoUploader';
 import Animated, { 
     useSharedValue, 
     useAnimatedStyle, 
@@ -91,8 +92,8 @@ export default function ProfileScreen() {
                     const response = await fetch(`${API_BASE_URL}/care-companion/profile`);
                     if (!response.ok) throw new Error("Backend offline");
 
-                    const data = await response.json();
-                    if (isActive) setProfileData(data);
+                    const json = await response.json();
+                    if (isActive) setProfileData(json.data || json);
                 } catch (error) {
                     console.log("Backend not detected. Loading Mock Profile UI...");
                     if (isActive) {
@@ -163,16 +164,19 @@ export default function ProfileScreen() {
                         entering={FadeInUp.delay(200).duration(600)}
                         style={[styles.card, styles.identityCard]}
                     >
+                        {/* Profile Photo Uploader */}
                         <View style={styles.avatarWrapper}>
-                            <LinearGradient
-                                colors={['#EF4444', '#DC2626']}
-                                style={styles.avatarCircle}
-                            >
-                                <Text style={styles.avatarText}>{profileData.initials}</Text>
-                            </LinearGradient>
-                            <TouchableOpacity style={styles.cameraBadge} activeOpacity={0.8}>
-                                <Ionicons name="camera-outline" size={16} color={DEEP_ORANGE} />
-                            </TouchableOpacity>
+                            <ProfilePhotoUploader
+                                config={{
+                                    targetType: 'self',
+                                    currentPhotoUrl: profileData.photo || null,
+                                    size: 90,
+                                    editable: true,
+                                    initials: profileData.initials || 'CC',
+                                    accentColor: DEEP_ORANGE,
+                                    onSuccess: (url) => setProfileData((prev: any) => ({ ...prev, photo: url })),
+                                }}
+                            />
                         </View>
 
                         <Text style={styles.profileName}>{profileData.name}</Text>

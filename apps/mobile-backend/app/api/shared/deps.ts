@@ -6,8 +6,9 @@ export interface AuthRequest extends Request {
   userRole?: string;
 }
 
-export const authenticate = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers.authorization;
+export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
+  const authReq = req as AuthRequest;
+  const authHeader = authReq.headers.authorization;
 
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -22,8 +23,8 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     return;
   }
 
-  req.userId = payload.sub;
-  req.userRole = payload.role;
+  authReq.userId = payload.sub;
+  authReq.userRole = payload.role;
   next();
 };
 

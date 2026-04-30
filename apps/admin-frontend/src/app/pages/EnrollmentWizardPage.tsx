@@ -10,7 +10,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { enrollmentApi, packageApi } from '../../services/api';
+import { enrollmentApi, packageApi, staffOnboardingApi } from '../../services/api';
 import { toast } from 'sonner';
 import {
   UserPlus, ArrowLeft, ArrowRight, Check, Phone, User, Package,
@@ -59,10 +59,17 @@ const DURATION_OPTIONS = [
 
 const PAYMENT_METHODS = ['Cash', 'Bank Transfer', 'Cheque', 'UPI', 'NEFT/RTGS', 'Other'];
 
+const COMMON_HOBBIES = [
+  'Reading', 'Gardening', 'Yoga', 'Walking', 'Cooking', 'Music', 'Movies',
+  'Traveling', 'Painting', 'Meditation', 'Sudoku/Puzzles', 'Socializing',
+  'Crafting', 'Photography', 'Writing', 'Sports'
+];
+
 export default function EnrollmentWizardPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('subscriber');
   const [enrolling, setEnrolling] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [enrolledResult, setEnrolledResult] = useState<any>(null);
 
   // ── Subscriber
@@ -499,7 +506,9 @@ export default function EnrollmentWizardPage() {
                 <div className="col-span-2 flex justify-center mb-2">
                   <div className="relative group">
                     <div className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-dashed border-muted-foreground/30 relative">
-                      {profilePhoto ? (
+                      {uploadingPhoto ? (
+                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                      ) : profilePhoto ? (
                         <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
                         <Camera className="w-8 h-8 text-muted-foreground/50" />
@@ -508,14 +517,25 @@ export default function EnrollmentWizardPage() {
                     <label className="absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full cursor-pointer shadow-lg hover:scale-105 transition-transform">
                       <Plus className="w-4 h-4" />
                       <input 
-                        type="text" 
+                        type="file" 
+                        accept="image/*"
                         className="hidden" 
-                        placeholder="URL" 
-                        onChange={e => setProfilePhoto(e.target.value)} 
-                        onFocus={(e) => {
-                          const url = prompt('Enter profile photo URL:');
-                          if (url) setProfilePhoto(url);
-                        }}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            setUploadingPhoto(true);
+                            const res = await staffOnboardingApi.uploadFile(file);
+                            if (res.success) {
+                              setProfilePhoto(res.url);
+                              toast.success('Photo uploaded');
+                            }
+                          } catch (err) {
+                            toast.error('Upload failed');
+                          } finally {
+                            setUploadingPhoto(false);
+                          }
+                        }} 
                       />
                     </label>
                   </div>
@@ -836,70 +856,54 @@ export default function EnrollmentWizardPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <div className="flex justify-between items-center">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <Heart className="w-4 h-4 text-primary" /> Hobbies & Interests
-                    </Label>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 gap-1 rounded-full border-primary text-primary hover:bg-primary/5">
-                          <Plus className="w-3.5 h-3.5" /> Add
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[400px]">
-                        <DialogHeader>
-                          <DialogTitle>Add Hobby/Interest</DialogTitle>
-                        </DialogHeader>
-                        <div className="py-4">
-                          <Input 
-                            placeholder="e.g., Reading, Gardening, Yoga" 
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                const val = e.currentTarget.value.trim();
-                                if (val && !hobbiesInterests.includes(val)) {
-                                  setHobbiesInterests([...hobbiesInterests, val]);
-                                  e.currentTarget.value = '';
-                                }
-                              }
-                            }}
-                          />
-                          <p className="text-[10px] text-muted-foreground mt-2">This helps us create meaningful social connections</p>
-                        </div>
-                        <DialogFooter>
-                          <Button 
-                            className="w-full bg-orange-500 hover:bg-orange-600"
-                            onClick={(e) => {
-                              const input = e.currentTarget.closest('[role="dialog"]')?.querySelector('input');
-                              if (input?.value.trim()) {
-                                setHobbiesInterests([...hobbiesInterests, input.value.trim()]);
-                                input.value = '';
-                              }
-                            }}
-                          >
-                            Add Hobby
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                <div className="space-y-4 pt-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-primary" /> Hobbies & Interests
+                  </Label>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {COMMON_HOBBIES.map((hobby) => {
+                      const isSelected = hobbiesInterests.includes(hobby);
+                      return (
+                        <button
+                          key={hobby}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setHobbiesInterests(hobbiesInterests.filter(h => h !== hobby));
+                            } else {
+                              setHobbiesInterests([...hobbiesInterests, hobby]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                            isSelected
+                              ? 'bg-primary text-white border-primary shadow-sm'
+                              : 'bg-white text-gray-600 border-[#E7DED6] hover:border-primary'
+                          }`}
+                        >
+                          {hobby}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="flex flex-wrap gap-2 min-h-[32px]">
-                    {hobbiesInterests.length === 0 && (
-                      <p className="text-xs text-muted-foreground italic">No hobbies added</p>
-                    )}
-                    {hobbiesInterests.map((hobby) => (
-                      <Badge 
-                        key={hobby} 
-                        variant="secondary" 
-                        className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-none py-1 px-3 flex items-center gap-2 rounded-lg"
-                      >
-                        {hobby}
-                        <X 
-                          className="w-3 h-3 cursor-pointer hover:text-blue-900" 
-                          onClick={() => setHobbiesInterests(hobbiesInterests.filter(h => h !== hobby))}
-                        />
-                      </Badge>
-                    ))}
+
+                  <div className="pt-2">
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Custom hobby..." 
+                        className="h-9 text-xs"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const val = e.currentTarget.value.trim();
+                            if (val && !hobbiesInterests.includes(val)) {
+                              setHobbiesInterests([...hobbiesInterests, val]);
+                              e.currentTarget.value = '';
+                            }
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>

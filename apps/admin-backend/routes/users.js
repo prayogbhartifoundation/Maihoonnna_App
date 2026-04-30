@@ -209,7 +209,7 @@ function mapCareCompanion(companion) {
     name: companion.user?.name || companion.name,
     phone: companion.user?.phone || '',
     email: companion.user?.email || null,
-    photo: companion.photo || null,
+    photo: companion.user?.profilePhoto || companion.photo || null,
     bio: companion.bio || '',
     zone: companion.zone,
     zoneId: staffProfile?.zoneId || null,
@@ -248,6 +248,7 @@ function mapFieldManager(manager) {
     id: manager.id,
     userId: manager.userId,
     name: manager.user?.name || manager.name,
+    photo: manager.user?.profilePhoto || manager.photo || null,
     phone: manager.user?.phone || manager.phone || '',
     email: manager.user?.email || null,
     zone: manager.zone,
@@ -266,6 +267,7 @@ function mapFieldManager(manager) {
     teamNames: (manager.teams || []).map((team) => team.name),
     reportsToUserId:
       manager.reportsToUserId || staffProfile?.reportsToUserId || null,
+    specialization: staffProfile?.specialization || manager.specialization || [],
     employmentStatus: staffProfile?.employmentStatus || 'draft',
     bgvVerified: staffProfile?.bgvVerified ?? false,
     kycVerified: staffProfile?.kycVerified ?? false,
@@ -275,14 +277,17 @@ function mapFieldManager(manager) {
 }
 
 function mapOperationsManager(manager) {
+  const staffProfile = manager.user?.staffProfile || null;
   return {
     id: manager.id,
     userId: manager.userId,
     name: manager.user?.name || manager.name,
+    photo: manager.user?.profilePhoto || manager.photo || null,
     phone: manager.user?.phone || manager.phone || '',
     email: manager.user?.email || null,
     qualification: manager.qualification,
     experience: manager.experience,
+    specialization: staffProfile?.specialization || [],
     isAvailable: Boolean(
       manager.isAvailable && (manager.user?.isActive ?? true)
     ),
@@ -411,6 +416,7 @@ router.get('/field-managers', async (req, res) => {
             phone: true,
             email: true,
             isActive: true,
+            profilePhoto: true,
             staffProfile: {
               select: {
                 zoneId: true,
@@ -490,6 +496,7 @@ router.get('/operations-managers', async (req, res) => {
             phone: true,
             email: true,
             isActive: true,
+            profilePhoto: true,
             zonesAsOperationsManager: {
               select: {
                 id: true,
@@ -815,6 +822,7 @@ router.post('/staff/onboard', async (req, res) => {
           aadhaarNumberEncrypted: aadhaarNumber,
           panNumberEncrypted: panNumber,
           languages: languageList,
+          specialization: asStringArray(professional.specialization),
           zoneId: primaryZoneId,
           teamId,
           reportsToUserId,
@@ -1056,6 +1064,7 @@ router.get('/care-companions', async (req, res) => {
             phone: true,
             email: true,
             isActive: true,
+            profilePhoto: true,
             staffProfile: {
               select: {
                 zoneId: true,
@@ -1164,11 +1173,11 @@ router.get('/staff/:userId', async (req, res) => {
         .status(404)
         .json({ success: false, message: 'Staff member not found' });
 
-    // Adapt data structure to match the frontend form state
-    const data = {
+    const responseData = {
       role: user.role,
       personal: {
         fullName: user.name || '',
+        photo: user.profilePhoto || null,
         preferredName: user.staffProfile?.preferredName || '',
         dateOfBirth: user.staffProfile?.dateOfBirth
           ? user.staffProfile.dateOfBirth.toISOString().split('T')[0]
@@ -1212,6 +1221,10 @@ router.get('/staff/:userId', async (req, res) => {
         canApproveRoster: user.fieldManagerProfile?.canApproveRoster !== false,
         canOnboardCCs: user.fieldManagerProfile?.canOnboardCCs || false,
         ccType: user.careCompanionProfile?.ccType || 'care_assistant',
+        specialization:
+          user.staffProfile?.specialization ||
+          user.careCompanionProfile?.specialization ||
+          [],
       },
       assignment: {
         zoneId: user.staffProfile?.zoneId || '',
@@ -1229,12 +1242,14 @@ router.get('/staff/:userId', async (req, res) => {
       notes: user.staffProfile?.notes || '',
     };
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: responseData });
   } catch (err) {
-    console.error(`GET /staff/${userId} error:`, err);
-    res
-      .status(500)
-      .json({ success: false, message: 'Failed to fetch staff details' });
+    console.error(`[DEBUG] GET /staff/${userId} CRASH:`, err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch staff details',
+      error: err.message,
+    });
   }
 });
 
@@ -1292,6 +1307,7 @@ router.put('/staff/:userId', async (req, res) => {
             personal.panNumber
           )?.toUpperCase(),
           languages: asStringArray(professional.languages),
+          specialization: asStringArray(professional.specialization),
           zone:
             role === 'operations_manager' ||
             !asNullableString(assignment.zoneId)
@@ -1301,13 +1317,11 @@ router.put('/staff/:userId', async (req, res) => {
             role === 'care_companion' && asNullableString(assignment.teamId)
               ? { connect: { id: asNullableString(assignment.teamId) } }
               : { disconnect: true },
-          reportsToUser:
-            role === 'field_manager' &&
-            asNullableString(assignment.reportsToUserId)
-              ? {
-                  connect: { id: asNullableString(assignment.reportsToUserId) },
-                }
-              : { disconnect: true },
+          reportsToUser: asNullableString(assignment.reportsToUserId)
+            ? {
+                connect: { id: asNullableString(assignment.reportsToUserId) },
+              }
+            : { disconnect: true },
           bgvType: asTrimmedString(assignment.bgvType),
           bgvAgency: asNullableString(assignment.bgvAgency),
           bgvVerified: Boolean(assignment.bgvVerified),

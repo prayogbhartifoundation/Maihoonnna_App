@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Loader2, Save, User, Briefcase, MapPin, Users, Phone, Mail, GraduationCap, Calendar, Languages, Clock, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { staffOnboardingApi } from '../../services/api';
+import { ProfilePhotoUploader } from './common/ProfilePhotoUploader';
 import type { StaffOnboardingMetadata, StaffOnboardingRole } from '../../types';
 
 interface StaffEditModalProps {
@@ -124,9 +125,28 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
         {/* Header */}
         <div className="bg-white px-8 py-6 border-b border-[#E7DED6] flex justify-between items-center shrink-0">
           <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl ${role === 'care_companion' ? 'bg-[#FFF0E0]' : role === 'field_manager' ? 'bg-[#E8F5E9]' : 'bg-[#E8F0FF]'} flex items-center justify-center font-bold text-xl ${roleColors[role]}`}>
-              {formState.personal.fullName.charAt(0).toUpperCase()}
-            </div>
+            {/* Profile Photo Uploader */}
+            <ProfilePhotoUploader
+              config={{
+                targetType: role as any,
+                targetId: userId,
+                currentPhotoUrl: formState.personal?.photo || null,
+                name: formState.personal?.fullName || '',
+                size: 56,
+                editable: true,
+                accentColor: role === 'care_companion' ? '#FF7A00' : role === 'field_manager' ? '#1F8A3E' : '#1D4ED8',
+                onSuccess: (url) => {
+                  setFormState((prev: any) => ({
+                    ...prev,
+                    personal: { ...prev.personal, photo: url },
+                  }));
+                  toast.success('Profile photo updated successfully');
+                },
+                onError: (err) => {
+                  toast.error(`Photo upload failed: ${err}`);
+                },
+              }}
+            />
             <div>
               <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Edit Profile</h2>
               <p className={`text-[10px] font-black uppercase tracking-widest ${roleColors[role]}`}>
@@ -593,7 +613,7 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                             >
                               <option value="">No Manager Assigned</option>
                               {metadata?.operationsManagers.map((m) => (
-                                <option key={m.id} value={m.id}>{m.name}</option>
+                                <option key={m.userId} value={m.userId}>{m.name}</option>
                               ))}
                             </select>
                           </div>

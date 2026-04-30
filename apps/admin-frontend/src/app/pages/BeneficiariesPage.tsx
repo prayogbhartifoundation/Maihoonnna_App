@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PageHeader } from '../components/common/PageHeader';
 import { DataCard } from '../components/common/DataCard';
+import { EntityAvatar } from '../components/common/EntityAvatar';
 import { StatusChip } from '../components/common/StatusChip';
 import { Button } from '../components/ui/button';
 import { beneficiaryApi } from '../../services/api';
@@ -110,7 +111,11 @@ export default function BeneficiariesPage() {
           <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 transition-opacity duration-300 ${loading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
             {beneficiaries.map((ben) => (
               <div key={ben.id} className="cursor-pointer" onClick={() => openBeneficiary(ben)}>
-                <DataCard title={ben.name} description={`Age: ${ben.age} • ${ben.gender}`}>
+                <DataCard 
+                  title={ben.name} 
+                  description={`Age: ${ben.age} • ${ben.gender}`}
+                  avatar={<EntityAvatar name={ben.name} photoUrl={ben.photo} type="beneficiary" className="w-12 h-12" />}
+                >
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-1">
                       {(ben.medicalHistory || []).slice(0, 3).map((condition: string) => (

@@ -1,0 +1,794 @@
+/**
+ * AddressPicker — Zomato/Swiggy-style address picker component (Native Only)
+ *
+ * Flow:
+ *  1. Mounts → immediately requests foreground location permission
+ *  2. Permission granted → shows full-screen map with draggable pin + bottom sheet
+ *  3. Permission denied → shows permission info screen with option to open settings
+ *  4. User can always fall back to manual text entry
+ *
+ * Props:
+ *  - onAddressSelected: called with { latitude, longitude, address } on confirm
+ *  - onCancel: called when user dismisses
+ *
+ * Usage (any screen):
+ *  <AddressPicker onAddressSelected={handleAddress} onCancel={() => setShow(false)} />
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Animated,
+  Linking,
+  Platform,
+  ScrollView,
+  KeyboardAvoidingView,
+} from 'react-native';
+import MapView, { Marker, Region, MapPressEvent } from 'react-native-maps';
+import * as Location from 'expo-location';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { width, height } = Dimensions.get('window');
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface SelectedAddress {
+  latitude: number;
+  longitude: number;
+  address: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+}
+
+interface AddressPickerProps {
+  onAddressSelected: (address: SelectedAddress) => void;
+  onCancel: () => void;
+  title?: string;
+  subtitle?: string;
+}
+
+type PermissionStatus = 'checking' | 'granted' | 'denied' | 'blocked';
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+const INDIA_CENTER: Region = {
+  latitude: 20.5937,
+  longitude: 78.9629,
+  latitudeDelta: 15,
+  longitudeDelta: 15,
+};
+
+export const AddressPicker: React.FC<AddressPickerProps> = ({
+  onAddressSelected,
+  onCancel,
+  title = 'Set Delivery Address',
+  subtitle = 'Move the pin to your exact location',
+}) => {
+  const [permStatus, setPermStatus] = useState<PermissionStatus>('checking');
+  const [region, setRegion] = useState<Region>(INDIA_CENTER);
+  const [pinCoords, setPinCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [addressText, setAddressText] = useState('Detecting address...');
+  const [addressDetails, setAddressDetails] = useState<Partial<SelectedAddress>>({});
+  const [loadingAddress, setLoadingAddress] = useState(false);
+  const [locatingUser, setLocatingUser] = useState(false);
+  const [mode, setMode] = useState<'map' | 'manual'>('map');
+  const [manualAddress, setManualAddress] = useState('');
+  const [showBottomSheet, setShowBottomSheet] = useState(false);
+
+  const mapRef = useRef<MapView>(null);
+  const bottomSheetAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Permission & initial location ─────────────────────────────────────────
+
+  useEffect(() => {
+    requestPermissionAndLocate();
+  }, []);
+
+  const requestPermissionAndLocate = async () => {
+    setPermStatus('checking');
+    const { status } = await Location.requestForegroundPermissionsAsync();
+
+    if (status === 'granted') {
+      setPermStatus('granted');
+      locateUser();
+    } else {
+      // Check if blocked (can't ask again) or just denied
+      const { canAskAgain } = await Location.getForegroundPermissionsAsync();
+      setPermStatus(canAskAgain ? 'denied' : 'blocked');
+    }
+  };
+
+  const locateUser = async () => {
+    setLocatingUser(true);
+    try {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const { latitude, longitude } = loc.coords;
+      const newRegion = { latitude, longitude, latitudeDelta: 0.006, longitudeDelta: 0.006 };
+      setRegion(newRegion);
+      setPinCoords({ latitude, longitude });
+      mapRef.current?.animateToRegion(newRegion, 800);
+      await reverseGeocode(latitude, longitude);
+      revealBottomSheet();
+    } catch {
+      // Fallback to India center if GPS fails
+      setRegion(INDIA_CENTER);
+      setAddressText('Could not detect location. Tap on the map to pin your address.');
+    } finally {
+      setLocatingUser(false);
+    }
+  };
+
+  // ── Bottom sheet animation ─────────────────────────────────────────────────
+
+  const revealBottomSheet = useCallback(() => {
+    setShowBottomSheet(true);
+    Animated.spring(bottomSheetAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 60,
+      friction: 10,
+    }).start();
+  }, [bottomSheetAnim]);
+
+  // ── Geocoding ──────────────────────────────────────────────────────────────
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    setLoadingAddress(true);
+    setAddressText('Fetching address...');
+    try {
+      const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (results.length > 0) {
+        const p = results[0];
+        const parts = [
+          p.name,
+          p.street,
+          p.district || p.subregion,
+          p.city,
+          p.region,
+          p.postalCode,
+        ].filter(Boolean);
+        const formatted = parts.join(', ');
+        setAddressText(formatted || 'Unknown location');
+        setAddressDetails({
+          city: p.city || p.district || '',
+          state: p.region || '',
+          pincode: p.postalCode || '',
+        });
+      } else {
+        setAddressText(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      }
+    } catch {
+      setAddressText('Could not fetch address');
+    } finally {
+      setLoadingAddress(false);
+    }
+  };
+
+  // ── Map interactions ───────────────────────────────────────────────────────
+
+  const handleMapPress = async (e: MapPressEvent) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    setPinCoords({ latitude, longitude });
+    if (!showBottomSheet) revealBottomSheet();
+    await reverseGeocode(latitude, longitude);
+  };
+
+  const handleRegionChangeComplete = async (newRegion: Region) => {
+    // "Move pin to pan" style — pin follows center of map
+    setPinCoords({ latitude: newRegion.latitude, longitude: newRegion.longitude });
+  };
+
+  // ── Confirm ────────────────────────────────────────────────────────────────
+
+  const handleConfirm = () => {
+    if (mode === 'manual') {
+      if (!manualAddress.trim()) return;
+      onAddressSelected({
+        latitude: 0,
+        longitude: 0,
+        address: manualAddress.trim(),
+        ...addressDetails,
+      });
+      return;
+    }
+
+    if (!pinCoords) return;
+    onAddressSelected({
+      latitude: pinCoords.latitude,
+      longitude: pinCoords.longitude,
+      address: addressText,
+      ...addressDetails,
+    });
+  };
+
+  // ── Render: Checking permission ────────────────────────────────────────────
+
+  if (permStatus === 'checking') {
+    return (
+      <View style={styles.centeredFull}>
+        <ActivityIndicator size="large" color="#FF6A00" />
+        <Text style={styles.centeredText}>Checking location permission...</Text>
+      </View>
+    );
+  }
+
+  // ── Render: Permission denied / blocked ───────────────────────────────────
+
+  if (permStatus === 'denied' || permStatus === 'blocked') {
+    return (
+      <SafeAreaView style={styles.permDeniedContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>
+            <Ionicons name="close" size={24} color="#0F172A" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Permission illustration */}
+        <View style={styles.permContent}>
+          <View style={styles.permIconCircle}>
+            <Feather name="map-pin" size={48} color="#FF6A00" />
+          </View>
+          <Text style={styles.permTitle}>Enable Location Access</Text>
+          <Text style={styles.permSubtitle}>
+            We need your location to show your exact address on the map, just like Zomato or Swiggy
+            uses it to pin your delivery spot.
+          </Text>
+
+          {permStatus === 'blocked' ? (
+            <>
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => Linking.openSettings()}
+              >
+                <Feather name="settings" size={18} color="#fff" />
+                <Text style={styles.primaryBtnText}>Open App Settings</Text>
+              </TouchableOpacity>
+              <Text style={styles.permHint}>
+                Location is blocked. Go to Settings → Privacy → Location Services to enable it.
+              </Text>
+            </>
+          ) : (
+            <TouchableOpacity style={styles.primaryBtn} onPress={requestPermissionAndLocate}>
+              <Feather name="navigation" size={18} color="#fff" />
+              <Text style={styles.primaryBtnText}>Allow Location</Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.dividerRow}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.divider} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={() => {
+              setMode('manual');
+              setPermStatus('granted'); // Show the manual screen
+            }}
+          >
+            <Feather name="edit-2" size={18} color="#FF6A00" />
+            <Text style={styles.secondaryBtnText}>Enter Address Manually</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Render: Manual entry mode ──────────────────────────────────────────────
+
+  if (mode === 'manual') {
+    return (
+      <SafeAreaView style={styles.manualContainer}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => setMode('map')} style={styles.closeBtn}>
+              <Ionicons name="arrow-back" size={24} color="#0F172A" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Enter Address</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.manualContent}>
+            <View style={styles.manualInputGroup}>
+              <Feather name="home" size={20} color="#94A3B8" style={styles.inputIcon} />
+              <TextInput
+                style={styles.manualInput}
+                placeholder="House / Flat / Floor no."
+                placeholderTextColor="#CBD5E1"
+                value={manualAddress}
+                onChangeText={setManualAddress}
+                autoFocus
+              />
+            </View>
+            <Text style={styles.manualHint}>
+              Enter your complete address including street name, area, city and pincode.
+            </Text>
+          </ScrollView>
+
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              style={[styles.confirmBtn, !manualAddress.trim() && styles.disabledBtn]}
+              onPress={handleConfirm}
+              disabled={!manualAddress.trim()}
+            >
+              <Text style={styles.confirmBtnText}>Save Address</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Render: Main map view ──────────────────────────────────────────────────
+
+  return (
+    <View style={styles.mapContainer}>
+      {/* Full-screen Map */}
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={region}
+        onPress={handleMapPress}
+        onRegionChangeComplete={handleRegionChangeComplete}
+        showsUserLocation
+        showsMyLocationButton={false}
+        mapType="standard"
+      >
+        {pinCoords && (
+          <Marker coordinate={pinCoords} anchor={{ x: 0.5, y: 1 }}>
+            <View style={styles.pin}>
+              <View style={styles.pinHead}>
+                <Feather name="map-pin" size={28} color="#fff" />
+              </View>
+              <View style={styles.pinTail} />
+            </View>
+          </Marker>
+        )}
+      </MapView>
+
+      {/* Header overlay */}
+      <SafeAreaView pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        <View style={styles.mapHeader}>
+          <TouchableOpacity onPress={onCancel} style={styles.mapHeaderBtn}>
+            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={styles.mapHeaderCenter}>
+            <Text style={styles.mapHeaderTitle}>{title}</Text>
+            <Text style={styles.mapHeaderSub}>{subtitle}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => setMode('manual')}
+            style={styles.mapHeaderBtn}
+          >
+            <Feather name="edit-2" size={20} color="#FF6A00" />
+          </TouchableOpacity>
+        </View>
+
+        {/* "Locate me" FAB */}
+        <TouchableOpacity style={styles.locateFab} onPress={locateUser} disabled={locatingUser}>
+          {locatingUser ? (
+            <ActivityIndicator size="small" color="#FF6A00" />
+          ) : (
+            <Ionicons name="locate" size={22} color="#FF6A00" />
+          )}
+        </TouchableOpacity>
+      </SafeAreaView>
+
+      {/* Bottom Sheet */}
+      {showBottomSheet && (
+        <Animated.View
+          style={[
+            styles.bottomSheet,
+            {
+              transform: [
+                {
+                  translateY: bottomSheetAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [300, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          {/* Handle bar */}
+          <View style={styles.handleBar} />
+
+          {/* Location type row (like Zomato: Home / Work / Other) */}
+          <View style={styles.locationTypeRow}>
+            {['Home', 'Work', 'Hotel', 'Other'].map((type) => (
+              <TouchableOpacity key={type} style={styles.locationTypeChip}>
+                <Text style={styles.locationTypeText}>{type}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Address preview */}
+          <View style={styles.addressPreview}>
+            <View style={styles.addressIconBg}>
+              <Feather name="map-pin" size={20} color="#FF6A00" />
+            </View>
+            <View style={{ flex: 1 }}>
+              {loadingAddress ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator size="small" color="#FF6A00" />
+                  <Text style={styles.addressLoading}>Fetching address...</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.addressMainText} numberOfLines={2}>
+                    {addressText}
+                  </Text>
+                  {addressDetails.city ? (
+                    <Text style={styles.addressSubText}>
+                      {[addressDetails.city, addressDetails.state, addressDetails.pincode]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </Text>
+                  ) : null}
+                </>
+              )}
+            </View>
+            <TouchableOpacity onPress={() => setMode('manual')} style={styles.changeAddressBtn}>
+              <Text style={styles.changeAddressBtnText}>Change</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Confirm button */}
+          <TouchableOpacity
+            style={[styles.confirmBtn, (!pinCoords || loadingAddress) && styles.disabledBtn]}
+            onPress={handleConfirm}
+            disabled={!pinCoords || loadingAddress}
+          >
+            <Feather name="check-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.confirmBtnText}>Confirm Location</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* Tap hint (shown before user has interacted) */}
+      {!showBottomSheet && !locatingUser && (
+        <View style={styles.tapHintContainer}>
+          <View style={styles.tapHint}>
+            <Feather name="navigation" size={16} color="#fff" />
+            <Text style={styles.tapHintText}>Tap on the map to set your address</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Locating spinner overlay */}
+      {locatingUser && (
+        <View style={styles.locatingOverlay}>
+          <ActivityIndicator size="large" color="#FF6A00" />
+          <Text style={styles.locatingText}>Finding your location...</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  // Full-screen states
+  centeredFull: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    gap: 16,
+  },
+  centeredText: { color: '#64748B', fontSize: 15 },
+
+  // Permission denied screen
+  permDeniedContainer: { flex: 1, backgroundColor: '#fff' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  closeBtn: { padding: 8, borderRadius: 20 },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: '#0F172A' },
+
+  permContent: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 60,
+  },
+  permIconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFF5F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+    borderWidth: 2,
+    borderColor: '#FFD6C0',
+  },
+  permTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  permSubtitle: {
+    fontSize: 15,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 36,
+  },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF6A00',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 14,
+    gap: 10,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  permHint: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 18,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 24,
+    width: '100%',
+  },
+  divider: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
+  dividerText: { color: '#94A3B8', fontSize: 14 },
+  secondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FF6A00',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    gap: 10,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  secondaryBtnText: { color: '#FF6A00', fontSize: 15, fontWeight: '600' },
+
+  // Manual entry screen
+  manualContainer: { flex: 1, backgroundColor: '#fff' },
+  manualContent: { padding: 20, paddingTop: 8 },
+  manualInputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  inputIcon: { marginRight: 10 },
+  manualInput: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 15,
+    color: '#0F172A',
+  },
+  manualHint: {
+    fontSize: 13,
+    color: '#94A3B8',
+    lineHeight: 18,
+    marginTop: 4,
+  },
+
+  // Map view
+  mapContainer: { flex: 1, backgroundColor: '#E5E7EB' },
+  mapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  mapHeaderBtn: { padding: 6, borderRadius: 20 },
+  mapHeaderCenter: { flex: 1, alignItems: 'center' },
+  mapHeaderTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  mapHeaderSub: { fontSize: 12, color: '#94A3B8', marginTop: 1 },
+
+  locateFab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 280,
+    backgroundColor: '#fff',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  // Pin marker
+  pin: { alignItems: 'center' },
+  pinHead: {
+    backgroundColor: '#FF6A00',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6A00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  pinTail: {
+    width: 4,
+    height: 12,
+    backgroundColor: '#FF6A00',
+    borderRadius: 2,
+    marginTop: -1,
+  },
+
+  // Bottom Sheet
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 24,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  locationTypeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  locationTypeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  locationTypeText: { fontSize: 13, color: '#475569', fontWeight: '500' },
+
+  addressPreview: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF5F0',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    gap: 12,
+  },
+  addressIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFE4D6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addressMainText: { fontSize: 15, fontWeight: '600', color: '#0F172A', lineHeight: 22 },
+  addressSubText: { fontSize: 13, color: '#64748B', marginTop: 2 },
+  addressLoading: { fontSize: 14, color: '#94A3B8' },
+  changeAddressBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF6A00',
+  },
+  changeAddressBtnText: { fontSize: 13, color: '#FF6A00', fontWeight: '600' },
+
+  // Shared confirm button
+  bottomBar: {
+    padding: 20,
+    paddingTop: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  confirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF6A00',
+    paddingVertical: 16,
+    borderRadius: 14,
+    shadowColor: '#FF6A00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  confirmBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  disabledBtn: { backgroundColor: '#FDBA74', shadowOpacity: 0 },
+
+  // Tap hint
+  tapHintContainer: {
+    position: 'absolute',
+    bottom: 48,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  tapHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    gap: 8,
+  },
+  tapHintText: { color: '#fff', fontSize: 14, fontWeight: '500' },
+
+  // Locating overlay
+  locatingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  locatingText: { color: '#64748B', fontSize: 16, fontWeight: '500' },
+});

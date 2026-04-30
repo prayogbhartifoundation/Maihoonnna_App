@@ -191,7 +191,7 @@ export const purchaseSubscription = async (
       startDate: new Date(),
       endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
       visitsTotal: subPackage.visitsPerWeek * 4,
-      hoursTotal: subPackage.totalHours || 0,
+      hoursTotal: subPackage.hoursPerMonth || 0,
     },
     include: {
       package: true,
@@ -325,8 +325,19 @@ export const getSubscriptionPackages = async () => {
 
     packages = await prisma.subscriptionPackage.findMany({
       where: { isActive: true, isGlobal: true },
+      include: {
+        packageBenefits: {
+          include: {
+            benefit: {
+              include: {
+                benefitType: true
+              }
+            }
+          }
+        }
+      },
       orderBy: { basePrice: 'asc' }
-    });
+    }) as any;
   }
 
   return packages;

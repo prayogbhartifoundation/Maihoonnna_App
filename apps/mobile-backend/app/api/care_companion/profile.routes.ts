@@ -43,6 +43,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
       data: {
         name: cc.name,
         initials: cc.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'CC',
+        photo: cc.careCompanionProfile.photo || null,
         role: 'Care Companion',
         verified: cc.isVerified,
         email: cc.email,

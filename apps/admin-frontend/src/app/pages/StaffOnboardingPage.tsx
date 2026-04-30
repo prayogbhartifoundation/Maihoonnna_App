@@ -444,6 +444,7 @@ export default function StaffOnboardingPage() {
       professional: {
         ...formState.professional,
         languages: formState.professional.languages || [],
+        specialization: formState.professional.specialization || [],
       },
       assignment: {
         zoneId: role === 'operations_manager' ? undefined : formState.assignment.zoneId,
@@ -841,6 +842,18 @@ export default function StaffOnboardingPage() {
 
                     {role === 'care_companion' && (
                       <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Max Daily Visits</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={formState.professional.maxDailyVisits}
+                            onChange={(event) => setProfessionalField('maxDailyVisits', event.target.value)}
+                            placeholder="Max daily visits"
+                            className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
+                          />
+                        </div>
                         <input
                           value={formState.professional.nursingRegistrationNumber}
                           onChange={(event) => setProfessionalField('nursingRegistrationNumber', event.target.value)}
@@ -857,22 +870,28 @@ export default function StaffOnboardingPage() {
                     )}
 
                     {role === 'field_manager' && (
-                      <>
-                        <input
-                          value={formState.professional.previousEmployer}
-                          onChange={(event) => setProfessionalField('previousEmployer', event.target.value)}
-                          placeholder="Previous employer"
-                          className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
-                        />
-                        <input
-                          type="number"
-                          min="1"
-                          value={formState.professional.maxTeamSize}
-                          onChange={(event) => setProfessionalField('maxTeamSize', event.target.value)}
-                          placeholder="Max team size"
-                          className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
-                        />
-                      </>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Previous Employer</label>
+                          <input
+                            value={formState.professional.previousEmployer}
+                            onChange={(event) => setProfessionalField('previousEmployer', event.target.value)}
+                            placeholder="Previous employer"
+                            className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Max Team Size</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={formState.professional.maxTeamSize}
+                            onChange={(event) => setProfessionalField('maxTeamSize', event.target.value)}
+                            placeholder="Max team size"
+                            className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
 

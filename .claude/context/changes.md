@@ -426,3 +426,35 @@
   - Deducts units/hours from active `Subscription.hoursUsed`.
   - Logs deduction audit via `PackageHoursLog`.
   - Updates beneficiary emotional score.
+
+## Session: Care Service Geolocation & Address Management (April 30, 2026 - 09:18 AM IST)
+
+### Geolocation & Address System
+- Created the `Address` model in the Prisma schema to store subscriber addresses with geographic coordinates (`latitude`, `longitude`, `isDefault`).
+- Built the `LocationPickerMap` component in the mobile app using `expo-location` and `react-native-maps` to allow subscribers to drop pins and select accurate addresses.
+- Handled dependency issues by correctly swapping missing `lucide-react-native` icons with `@expo/vector-icons` (Feather).
+
+### Care Service Request Flow
+- Extended the existing `Appointment` model with an `isServiceRequest` flag, an optional `careCompanionId`, and a relationship to the new `Address` model. This avoids creating a duplicate service request model and unifies scheduling.
+- Implemented `RequestServiceScreen` in `apps/mobile-app/app/(beneficiary)/request-service.tsx` to let users choose existing addresses, or drop a new pin on a map to submit a request.
+- Fixed authentication flow for service requests by correctly pulling the `userToken` from `AsyncStorage` and passing it in the `Authorization` header.
+- Added a graceful "Demo Mode" fallback UI to the `request-service.tsx` screen so that it handles map and request interactions without crashing when the app is run locally without an active login context.
+
+### Backend APIs & Stability
+- Added dedicated backend routes for address management (`GET/POST /api/subscriber/addresses`) and service requests (`GET/POST /api/subscriber/service-requests`).
+- Fixed Foreign Key constraint issues in `service-requests.controller.ts` by ensuring the appointment creation explicitly looks up the `Beneficiary.id` associated with the logged-in `userId`, rather than attempting to save the `userId` directly as the `beneficiaryId`.
+- Wrapped async controllers (`addresses.controller.ts` and `service-requests.controller.ts`) with Express `asyncHandler` to catch rejected promises (e.g., Prisma errors) and prevent Unhandled Promise Rejections from crashing the backend.
+- Resolved all TypeScript and compilation errors across `mobile-app` and `mobile-backend`.
+
+---
+
+## Session: Staff Avatar Standardization & Fixes (2026-04-30)
+
+- Centralized profile photo rendering by creating an OOP-style reusable \EntityAvatar\ component.
+- Replaced manual avatar rendering structures across Operations Managers, Field Managers, Care Companions, and Teams pages with the new component.
+- Upgraded the \DataCard\ component to support avatar display for Subscribers and Beneficiaries.
+- Identified and fixed a backend bug in \users.js\ where the Care Companion mapping logic was dropping the \profilePhoto\ field.
+- Corrected frontend mapping logic in \CareCompanionsPage.tsx\ that was silently discarding the photo URL from the backend API response.
+- Fixed TypeScript interface definitions to properly handle the \style\ prop for correctly overlapping avatars on the Teams page.
+- Ensured fallback avatar logic automatically generates color-coded initials when user photos are absent.
+- Synchronized and verified the full data flow from the database to the frontend across all roles.
