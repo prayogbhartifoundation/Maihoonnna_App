@@ -490,3 +490,20 @@
 - Expanded `subscriberForm` and `beneficiaryForm` state objects in `subscribe-form.tsx` and `beneficiary-info.tsx` to handle the granular address fields.
 - Removed outdated labels from `AddressInputField` usage, making the detect button act as a prominent action area.
 - Updated `checkout.tsx` to correctly package and send all detailed address fields in the final purchase payload.
+## Session: Global Change Password Refactor (2026-05-01)
+
+### Bug Fixes & Refactoring
+- **Resolved 400 Bad Request**: Identified a frontend state bug in the Change Password screen where the `verificationType` was incorrectly inferred at the moment of the API call, causing `currentPassword` to be sent as `undefined`.
+- **Shared Component Architecture**: Extracted the password change logic into a globally reusable component `ChangePasswordSharedScreen.tsx` located in `apps/mobile-app/components/shared/`.
+- **Removed Role-Specific Dependencies**: Eliminated the hardcoded fetch to `/subscriber/profile` for OTP verification. The component now reads the user's phone directly from the authenticated `userData` in `AsyncStorage`, making it compatible with all user roles.
+
+### Backend Infrastructure
+- **Global Auth Endpoint**: Moved the password change logic from the subscriber-specific service to a unified endpoint `POST /api/auth/change-password`.
+- **Service Layer Migration**: Implemented the `changePassword` logic in `auth_service.ts`, supporting both OTP and Current Password verification types for any authenticated user.
+- **Activity Logging**: Integrated automatic `SECURITY` activity logging for password changes directly into the global auth service.
+- **Code Cleanup**: Removed legacy `changePassword` routes, controller methods, and service functions from the subscriber module to prevent code duplication.
+
+### Frontend Routing
+- Standardized the password change screen across all app modules.
+- Updated `app/(subscriber)/settings/change-password.tsx` to use the shared component.
+- Created new dedicated screens `app/(care-companion)/settings/change-password.tsx` and `app/(beneficiary)/settings/change-password.tsx` that wrap the shared component, ensuring the feature is available in all system modules.

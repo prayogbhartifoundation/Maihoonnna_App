@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Feather, AntDesign, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 
 // Temporary Mock ID until Auth Context is provided
@@ -49,14 +50,30 @@ export default function BeneficiaryDashboard() {
 
     const fetchDashboardData = async () => {
         try {
-            const response = await fetch(`${API_URL}/beneficiary/dashboard/dashboard/${MOCK_BENEFICIARY_ID}`);
-            if (!response.ok) throw new Error("Backend offline");
+            const [storedUser, storedToken] = await Promise.all([
+                AsyncStorage.getItem('userData'),
+                AsyncStorage.getItem('userToken')
+            ]);
+
+            if (!storedUser) {
+                router.replace('/(auth)');
+                return;
+            }
+
+            const response = await fetch(`${API_URL}/beneficiary/dashboard/dashboard/me`, {
+                headers: {
+                    'Authorization': storedToken ? `Bearer ${storedToken}` : '',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) throw new Error("Backend error");
             const res = await response.json();
             if (res.success) {
                 setData(res.data);
             }
         } catch (error) {
-            console.log("Backend not detected or fetch error. Using fallback data.");
+            console.log("Fetch error. Using fallback data.", error);
             // Fallback for demo
             setData({
                 greeting: "Good Morning",

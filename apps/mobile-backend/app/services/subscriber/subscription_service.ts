@@ -26,20 +26,29 @@ export const purchaseSubscription = async (
   couponCode?: string
 ) => {
   // Validate packageType
-  const mappedType = packageId;
+  const mappedType = (packageId || 'silver').toLowerCase();
 
   // Ensure the packages exist and get the mapped one
   const packages = await getSubscriptionPackages();
-  const subPackage = packages.find((p: any) => p.type === mappedType);
+  const subPackage = packages.find((p: any) => p.type.toLowerCase() === mappedType);
   if (!subPackage) {
-    throw new Error(`Package type ${mappedType} not found in database.`);
+    throw new Error(`Package type ${mappedType} not found in database. Available types: ${packages.map(p => p.type).join(', ')}`);
   }
 
   // 1a. The Beneficiary is technically a user in this schema, so we create a simple placeholder user row first
+  // We try to use the beneficiary's phone if it looks like a real one, else generate a unique fake one
+  let beneficiaryPhone = beneficiaryData.phone || `+91000${Math.floor(Math.random() * 9000000)}`;
+  
+  // Check if phone already exists to avoid unique constraint error
+  const existingUser = await prisma.user.findFirst({ where: { phone: beneficiaryPhone } });
+  if (existingUser) {
+    beneficiaryPhone = `+91${Date.now().toString().slice(-10)}`; // Use timestamp as backup
+  }
+
   const newBeneficiaryUser = await prisma.user.create({
     data: {
       id: generateUUID(),
-      phone: `+91111${Math.floor(Math.random() * 9000000)}`, // fake distinct phone
+      phone: beneficiaryPhone,
       name: beneficiaryData.name,
       role: 'beneficiary'
     }
@@ -88,7 +97,7 @@ export const purchaseSubscription = async (
                       name: condName,
                       slug: slug,
                       category: "General"
-                  }
+                   }
               });
               conditionIds.push(condition.id);
           } catch(e) { console.error("Condition Error", e); }
@@ -111,7 +120,6 @@ export const purchaseSubscription = async (
               dosage: med.dosage || '',
               frequency: freqEnum as any,
               timeSlots: med.timesPerDay || [],
-              // @ts-ignore - bypassing type check since we pushed DB schema without regenerating client
               setReminders: !!med.setReminders,
               startDate: new Date()
           });
@@ -142,10 +150,23 @@ export const purchaseSubscription = async (
   if (finalEmergencyContacts.length === 0) {
       finalEmergencyContacts.push({
           name: "Subscriber",
-          phone: beneficiaryData.phone,
-          relation: beneficiaryData.relationship
+          phone: beneficiaryData.phone || "0000000000",
+          relation: beneficiaryData.relationship || "Self"
       });
   }
+
+  // Map Vitals to model fields
+  const vitalsInput = medicalData?.vitals || {};
+  const mappedVitals = {
+    trackBloodPressure: !!(vitalsInput.BP || vitalsInput.trackBloodPressure),
+    trackHeartRate: !!(vitalsInput.HR || vitalsInput.trackHeartRate),
+    trackBloodSugar: !!(vitalsInput.SUGAR || vitalsInput.trackBloodSugar),
+    trackTemperature: !!(vitalsInput.TEMP || vitalsInput.trackTemperature),
+    trackOxygenSaturation: !!(vitalsInput.SPO2 || vitalsInput.trackOxygenSaturation),
+    trackWeight: !!(vitalsInput.WEIGHT || vitalsInput.trackWeight),
+    trackPainLevel: !!(vitalsInput.PAIN || vitalsInput.trackPainLevel),
+    trackRespiratoryRate: !!(vitalsInput.RR || vitalsInput.trackRespiratoryRate),
+  };
 
   // 1b. Create Beneficiary mapped to the logged-in User
   const beneficiary = await prisma.beneficiary.create({
@@ -154,9 +175,9 @@ export const purchaseSubscription = async (
       userId: newBeneficiaryUser.id,
       subscriberId: userId,
       name: beneficiaryData.name,
-      age: beneficiaryData.age ?? 65,
-      gender: (beneficiaryData.gender === 'Male' || beneficiaryData.gender === 'male') ? 'male' : (beneficiaryData.gender === 'Female' || beneficiaryData.gender === 'female') ? 'female' : 'prefer_not_to_say',
-      address: beneficiaryData.address ?? "Not provided",
+      age: parseInt(String(beneficiaryData.age || 65), 10),
+      gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
+      address: beneficiaryData.address || "Not provided",
       flatPlot: beneficiaryData.flatPlot || null,
       streetArea: beneficiaryData.streetArea || null,
       landmark: beneficiaryData.landmark || null,
@@ -165,22 +186,22 @@ export const purchaseSubscription = async (
       pincode: beneficiaryData.pincode || null,
       latitude: beneficiaryData.latitude || null,
       longitude: beneficiaryData.longitude || null,
-      relationship: beneficiaryData.relationship ?? null,
+      relationship: beneficiaryData.relationship || null,
       
       // Hook up parsed medical fields
       primaryPhysicianName: medicalData?.physicianName || null,
       primaryPhysicianPhone: medicalData?.physicianPhone || null,
       hobbiesInterests: medicalData?.hobbies || [],
 
-      // Spread dynamic vitals mapping directly (e.g. trackBloodPressure: true)
-      ...(medicalData?.vitals || {}),
+      // Spread mapped vitals
+      ...mappedVitals,
 
       emergencyContacts: {
         create: finalEmergencyContacts.map((c: any) => ({
           id: generateUUID(),
           name: c.name,
           phone: c.phone,
-          relationship: c.relation || 'Emergency', // Changed 'relation' to 'relationship' to match schema
+          relationship: c.relation || 'Emergency',
           email: c.email || '',
         })),
       },

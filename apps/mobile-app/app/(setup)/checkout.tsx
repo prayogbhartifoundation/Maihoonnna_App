@@ -122,7 +122,10 @@ export default function CheckoutScreen() {
     const handlePay = async () => {
         setIsProcessing(true);
         try {
-            const storedUserData = await AsyncStorage.getItem('userData');
+            const [storedUserData, storedToken] = await Promise.all([
+                AsyncStorage.getItem('userData'),
+                AsyncStorage.getItem('userToken')
+            ]);
             if (!storedUserData) throw new Error("You are not logged in. Session expired.");
             const user = JSON.parse(storedUserData);
 
@@ -188,7 +191,10 @@ export default function CheckoutScreen() {
 
             const response = await fetch(`${API_URL}/subscriber/subscriptions/purchase`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': storedToken ? `Bearer ${storedToken}` : ''
+                },
                 body: JSON.stringify(payload)
             });
             const data = await response.json();

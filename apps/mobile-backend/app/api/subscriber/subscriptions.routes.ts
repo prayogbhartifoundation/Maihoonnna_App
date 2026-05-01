@@ -1,15 +1,17 @@
 import { Router, Request, Response } from 'express';
+import { authenticate, AuthRequest } from '../shared/deps';
 import * as subscriptionService from '../../services/subscriber/subscription_service';
 
 const router = Router();
 
 // Endpoint for buying a subscription and linking a beneficiary
-router.post('/purchase', async (req: Request, res: Response) => {
+router.post('/purchase', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { userId, packageId, beneficiaryData, medicalData, emergencyContacts } = req.body;
+    const userId = req.userId!; // Use authenticated userId
+    const { packageId, beneficiaryData, medicalData, emergencyContacts, couponCode } = req.body;
 
-    if (!userId || !packageId || !beneficiaryData) {
-      throw new Error("Missing required payload fields");
+    if (!packageId || !beneficiaryData) {
+      throw new Error("Missing required payload fields: packageId and beneficiaryData are required.");
     }
 
     const result = await subscriptionService.purchaseSubscription(
@@ -17,10 +19,12 @@ router.post('/purchase', async (req: Request, res: Response) => {
       packageId,
       beneficiaryData,
       medicalData,
-      emergencyContacts
+      emergencyContacts,
+      couponCode
     );
     res.json(result);
   } catch (error: any) {
+    console.error('[Purchase Error]:', error);
     res.status(400).json({ success: false, message: error.message });
   }
 });

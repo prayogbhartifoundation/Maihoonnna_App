@@ -106,42 +106,6 @@ export const updateProfile = async (subscriberId: string, data: { name?: string,
   return updatedUser;
 };
 
-export const changePassword = async (subscriberId: string, payload: { 
-  verificationType: 'otp' | 'password',
-  otp?: string,
-  currentPassword?: string,
-  newPassword: string 
-}) => {
-  const user = await prisma.user.findUnique({ where: { id: subscriberId } });
-  if (!user) throw new Error('User not found');
-
-  // 1. Verify Identity
-  if (payload.verificationType === 'otp') {
-    if (!payload.otp) throw new Error('OTP is required for verification');
-    const provider = OtpFactory.getProvider();
-    const isValid = await provider.verify(user.phone, payload.otp);
-    if (!isValid) throw new Error('Invalid or expired OTP code');
-  } else {
-    if (!payload.currentPassword) throw new Error('Current password is required');
-    if (!user.password) throw new Error('Account does not have a password set. Please use OTP verification.');
-    const isMatch = await bcrypt.compare(payload.currentPassword, user.password);
-    if (!isMatch) throw new Error('Incorrect current password');
-  }
-
-  // 2. Hash and Update Password
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(payload.newPassword, salt);
-
-  await prisma.user.update({
-    where: { id: subscriberId },
-    data: { password: hashedPassword }
-  });
-
-  // 3. Log Activity
-  await logActivity(subscriberId, 'SECURITY', 'PASSWORD_CHANGED', { method: payload.verificationType });
-
-  return { success: true, message: 'Password changed successfully' };
-};
 
 export const getActivityLog = async (subscriberId: string) => {
   return await prisma.activityLog.findMany({

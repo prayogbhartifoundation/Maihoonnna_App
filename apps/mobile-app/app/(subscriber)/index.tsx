@@ -39,14 +39,30 @@ export default function SubscriberDashboardScreen() {
             const user = JSON.parse(storedUser);
             setUserData(user);
 
-            const res = await fetch(`${API_URL}/subscriber/dashboard/user/${user.id}`, {
+            console.log(`[Dashboard] User: ${user.name} (${user.phone}) | Role: ${user.role} | ID: ${user.id}`);
+            console.log(`[Dashboard] Token length: ${storedToken?.length || 0}`);
+
+            console.log(`[Dashboard] Fetching from /subscriber/dashboard/me`);
+
+            const res = await fetch(`${API_URL}/subscriber/dashboard/me`, {
                 headers: {
                     'Authorization': storedToken ? `Bearer ${storedToken}` : '',
                     'Content-Type': 'application/json'
                 }
             });
+            
+            if (!res.ok) {
+                const errorData = await res.json();
+                console.error('[Dashboard] API Error:', errorData);
+                return;
+            }
+
             const data = await res.json();
-            if (data.success !== false) setDashboard(data);
+            if (data.success) {
+                setDashboard(data);
+            } else {
+                console.warn('[Dashboard] Data returned success:false', data);
+            }
         } catch (e) {
             console.error('Dashboard fetch error:', e);
         } finally { setLoading(false); setRefreshing(false); }

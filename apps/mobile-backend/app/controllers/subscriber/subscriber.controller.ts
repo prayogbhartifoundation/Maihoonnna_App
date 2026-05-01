@@ -23,15 +23,6 @@ export const updateProfile = async (req: Request, res: Response) => {
   }
 };
 
-export const changePassword = async (req: Request, res: Response) => {
-  try {
-    const subscriberId = (req as any).userId;
-    const result = await subscriberService.changePassword(subscriberId, req.body);
-    res.json(result);
-  } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-};
 
 export const getActivityLog = async (req: Request, res: Response) => {
   try {
