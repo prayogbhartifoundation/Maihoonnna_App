@@ -24,6 +24,17 @@ export default function EditTeamPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Filter staff based on selected zone
+  const filteredFMs = React.useMemo(() => {
+    if (!zone) return availableFMs;
+    return availableFMs.filter(fm => fm.zone === zone);
+  }, [availableFMs, zone]);
+
+  const filteredCCs = React.useMemo(() => {
+    if (!zone) return availableCCs;
+    return availableCCs.filter(cc => cc.zone === zone);
+  }, [availableCCs, zone]);
+
   useEffect(() => {
     if (id) {
       loadInitialData();
@@ -63,8 +74,16 @@ export default function EditTeamPage() {
 
   const handleUpdateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !zone || selectedCCs.length === 0) {
-      toast.error('Please fill name and zone, and select at least one Care Companion');
+    if (!name) {
+      toast.error('Please enter a team name');
+      return;
+    }
+    if (!zone) {
+      toast.error('Please select a target zone');
+      return;
+    }
+    if (selectedCCs.length === 0) {
+      toast.error('Please select at least one Care Companion for the team');
       return;
     }
 
@@ -146,13 +165,16 @@ export default function EditTeamPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Field Manager Assigned</SelectItem>
-                  {availableFMs.map(fm => (
+                  {filteredFMs.map(fm => (
                     <SelectItem key={fm.id} value={fm.id}>
                       {fm.user.name} ({fm.zone})
                     </SelectItem>
                   ))}
-                  {availableFMs.length === 0 && selectedFM !== 'none' && (
+                  {filteredFMs.length === 0 && selectedFM !== 'none' && (
                     <SelectItem value={selectedFM} disabled>Current Manager (Unavailable)</SelectItem>
+                  )}
+                  {filteredFMs.length === 0 && zone && (
+                    <SelectItem value="none" disabled>No FMs available in this zone</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -188,7 +210,7 @@ export default function EditTeamPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {availableCCs.map(cc => (
+            {filteredCCs.map(cc => (
               <div 
                 key={cc.id}
                 onClick={() => toggleCCSelection(cc.id)}
@@ -219,9 +241,9 @@ export default function EditTeamPage() {
                 </div>
               </div>
             ))}
-            {availableCCs.length === 0 && (
+            {filteredCCs.length === 0 && (
               <div className="col-span-2 text-center py-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 text-gray-400">
-                No available Care Companions found.
+                {zone ? `No available Care Companions found in ${zone}.` : 'Select a Target Zone to see available Care Companions.'}
               </div>
             )}
           </div>

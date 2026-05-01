@@ -1,5 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '../ui/utils';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogTitle,
+  DialogHeader,
+} from '../ui/dialog';
 
 export type EntityType = 
   | 'operations_manager' 
@@ -18,6 +24,8 @@ interface EntityAvatarProps {
 }
 
 export function EntityAvatar({ name, photoUrl, type, className, style }: EntityAvatarProps) {
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+
   const getBackgroundColor = (type: EntityType) => {
     switch (type) {
       case 'operations_manager': return 'bg-[#1D4ED8] text-white';
@@ -35,19 +43,40 @@ export function EntityAvatar({ name, photoUrl, type, className, style }: EntityA
     : '?';
 
   return (
-    <div 
-      className={cn(
-        "rounded-2xl flex items-center justify-center font-bold overflow-hidden shrink-0",
-        getBackgroundColor(type),
-        className
-      )}
-      style={style}
-    >
-      {photoUrl ? (
-        <img src={photoUrl} alt={name || 'Avatar'} className="w-full h-full object-cover" />
-      ) : (
-        <span>{initials}</span>
-      )}
-    </div>
+    <>
+      <div 
+        onClick={() => photoUrl && setIsViewerOpen(true)}
+        className={cn(
+          "rounded-2xl flex items-center justify-center font-bold overflow-hidden shrink-0",
+          photoUrl ? "cursor-pointer" : "cursor-default",
+          getBackgroundColor(type),
+          className
+        )}
+        style={style}
+      >
+        {photoUrl ? (
+          <img src={photoUrl} alt={name || 'Avatar'} className="w-full h-full object-cover" />
+        ) : (
+          <span>{initials}</span>
+        )}
+      </div>
+
+      <Dialog open={isViewerOpen} onOpenChange={setIsViewerOpen}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{name || 'Avatar'}</DialogTitle>
+          </DialogHeader>
+          {photoUrl && (
+            <div className="relative flex items-center justify-center min-h-[300px]">
+              <img 
+                src={photoUrl} 
+                alt={name || 'Avatar'} 
+                className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

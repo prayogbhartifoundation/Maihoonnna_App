@@ -141,6 +141,81 @@ export default function EnrollmentWizardPage() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paymentNote, setPaymentNote] = useState('');
 
+  // ── Persistence Logic
+  useEffect(() => {
+    const saved = sessionStorage.getItem('enrollment_wizard_data');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.step) setStep(data.step);
+        if (data.subscriberPhone) setSubscriberPhone(data.subscriberPhone);
+        if (data.subscriberName) setSubscriberName(data.subscriberName);
+        if (data.subscriberEmail) setSubscriberEmail(data.subscriberEmail);
+        if (data.subscriberAddress) setSubscriberAddress(data.subscriberAddress);
+        if (data.subscriberPincode) setSubscriberPincode(data.subscriberPincode);
+        if (data.subscriberCity) setSubscriberCity(data.subscriberCity);
+        if (data.subscriberState) setSubscriberState(data.subscriberState);
+        if (data.sameAsSubscriber !== undefined) setSameAsSubscriber(data.sameAsSubscriber);
+        if (data.beneficiaryPhone) setBeneficiaryPhone(data.beneficiaryPhone);
+        if (data.beneficiaryName) setBeneficiaryName(data.beneficiaryName);
+        if (data.beneficiaryAge) setBeneficiaryAge(data.beneficiaryAge);
+        if (data.beneficiaryDob) setBeneficiaryDob(data.beneficiaryDob);
+        if (data.beneficiaryGender) setBeneficiaryGender(data.beneficiaryGender);
+        if (data.maritalStatus) setMaritalStatus(data.maritalStatus);
+        if (data.profilePhoto) setProfilePhoto(data.profilePhoto);
+        if (data.beneficiaryAddress) setBeneficiaryAddress(data.beneficiaryAddress);
+        if (data.beneficiaryPincode) setBeneficiaryPincode(data.beneficiaryPincode);
+        if (data.beneficiaryCity) setBeneficiaryCity(data.beneficiaryCity);
+        if (data.beneficiaryState) setBeneficiaryState(data.beneficiaryState);
+        if (data.relationship) setRelationship(data.relationship);
+        if (data.medicalConditions) setMedicalConditions(data.medicalConditions);
+        if (data.medications) setMedications(data.medications);
+        if (data.vitalsToTrack) setVitalsToTrack(data.vitalsToTrack);
+        if (data.primaryPhysicianName) setPrimaryPhysicianName(data.primaryPhysicianName);
+        if (data.primaryPhysicianPhone) setPrimaryPhysicianPhone(data.primaryPhysicianPhone);
+        if (data.hobbiesInterests) setHobbiesInterests(data.hobbiesInterests);
+        if (data.customHobby) setCustomHobby(data.customHobby);
+        if (data.emergencyContactName) setEmergencyContactName(data.emergencyContactName);
+        if (data.emergencyContactPhone) setEmergencyContactPhone(data.emergencyContactPhone);
+        if (data.emergencyContactRel) setEmergencyContactRel(data.emergencyContactRel);
+        if (data.emergencyContactEmail) setEmergencyContactEmail(data.emergencyContactEmail);
+        if (data.secondaryContactName) setSecondaryContactName(data.secondaryContactName);
+        if (data.secondaryContactPhone) setSecondaryContactPhone(data.secondaryContactPhone);
+        if (data.secondaryContactRel) setSecondaryContactRel(data.secondaryContactRel);
+        if (data.secondaryContactEmail) setSecondaryContactEmail(data.secondaryContactEmail);
+        if (data.preferredSlot) setPreferredSlot(data.preferredSlot);
+        if (data.selectedPackageId) setSelectedPackageId(data.selectedPackageId);
+        if (data.duration) setDuration(data.duration);
+        if (data.startDate) setStartDate(data.startDate);
+        if (data.amountPaid) setAmountPaid(data.amountPaid);
+        if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
+        if (data.paymentNote) setPaymentNote(data.paymentNote);
+      } catch (e) {
+        console.warn('Failed to load saved enrollment data', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (step === 'confirm') return; // Don't save if already confirmed
+    const data = {
+      step, subscriberPhone, subscriberName, subscriberEmail, subscriberAddress, subscriberPincode, subscriberCity, subscriberState,
+      sameAsSubscriber, beneficiaryPhone, beneficiaryName, beneficiaryAge, beneficiaryDob, beneficiaryGender, maritalStatus, profilePhoto,
+      beneficiaryAddress, beneficiaryPincode, beneficiaryCity, beneficiaryState, relationship, medicalConditions, medications, vitalsToTrack,
+      primaryPhysicianName, primaryPhysicianPhone, hobbiesInterests, customHobby, emergencyContactName, emergencyContactPhone, emergencyContactRel,
+      emergencyContactEmail, secondaryContactName, secondaryContactPhone, secondaryContactRel, secondaryContactEmail, preferredSlot,
+      selectedPackageId, duration, startDate, amountPaid, paymentMethod, paymentNote
+    };
+    sessionStorage.setItem('enrollment_wizard_data', JSON.stringify(data));
+  }, [
+    step, subscriberPhone, subscriberName, subscriberEmail, subscriberAddress, subscriberPincode, subscriberCity, subscriberState,
+    sameAsSubscriber, beneficiaryPhone, beneficiaryName, beneficiaryAge, beneficiaryDob, beneficiaryGender, maritalStatus, profilePhoto,
+    beneficiaryAddress, beneficiaryPincode, beneficiaryCity, beneficiaryState, relationship, medicalConditions, medications, vitalsToTrack,
+    primaryPhysicianName, primaryPhysicianPhone, hobbiesInterests, customHobby, emergencyContactName, emergencyContactPhone, emergencyContactRel,
+    emergencyContactEmail, secondaryContactName, secondaryContactPhone, secondaryContactRel, secondaryContactEmail, preferredSlot,
+    selectedPackageId, duration, startDate, amountPaid, paymentMethod, paymentNote
+  ]);
+
   const stepIndex = STEPS.findIndex(s => s.id === step);
   const selectedPackage = packages.find(p => p.id === selectedPackageId);
 
@@ -253,6 +328,7 @@ export default function EnrollmentWizardPage() {
       });
       setEnrolledResult(result);
       setStep('confirm');
+      sessionStorage.removeItem('enrollment_wizard_data');
       toast.success('Enrollment successful! ✅');
     } catch (err: any) {
       toast.error(err.message || 'Enrollment failed');

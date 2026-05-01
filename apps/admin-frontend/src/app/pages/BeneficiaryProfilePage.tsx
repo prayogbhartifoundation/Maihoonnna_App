@@ -421,7 +421,12 @@ export default function BeneficiaryProfilePage() {
                     <div className="flex flex-col items-center gap-3 py-16 text-center bg-gray-50 rounded-[32px] border border-dashed border-gray-200">
                       <MapPin className="w-12 h-12 text-gray-200" />
                       <p className="font-bold text-gray-400 uppercase tracking-widest text-sm">Pincode missing on profile</p>
-                      <button className="text-[#FF7A00] font-black text-[10px] uppercase tracking-widest underline underline-offset-4">Add Pincode to continue</button>
+                      <button 
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="text-[#FF7A00] font-black text-[10px] uppercase tracking-widest underline underline-offset-4"
+                      >
+                        Add Pincode to continue
+                      </button>
                     </div>
                   ) : loadingStaff ? (
                     <div className="flex flex-col items-center justify-center py-24 gap-4">

@@ -60,8 +60,16 @@ export default function CreateTeamPage() {
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !zone || selectedCCs.length === 0) {
-      toast.error('Please fill name and zone, and select at least one Care Companion');
+    if (!name) {
+      toast.error('Please enter a team name');
+      return;
+    }
+    if (!zone) {
+      toast.error('Please select a target zone');
+      return;
+    }
+    if (selectedCCs.length === 0) {
+      toast.error('Please select at least one Care Companion for the team');
       return;
     }
 

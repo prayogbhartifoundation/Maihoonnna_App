@@ -464,8 +464,16 @@ router.put('/:id', async (req, res) => {
     if (trackWeight !== undefined) dataToUpdate.trackWeight = Boolean(trackWeight);
     if (trackPainLevel !== undefined) dataToUpdate.trackPainLevel = Boolean(trackPainLevel);
     if (trackRespiratoryRate !== undefined) dataToUpdate.trackRespiratoryRate = Boolean(trackRespiratoryRate);
-    if (medicalConditions !== undefined) dataToUpdate.medicalConditions = medicalConditions;
-    if (medications !== undefined) dataToUpdate.medications = medications;
+    if (medicalConditions !== undefined) {
+      dataToUpdate.conditions = {
+        set: [] // or proper update structure
+      };
+    }
+    if (medications !== undefined) {
+      dataToUpdate.medicationList = {
+        set: []   // or proper update structure
+      };
+    }
     if (isActive !== undefined) dataToUpdate.isActive = Boolean(isActive);
 
     const updated = await prisma.beneficiary.update({

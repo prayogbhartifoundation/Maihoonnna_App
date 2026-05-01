@@ -215,9 +215,24 @@ export default function StaffOnboardingPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const role = normalizeRole(searchParams.get('role'));
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(() => {
+    const saved = sessionStorage.getItem('staff_onboarding_step');
+    return saved ? parseInt(saved, 10) : 1;
+  });
   const [metadata, setMetadata] = useState<StaffOnboardingMetadata | null>(null);
-  const [formState, setFormState] = useState<FormState>(() => createInitialFormState(role));
+  const [formState, setFormState] = useState<FormState>(() => {
+    const saved = sessionStorage.getItem('staff_onboarding_form');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Ensure role matches the current URL role
+        return { ...parsed, role };
+      } catch (e) {
+        return createInitialFormState(role);
+      }
+    }
+    return createInitialFormState(role);
+  });
   // Map of documentType → actual File object (for upload)
   const [pendingFiles, setPendingFiles] = useState<Map<string, File>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -226,9 +241,25 @@ export default function StaffOnboardingPage() {
   const { loading: lookupLoading, error: lookupError, results: lookupResults, lookup: runLookup, reset: resetLookup } = usePincodeLookup();
 
   useEffect(() => {
-    setFormState((previousState) => adaptFormStateForRole(previousState, role));
-    setCurrentStep(1);
+    setFormState((previousState) => {
+      const nextState = adaptFormStateForRole(previousState, role);
+      // Only reset step if the role actually changed from what's in state
+      if (previousState.role !== role) {
+        setCurrentStep(1);
+      }
+      return nextState;
+    });
   }, [role]);
+
+  // Persist form state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('staff_onboarding_form', JSON.stringify(formState));
+  }, [formState]);
+
+  // Persist current step to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('staff_onboarding_step', currentStep.toString());
+  }, [currentStep]);
 
   useEffect(() => {
     let cancelled = false;
@@ -373,6 +404,17 @@ export default function StaffOnboardingPage() {
       const { personal } = formState;
       if (!personal.fullName) return 'Full name is required.';
       if (!personal.dateOfBirth) return 'Date of birth is required.';
+
+      // Age validation (Minimum 18 years)
+      const dob = new Date(personal.dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age--;
+      }
+      if (age < 18) return 'Staff member must be at least 18 years old.';
+
       if (!personal.mobileNumber) return 'Mobile number is required.';
       if (personal.mobileNumber.length !== 10) return 'Mobile number must be exactly 10 digits.';
       if (personal.alternatePhone && personal.mobileNumber === personal.alternatePhone) {
@@ -479,6 +521,10 @@ export default function StaffOnboardingPage() {
       }
 
       toast.success(`${ROLE_CONFIG[role].title.replace('Onboard ', '')} created successfully`);
+      
+      // Clear session storage on success
+      sessionStorage.removeItem('staff_onboarding_form');
+      sessionStorage.removeItem('staff_onboarding_step');
 
       const nextPath =
         role === 'care_companion'
@@ -602,13 +648,19 @@ export default function StaffOnboardingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input
                       value={formState.personal.fullName}
-                      onChange={(event) => setPersonalField('fullName', event.target.value)}
+                      onChange={(event) => {
+                        const val = event.target.value.replace(/[0-9]/g, '');
+                        setPersonalField('fullName', val);
+                      }}
                       placeholder="Full name *"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
                     <input
                       value={formState.personal.preferredName}
-                      onChange={(event) => setPersonalField('preferredName', event.target.value)}
+                      onChange={(event) => {
+                        const val = event.target.value.replace(/[0-9]/g, '');
+                        setPersonalField('preferredName', val);
+                      }}
                       placeholder="Preferred name"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />
@@ -686,13 +738,19 @@ export default function StaffOnboardingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <input
                         value={formState.personal.city}
-                        onChange={(event) => setPersonalField('city', event.target.value)}
+                        onChange={(event) => {
+                          const val = event.target.value.replace(/[0-9]/g, '');
+                          setPersonalField('city', val);
+                        }}
                         placeholder="City *"
                         className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                       />
                       <input
                         value={formState.personal.state}
-                        onChange={(event) => setPersonalField('state', event.target.value)}
+                        onChange={(event) => {
+                          const val = event.target.value.replace(/[0-9]/g, '');
+                          setPersonalField('state', val);
+                        }}
                         placeholder="State *"
                         className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                       />
@@ -827,7 +885,10 @@ export default function StaffOnboardingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input
                       value={formState.professional.qualification}
-                      onChange={(event) => setProfessionalField('qualification', event.target.value)}
+                      onChange={(event) => {
+                        const val = event.target.value.replace(/[0-9]/g, '');
+                        setProfessionalField('qualification', val);
+                      }}
                       placeholder="Qualification *"
                       className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
                     />

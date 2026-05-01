@@ -21,6 +21,12 @@
 
 import React, { useRef,useEffect, useState } from 'react';
 import { uploadApi } from '@/services/api';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogTitle,
+  DialogHeader,
+} from '../ui/dialog';
 
 // ─── Types (OOP config contract) ──────────────────────────────────────────────
 
@@ -96,6 +102,7 @@ export function ProfilePhotoUploader({ config, className = '' }: ProfilePhotoUpl
   const [photoUrl, setPhotoUrl] = useState<string | null>(currentPhotoUrl ?? null);
   const [uploading, setUploading] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,9 +115,22 @@ export function ProfilePhotoUploader({ config, className = '' }: ProfilePhotoUpl
 
   // ── File Input Handler ──────────────────────────────────────────────────────
 
-  function handleClick() {
+  function handleUploadClick() {
     if (!editable || uploading) return;
     fileInputRef.current?.click();
+  }
+
+  function handleAvatarClick() {
+    if (photoUrl) {
+      setIsViewerOpen(true);
+    } else {
+      handleUploadClick();
+    }
+  }
+
+  function handleBadgeClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    handleUploadClick();
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -169,7 +189,7 @@ export function ProfilePhotoUploader({ config, className = '' }: ProfilePhotoUpl
 
       {/* Avatar container */}
       <div
-        onClick={handleClick}
+        onClick={handleAvatarClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onDragOver={(e) => { e.preventDefault(); setHovered(true); }}
@@ -256,7 +276,7 @@ export function ProfilePhotoUploader({ config, className = '' }: ProfilePhotoUpl
                   <circle cx="12" cy="13" r="4" />
                 </svg>
                 <span style={{ color: '#fff', fontSize: 10, fontWeight: 600 }}>
-                  {photoUrl ? 'Change' : 'Upload'}
+                  {photoUrl ? 'View' : 'Upload'}
                 </span>
               </>
             )}
@@ -267,7 +287,7 @@ export function ProfilePhotoUploader({ config, className = '' }: ProfilePhotoUpl
       {/* Camera badge (bottom-right) */}
       {editable && !uploading && (
         <button
-          onClick={handleClick}
+          onClick={handleBadgeClick}
           title="Upload photo"
           style={{
             position: 'absolute',
@@ -334,6 +354,24 @@ export function ProfilePhotoUploader({ config, className = '' }: ProfilePhotoUpl
           to { transform: rotate(360deg); }
         }
       `}</style>
+
+      {/* Photo Viewer Modal */}
+      <Dialog open={isViewerOpen} onOpenChange={setIsViewerOpen}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Profile Photo</DialogTitle>
+          </DialogHeader>
+          {photoUrl && (
+            <div className="relative flex items-center justify-center min-h-[300px]">
+              <img 
+                src={photoUrl} 
+                alt={name || 'Profile'} 
+                className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
