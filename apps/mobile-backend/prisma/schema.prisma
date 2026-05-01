@@ -220,6 +220,9 @@ model Beneficiary {
   gender                GenderType             @default(prefer_not_to_say)
   bloodGroup            BloodGroup             @default(unknown)
   address               String
+  flatPlot              String?
+  streetArea            String?
+  landmark              String?
   city                  String?
   state                 String?
   pincode               String?

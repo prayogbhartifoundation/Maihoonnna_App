@@ -458,3 +458,35 @@
 - Fixed TypeScript interface definitions to properly handle the \style\ prop for correctly overlapping avatars on the Teams page.
 - Ensured fallback avatar logic automatically generates color-coded initials when user photos are absent.
 - Synchronized and verified the full data flow from the database to the frontend across all roles.
+
+---
+
+## Session: Universal Geocoding & Address System Upgrade (2026-05-01)
+
+### Backend Geocoding Proxy
+- Implemented a public endpoint `GET /api/public/location/reverse-geocode` in the `mobile-backend`.
+- Securely handles Google Geocoding API calls using a server-side `GOOGLE_MAPS_API_KEY`, protecting the API key from client-side exposure.
+- Registered the route in `main.ts` with the `/api/public/location` prefix to support guest users during signup without requiring authentication.
+
+### Database Schema Updates
+- Added granular address fields to the `Beneficiary` model in `schema.prisma`:
+  - `flatPlot`
+  - `streetArea`
+  - `landmark`
+- Generated Prisma client to apply the new schema.
+
+### Backend Subscription Service
+- Updated `purchaseSubscription` in `subscription_service.ts` to accept and persist the new detailed address fields (`flatPlot`, `streetArea`, `landmark`, `city`, `state`, `pincode`, `latitude`, `longitude`).
+- Ensured comprehensive address data is correctly packaged and saved into the `beneficiaries` table.
+
+### AddressInputField Modernization
+- Redesigned `AddressInputField.tsx` to function purely as a modern "Use Current Location" button (similar to Swiggy/Zomato).
+- Removed the large, redundant manual `TextInput` for the full address string.
+- The button now elegantly displays the fetched address or a loading spinner.
+- Removed the legacy `AddressPicker` fallback modal entirely, opting for a clean alert error message when location access fails (especially handling the `User denied Geolocation` OS-level block).
+- Enhanced UX by auto-routing fetched address details directly into the distinct form fields (Flat, Street, City, etc.).
+
+### Frontend Form Integration
+- Expanded `subscriberForm` and `beneficiaryForm` state objects in `subscribe-form.tsx` and `beneficiary-info.tsx` to handle the granular address fields.
+- Removed outdated labels from `AddressInputField` usage, making the detect button act as a prominent action area.
+- Updated `checkout.tsx` to correctly package and send all detailed address fields in the final purchase payload.

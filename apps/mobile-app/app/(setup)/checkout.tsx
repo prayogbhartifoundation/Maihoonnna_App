@@ -133,7 +133,22 @@ export default function CheckoutScreen() {
             const preferencesDataRaw = params.preferencesData as string;
 
             let subscriberData = {};
-            let beneficiaryData = { name: "Beneficiary", age: 65, gender: "Not specified", address: "Not provided", relationship: "Relative", phone: "9876543210" };
+            let beneficiaryData: any = { 
+                name: "Beneficiary", 
+                age: 65, 
+                gender: "Not specified", 
+                address: "Not provided", 
+                flatPlot: "",
+                streetArea: "",
+                landmark: "",
+                city: "",
+                state: "",
+                pincode: "",
+                latitude: 0,
+                longitude: 0,
+                relationship: "Relative", 
+                phone: "9876543210" 
+            };
             let medicalData = {};
             let emergencyContacts = {};
             let preferencesData = {};

@@ -39,6 +39,7 @@ import beneficiaryDashboardRouter from './api/beneficiary/dashboard.routes';
 import publicVitalsRouter from './api/public/vitals.routes';
 import publicZonesRouter from './api/public/zones.routes';
 import publicEnrollmentRouter from './api/public/enrollment.routes';
+import publicLocationRouter from './api/public/location.routes';
 
 const app = express();
 
@@ -122,6 +123,7 @@ app.use(`${API}/profile-photo`, profilePhotoRouter);
 // Public endpoints
 app.use(`${API}/public/vitals`, publicVitalsRouter);
 app.use(`${API}/public/zones`, publicZonesRouter);
+app.use(`${API}/public/location`, publicLocationRouter);
 app.use(`${API}/public`, publicEnrollmentRouter);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────

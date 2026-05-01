@@ -10,6 +10,14 @@ export const purchaseSubscription = async (
     age: number;
     gender: string;
     address: string;
+    flatPlot?: string;
+    streetArea?: string;
+    landmark?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    latitude?: number;
+    longitude?: number;
     relationship: string;
     phone: string;
   },
@@ -149,6 +157,14 @@ export const purchaseSubscription = async (
       age: beneficiaryData.age ?? 65,
       gender: (beneficiaryData.gender === 'Male' || beneficiaryData.gender === 'male') ? 'male' : (beneficiaryData.gender === 'Female' || beneficiaryData.gender === 'female') ? 'female' : 'prefer_not_to_say',
       address: beneficiaryData.address ?? "Not provided",
+      flatPlot: beneficiaryData.flatPlot || null,
+      streetArea: beneficiaryData.streetArea || null,
+      landmark: beneficiaryData.landmark || null,
+      city: beneficiaryData.city || null,
+      state: beneficiaryData.state || null,
+      pincode: beneficiaryData.pincode || null,
+      latitude: beneficiaryData.latitude || null,
+      longitude: beneficiaryData.longitude || null,
       relationship: beneficiaryData.relationship ?? null,
       
       // Hook up parsed medical fields
