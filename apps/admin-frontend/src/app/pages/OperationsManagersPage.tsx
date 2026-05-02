@@ -9,6 +9,7 @@ import DataFilter from '../components/common/DataFilter';
 import DeactivationSummaryModal from '../components/DeactivationSummaryModal';
 import { staffOnboardingApi } from '../../services/api';
 import { Trash2 } from 'lucide-react';
+import { EntityAvatar } from '../components/common/EntityAvatar';
 
 interface OperationsManagerItem {
   id: string;
@@ -134,9 +135,12 @@ export default function OperationsManagersPage() {
                 <div key={manager.id} className="bg-white rounded-[24px] p-6 shadow-sm border border-[#E7DED6] hover:shadow-md transition-shadow">
                   <div className="flex justify-between mb-4">
                     <div className="flex gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-[#1D4ED8] flex items-center justify-center font-bold text-white text-xl">
-                        {manager.name?.charAt(0)?.toUpperCase()}
-                      </div>
+                      <EntityAvatar 
+                        name={manager.name} 
+                        photoUrl={manager.photo} 
+                        type="operations_manager" 
+                        className="w-14 h-14 text-xl" 
+                      />
                       <div>
                         <h3 className="font-bold text-gray-800">{manager.name}</h3>
                         <p className="text-xs text-gray-400 uppercase font-bold">Operations Manager</p>

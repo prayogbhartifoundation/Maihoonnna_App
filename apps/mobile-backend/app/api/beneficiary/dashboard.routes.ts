@@ -1,11 +1,22 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../../core/database';
-import { authenticate } from '../shared/deps';
+import { authenticate, AuthRequest } from '../shared/deps';
 
 const router = Router();
 
-// Dashboard for Beneficiary
-router.get('/dashboard/:beneficiaryId', authenticate, async (req: Request, res: Response) => {
+// Dashboard for Beneficiary (Secure me route)
+router.get('/dashboard/me', authenticate, async (req: AuthRequest, res: Response) => {
+    // We reuse the logic by passing req.userId
+    req.params.beneficiaryId = req.userId!;
+    return handleBeneficiaryDashboard(req, res);
+});
+
+// Dashboard for Beneficiary (Legacy route)
+router.get('/dashboard/:beneficiaryId', authenticate, async (req: AuthRequest, res: Response) => {
+    return handleBeneficiaryDashboard(req, res);
+});
+
+async function handleBeneficiaryDashboard(req: AuthRequest, res: Response) {
     try {
         const userId = req.params.beneficiaryId as string;
 
@@ -117,10 +128,10 @@ router.get('/dashboard/:beneficiaryId', authenticate, async (req: Request, res: 
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }
-});
+}
 
 // Fetch Care Team
-router.get('/:userId/team', authenticate, async (req: Request, res: Response) => {
+router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.params.userId as string;
 
@@ -182,7 +193,7 @@ router.get('/:userId/team', authenticate, async (req: Request, res: Response) =>
 });
 
 // Log a call
-router.post('/log-call', authenticate, async (req: Request, res: Response) => {
+router.post('/log-call', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const { callerId, receiverId } = req.body;
 

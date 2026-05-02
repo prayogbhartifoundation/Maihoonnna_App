@@ -7,12 +7,15 @@ import StaffEditModal from '../components/StaffEditModal';
 import DataFilter from '../components/common/DataFilter';
 import DeactivationSummaryModal from '../components/DeactivationSummaryModal';
 import { staffOnboardingApi } from '../../services/api';
+import { UserCheck } from 'lucide-react';
+import { EntityAvatar } from '../components/common/EntityAvatar';
 import { Trash2 } from 'lucide-react';
 
 interface CareCompanionItem {
   id: string;
   userId: string;
   name: string;
+  photo?: string | null;
   phone: string;
   gender: string;
   zone: string;
@@ -56,6 +59,7 @@ const CareCompanions = () => {
         id: cc.id,
         userId: cc.userId,
         name: cc.name,
+        photo: cc.photo || null,
         phone: cc.phone || '',
         gender: 'Professional',
         zone: cc.zone,
@@ -207,9 +211,12 @@ const CareCompanions = () => {
             <div key={cc.id} className="bg-white rounded-[24px] p-6 shadow-sm border border-[#E7DED6] hover:shadow-md transition-shadow">
               <div className="flex justify-between mb-4">
                 <div className="flex gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-[#FF7A00] flex items-center justify-center font-bold text-white text-xl">
-                    {cc.name?.charAt(0)?.toUpperCase()}
-                  </div>
+                  <EntityAvatar 
+                    name={cc.name} 
+                    photoUrl={cc.photo} 
+                    type="care_companion" 
+                    className="w-14 h-14 text-xl" 
+                  />
                   <div>
                     <h3 className="font-bold text-gray-800">{cc.name}</h3>
                     <p className="text-xs text-[#FF7A00] uppercase font-black tracking-tight mt-0.5">

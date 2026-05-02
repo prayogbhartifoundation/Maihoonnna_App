@@ -243,12 +243,6 @@ router.post('/admin-enroll', async (req, res) => {
             primaryPhysicianPhone: primaryPhysicianPhone,
             hobbiesInterests: hobbiesInterests,
             // Vitals tracking
-            trackBloodPressure: !!vitalsToTrack.bloodPressure,
-            trackHeartRate: !!vitalsToTrack.heartRate,
-            trackBloodSugar: !!vitalsToTrack.bloodSugar,
-            trackTemperature: !!vitalsToTrack.temperature,
-            trackOxygenSaturation: !!vitalsToTrack.oxygenSaturation,
-            trackWeight: !!vitalsToTrack.weight,
             isActive: true,
             // Nested creates
             emergencyContacts: {
@@ -354,6 +348,42 @@ router.post('/admin-enroll', async (req, res) => {
                 severity: 'moderate',
                 isActive: true,
               },
+            });
+          }
+        }
+      }
+
+      // ──────────────────────────────────────────────────────────────────
+      // 3c. Vitals Configuration (New Relational System)
+      // ──────────────────────────────────────────────────────────────────
+      if (vitalsToTrack && Object.keys(vitalsToTrack).length > 0) {
+        const vitalCodes = Object.keys(vitalsToTrack).filter(code => vitalsToTrack[code]);
+        if (vitalCodes.length > 0) {
+          const vitalDefs = await tx.vitalDefinition.findMany({
+            where: { code: { in: vitalCodes } }
+          });
+
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          // Create configs for selected vitals
+          for (const def of vitalDefs) {
+            await tx.beneficiaryVitalConfig.upsert({
+              where: {
+                beneficiaryId_vitalDefinitionId_effectiveFrom: {
+                  beneficiaryId: beneficiary.id,
+                  vitalDefinitionId: def.id,
+                  effectiveFrom: today
+                }
+              },
+              update: { isActive: true },
+              create: {
+                beneficiaryId: beneficiary.id,
+                vitalDefinitionId: def.id,
+                isActive: true,
+                frequency: 'every_visit',
+                effectiveFrom: today
+              }
             });
           }
         }

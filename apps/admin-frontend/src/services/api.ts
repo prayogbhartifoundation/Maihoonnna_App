@@ -621,6 +621,29 @@ export const vitalApi = {
   async remove(id: string): Promise<void> {
     return apiJson(`/vitals/${id}`, { method: 'DELETE' });
   },
+  
+  // Templates
+  async getTemplates(): Promise<any[]> {
+    return apiJson('/vitals/templates');
+  },
+  async createTemplate(data: any): Promise<any> {
+    return apiJson('/vitals/templates', { method: 'POST', body: JSON.stringify(data) });
+  },
+  
+  // Beneficiary Config
+  async getBeneficiaryConfigs(params?: { zoneId?: string; templateId?: string }): Promise<any[]> {
+    const query = new URLSearchParams(params as any).toString();
+    return apiJson(`/vitals/beneficiary-configs?${query}`);
+  },
+  async updateBeneficiaryConfig(beneficiaryId: string, data: any): Promise<any> {
+    return apiJson(`/vitals/beneficiary-configs/${beneficiaryId}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  
+  // Readings / Capture Log
+  async getReadings(params?: { beneficiaryId?: string; date?: string; status?: string }): Promise<any[]> {
+    const query = new URLSearchParams(params as any).toString();
+    return apiJson(`/vitals/readings?${query}`);
+  },
 };
 
 export const benefitTypeApi = {
@@ -831,6 +854,28 @@ export const staffOnboardingApi = {
     return result.data;
   },
 
+  /**
+   * General upload of a file for temporary usage or before linking to an entity.
+   */
+  async uploadFile(file: File): Promise<{ success: boolean; url: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiFetch(`${API_BASE}/upload-document/general`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const text = await response.text();
+    const result = text ? JSON.parse(text) : {};
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || `File upload failed with status ${response.status}`);
+    }
+
+    return result;
+  },
+
   async getStaffDetails(userId: string): Promise<any> {
     return apiJson(`/users/staff/${userId}`);
   },
@@ -931,3 +976,48 @@ export const enrollmentApi = {
     return apiJson(`/zones/check-pincode/${encodeURIComponent(pincode)}`);
   },
 };
+
+// ============================================================================
+// UPLOAD API — Profile photos & documents
+// ============================================================================
+
+export const uploadApi = {
+  /**
+   * Upload or update a profile photo for any entity.
+   *
+   * @param targetType - 'subscriber' | 'care_companion' | 'field_manager' | 'operations_manager' | 'beneficiary'
+   * @param targetId   - User.id for subscriber/staff, Beneficiary.id for beneficiary
+   * @param file       - The image File object from the file input
+   * @returns          - { url, data, entityType, targetId }
+   */
+  async uploadProfilePhoto(
+    targetType: 'subscriber' | 'care_companion' | 'field_manager' | 'operations_manager' | 'beneficiary',
+    targetId: string,
+    file: File
+  ): Promise<{ url: string; data: any; entityType: string; targetId: string }> {
+    const formData = new FormData();
+    formData.append('targetType', targetType);
+    formData.append('targetId', targetId);
+    formData.append('file', file);
+
+    const response = await apiFetch(`${API_BASE}/upload-document/profile-photo`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const text = await response.text();
+    const result = text ? JSON.parse(text) : {};
+
+    if (!response.ok || result.success === false) {
+      throw new Error(result.message || `Photo upload failed with status ${response.status}`);
+    }
+
+    return {
+      url: result.url,
+      data: result.data,
+      entityType: result.entityType,
+      targetId: result.targetId,
+    };
+  },
+};
+

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import { validate } from '../shared/deps';
+import { validate, authenticate } from '../shared/deps';
 import { sendOtpSchema, verifyOtpSchema, checkLocationSchema, registerPasswordSchema, loginPasswordSchema } from '../../schemas/auth';
 import * as authService from '../../services/auth/auth_service';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -52,6 +52,11 @@ router.post('/login-password', loginLimiter, validate(loginPasswordSchema), asyn
   const { phone, password } = req.body;
   const result = await authService.loginWithPassword(phone, password);
   res.json(new ApiResponse(200, result, 'Login successful'));
+}));
+
+router.post('/change-password', authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.changePassword((req as any).userId, req.body);
+  res.json(new ApiResponse(200, result, 'Password changed successfully'));
 }));
 
 export default router;

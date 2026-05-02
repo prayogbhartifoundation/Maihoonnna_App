@@ -10,7 +10,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { enrollmentApi, packageApi } from '../../services/api';
+import { enrollmentApi, packageApi, staffOnboardingApi, vitalApi } from '../../services/api';
 import { toast } from 'sonner';
 import {
   UserPlus, ArrowLeft, ArrowRight, Check, Phone, User, Package,
@@ -59,10 +59,22 @@ const DURATION_OPTIONS = [
 
 const PAYMENT_METHODS = ['Cash', 'Bank Transfer', 'Cheque', 'UPI', 'NEFT/RTGS', 'Other'];
 
+const COMMON_HOBBIES = [
+  'Reading', 'Gardening', 'Yoga', 'Walking', 'Cooking', 'Music', 'Movies',
+  'Traveling', 'Painting', 'Meditation', 'Sudoku/Puzzles', 'Socializing',
+  'Crafting', 'Photography', 'Writing', 'Sports', 'Other'
+];
+
+const RELATIONSHIPS = [
+  'Father', 'Mother', 'Spouse', 'Son', 'Daughter', 'Sibling', 
+  'Grandparent', 'Father-in-law', 'Mother-in-law', 'Relative', 'Friend', 'Other'
+];
+
 export default function EnrollmentWizardPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('subscriber');
   const [enrolling, setEnrolling] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [enrolledResult, setEnrolledResult] = useState<any>(null);
 
   // ── Subscriber
@@ -95,17 +107,14 @@ export default function EnrollmentWizardPage() {
   // ── Medical & Vitals
   const [medicalConditions, setMedicalConditions] = useState<string[]>([]); 
   const [medications, setMedications] = useState<any[]>([]); // { name, dosage, frequency, timeSlots, setReminders }
-  const [vitalsToTrack, setVitalsToTrack] = useState({
-    bloodPressure: true,
-    heartRate: true,
-    bloodSugar: true,
-    temperature: true,
-    oxygenSaturation: true,
-    weight: true,
-  });
+  const [vitalsToTrack, setVitalsToTrack] = useState<Record<string, boolean>>({});
+  const [availableVitals, setAvailableVitals] = useState<any[]>([]);
+  const [loadingVitals, setLoadingVitals] = useState(false);
   const [primaryPhysicianName, setPrimaryPhysicianName] = useState('');
   const [primaryPhysicianPhone, setPrimaryPhysicianPhone] = useState('');
   const [hobbiesInterests, setHobbiesInterests] = useState<string[]>([]);
+  const [customHobby, setCustomHobby] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Emergency Contacts
   const [emergencyContactName, setEmergencyContactName] = useState('');
@@ -132,11 +141,99 @@ export default function EnrollmentWizardPage() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paymentNote, setPaymentNote] = useState('');
 
+  // ── Persistence Logic
+  useEffect(() => {
+    const saved = sessionStorage.getItem('enrollment_wizard_data');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.step) setStep(data.step);
+        if (data.subscriberPhone) setSubscriberPhone(data.subscriberPhone);
+        if (data.subscriberName) setSubscriberName(data.subscriberName);
+        if (data.subscriberEmail) setSubscriberEmail(data.subscriberEmail);
+        if (data.subscriberAddress) setSubscriberAddress(data.subscriberAddress);
+        if (data.subscriberPincode) setSubscriberPincode(data.subscriberPincode);
+        if (data.subscriberCity) setSubscriberCity(data.subscriberCity);
+        if (data.subscriberState) setSubscriberState(data.subscriberState);
+        if (data.sameAsSubscriber !== undefined) setSameAsSubscriber(data.sameAsSubscriber);
+        if (data.beneficiaryPhone) setBeneficiaryPhone(data.beneficiaryPhone);
+        if (data.beneficiaryName) setBeneficiaryName(data.beneficiaryName);
+        if (data.beneficiaryAge) setBeneficiaryAge(data.beneficiaryAge);
+        if (data.beneficiaryDob) setBeneficiaryDob(data.beneficiaryDob);
+        if (data.beneficiaryGender) setBeneficiaryGender(data.beneficiaryGender);
+        if (data.maritalStatus) setMaritalStatus(data.maritalStatus);
+        if (data.profilePhoto) setProfilePhoto(data.profilePhoto);
+        if (data.beneficiaryAddress) setBeneficiaryAddress(data.beneficiaryAddress);
+        if (data.beneficiaryPincode) setBeneficiaryPincode(data.beneficiaryPincode);
+        if (data.beneficiaryCity) setBeneficiaryCity(data.beneficiaryCity);
+        if (data.beneficiaryState) setBeneficiaryState(data.beneficiaryState);
+        if (data.relationship) setRelationship(data.relationship);
+        if (data.medicalConditions) setMedicalConditions(data.medicalConditions);
+        if (data.medications) setMedications(data.medications);
+        if (data.vitalsToTrack) setVitalsToTrack(data.vitalsToTrack);
+        if (data.primaryPhysicianName) setPrimaryPhysicianName(data.primaryPhysicianName);
+        if (data.primaryPhysicianPhone) setPrimaryPhysicianPhone(data.primaryPhysicianPhone);
+        if (data.hobbiesInterests) setHobbiesInterests(data.hobbiesInterests);
+        if (data.customHobby) setCustomHobby(data.customHobby);
+        if (data.emergencyContactName) setEmergencyContactName(data.emergencyContactName);
+        if (data.emergencyContactPhone) setEmergencyContactPhone(data.emergencyContactPhone);
+        if (data.emergencyContactRel) setEmergencyContactRel(data.emergencyContactRel);
+        if (data.emergencyContactEmail) setEmergencyContactEmail(data.emergencyContactEmail);
+        if (data.secondaryContactName) setSecondaryContactName(data.secondaryContactName);
+        if (data.secondaryContactPhone) setSecondaryContactPhone(data.secondaryContactPhone);
+        if (data.secondaryContactRel) setSecondaryContactRel(data.secondaryContactRel);
+        if (data.secondaryContactEmail) setSecondaryContactEmail(data.secondaryContactEmail);
+        if (data.preferredSlot) setPreferredSlot(data.preferredSlot);
+        if (data.selectedPackageId) setSelectedPackageId(data.selectedPackageId);
+        if (data.duration) setDuration(data.duration);
+        if (data.startDate) setStartDate(data.startDate);
+        if (data.amountPaid) setAmountPaid(data.amountPaid);
+        if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
+        if (data.paymentNote) setPaymentNote(data.paymentNote);
+      } catch (e) {
+        console.warn('Failed to load saved enrollment data', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (step === 'confirm') return; // Don't save if already confirmed
+    const data = {
+      step, subscriberPhone, subscriberName, subscriberEmail, subscriberAddress, subscriberPincode, subscriberCity, subscriberState,
+      sameAsSubscriber, beneficiaryPhone, beneficiaryName, beneficiaryAge, beneficiaryDob, beneficiaryGender, maritalStatus, profilePhoto,
+      beneficiaryAddress, beneficiaryPincode, beneficiaryCity, beneficiaryState, relationship, medicalConditions, medications, vitalsToTrack,
+      primaryPhysicianName, primaryPhysicianPhone, hobbiesInterests, customHobby, emergencyContactName, emergencyContactPhone, emergencyContactRel,
+      emergencyContactEmail, secondaryContactName, secondaryContactPhone, secondaryContactRel, secondaryContactEmail, preferredSlot,
+      selectedPackageId, duration, startDate, amountPaid, paymentMethod, paymentNote
+    };
+    sessionStorage.setItem('enrollment_wizard_data', JSON.stringify(data));
+  }, [
+    step, subscriberPhone, subscriberName, subscriberEmail, subscriberAddress, subscriberPincode, subscriberCity, subscriberState,
+    sameAsSubscriber, beneficiaryPhone, beneficiaryName, beneficiaryAge, beneficiaryDob, beneficiaryGender, maritalStatus, profilePhoto,
+    beneficiaryAddress, beneficiaryPincode, beneficiaryCity, beneficiaryState, relationship, medicalConditions, medications, vitalsToTrack,
+    primaryPhysicianName, primaryPhysicianPhone, hobbiesInterests, customHobby, emergencyContactName, emergencyContactPhone, emergencyContactRel,
+    emergencyContactEmail, secondaryContactName, secondaryContactPhone, secondaryContactRel, secondaryContactEmail, preferredSlot,
+    selectedPackageId, duration, startDate, amountPaid, paymentMethod, paymentNote
+  ]);
+
   const stepIndex = STEPS.findIndex(s => s.id === step);
   const selectedPackage = packages.find(p => p.id === selectedPackageId);
 
   useEffect(() => {
     packageApi.getAll().then(setPackages).catch(() => toast.error('Failed to load packages'));
+    
+    setLoadingVitals(true);
+    vitalApi.getAll({ activeOnly: true })
+      .then(vitals => {
+        setAvailableVitals(vitals);
+        const initialVitals: Record<string, boolean> = {};
+        vitals.forEach(v => {
+          initialVitals[v.code] = true; // Default all to true as per previous hardcoded logic
+        });
+        setVitalsToTrack(initialVitals);
+      })
+      .catch(() => toast.error('Failed to load vitals'))
+      .finally(() => setLoadingVitals(false));
   }, []);
 
   // Auto-set amount to package price when package is selected
@@ -210,7 +307,9 @@ export default function EnrollmentWizardPage() {
         vitalsToTrack,
         primaryPhysicianName,
         primaryPhysicianPhone,
-        hobbiesInterests,
+        hobbiesInterests: hobbiesInterests.includes('Other') && customHobby 
+          ? [...hobbiesInterests.filter(h => h !== 'Other'), customHobby]
+          : hobbiesInterests,
         emergencyContactName,
         emergencyContactPhone,
         emergencyContactRelationship: emergencyContactRel,
@@ -229,6 +328,7 @@ export default function EnrollmentWizardPage() {
       });
       setEnrolledResult(result);
       setStep('confirm');
+      sessionStorage.removeItem('enrollment_wizard_data');
       toast.success('Enrollment successful! ✅');
     } catch (err: any) {
       toast.error(err.message || 'Enrollment failed');
@@ -274,9 +374,23 @@ export default function EnrollmentWizardPage() {
               <span className="text-muted-foreground">Subscriber</span>
               <span className="font-semibold">{enrolledResult.subscriber?.name} ({enrolledResult.subscriber?.phone})</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Beneficiary</span>
-              <span className="font-semibold">{enrolledResult.beneficiary?.name}</span>
+            <div className="flex justify-between items-center py-2 border-b border-dashed mb-2">
+              <div className="flex items-center gap-3">
+                {profilePhoto ? (
+                  <img src={profilePhoto} alt="Beneficiary" className="w-12 h-12 rounded-full object-cover border-2 border-primary/20" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
+                    <UserSquare className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div>
+                  <span className="text-muted-foreground text-xs block uppercase font-bold tracking-tighter">Beneficiary</span>
+                  <span className="font-bold text-lg leading-none">{enrolledResult.beneficiary?.name}</span>
+                </div>
+              </div>
+              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                {relationship || 'Self'}
+              </Badge>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Package</span>
@@ -498,26 +612,54 @@ export default function EnrollmentWizardPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 flex justify-center mb-2">
                   <div className="relative group">
-                    <div className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-dashed border-muted-foreground/30 relative">
-                      {profilePhoto ? (
+                    <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      accept="image/*"
+                      className="hidden" 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          setUploadingPhoto(true);
+                          const res = await staffOnboardingApi.uploadFile(file);
+                          if (res.success) {
+                            setProfilePhoto(res.url);
+                            toast.success('Photo uploaded');
+                          }
+                        } catch (err) {
+                          toast.error('Upload failed');
+                        } finally {
+                          setUploadingPhoto(false);
+                          if (e.target) e.target.value = '';
+                        }
+                      }} 
+                    />
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-24 h-24 rounded-full bg-secondary flex items-center justify-center overflow-hidden border-2 border-dashed border-muted-foreground/30 relative cursor-pointer hover:border-primary transition-colors group"
+                    >
+                      {uploadingPhoto ? (
+                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                      ) : profilePhoto ? (
                         <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
-                        <Camera className="w-8 h-8 text-muted-foreground/50" />
+                        <Camera className="w-8 h-8 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                      )}
+                      
+                      {!profilePhoto && !uploadingPhoto && (
+                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-primary uppercase">Upload</span>
+                        </div>
                       )}
                     </div>
-                    <label className="absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full cursor-pointer shadow-lg hover:scale-105 transition-transform">
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full cursor-pointer shadow-lg hover:scale-110 active:scale-95 transition-all z-10"
+                    >
                       <Plus className="w-4 h-4" />
-                      <input 
-                        type="text" 
-                        className="hidden" 
-                        placeholder="URL" 
-                        onChange={e => setProfilePhoto(e.target.value)} 
-                        onFocus={(e) => {
-                          const url = prompt('Enter profile photo URL:');
-                          if (url) setProfilePhoto(url);
-                        }}
-                      />
-                    </label>
+                    </button>
                   </div>
                 </div>
 
@@ -627,7 +769,16 @@ export default function EnrollmentWizardPage() {
                 {!sameAsSubscriber && (
                   <div className="space-y-1 col-span-2">
                     <Label htmlFor="ben-rel">Relationship to Subscriber</Label>
-                    <Input id="ben-rel" value={relationship} onChange={e => setRelationship(e.target.value)} placeholder="e.g. Father, Mother" />
+                    <Select value={relationship} onValueChange={setRelationship}>
+                      <SelectTrigger id="ben-rel">
+                        <SelectValue placeholder="Select relationship" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RELATIONSHIPS.map(rel => (
+                          <SelectItem key={rel} value={rel}>{rel}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>
@@ -836,70 +987,59 @@ export default function EnrollmentWizardPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <div className="flex justify-between items-center">
-                    <Label className="text-sm font-semibold flex items-center gap-2">
-                      <Heart className="w-4 h-4 text-primary" /> Hobbies & Interests
-                    </Label>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 gap-1 rounded-full border-primary text-primary hover:bg-primary/5">
-                          <Plus className="w-3.5 h-3.5" /> Add
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[400px]">
-                        <DialogHeader>
-                          <DialogTitle>Add Hobby/Interest</DialogTitle>
-                        </DialogHeader>
-                        <div className="py-4">
-                          <Input 
-                            placeholder="e.g., Reading, Gardening, Yoga" 
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                const val = e.currentTarget.value.trim();
-                                if (val && !hobbiesInterests.includes(val)) {
-                                  setHobbiesInterests([...hobbiesInterests, val]);
-                                  e.currentTarget.value = '';
-                                }
-                              }
-                            }}
-                          />
-                          <p className="text-[10px] text-muted-foreground mt-2">This helps us create meaningful social connections</p>
-                        </div>
-                        <DialogFooter>
-                          <Button 
-                            className="w-full bg-orange-500 hover:bg-orange-600"
-                            onClick={(e) => {
-                              const input = e.currentTarget.closest('[role="dialog"]')?.querySelector('input');
-                              if (input?.value.trim()) {
-                                setHobbiesInterests([...hobbiesInterests, input.value.trim()]);
-                                input.value = '';
-                              }
-                            }}
-                          >
-                            Add Hobby
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                <div className="space-y-4 pt-2">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-primary" /> Hobbies & Interests
+                  </Label>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {COMMON_HOBBIES.map((hobby) => {
+                      const isSelected = hobbiesInterests.includes(hobby);
+                      return (
+                        <button
+                          key={hobby}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setHobbiesInterests(hobbiesInterests.filter(h => h !== hobby));
+                            } else {
+                              setHobbiesInterests([...hobbiesInterests, hobby]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                            isSelected
+                              ? 'bg-primary text-white border-primary shadow-sm'
+                              : 'bg-white text-gray-600 border-[#E7DED6] hover:border-primary'
+                          }`}
+                        >
+                          {hobby}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="flex flex-wrap gap-2 min-h-[32px]">
-                    {hobbiesInterests.length === 0 && (
-                      <p className="text-xs text-muted-foreground italic">No hobbies added</p>
-                    )}
-                    {hobbiesInterests.map((hobby) => (
-                      <Badge 
-                        key={hobby} 
-                        variant="secondary" 
-                        className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-none py-1 px-3 flex items-center gap-2 rounded-lg"
-                      >
-                        {hobby}
-                        <X 
-                          className="w-3 h-3 cursor-pointer hover:text-blue-900" 
-                          onClick={() => setHobbiesInterests(hobbiesInterests.filter(h => h !== hobby))}
+
+                  <div className="pt-2">
+                    {(hobbiesInterests.includes('Other') || hobbiesInterests.some(h => !COMMON_HOBBIES.includes(h))) && (
+                      <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                        <Label className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Specify Other Hobby</Label>
+                        <Input 
+                          placeholder="Type custom hobby and press enter..." 
+                          className="h-9 text-xs border-orange-200 focus-visible:ring-orange-500"
+                          value={customHobby}
+                          onChange={e => setCustomHobby(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const val = customHobby.trim();
+                              if (val && !hobbiesInterests.includes(val)) {
+                                setHobbiesInterests([...hobbiesInterests.filter(h => h !== 'Other'), val]);
+                                setCustomHobby('');
+                              }
+                            }
+                          }}
                         />
-                      </Badge>
-                    ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -910,15 +1050,23 @@ export default function EnrollmentWizardPage() {
                 <CardTitle className="text-sm flex items-center gap-2"><HeartPulse className="w-4 h-4 text-primary" /> Vitals to Track</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3 py-2">
-                {Object.entries(vitalsToTrack).map(([key, val]) => (
-                  <div key={key} className="flex items-center gap-2">
+                {loadingVitals ? (
+                  <div className="col-span-2 py-4 flex items-center justify-center text-xs text-muted-foreground">
+                    <Loader2 className="w-3 h-3 animate-spin mr-2" /> Loading vitals...
+                  </div>
+                ) : availableVitals.length === 0 ? (
+                  <div className="col-span-2 py-4 text-center text-xs text-muted-foreground italic">
+                    No vitals defined
+                  </div>
+                ) : availableVitals.map((v) => (
+                  <div key={v.id} className="flex items-center gap-2">
                     <Checkbox 
-                      id={`vital-${key}`} 
-                      checked={val} 
-                      onCheckedChange={checked => setVitalsToTrack({ ...vitalsToTrack, [key]: !!checked })} 
+                      id={`vital-${v.code}`} 
+                      checked={vitalsToTrack[v.code]} 
+                      onCheckedChange={checked => setVitalsToTrack({ ...vitalsToTrack, [v.code]: !!checked })} 
                     />
-                    <label htmlFor={`vital-${key}`} className="text-xs font-medium cursor-pointer capitalize">
-                      {key.replace(/([A-Z])/g, ' $1')}
+                    <label htmlFor={`vital-${v.code}`} className="text-xs font-medium cursor-pointer">
+                      {v.name} {v.unit ? `(${v.unit})` : ''}
                     </label>
                   </div>
                 ))}

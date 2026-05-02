@@ -10,6 +10,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '@/components/CallbackButton';
+import { ProfilePhotoUploader } from '@/components/ui/ProfilePhotoUploader';
 import { TimelineTab } from './components/beneficiary/TimelineTab';
 import { VitalsTab } from './components/beneficiary/VitalsTab';
 import { MedicalTab } from './components/beneficiary/MedicalTab';
@@ -129,9 +130,18 @@ export default function BeneficiaryProfileScreen() {
 
                 {/* ── Hero Card ── */}
                 <LinearGradient colors={['#F97316', '#FDBA74']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroGradient}>
-                    <Image
-                        source={{ uri: beneficiary.photo || 'https://randomuser.me/api/portraits/men/32.jpg' }}
-                        style={styles.heroPhoto}
+                    <ProfilePhotoUploader
+                        config={{
+                            targetType: 'beneficiary',
+                            targetId: beneficiary.id,
+                            currentPhotoUrl: beneficiary.photo || null,
+                            size: 90,
+                            editable: true,
+                            initials: (beneficiary.name || 'B').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
+                            accentColor: '#F97316',
+                            onSuccess: (url) => setBeneficiary((prev: any) => ({ ...prev, photo: url })),
+                        }}
+                        style={{ marginBottom: 12 }}
                     />
                     <Text style={styles.heroName}>{beneficiary.name}</Text>
                     <Text style={styles.heroMeta}>{beneficiary.age ? `${beneficiary.age} years` : ''}{beneficiary.relationship ? ` • ${beneficiary.relationship}` : ''}</Text>

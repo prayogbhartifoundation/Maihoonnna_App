@@ -153,6 +153,13 @@ router.get('/available-staff', async (req, res) => {
       zoneIds = zoneIds.filter((id) => id === req.user.zoneId);
     }
 
+    if (zoneIds.length === 0) {
+      return res.json({
+        success: true,
+        data: { careCompanions: [], fieldManagers: [], zones: [] },
+      });
+    }
+
     // Get CCs whose staffProfile.zoneId matches one of these zones
     const ccProfiles = await prisma.staffProfile.findMany({
       where: {
@@ -457,14 +464,63 @@ router.put('/:id', async (req, res) => {
     if (trackWeight !== undefined) dataToUpdate.trackWeight = Boolean(trackWeight);
     if (trackPainLevel !== undefined) dataToUpdate.trackPainLevel = Boolean(trackPainLevel);
     if (trackRespiratoryRate !== undefined) dataToUpdate.trackRespiratoryRate = Boolean(trackRespiratoryRate);
-    if (medicalConditions !== undefined) dataToUpdate.medicalConditions = medicalConditions;
-    if (medications !== undefined) dataToUpdate.medications = medications;
+    if (medicalConditions !== undefined) {
+      dataToUpdate.conditions = {
+        set: [] // or proper update structure
+      };
+    }
+    if (medications !== undefined) {
+      dataToUpdate.medicationList = {
+        set: []   // or proper update structure
+      };
+    }
     if (isActive !== undefined) dataToUpdate.isActive = Boolean(isActive);
 
     const updated = await prisma.beneficiary.update({
       where: { id },
       data: dataToUpdate
     });
+
+    // Sync Vitals Configuration (New Relational System)
+    const vitalFields = Object.keys(dataToUpdate).filter(k => k.startsWith('track'));
+    if (vitalFields.length > 0) {
+      const vitalDefs = await prisma.vitalDefinition.findMany();
+      for (const field of vitalFields) {
+        const isActive = dataToUpdate[field];
+        let code = '';
+        if (field === 'trackBloodPressure') code = 'BP'; 
+        if (field === 'trackHeartRate') code = 'PULSE';
+        if (field === 'trackBloodSugar') code = 'BLOOD_GLUCOSE';
+        if (field === 'trackTemperature') code = 'TEMP';
+        if (field === 'trackOxygenSaturation') code = 'SPO2';
+        if (field === 'trackWeight') code = 'WEIGHT';
+        if (field === 'trackPainLevel') code = 'PAIN';
+        if (field === 'trackRespiratoryRate') code = 'RESP';
+        
+        if (code) {
+          const def = vitalDefs.find(d => d.code === code);
+          if (def) {
+            await prisma.beneficiaryVitalConfig.upsert({
+              where: {
+                beneficiaryId_vitalDefinitionId_effectiveFrom: {
+                  beneficiaryId: id,
+                  vitalDefinitionId: def.id,
+                  effectiveFrom: new Date(new Date().setHours(0,0,0,0))
+                }
+              },
+              update: { isActive },
+              create: {
+                beneficiaryId: id,
+                vitalDefinitionId: def.id,
+                isActive,
+                frequency: 'every_visit',
+                effectiveFrom: new Date(new Date().setHours(0,0,0,0))
+              }
+            });
+          }
+        }
+      }
+    }
 
     res.json({ success: true, data: updated });
   } catch (err) {

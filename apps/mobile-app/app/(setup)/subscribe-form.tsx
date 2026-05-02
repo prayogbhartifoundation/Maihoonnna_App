@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -9,11 +9,19 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    ActivityIndicator
+    ActivityIndicator,
+    Animated,
+    Dimensions
 } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const DRAWER_WIDTH = width * 0.75;
+
+import GlobalDrawer from '../(subscriber)/components/shared/GlobalDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { AddressInputField } from '../../components/ui/AddressInputField';
 
 import { API_URL } from '@/constants/api';
 
@@ -29,6 +37,24 @@ export default function SubscribeFormScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
+    const [userData, setUserData] = useState<any>(null);
+
+    useEffect(() => {
+        AsyncStorage.getItem('userData').then(data => {
+            if (data) setUserData(JSON.parse(data));
+        });
+    }, []);
+
+    const openDrawer = () => {
+        setDrawerOpen(true);
+        Animated.timing(drawerAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start();
+    };
+    const closeDrawer = () => {
+        Animated.timing(drawerAnim, { toValue: DRAWER_WIDTH, duration: 240, useNativeDriver: true }).start(() => setDrawerOpen(false));
+    };
+
     const [isCheckingAuth, setIsCheckingAuth] = useState(true);
     const [selectedPackage, setSelectedPackage] = useState<PackageDetails>({
         id: 'loading...',
@@ -42,7 +68,15 @@ export default function SubscribeFormScreen() {
         fullName: '',
         phone: '',
         email: '',
-        address: ''
+        address: '',
+        flatPlot: '',
+        streetArea: '',
+        landmark: '',
+        city: '',
+        state: '',
+        pincode: '',
+        latitude: 0,
+        longitude: 0,
     });
 
     useEffect(() => {
@@ -141,7 +175,9 @@ export default function SubscribeFormScreen() {
                                 <Ionicons name="notifications-outline" size={26} color="#111827" />
                                 <View style={styles.notifBadge}><Text style={styles.notifText}>2</Text></View>
                             </View>
-                            <Ionicons name="menu-outline" size={30} color="#111827" style={{ marginLeft: 15 }} />
+                            <TouchableOpacity onPress={openDrawer}>
+                                <Ionicons name="menu-outline" size={30} color="#111827" style={{ marginLeft: 15 }} />
+                            </TouchableOpacity>
                         </View>
                     </View>
                     {/* Progress Bar */}
@@ -210,17 +246,88 @@ export default function SubscribeFormScreen() {
                             />
                         </View>
 
+                        <AddressInputField
+                            label=""
+                            value={subscriberForm.address}
+                            onChangeText={(text) => setSubscriberForm(prev => ({ ...prev, address: text }))}
+                            onLocationFetched={(details) => setSubscriberForm(prev => ({
+                                ...prev,
+                                address: details.address || prev.address,
+                                streetArea: details.address?.split(',')[0] || prev.streetArea,
+                                city: details.city || prev.city,
+                                state: details.state || prev.state,
+                                pincode: details.pincode || prev.pincode,
+                                latitude: details.latitude || 0,
+                                longitude: details.longitude || 0,
+                            }))}
+                        />
+
+                        <View style={styles.row}>
+                            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                                <Text style={styles.label}>Flat / Plot / Building</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="e.g. 402, Sunshine"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={subscriberForm.flatPlot}
+                                    onChangeText={(t) => setSubscriberForm({ ...subscriberForm, flatPlot: t })}
+                                />
+                            </View>
+                            <View style={[styles.inputGroup, { flex: 1.5 }]}>
+                                <Text style={styles.label}>Street / Area *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="e.g. Sector 15"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={subscriberForm.streetArea}
+                                    onChangeText={(t) => setSubscriberForm({ ...subscriberForm, streetArea: t })}
+                                />
+                            </View>
+                        </View>
+
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Address *</Text>
+                            <Text style={styles.label}>Landmark (Optional)</Text>
                             <TextInput
-                                style={[styles.input, styles.textArea]}
-                                placeholder="Enter complete address"
+                                style={styles.input}
+                                placeholder="e.g. Near HDFC Bank"
                                 placeholderTextColor="#9CA3AF"
-                                multiline
-                                numberOfLines={4}
-                                textAlignVertical="top"
-                                value={subscriberForm.address}
-                                onChangeText={(text) => setSubscriberForm({ ...subscriberForm, address: text })}
+                                value={subscriberForm.landmark}
+                                onChangeText={(t) => setSubscriberForm({ ...subscriberForm, landmark: t })}
+                            />
+                        </View>
+
+                        <View style={styles.row}>
+                            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                                <Text style={styles.label}>City *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="City"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={subscriberForm.city}
+                                    onChangeText={(t) => setSubscriberForm({ ...subscriberForm, city: t })}
+                                />
+                            </View>
+                            <View style={[styles.inputGroup, { flex: 1 }]}>
+                                <Text style={styles.label}>Pincode *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Pincode"
+                                    placeholderTextColor="#9CA3AF"
+                                    keyboardType="numeric"
+                                    value={subscriberForm.pincode}
+                                    onChangeText={(t) => setSubscriberForm({ ...subscriberForm, pincode: t })}
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>State *</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="State"
+                                placeholderTextColor="#9CA3AF"
+                                value={subscriberForm.state}
+                                onChangeText={(t) => setSubscriberForm({ ...subscriberForm, state: t })}
                             />
                         </View>
                     </View>
@@ -234,6 +341,13 @@ export default function SubscribeFormScreen() {
                 </View>
 
             </KeyboardAvoidingView>
+
+            <GlobalDrawer 
+                isOpen={drawerOpen} 
+                onClose={closeDrawer} 
+                drawerAnim={drawerAnim} 
+                userData={userData} 
+            />
         </SafeAreaView>
     );
 }
@@ -290,6 +404,7 @@ const styles = StyleSheet.create({
         color: '#F97316',
         marginBottom: 2,
     },
+    row: { flexDirection: 'row', alignItems: 'center' },
 
     formCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, elevation: 1 },
     sectionTitle: { fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 20 },

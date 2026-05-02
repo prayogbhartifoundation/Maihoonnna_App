@@ -84,12 +84,15 @@ export default function EditBeneficiaryScreen() {
                     setHobbiesText(beneficiary.hobbiesInterests?.join(', ') || '');
                     
                     const vFlags: Record<string, boolean> = {};
-                    const keys = [
-                        'trackBloodPressure', 'trackHeartRate', 'trackBloodSugar', 
-                        'trackTemperature', 'trackOxygenSaturation', 'trackWeight', 
-                        'trackPainLevel', 'trackRespiratoryRate'
-                    ];
-                    keys.forEach(k => vFlags[k] = !!beneficiary[k]);
+                    // Initialize from relational configs
+                    if (beneficiary.vitalConfigs) {
+                        beneficiary.vitalConfigs.forEach((config: any) => {
+                            // We need to find the code for this config
+                            // The config should have vitalDefinitionId, but we might need the code
+                            // If we fetched vitalsConfig first, we can map ID to code
+                            vFlags[config.vitalDefinitionId] = !!config.isActive;
+                        });
+                    }
                     setVitals(vFlags);
                 }
             } catch (e) {
@@ -119,7 +122,7 @@ export default function EditBeneficiaryScreen() {
                 primaryPhysicianPhone: physicianPhone,
                 primaryPhysicianSpec: physicianSpec,
                 hobbiesInterests: hobbiesText.split(', ').filter(Boolean),
-                ...vitals
+                vitalsData: vitals // Send as a separate object for relational update
             };
 
             const res = await fetch(`${API_URL}/subscriber/beneficiaries/${id}`, {
@@ -209,18 +212,18 @@ export default function EditBeneficiaryScreen() {
                         )}
 
                         <Text style={styles.inputLabel}>Gender</Text>
-                        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                             {['male', 'female', 'other', 'prefer_not_to_say'].map((g) => (
                                 <TouchableOpacity 
                                     key={g} 
                                     onPress={() => setGender(g)}
                                     style={{
-                                        paddingHorizontal: 10, paddingVertical: 6, borderRadius: 15,
+                                        paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
                                         backgroundColor: gender === g ? '#F97316' : '#F3F4F6',
                                         borderWidth: 1, borderColor: gender === g ? '#F97316' : '#E5E7EB'
                                     }}
                                 >
-                                    <Text style={{ fontSize: 11, color: gender === g ? '#FFF' : '#374151', textTransform: 'capitalize' }}>
+                                    <Text style={{ fontSize: 12, color: gender === g ? '#FFF' : '#374151', textTransform: 'capitalize', fontWeight: gender === g ? '700' : '500' }}>
                                         {g === 'prefer_not_to_say' ? 'Private' : g}
                                     </Text>
                                 </TouchableOpacity>
@@ -279,15 +282,16 @@ export default function EditBeneficiaryScreen() {
                         <Text style={styles.sectionTitle}>Vitals Tracking Preferences</Text>
                         {vitalsConfig.map((v) => (
                             <View key={v.id} style={styles.switchRow}>
-                                <Text style={styles.switchLabel}>{v.name}</Text>
+                                <Text style={styles.switchLabel}>{v.name} {v.unit ? `(${v.unit})` : ''}</Text>
                                 <Switch
-                                    value={!!vitals[v.fieldKey]}
-                                    onValueChange={(val) => setVitals({ ...vitals, [v.fieldKey]: val })}
+                                    value={!!vitals[v.id]}
+                                    onValueChange={(val) => setVitals({ ...vitals, [v.id]: val })}
                                     trackColor={{ false: "#D1D5DB", true: "#FDBA74" }}
-                                    thumbColor={vitals[v.fieldKey] ? "#F97316" : "#f4f3f4"}
+                                    thumbColor={vitals[v.id] ? "#F97316" : "#f4f3f4"}
                                 />
                             </View>
                         ))}
+                        {vitalsConfig.length === 0 && <Text style={styles.emptyText}>No vitals defined</Text>}
                     </View>
 
                     {/* Physician Info */}

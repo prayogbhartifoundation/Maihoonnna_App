@@ -11,14 +11,31 @@
     "userInterfaceStyle": "automatic",
 
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": ""
+      }
     },
 
     "android": {
       "package": "com.rajeev_23.maihoonna",
       "adaptiveIcon": {
+<<<<<<< HEAD
         "foregroundImage": "./assets/images/group2.png",
         "backgroundColor": "#E6F4FE"
+=======
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+>>>>>>> 81c0befa855a69acf82da50f535c35871c5b168d
       }
     },
 
@@ -34,6 +51,13 @@
           "image": "./assets/images/group4.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "MaiHoonNa needs your location to show your address on the map and find nearby care services.",
+          "locationWhenInUsePermission": "MaiHoonNa needs your location to pin your address and find nearby Care Companions."
         }
       ]
     ],

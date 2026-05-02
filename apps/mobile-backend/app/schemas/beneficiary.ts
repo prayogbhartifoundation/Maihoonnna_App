@@ -16,8 +16,8 @@ export const createBeneficiarySchema = Joi.object({
 export const updateBeneficiarySchema = Joi.object({
   name: Joi.string().optional(),
   photo: Joi.string().optional(),
-  age: Joi.number().integer().optional(),
-  gender: Joi.string().valid('male', 'female', 'other', 'prefer_not_to_say').optional(),
+  age: Joi.number().integer().allow(null).optional(),
+  gender: Joi.string().valid('male', 'female', 'other', 'prefer_not_to_say').allow('', null).optional(),
   address: Joi.string().optional(),
   relationship: Joi.string().optional(),
   city: Joi.string().optional(),
@@ -53,6 +53,8 @@ export const updateBeneficiarySchema = Joi.object({
     instructions: Joi.string().allow('', null).optional(),
   })).optional(),
   
+  vitalsData: Joi.object().pattern(Joi.string(), Joi.boolean()).optional(),
+  isActive: Joi.boolean().optional(),
   emergencyContacts: Joi.array().items(Joi.object()).optional(),
   primaryCcId: Joi.string().uuid().allow(null).optional(),
   emotionalScore: Joi.number().min(0).max(10).optional(),

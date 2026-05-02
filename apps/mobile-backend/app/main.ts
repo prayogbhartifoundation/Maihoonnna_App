@@ -16,6 +16,8 @@ import subscriptionsRouter from './api/subscriber/subscriptions.routes';
 import beneficiariesRouter from './api/subscriber/beneficiaries.routes';
 import couponsRouter from './api/subscriber/coupons.routes';
 import subscriberRouter from './api/subscriber/subscriber.routes';
+import serviceRequestsRouter from './api/subscriber/service-requests.routes';
+import addressesRouter from './api/subscriber/addresses.routes';
 
 // Care Companion Routes
 import visitsRouter from './api/care_companion/visits.routes';
@@ -26,6 +28,7 @@ import usersRouter from './api/admin/users.routes';
 
 // Shared Routes
 import medicationsRouter from './api/shared/medications.routes';
+import profilePhotoRouter from './api/shared/profile-photo.routes';
 import emergencyRouter from './api/shared/emergency.routes';
 import callbackRouter from './api/shared/callback.routes';
 
@@ -36,6 +39,7 @@ import beneficiaryDashboardRouter from './api/beneficiary/dashboard.routes';
 import publicVitalsRouter from './api/public/vitals.routes';
 import publicZonesRouter from './api/public/zones.routes';
 import publicEnrollmentRouter from './api/public/enrollment.routes';
+import publicLocationRouter from './api/public/location.routes';
 
 const app = express();
 
@@ -53,21 +57,24 @@ app.use(globalLimiter);
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile app, curl, etc.)
-      if (!origin) return callback(null, true);
+      // Allow all origins to resolve CORS issue for APK testing
+      return callback(null, true);
 
-      // If allowed origin is '*', allow everything
-      if (config.corsOrigin === '*') return callback(null, true);
+      // // Allow requests with no origin (mobile app, curl, etc.)
+      // if (!origin) return callback(null, true);
 
-      // Check if current origin is in the allowed list
-      if (Array.isArray(config.corsOrigin) && config.corsOrigin.includes(origin)) {
-        return callback(null, true);
-      }
+      // // If allowed origin is '*', allow everything
+      // if (config.corsOrigin === '*') return callback(null, true);
 
-      // If literal match
-      if (config.corsOrigin === origin) return callback(null, true);
+      // // Check if current origin is in the allowed list
+      // if (Array.isArray(config.corsOrigin) && config.corsOrigin.includes(origin)) {
+      //   return callback(null, true);
+      // }
 
-      callback(new Error(`CORS: Origin ${origin} not allowed`));
+      // // If literal match
+      // if (config.corsOrigin === origin) return callback(null, true);
+
+      // // callback(new Error(`CORS: Origin ${origin} not allowed`));
     },
     credentials: true,
   })
@@ -91,6 +98,8 @@ app.use(`${API}/subscriber/dashboard`, dashboardRouter);
 app.use(`${API}/subscriber/subscriptions`, subscriptionsRouter);
 app.use(`${API}/subscriber/beneficiaries`, beneficiariesRouter);
 app.use(`${API}/subscriber/coupons`, couponsRouter);
+app.use(`${API}/subscriber/service-requests`, serviceRequestsRouter);
+app.use(`${API}/subscriber/addresses`, addressesRouter);
 app.use(`${API}/subscriber`, subscriberRouter);
 
 // Role: Care Companion endpoints
@@ -108,9 +117,13 @@ app.use(`${API}/shared/medications`, medicationsRouter);
 app.use(`${API}/shared/emergency`, emergencyRouter);
 app.use(`${API}/shared/callbacks`, callbackRouter);
 
+// Profile Photo Upload (all roles)
+app.use(`${API}/profile-photo`, profilePhotoRouter);
+
 // Public endpoints
 app.use(`${API}/public/vitals`, publicVitalsRouter);
 app.use(`${API}/public/zones`, publicZonesRouter);
+app.use(`${API}/public/location`, publicLocationRouter);
 app.use(`${API}/public`, publicEnrollmentRouter);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────

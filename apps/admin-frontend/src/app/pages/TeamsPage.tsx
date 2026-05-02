@@ -3,6 +3,7 @@ import { Users, MapPin, Briefcase, Plus, Filter, Loader2, Edit2 } from 'lucide-r
 import { teamApi } from '../../services/api';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
+import { EntityAvatar } from '../components/common/EntityAvatar';
 
 const TeamsPage = () => {
   const [teams, setTeams] = useState<any[]>([]);
@@ -80,13 +81,21 @@ const TeamsPage = () => {
                   </div>
                 </div>
                 <div className="flex -space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-[#1F8A3E] border-2 border-white flex items-center justify-center text-white font-bold text-sm shadow-sm z-20" title={`FM: ${team.fieldManager?.name}`}>
-                    {team.fieldManager?.name?.charAt(0)?.toUpperCase()}
-                  </div>
+                  <EntityAvatar 
+                    name={team.fieldManager?.name} 
+                    photoUrl={team.fieldManager?.photo} 
+                    type="field_manager" 
+                    className="w-10 h-10 border-2 border-white text-sm shadow-sm z-20" 
+                  />
                   {(team.careCompanions || []).slice(0, 3).map((cc: any, i: number) => (
-                    <div key={cc.id} className="w-10 h-10 rounded-full bg-[#FF7A00] border-2 border-white flex items-center justify-center text-white font-bold text-sm shadow-sm" style={{ zIndex: 10 - i }} title={`CC: ${cc.name}`}>
-                      {cc.name?.charAt(0)?.toUpperCase()}
-                    </div>
+                    <EntityAvatar 
+                      key={cc.id}
+                      name={cc.name} 
+                      photoUrl={cc.photo} 
+                      type="care_companion" 
+                      className="w-10 h-10 border-2 border-white text-sm shadow-sm" 
+                      style={{ zIndex: 10 - i }}
+                    />
                   ))}
                   {(team.careCompanions || []).length > 3 && (
                     <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-gray-600 font-bold text-xs shadow-sm" style={{ zIndex: 5 }}>

@@ -1,14 +1,46 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Modal, Pressable } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Modal, Pressable, Animated, Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const DRAWER_WIDTH = width * 0.75;
+
+import GlobalDrawer from '../(subscriber)/components/shared/GlobalDrawer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { AddressPicker, SelectedAddress } from '../../components/ui/AddressPicker';
+import { useLocationPermission } from '../../hooks/useLocationPermission';
+import { PhotoPickerInput } from '../../components/ui/PhotoPickerInput';
+import { AddressInputField } from '../../components/ui/AddressInputField';
 
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
+    const [userData, setUserData] = useState<any>(null);
+
+    useEffect(() => {
+        AsyncStorage.getItem('userData').then(data => {
+            if (data) setUserData(JSON.parse(data));
+        });
+    }, []);
+
+    const openDrawer = () => {
+        setDrawerOpen(true);
+        Animated.timing(drawerAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start();
+    };
+    const closeDrawer = () => {
+        Animated.timing(drawerAnim, { toValue: DRAWER_WIDTH, duration: 240, useNativeDriver: true }).start(() => setDrawerOpen(false));
+    };
+
     const [showRelationshipModal, setShowRelationshipModal] = useState(false);
+    const [pickedPhotoUri, setPickedPhotoUri] = useState<string | null>(null);
     const relationships = ['Self', 'Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Sibling', 'Guardian', 'Friend', 'Other'];
+
+    // Request location permission immediately on screen load
+    const { location: userLocation } = useLocationPermission({ requestOnMount: true });
 
     const [beneficiaryForm, setBeneficiaryForm] = useState({
         fullName: '',
@@ -17,7 +49,15 @@ export default function BeneficiaryInfoScreen() {
         maritalStatus: '',
         relationship: '',
         phone: '',
-        address: ''
+        address: '',
+        flatPlot: '',
+        streetArea: '',
+        landmark: '',
+        city: '',
+        state: '',
+        pincode: '',
+        latitude: 0,
+        longitude: 0,
     });
 
     const handleNext = () => {
@@ -65,7 +105,9 @@ export default function BeneficiaryInfoScreen() {
                                 <Ionicons name="notifications-outline" size={26} color="#111827" />
                                 <View style={styles.notifBadge}><Text style={styles.notifText}>2</Text></View>
                             </View>
-                            <Ionicons name="menu-outline" size={30} color="#111827" style={{ marginLeft: 15 }} />
+                            <TouchableOpacity onPress={openDrawer}>
+                                <Ionicons name="menu-outline" size={30} color="#111827" style={{ marginLeft: 15 }} />
+                            </TouchableOpacity>
                         </View>
                     </View>
                     {/* Progress Bar */}
@@ -82,14 +124,16 @@ export default function BeneficiaryInfoScreen() {
                         {/* Profile Photo Upload UI */}
                         <Text style={styles.label}>Profile Photo</Text>
                         <View style={styles.photoUploadContainer}>
-                            <TouchableOpacity style={styles.photoBox}>
-                                <MaterialCommunityIcons name="image-plus" size={32} color="#4B5563" />
-                                <Text style={styles.uploadLabel}>Upload Photo</Text>
-                                <TouchableOpacity style={styles.editIconBadge}>
-                                    <Ionicons name="pencil" size={12} color="white" />
-                                </TouchableOpacity>
-                            </TouchableOpacity>
-                            <Text style={styles.photoHint}>Add a clear photo for identification</Text>
+                            <PhotoPickerInput
+                                currentUri={pickedPhotoUri}
+                                onPhotoSelected={(uri) => setPickedPhotoUri(uri)}
+                                onPhotoClear={() => setPickedPhotoUri(null)}
+                                size={120}
+                                shape="square"
+                                accentColor="#F97316"
+                                label="Upload Photo"
+                                hint="Add a clear photo for identification"
+                            />
                         </View>
 
                         {/* Beneficiary Name */}
@@ -194,17 +238,96 @@ export default function BeneficiaryInfoScreen() {
                         </View>
 
                         {/* Address Area */}
+                        <AddressInputField
+                            label=""
+                            value={beneficiaryForm.address}
+                            onChangeText={(t) => setBeneficiaryForm(prev => ({ ...prev, address: t }))}
+                            onLocationFetched={(details) => setBeneficiaryForm(prev => ({
+                                ...prev,
+                                address: details.address || prev.address,
+                                streetArea: details.address?.split(',')[0] || prev.streetArea,
+                                city: details.city || prev.city,
+                                state: details.state || prev.state,
+                                pincode: details.pincode || prev.pincode,
+                                latitude: details.latitude || 0,
+                                longitude: details.longitude || 0,
+                            }))}
+                        />
+
+                        <View style={styles.row}>
+                            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                                <Text style={styles.label}>Flat / Plot / Building</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="e.g. 402, Sunshine"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={beneficiaryForm.flatPlot}
+                                    onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, flatPlot: t })}
+                                />
+                            </View>
+                            <View style={[styles.inputGroup, { flex: 1.5 }]}>
+                                <Text style={styles.label}>Street / Area *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="e.g. Sector 15"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={beneficiaryForm.streetArea}
+                                    onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, streetArea: t })}
+                                />
+                            </View>
+                        </View>
+
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Address *</Text>
+                            <Text style={styles.label}>Landmark (Optional)</Text>
                             <TextInput
-                                style={[styles.input, styles.textArea]}
-                                placeholder="Enter complete address"
+                                style={styles.input}
+                                placeholder="e.g. Near HDFC Bank"
                                 placeholderTextColor="#9CA3AF"
-                                multiline
-                                value={beneficiaryForm.address}
-                                onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, address: t })}
+                                value={beneficiaryForm.landmark}
+                                onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, landmark: t })}
                             />
                         </View>
+
+                        <View style={styles.row}>
+                            <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                                <Text style={styles.label}>City *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="City"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={beneficiaryForm.city}
+                                    onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, city: t })}
+                                />
+                            </View>
+                            <View style={[styles.inputGroup, { flex: 1 }]}>
+                                <Text style={styles.label}>Pincode *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Pincode"
+                                    placeholderTextColor="#9CA3AF"
+                                    keyboardType="numeric"
+                                    value={beneficiaryForm.pincode}
+                                    onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, pincode: t })}
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>State *</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="State"
+                                placeholderTextColor="#9CA3AF"
+                                value={beneficiaryForm.state}
+                                onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, state: t })}
+                            />
+                        </View>
+                        {beneficiaryForm.latitude !== 0 && (
+                            <View style={[styles.coordsBadge, { marginBottom: 20 }]}>
+                                <Ionicons name="location" size={12} color="#10B981" />
+                                <Text style={styles.coordsText}>GPS coordinates saved</Text>
+                            </View>
+                        )}
                     </View>
 
                 </ScrollView>
@@ -256,13 +379,23 @@ export default function BeneficiaryInfoScreen() {
                 </Pressable>
             </Modal>
 
+            {/* Address Picker Modal handled internally by AddressInputField */}
+
             </KeyboardAvoidingView>
+
+            <GlobalDrawer 
+                isOpen={drawerOpen} 
+                onClose={closeDrawer} 
+                drawerAnim={drawerAnim} 
+                userData={userData} 
+            />
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FFF5ED' },
+    row: { flexDirection: 'row', alignItems: 'center' },
     header: { backgroundColor: '#FFFFFF', paddingTop: 10 },
     headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 10 },
     headerIcons: { flexDirection: 'row', alignItems: 'center' },
@@ -312,5 +445,7 @@ const styles = StyleSheet.create({
     optionBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 10, borderRadius: 10, marginBottom: 5 },
     optionBtnActive: { backgroundColor: '#FFF5ED' },
     optionText: { fontSize: 16, color: '#4B5563' },
-    optionTextActive: { color: '#F97316', fontWeight: '600' }
+    optionTextActive: { color: '#F97316', fontWeight: '600' },
+    coordsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+    coordsText: { fontSize: 12, color: '#10B981', fontWeight: '500' },
 });

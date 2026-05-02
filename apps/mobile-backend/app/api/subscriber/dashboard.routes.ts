@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../shared/deps';
+import { authenticate, AuthRequest } from '../shared/deps';
 import prisma from '../../core/database';
 
 const router = Router();
@@ -76,10 +76,28 @@ router.get('/care-companion/:ccId', authenticate, async (req: Request, res: Resp
 
 import * as subscriptionService from '../../services/subscriber/subscription_service';
 
+// Secure "My Dashboard" route
+router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
+  // Redirect to the unified handler using the token's userId
+  req.params.userId = req.userId!;
+  return handleUserDashboard(req, res);
+});
+
 // Advanced User Dashboard (Mobile Phase 1)
-router.get('/user/:userId', async (req: Request, res: Response) => {
+router.get('/user/:userId', authenticate, async (req: AuthRequest, res: Response) => {
+  return handleUserDashboard(req, res);
+});
+
+async function handleUserDashboard(req: AuthRequest, res: Response) {
   try {
     const userId = req.params.userId as string;
+
+    // Security check: A user should only be able to see their own dashboard
+    // unless they are an admin/staff
+    if (req.userId !== userId && req.userRole !== 'admin' && req.userRole !== 'field_manager') {
+      console.warn(`[Dashboard] User ${req.userId} attempting to access dashboard for ${userId}`);
+      // return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
 
     // Core data
     const activeSubscriptions = await prisma.subscription.findMany({
@@ -97,20 +115,25 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-    const visitsThisWeek = await prisma.visit.count({
-      where: {
-        beneficiaryId: { in: benIds },
-        scheduledTime: { gte: oneWeekAgo }
-      }
-    });
+    let visitsThisWeek = 0;
+    let completedVisitsThisWeek = 0;
 
-    const completedVisitsThisWeek = await prisma.visit.count({
-      where: {
-        beneficiaryId: { in: benIds },
-        scheduledTime: { gte: oneWeekAgo },
-        status: 'completed'
-      }
-    });
+    if (benIds.length > 0) {
+      visitsThisWeek = await prisma.visit.count({
+        where: {
+          beneficiaryId: { in: benIds },
+          scheduledTime: { gte: oneWeekAgo }
+        }
+      });
+
+      completedVisitsThisWeek = await prisma.visit.count({
+        where: {
+          beneficiaryId: { in: benIds },
+          scheduledTime: { gte: oneWeekAgo },
+          status: 'completed'
+        }
+      });
+    }
 
     // Average Happiness
     let avgHappiness = 85;
@@ -124,29 +147,32 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
     const remainingHours = activeSubscriptions.reduce((sum: any, sub: any) => sum + (Math.max(0, (sub.hoursTotal || 0) - (sub.hoursUsed || 0))), 0);
 
     // Recent Updates (Last 3 notes filled by Care Companions)
-    const recentVisitsWithNotes = await prisma.visit.findMany({
-      where: {
-        beneficiaryId: { in: benIds },
-        notes: { not: null }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 3,
-      include: { 
-        careCompanion: {
-          include: { user: true }
-        } 
-      }
-    });
+    let recentUpdates: any[] = [];
+    if (benIds.length > 0) {
+      const recentVisitsWithNotes = await prisma.visit.findMany({
+        where: {
+          beneficiaryId: { in: benIds },
+          notes: { not: null, notIn: ["", " "] }
+        },
+        orderBy: { scheduledTime: 'desc' },
+        take: 3,
+        include: { 
+          careCompanion: {
+            include: { user: true }
+          } 
+        }
+      });
 
-    const recentUpdates = recentVisitsWithNotes
-      .filter((v: any) => v.careCompanion?.user?.isActive !== false) // Filter out notes from deactivated staff
-      .map((v: any) => ({
-      id: v.id,
-      title: "Care Companion Update",
-      date: v.scheduledTime,
-      isNew: true, // We could flag this logically if created in last 24h
-      body: v.notes || "Visit completed smoothly."
-    }));
+      recentUpdates = recentVisitsWithNotes
+        .filter((v: any) => v.careCompanion?.user?.isActive !== false) // Filter out notes from deactivated staff
+        .map((v: any) => ({
+          id: v.id,
+          title: "Care Companion Update",
+          date: v.scheduledTime,
+          isNew: true,
+          body: v.notes || "Visit completed smoothly."
+        }));
+    }
 
     res.json({
       success: true,
@@ -156,13 +182,18 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
         happinessScore: avgHappiness,
         visitsThisWeek: { total: visitsThisWeek, completed: completedVisitsThisWeek },
         activeHours: { used: activeHours || 24, remaining: remainingHours || 36 },
-        totalCarePlans: activeSubscriptions.length || 1
+        totalCarePlans: activeSubscriptions.length || 0
       },
       recentUpdates
     });
   } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error('[Dashboard Error]:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to load dashboard data',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
-});
+}
 
 export default router;

@@ -8,11 +8,13 @@ import DataFilter from '../components/common/DataFilter';
 import DeactivationSummaryModal from '../components/DeactivationSummaryModal';
 import { staffOnboardingApi } from '../../services/api';
 import { Trash2 } from 'lucide-react';
+import { EntityAvatar } from '../components/common/EntityAvatar';
 
 interface FieldManagerItem {
   id: string;
   userId: string;
   name: string;
+  photo?: string | null;
   phone: string;
   zone: string;
   hubName?: string;
@@ -52,6 +54,7 @@ const FieldManagerPage = () => {
         id: fm.id,
         userId: fm.userId,
         name: fm.name,
+        photo: fm.photo || null,
         phone: fm.phone || '',
         zone: fm.zone,
         hubName: zones.find((z: any) => z.id === fm.zoneId || z.id === fm.zone || z.name === fm.zone)?.name || fm.zone,
@@ -176,9 +179,12 @@ const FieldManagerPage = () => {
             <div key={fm.id} className="bg-white rounded-[24px] p-6 shadow-sm border border-[#E7DED6] hover:shadow-md transition-shadow">
               <div className="flex justify-between mb-4">
                 <div className="flex gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-[#1F8A3E] flex items-center justify-center font-bold text-white text-xl">
-                    {fm.name?.charAt(0)?.toUpperCase()}
-                  </div>
+                  <EntityAvatar 
+                    name={fm.name} 
+                    photoUrl={fm.photo} 
+                    type="field_manager" 
+                    className="w-14 h-14 text-xl" 
+                  />
                   <div>
                     <h3 className="font-bold text-gray-800">{fm.name}</h3>
                     <p className="text-xs text-gray-400 uppercase font-bold">Field Manager</p>

@@ -3,7 +3,7 @@
  * Defines all application routes using React Router Data mode
  */
 
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -28,11 +28,16 @@ import EditTeamPage from './pages/EditTeamPage';
 import StaffOnboardingPage from './pages/StaffOnboardingPage';
 import BenefitTypesPage from './pages/BenefitTypesPage';
 import BenefitsPage from './pages/BenefitsPage';
-import VitalsPage from './pages/VitalsPage';
+
 import CouponsPage from './pages/CouponsPage';
 import SubscriberProfilePage from './pages/SubscriberProfilePage';
 import BeneficiaryProfilePage from './pages/BeneficiaryProfilePage';
 import EnrollmentWizardPage from './pages/EnrollmentWizardPage';
+import VitalDefinitionsPage from './pages/vitals/VitalDefinitionsPage';
+import VitalTemplatesPage from './pages/vitals/VitalTemplatesPage';
+import BeneficiaryVitalsPage from './pages/vitals/BeneficiaryVitalsPage';
+import VitalsCaptureLogPage from './pages/vitals/VitalsCaptureLogPage';
+import AlertRulesPage from './pages/vitals/AlertRulesPage';
 
 
 export const router = createBrowserRouter([
@@ -142,7 +147,27 @@ export const router = createBrowserRouter([
       },
       {
         path: 'vitals',
-        Component: VitalsPage,
+        element: <Navigate to="/vitals/definitions" replace />,
+      },
+      {
+        path: 'vitals/definitions',
+        Component: VitalDefinitionsPage,
+      },
+      {
+        path: 'vitals/templates',
+        Component: VitalTemplatesPage,
+      },
+      {
+        path: 'vitals/beneficiary-config',
+        Component: BeneficiaryVitalsPage,
+      },
+      {
+        path: 'vitals/capture-log',
+        Component: VitalsCaptureLogPage,
+      },
+      {
+        path: 'vitals/alert-rules',
+        Component: AlertRulesPage,
       },
 
       {

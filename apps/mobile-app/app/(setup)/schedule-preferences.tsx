@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -7,14 +7,40 @@ import {
     SafeAreaView,
     ScrollView,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Animated,
+    Dimensions
 } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const DRAWER_WIDTH = width * 0.75;
+
+import GlobalDrawer from '../(subscriber)/components/shared/GlobalDrawer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function SchedulePreferencesScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
+    const [userData, setUserData] = useState<any>(null);
+
+    useEffect(() => {
+        AsyncStorage.getItem('userData').then(data => {
+            if (data) setUserData(JSON.parse(data));
+        });
+    }, []);
+
+    const openDrawer = () => {
+        setDrawerOpen(true);
+        Animated.timing(drawerAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start();
+    };
+    const closeDrawer = () => {
+        Animated.timing(drawerAnim, { toValue: DRAWER_WIDTH, duration: 240, useNativeDriver: true }).start(() => setDrawerOpen(false));
+    };
 
     const [visitTiming, setVisitTiming] = useState('');
     const [agreed, setAgreed] = useState(false);
@@ -72,7 +98,9 @@ export default function SchedulePreferencesScreen() {
                                 <Ionicons name="notifications-outline" size={26} color="#111827" />
                                 <View style={styles.notifBadge}><Text style={styles.notifText}>2</Text></View>
                             </View>
-                            <Ionicons name="menu-outline" size={30} color="#111827" style={{ marginLeft: 15 }} />
+                            <TouchableOpacity onPress={openDrawer}>
+                                <Ionicons name="menu-outline" size={30} color="#111827" style={{ marginLeft: 15 }} />
+                            </TouchableOpacity>
                         </View>
                     </View>
                     <View style={styles.progressBarBg}>
@@ -134,6 +162,13 @@ export default function SchedulePreferencesScreen() {
                 </View>
 
             </KeyboardAvoidingView>
+
+            <GlobalDrawer 
+                isOpen={drawerOpen} 
+                onClose={closeDrawer} 
+                drawerAnim={drawerAnim} 
+                userData={userData} 
+            />
         </SafeAreaView>
     );
 }

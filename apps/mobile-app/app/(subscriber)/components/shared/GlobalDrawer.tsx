@@ -17,6 +17,8 @@ interface GlobalDrawerProps {
 const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerProps) => {
     const router = useRouter();
 
+    const isLoggedIn = !!userData && !!userData.id;
+
     const navigateTo = (path: string) => {
         onClose();
         // Small delay to allow drawer to close before navigating
@@ -45,8 +47,8 @@ const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerPro
                             <Ionicons name="person" size={28} color="#F97316" />
                         </View>
                         <View style={styles.headerInfo}>
-                            <Text style={styles.drawerName}>{userData?.name || 'Subscriber'}</Text>
-                            <Text style={styles.drawerPhone}>{userData?.phone || userData?.email || ''}</Text>
+                            <Text style={styles.drawerName}>{isLoggedIn ? userData.name : 'Welcome Guest'}</Text>
+                            <Text style={styles.drawerPhone}>{isLoggedIn ? (userData.phone || userData.email || '') : 'Login to manage your care'}</Text>
                         </View>
                     </View>
 
@@ -54,48 +56,76 @@ const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerPro
 
                     {/* Menu Items */}
                     <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                        <DrawerItem 
-                            label="Dashboard" 
-                            icon="home-outline" 
-                            onPress={() => { onClose(); router.push('/(subscriber)'); }} 
-                        />
-                        <DrawerItem 
-                            label="My Profile" 
-                            icon="person-outline" 
-                            onPress={() => navigateTo('/(subscriber)/profile')} 
-                        />
-                        <DrawerItem 
-                            label="My Beneficiaries" 
-                            icon="people-outline" 
-                            onPress={() => { onClose(); /* Handle scroll or filter if needed */ }} 
-                        />
-                        <DrawerItem 
-                            label="Browse Packages" 
-                            icon="ribbon-outline" 
-                            onPress={() => navigateTo('/(setup)/subscription-packages')} 
-                        />
-                        
-                        <View style={styles.divider} />
-                        
-                        <DrawerItem 
-                            label="Security Settings" 
-                            icon="shield-checkmark-outline" 
-                            onPress={() => navigateTo('/(subscriber)/profile')} 
-                        />
-                        <DrawerItem 
-                            label="Privacy Policy" 
-                            icon="document-lock-outline" 
-                            onPress={() => navigateTo('/(subscriber)/settings/privacy')} 
-                        />
+                        {isLoggedIn ? (
+                            <>
+                                <DrawerItem 
+                                    label="Dashboard" 
+                                    icon="home-outline" 
+                                    onPress={() => { onClose(); router.push('/(subscriber)'); }} 
+                                />
+                                <DrawerItem 
+                                    label="My Profile" 
+                                    icon="person-outline" 
+                                    onPress={() => navigateTo('/(subscriber)/profile')} 
+                                />
+                                <DrawerItem 
+                                    label="My Beneficiaries" 
+                                    icon="people-outline" 
+                                    onPress={() => { onClose(); /* Handle scroll or filter if needed */ }} 
+                                />
+                                <DrawerItem 
+                                    label="Browse Packages" 
+                                    icon="ribbon-outline" 
+                                    onPress={() => navigateTo('/(setup)/subscription-packages')} 
+                                />
+                                
+                                <View style={styles.divider} />
+                                
+                                <DrawerItem 
+                                    label="Security Settings" 
+                                    icon="shield-checkmark-outline" 
+                                    onPress={() => navigateTo('/(subscriber)/profile')} 
+                                />
+                                <DrawerItem 
+                                    label="Privacy Policy" 
+                                    icon="document-lock-outline" 
+                                    onPress={() => navigateTo('/(subscriber)/settings/privacy')} 
+                                />
 
-                        <View style={styles.divider} />
+                                <View style={styles.divider} />
 
-                        <DrawerItem 
-                            label="Logout" 
-                            icon="log-out-outline" 
-                            color="#EF4444"
-                            onPress={() => { onClose(); setTimeout(() => logoutWithConfirm(), 300); }} 
-                        />
+                                <DrawerItem 
+                                    label="Logout" 
+                                    icon="log-out-outline" 
+                                    color="#EF4444"
+                                    onPress={() => { onClose(); setTimeout(() => logoutWithConfirm(), 300); }} 
+                                />
+                            </>
+                        ) : (
+                            <>
+                                <DrawerItem 
+                                    label="Sign In" 
+                                    icon="log-in-outline" 
+                                    onPress={() => navigateTo('/(auth)')} 
+                                />
+                                <DrawerItem 
+                                    label="Create Account" 
+                                    icon="person-add-outline" 
+                                    onPress={() => navigateTo('/(auth)/register')} 
+                                />
+                                <View style={styles.divider} />
+                                <DrawerItem 
+                                    label="Browse Packages" 
+                                    icon="ribbon-outline" 
+                                    onPress={() => navigateTo('/(setup)/subscription-packages')} 
+                                />
+                                <DrawerItem 
+                                    label="Privacy Policy" 
+                                    icon="document-lock-outline" 
+                                    onPress={() => navigateTo('/(subscriber)/settings/privacy')} 
+                                />
+                            </>
+                        )}
                     </ScrollView>
 
                     {/* Footer */}

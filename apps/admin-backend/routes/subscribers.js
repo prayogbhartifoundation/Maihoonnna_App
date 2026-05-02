@@ -58,6 +58,7 @@ router.get('/', async (req, res) => {
       return {
         id: s.id,
         name: s.name,
+        profilePhoto: s.profilePhoto || null,
         phone: s.phone,
         email: s.email || null,
         address: s.address || null,
