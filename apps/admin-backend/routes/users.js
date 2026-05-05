@@ -11,6 +11,7 @@ const SUPPORTED_ONBOARDING_ROLES = new Set([
   'field_manager',
   'operations_manager',
   'sales',
+  'customer_service',
 ]);
 
 const SUPPORTED_BACKGROUND_CHECK_TYPES = new Set([
@@ -45,6 +46,7 @@ const REQUIRED_DOCUMENTS_BY_ROLE = {
   care_companion: ['aadhaar_front', 'aadhaar_back', 'nursing_certificate'],
   field_manager: ['aadhaar_front', 'aadhaar_back'],
   operations_manager: ['aadhaar_front', 'aadhaar_back'],
+  customer_service: ['aadhaar_front', 'aadhaar_back'],
 };
 
 const TRAININGS_BY_ROLE = {
@@ -72,6 +74,12 @@ const TRAININGS_BY_ROLE = {
     {
       trainingType: 'geriatric_care_orientation',
       title: 'MaiHoonNa operations leadership orientation',
+    },
+  ],
+  customer_service: [
+    {
+      trainingType: 'geriatric_care_orientation',
+      title: 'Customer service excellence orientation',
     },
   ],
 };
@@ -622,7 +630,8 @@ router.post('/staff/onboard', async (req, res) => {
     const backgroundCheckType = asTrimmedString(assignment.bgvType);
     const backgroundCheckAgency = asNullableString(assignment.bgvAgency);
 
-    if (!zoneIds.length) {
+    console.log('[DEBUG] Onboarding:', { role, zoneIdsLength: zoneIds.length });
+    if (!zoneIds.length && role !== 'customer_service') {
       return res
         .status(400)
         .json({
@@ -791,6 +800,7 @@ router.post('/staff/onboard', async (req, res) => {
         role,
         isActive: true,
         isVerified: false,
+        profilePhoto: asNullableString(personal.photoUrl),
       };
 
       if (personal.newPassword && personal.newPassword.trim().length >= 6) {
@@ -907,6 +917,19 @@ router.post('/staff/onboard', async (req, res) => {
             })
           )
         );
+      }
+
+      if (role === 'customer_service') {
+        roleRecord = await tx.customerServiceAgent.create({
+          data: {
+            userId: user.id,
+            name: fullName,
+            phone: mobileNumber,
+            qualification: asNullableString(professional.qualification),
+            experience: asOptionalInt(professional.experience),
+            isAvailable: true,
+          },
+        });
       }
 
       if (documents.length) {
@@ -1138,6 +1161,69 @@ router.get('/care-companions', async (req, res) => {
   }
 });
 
+router.get('/customer-service-agents', async (req, res) => {
+  try {
+    if (!ensureOnboardingModels(res)) return;
+
+    const { search, page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const where = {
+      role: 'customer_service',
+      isActive: true,
+    };
+
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    const [agents, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: {
+          staffProfile: true,
+          customerServiceProfile: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    const mapped = agents.map((user) => ({
+      id: user.customerServiceProfile?.id || `temp-csa-${user.id}`,
+      userId: user.id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      qualification: user.customerServiceProfile?.qualification || 'N/A',
+      experience: user.customerServiceProfile?.experience || 0,
+      isAvailable: user.isActive,
+      bgvVerified: user.staffProfile?.bgvVerified || false,
+      kycVerified: user.staffProfile?.kycVerified || false,
+    }));
+
+    if (page && limit) {
+      res.json({
+        success: true,
+        data: {
+          data: mapped,
+          total,
+          page: Number(page),
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      });
+    } else {
+      res.json({ success: true, data: mapped });
+    }
+  } catch (err) {
+    console.error('GET /customer-service-agents error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch customer service agents' });
+  }
+});
+
 router.get('/staff/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
@@ -1157,6 +1243,7 @@ router.get('/staff/:userId', async (req, res) => {
           include: { teams: true },
         },
         operationsManagerProfile: true,
+        customerServiceProfile: true,
         zonesAsOperationsManager: {
           select: {
             id: true,
@@ -1177,7 +1264,7 @@ router.get('/staff/:userId', async (req, res) => {
       role: user.role,
       personal: {
         fullName: user.name || '',
-        photo: user.profilePhoto || null,
+        photoUrl: user.profilePhoto || null,
         preferredName: user.staffProfile?.preferredName || '',
         dateOfBirth: user.staffProfile?.dateOfBirth
           ? user.staffProfile.dateOfBirth.toISOString().split('T')[0]
@@ -1200,11 +1287,13 @@ router.get('/staff/:userId', async (req, res) => {
           user.careCompanionProfile?.qualifications?.[0] ||
           user.fieldManagerProfile?.qualification ||
           user.operationsManagerProfile?.qualification ||
+          user.customerServiceProfile?.qualification ||
           '',
         experience: String(
           user.careCompanionProfile?.experience ||
             user.fieldManagerProfile?.experience ||
             user.operationsManagerProfile?.experience ||
+            user.customerServiceProfile?.experience ||
             ''
         ),
         nursingRegistrationNumber:
@@ -1273,6 +1362,7 @@ router.put('/staff/:userId', async (req, res) => {
         name: asTrimmedString(personal.fullName),
         phone: asTrimmedString(personal.mobileNumber),
         email: asNullableString(personal.email)?.toLowerCase(),
+        profilePhoto: asNullableString(personal.photoUrl),
       };
 
       if (personal.newPassword && personal.newPassword.trim().length >= 6) {
@@ -1402,11 +1492,25 @@ router.put('/staff/:userId', async (req, res) => {
 
         // Assign to new ones
         if (newZoneIds.length > 0) {
-          await tx.zone.updateMany({
-            where: { id: { in: newZoneIds } },
-            data: { operationsManagerId: userId },
-          });
+          await Promise.all(
+            newZoneIds.map((zoneId) =>
+              tx.zone.update({
+                where: { id: zoneId },
+                data: { operationsManagerId: userId },
+              })
+            )
+          );
         }
+      } else if (role === 'customer_service') {
+        await tx.customerServiceAgent.update({
+          where: { userId },
+          data: {
+            name: asTrimmedString(personal.fullName),
+            phone: asTrimmedString(personal.mobileNumber),
+            qualification: asNullableString(professional.qualification),
+            experience: asOptionalInt(professional.experience),
+          },
+        });
       }
     });
 
@@ -1482,6 +1586,14 @@ router.put('/staff/:userId/deactivate', async (req, res) => {
         user.operationsManagerProfile
       ) {
         await tx.operationsManager.update({
+          where: { userId },
+          data: { isAvailable: false },
+        });
+      } else if (
+        user.role === 'customer_service' &&
+        user.customerServiceProfile
+      ) {
+        await tx.customerServiceAgent.update({
           where: { userId },
           data: { isAvailable: false },
         });

@@ -44,6 +44,7 @@ model User {
   medicationAdherenceRecords     MedicationAdherence[]    @relation("MedicationRecordedBy")
   notifications                  Notification[]
   operationsManagerProfile       OperationsManager?       @relation("OperationsManagerToUser")
+  customerServiceProfile         CustomerServiceAgent?    @relation("CSAToUser")
   subscriberPayments             Payment[]                @relation("SubscriberPayments")
   backgroundChecksReviewed       StaffBackgroundCheck[]   @relation("BackgroundCheckReviewedBy")
   verifiedStaffDocuments         StaffDocument[]          @relation("StaffDocumentVerifiedBy")
@@ -375,6 +376,23 @@ model OperationsManager {
 
   @@index([name])
   @@map("operations_managers")
+}
+
+model CustomerServiceAgent {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  name          String
+  photo         String?
+  phone         String?
+  qualification String?
+  experience    Int?
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation("CSAToUser", fields: [userId], references: [id])
+
+  @@index([name])
+  @@map("customer_service_agents")
 }
 
 model StaffProfile {

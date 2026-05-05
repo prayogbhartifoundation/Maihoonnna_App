@@ -13,6 +13,7 @@ export type EntityType =
   | 'care_companion' 
   | 'subscriber' 
   | 'beneficiary'
+  | 'customer_service'
   | 'team';
 
 interface EntityAvatarProps {
@@ -33,6 +34,7 @@ export function EntityAvatar({ name, photoUrl, type, className, style }: EntityA
       case 'care_companion': return 'bg-[#FF7A00] text-white';
       case 'subscriber': return 'bg-[#6B7280] text-white';
       case 'beneficiary': return 'bg-[#FFF5EE] text-[#FF7A00]';
+      case 'customer_service': return 'bg-[#7C3AED] text-white';
       case 'team': return 'bg-[#F4EAE3] text-[#FF7A00]';
       default: return 'bg-gray-200 text-gray-700';
     }

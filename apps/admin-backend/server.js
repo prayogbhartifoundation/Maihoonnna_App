@@ -82,6 +82,7 @@ app.use('/api/pincode', require('./routes/pincode'));
 // Protected routes
 app.use('/api/zones', verifyToken, require('./routes/zones'));
 app.use('/api/users', verifyToken, require('./routes/users'));
+app.use('/api/admin-users', verifyToken, require('./routes/admin-users'));
 app.use('/api/upload-document', verifyToken, require('./routes/upload'));
 app.use('/api/callbacks', verifyToken, require('./routes/callbacks'));
 app.use('/api/teams', verifyToken, require('./routes/teams'));
@@ -99,6 +100,7 @@ app.use('/api/field-manager', verifyToken, require('./routes/field-manager'));
 app.use('/api/activity-logs', verifyToken, require('./routes/activity-logs'));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
+app.get('/api/ping', (req, res) => res.json({ message: 'pong' }));
 app.get('/health', (req, res) => {
   res.json({
     status: 'Admin Panel Backend running',

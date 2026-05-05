@@ -110,13 +110,15 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
   const roleLabels: Record<StaffOnboardingRole, string> = {
     care_companion: 'Care Companion',
     field_manager: 'Field Manager',
-    operations_manager: 'Operations Manager'
+    operations_manager: 'Operations Manager',
+    customer_service: 'Customer Service Agent'
   };
 
   const roleColors: Record<StaffOnboardingRole, string> = {
     care_companion: 'text-[#FF7A00]',
     field_manager: 'text-[#1F8A3E]',
-    operations_manager: 'text-[#1D4ED8]'
+    operations_manager: 'text-[#1D4ED8]',
+    customer_service: 'text-[#7C3AED]'
   };
 
   return (
@@ -130,15 +132,19 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
               config={{
                 targetType: role as any,
                 targetId: userId,
-                currentPhotoUrl: formState.personal?.photo || null,
+                currentPhotoUrl: formState.personal?.photoUrl || null,
                 name: formState.personal?.fullName || '',
                 size: 56,
                 editable: true,
-                accentColor: role === 'care_companion' ? '#FF7A00' : role === 'field_manager' ? '#1F8A3E' : '#1D4ED8',
+                accentColor: 
+                  role === 'care_companion' ? '#FF7A00' : 
+                  role === 'field_manager' ? '#1F8A3E' : 
+                  role === 'customer_service' ? '#7C3AED' :
+                  '#1D4ED8',
                 onSuccess: (url) => {
                   setFormState((prev: any) => ({
                     ...prev,
-                    personal: { ...prev.personal, photo: url },
+                    personal: { ...prev.personal, photoUrl: url },
                   }));
                   toast.success('Profile photo updated successfully');
                 },
@@ -475,34 +481,36 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                   </>
                 )}
 
-                <div className="md:col-span-2 space-y-3">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                    <Languages size={14} /> Skills & Specializations
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {(metadata?.specializations || []).map((spec) => (
-                      <button
-                        key={spec}
-                        type="button"
-                        onClick={() => {
-                          const current = formState.professional.specialization || [];
-                          if (current.includes(spec)) {
-                            updateNestedField('professional', 'specialization', current.filter((s: string) => s !== spec));
-                          } else {
-                            updateNestedField('professional', 'specialization', [...current, spec]);
-                          }
-                        }}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                          (formState.professional.specialization || []).includes(spec)
-                            ? 'bg-[#FF7A00] text-white shadow-md'
-                            : 'bg-white text-gray-500 border border-[#E7DED6] hover:border-[#FF7A00]'
-                        }`}
-                      >
-                        {spec}
-                      </button>
-                    ))}
+                {role !== 'customer_service' && (
+                  <div className="md:col-span-2 space-y-3">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
+                      <Languages size={14} /> Skills & Specializations
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(metadata?.specializations || []).map((spec) => (
+                        <button
+                          key={spec}
+                          type="button"
+                          onClick={() => {
+                            const current = formState.professional.specialization || [];
+                            if (current.includes(spec)) {
+                              updateNestedField('professional', 'specialization', current.filter((s: string) => s !== spec));
+                            } else {
+                              updateNestedField('professional', 'specialization', [...current, spec]);
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            (formState.professional.specialization || []).includes(spec)
+                              ? 'bg-[#FF7A00] text-white shadow-md'
+                              : 'bg-white text-gray-500 border border-[#E7DED6] hover:border-[#FF7A00]'
+                          }`}
+                        >
+                          {spec}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="md:col-span-2 space-y-3 pt-4 border-t border-[#E7DED6]">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
@@ -538,7 +546,17 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
             {/* ASSIGNMENT TAB */}
                 {activeTab === 'assignment' && (
                   <div className="space-y-6">
-                    {role === 'operations_manager' ? (
+                    {role === 'customer_service' ? (
+                      <div className="p-6 bg-blue-50/50 rounded-2xl border border-blue-100 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#7C3AED] shadow-sm">
+                          <ShieldCheck size={20} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-gray-800">Global Support Access</p>
+                          <p className="text-[10px] text-gray-500">CSAs are onboarded with system-wide access. No zone assignment is required.</p>
+                        </div>
+                      </div>
+                    ) : role === 'operations_manager' ? (
                       <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-4">Manage Zone Assignments (Multi-select)</p>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -726,7 +744,10 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
               type="submit"
               disabled={saving}
               className={`flex items-center gap-2 px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest text-white transition-all shadow-lg shadow-orange-100 disabled:opacity-60 ${
-                role === 'care_companion' ? 'bg-[#FF7A00] hover:bg-[#e06e00]' : role === 'field_manager' ? 'bg-[#1F8A3E] hover:bg-[#16652d]' : 'bg-[#1D4ED8] hover:bg-[#1539a1]'
+                role === 'care_companion' ? 'bg-[#FF7A00] hover:bg-[#e06e00]' : 
+                role === 'field_manager' ? 'bg-[#1F8A3E] hover:bg-[#16652d]' : 
+                role === 'customer_service' ? 'bg-[#7C3AED] hover:bg-[#6D28D9]' :
+                'bg-[#1D4ED8] hover:bg-[#1539a1]'
               }`}
             >
               {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}

@@ -9,10 +9,14 @@
 
 export type UserRole = 
   | 'master_admin' 
+  | 'admin'
   | 'operations_manager' 
   | 'field_manager' 
   | 'care_companion' 
-  | 'support_team';
+  | 'emergency_coordinator'
+  | 'customer_service'
+  | 'volunteer'
+  | 'command_center';
 
 export interface Permission {
   module: string;
@@ -31,7 +35,7 @@ export interface User {
   isActive: boolean;
   biometricEnabled: boolean;
   createdAt: string;
-  lastLogin?: string;
+  lastLoginAt?: string;
 }
 
 // ============================================================================
@@ -317,7 +321,8 @@ export interface SubscriptionPackage {
 export type StaffOnboardingRole =
   | 'care_companion'
   | 'field_manager'
-  | 'operations_manager';
+  | 'operations_manager'
+  | 'customer_service';
 
 export type StaffOnboardingGender =
   | 'male'
@@ -417,6 +422,7 @@ export interface StaffOnboardingPayload {
     pincode?: string;
     aadhaarNumber: string;
     panNumber?: string;
+    photoUrl?: string;
     newPassword?: string;
   };
   professional: {

@@ -43,6 +43,12 @@ interface NavSection {
 
 const navigationSections: NavSection[] = [
   {
+    title: 'MAIN',
+    items: [
+      { path: '/dashboard', label: 'Dashboard', icon: Home, roles: [] },
+    ]
+  },
+  {
     title: 'OPERATIONS',
     items: [
       { path: '/zones', label: 'Zones', icon: MapPin, roles: [] },
@@ -52,6 +58,7 @@ const navigationSections: NavSection[] = [
       { path: '/staff-onboarding', label: 'Staff Onboarding', icon: UserPlus, roles: [] },
       { path: '/field-management', label: 'Field Management', icon: Calendar, roles: ['master_admin', 'operations_manager', 'field_manager'] },
       { path: '/operations-managers', label: 'Operations Managers', icon: Users, roles: ['master_admin', 'operations_manager'] },
+      { path: '/customer-service-agents', label: 'CSA', icon: HeadphonesIcon, roles: ['master_admin', 'operations_manager'] },
     ]
   },
   {
