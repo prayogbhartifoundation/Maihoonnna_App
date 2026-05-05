@@ -36,7 +36,7 @@ export const mockUsers: User[] = [
     isActive: true,
     biometricEnabled: true,
     createdAt: '2024-01-15',
-    lastLogin: '2026-03-11T09:30:00',
+    lastLoginAt: '2026-03-11T09:30:00',
   },
   {
     id: 'U002',
@@ -48,7 +48,7 @@ export const mockUsers: User[] = [
     isActive: true,
     biometricEnabled: false,
     createdAt: '2024-02-01',
-    lastLogin: '2026-03-11T08:15:00',
+    lastLoginAt: '2026-03-11T08:15:00',
   },
   {
     id: 'U003',
@@ -60,7 +60,7 @@ export const mockUsers: User[] = [
     isActive: true,
     biometricEnabled: true,
     createdAt: '2024-02-15',
-    lastLogin: '2026-03-10T18:45:00',
+    lastLoginAt: '2026-03-10T18:45:00',
   },
 ];
 

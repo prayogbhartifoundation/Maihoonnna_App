@@ -33,6 +33,7 @@ import CouponsPage from './pages/CouponsPage';
 import SubscriberProfilePage from './pages/SubscriberProfilePage';
 import BeneficiaryProfilePage from './pages/BeneficiaryProfilePage';
 import EnrollmentWizardPage from './pages/EnrollmentWizardPage';
+import CustomerServiceAgentsPage from './pages/CustomerServiceAgentsPage';
 import VitalDefinitionsPage from './pages/vitals/VitalDefinitionsPage';
 import VitalTemplatesPage from './pages/vitals/VitalTemplatesPage';
 import BeneficiaryVitalsPage from './pages/vitals/BeneficiaryVitalsPage';
@@ -68,6 +69,10 @@ export const router = createBrowserRouter([
       {
         path: 'operations-managers',
         Component: OperationsManagersPage,
+      },
+      {
+        path: 'customer-service-agents',
+        Component: CustomerServiceAgentsPage,
       },
       {
         path: 'field-management',

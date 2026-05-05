@@ -71,6 +71,25 @@ export const verifyOtp = async (rawPhone: string, otpCode: string) => {
 
   const token = createToken({ sub: user.id, role: user.role });
 
+  // Update last login and activity log
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() }
+    });
+    
+    await prisma.activityLog.create({
+      data: {
+        userId: user.id,
+        type: 'SECURITY',
+        action: 'LOGGED_IN',
+        details: { method: 'otp', role: user.role }
+      }
+    });
+  } catch (err) {
+    console.error('Failed to update login meta:', err);
+  }
+
   // Gather active subscription — subscriber might have beneficiaries OR be a beneficiary themselves
   let activeSubscription: any = null;
 
@@ -203,6 +222,25 @@ export const loginWithPassword = async (phone: string, passwordRaw: string) => {
   }
 
   const token = createToken({ sub: user.id, role: user.role });
+
+  // Update last login and activity log
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() }
+    });
+    
+    await prisma.activityLog.create({
+      data: {
+        userId: user.id,
+        type: 'SECURITY',
+        action: 'LOGGED_IN',
+        details: { method: 'password', role: user.role }
+      }
+    });
+  } catch (err) {
+    console.error('Failed to update login meta:', err);
+  }
 
   return {
     success: true,

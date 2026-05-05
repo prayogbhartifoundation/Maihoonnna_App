@@ -54,7 +54,13 @@ router.post(
     const ALLOWED_STAFF_ROLES = [
       'field_manager',
       'operations_manager',
-      'sales',
+      'care_companion',
+      'admin',
+      'master_admin',
+      'customer_service',
+      'volunteer',
+      'command_center',
+      'emergency_coordinator'
     ];
 
     if (
@@ -71,6 +77,24 @@ router.post(
 
       const isMatch = await comparePassword(checkPass, dbUser.password);
       if (isMatch) {
+        // Update last login and create activity log
+        await prisma.user.update({
+          where: { id: dbUser.id },
+          data: { lastLoginAt: new Date() }
+        });
+
+        await prisma.activityLog.create({
+          data: {
+            userId: dbUser.id,
+            type: 'SECURITY',
+            action: 'LOGGED_IN',
+            details: {
+              role: dbUser.role,
+              method: password ? 'password' : 'otp'
+            }
+          }
+        });
+
         const token = signToken({
           id: dbUser.id,
           role: dbUser.role,

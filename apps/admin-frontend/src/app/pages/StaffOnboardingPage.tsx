@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
@@ -12,6 +12,8 @@ import {
   Users,
   ChevronRight,
   AlertTriangle,
+  Camera,
+  Plus,
 } from 'lucide-react';
 import { usePincodeLookup } from '../hooks/usePincodeLookup';
 import { toast } from 'sonner';
@@ -51,6 +53,11 @@ const ROLE_CONFIG: Record<
     subtitle: 'Create an operations manager profile and assign managed zones during onboarding.',
     accent: 'bg-[#1D4ED8]',
   },
+  customer_service: {
+    title: 'Onboard CSA',
+    subtitle: 'Create a Customer Service Agent profile for system-wide support and query handling.',
+    accent: 'bg-[#7C3AED]',
+  },
 };
 
 const LANGUAGE_OPTIONS = ['Hindi', 'English', 'Punjabi', 'Urdu', 'Tamil', 'Bengali', 'Marathi', 'Telugu'];
@@ -73,11 +80,11 @@ const DOCUMENT_CONFIG: Record<
 > = {
   aadhaar_front: {
     label: 'Aadhaar card (front)',
-    requiredFor: ['care_companion', 'field_manager', 'operations_manager'],
+    requiredFor: ['care_companion', 'field_manager', 'operations_manager', 'customer_service'],
   },
   aadhaar_back: {
     label: 'Aadhaar card (back)',
-    requiredFor: ['care_companion', 'field_manager', 'operations_manager'],
+    requiredFor: ['care_companion', 'field_manager', 'operations_manager', 'customer_service'],
   },
   pan_card: {
     label: 'PAN card',
@@ -114,7 +121,11 @@ type FormState = {
 };
 
 function normalizeRole(roleParam: string | null): StaffOnboardingRole {
-  if (roleParam === 'field_manager' || roleParam === 'operations_manager') {
+  if (
+    roleParam === 'field_manager' ||
+    roleParam === 'operations_manager' ||
+    roleParam === 'customer_service'
+  ) {
     return roleParam;
   }
   return 'care_companion';
@@ -139,6 +150,7 @@ function createInitialFormState(role: StaffOnboardingRole): FormState {
       pincode: '',
       aadhaarNumber: '',
       panNumber: '',
+      photoUrl: '',
     },
     professional: {
       qualification: '',
@@ -201,6 +213,13 @@ function adaptFormStateForRole(previousState: FormState, role: StaffOnboardingRo
     nextState.assignment.reportsToUserId = '';
   }
 
+  if (role === 'customer_service') {
+    nextState.assignment.teamId = '';
+    nextState.assignment.reportsToUserId = '';
+    nextState.assignment.zoneId = '';
+    nextState.assignment.zoneIds = [];
+  }
+
   return nextState;
 }
 
@@ -239,6 +258,8 @@ export default function StaffOnboardingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showLookupResults, setShowLookupResults] = useState(false);
   const { loading: lookupLoading, error: lookupError, results: lookupResults, lookup: runLookup, reset: resetLookup } = usePincodeLookup();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     setFormState((previousState) => {
@@ -444,7 +465,7 @@ export default function StaffOnboardingPage() {
       if (role === 'operations_manager' && !(formState.assignment.zoneIds || []).length) {
         return 'Assign at least one managed zone to the operations manager.';
       }
-      if (role !== 'operations_manager' && !formState.assignment.zoneId) {
+      if (role !== 'operations_manager' && role !== 'customer_service' && !formState.assignment.zoneId) {
         return 'Please select a zone for this staff member.';
       }
       if (role === 'field_manager' && metadata?.operationsManagers?.length && !formState.assignment.reportsToUserId) {
@@ -489,7 +510,7 @@ export default function StaffOnboardingPage() {
         specialization: formState.professional.specialization || [],
       },
       assignment: {
-        zoneId: role === 'operations_manager' ? undefined : formState.assignment.zoneId,
+        zoneId: (role === 'operations_manager' || role === 'customer_service') ? undefined : formState.assignment.zoneId,
         zoneIds: role === 'operations_manager' ? formState.assignment.zoneIds || [] : undefined,
         teamId: role === 'care_companion' ? formState.assignment.teamId : undefined,
         reportsToUserId: role === 'field_manager' ? formState.assignment.reportsToUserId : undefined,
@@ -531,7 +552,9 @@ export default function StaffOnboardingPage() {
           ? '/care-companions'
           : role === 'field_manager'
             ? '/field-managers'
-            : '/operations-managers';
+            : role === 'operations_manager'
+              ? '/operations-managers'
+              : '/admin-users';
 
       navigate(nextPath);
     } catch (error: any) {
@@ -571,7 +594,7 @@ export default function StaffOnboardingPage() {
             </div>
 
             <div className="bg-white rounded-3xl p-3 shadow-sm border border-[#E7DED6] flex flex-wrap gap-2">
-              {(['care_companion', 'field_manager', 'operations_manager'] as StaffOnboardingRole[]).map((roleOption) => (
+              {(['care_companion', 'field_manager', 'operations_manager', 'customer_service'] as StaffOnboardingRole[]).map((roleOption) => (
                 <button
                   key={roleOption}
                   onClick={() => setSearchParams({ role: roleOption })}
@@ -585,7 +608,9 @@ export default function StaffOnboardingPage() {
                     ? 'Care Companion'
                     : roleOption === 'field_manager'
                       ? 'Field Manager'
-                      : 'Operations Manager'}
+                      : roleOption === 'operations_manager'
+                        ? 'Operations Manager'
+                        : 'CSA'}
                 </button>
               ))}
             </div>
@@ -642,6 +667,63 @@ export default function StaffOnboardingPage() {
                       <p className="text-sm text-gray-500">
                         Capture identity and contact information exactly as shared by the candidate.
                       </p>
+                    </div>
+                  </div>
+
+                  {/* Profile Photo Upload */}
+                  <div className="flex justify-center mb-6">
+                    <div className="relative group">
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        accept="image/*"
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            setUploadingPhoto(true);
+                            const res = await staffOnboardingApi.uploadFile(file);
+                            if (res.success) {
+                              setPersonalField('photoUrl', res.url);
+                              toast.success('Photo uploaded');
+                            }
+                          } catch (err) {
+                            toast.error('Upload failed');
+                          } finally {
+                            setUploadingPhoto(false);
+                            if (e.target) e.target.value = '';
+                          }
+                        }} 
+                      />
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-28 h-28 rounded-[32px] bg-[#F4EAE3]/50 flex items-center justify-center overflow-hidden border-2 border-dashed border-[#E7DED6] relative cursor-pointer hover:border-[#FF7A00] transition-all group shadow-sm"
+                      >
+                        {uploadingPhoto ? (
+                          <Loader2 className="w-8 h-8 text-[#FF7A00] animate-spin" />
+                        ) : formState.personal.photoUrl ? (
+                          <img src={formState.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2">
+                            <Camera className="w-8 h-8 text-gray-400 group-hover:text-[#FF7A00] transition-colors" />
+                            <span className="text-[10px] font-black text-gray-400 uppercase">Add Photo</span>
+                          </div>
+                        )}
+                        
+                        {formState.personal.photoUrl && !uploadingPhoto && (
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-[10px] font-black text-white uppercase bg-[#FF7A00] px-3 py-1 rounded-full shadow-lg">Change</span>
+                          </div>
+                        )}
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute -bottom-1 -right-1 p-2 bg-[#FF7A00] text-white rounded-2xl cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all z-10 border-4 border-white"
+                      >
+                        <Plus size={16} />
+                      </button>
                     </div>
                   </div>
 
@@ -996,35 +1078,37 @@ export default function StaffOnboardingPage() {
                     </div>
                   )}
 
-                  <div className="mt-6">
-                    <p className="text-sm font-black text-gray-700 mb-3">Expert skills & specializations</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(metadata?.specializations || []).map((spec) => {
-                        const selected = (formState.professional.specialization || []).includes(spec);
-                        return (
-                          <button
-                            key={spec}
-                            type="button"
-                            onClick={() => {
-                              const current = formState.professional.specialization || [];
-                              if (selected) {
-                                setProfessionalField('specialization', current.filter((s: string) => s !== spec));
-                              } else {
-                                setProfessionalField('specialization', [...current, spec]);
-                              }
-                            }}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-                              selected
-                                ? 'bg-[#FF7A00] text-white border-[#FF7A00] shadow-md'
-                                : 'bg-white text-gray-500 border-[#E7DED6] hover:border-[#FF7A00]'
-                            }`}
-                          >
-                            {spec}
-                          </button>
-                        );
-                      })}
+                  {role !== 'customer_service' && (
+                    <div className="mt-6">
+                      <p className="text-sm font-black text-gray-700 mb-3">Expert skills & specializations</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(metadata?.specializations || []).map((spec) => {
+                          const selected = (formState.professional.specialization || []).includes(spec);
+                          return (
+                            <button
+                              key={spec}
+                              type="button"
+                              onClick={() => {
+                                const current = formState.professional.specialization || [];
+                                if (selected) {
+                                  setProfessionalField('specialization', current.filter((s: string) => s !== spec));
+                                } else {
+                                  setProfessionalField('specialization', [...current, spec]);
+                                }
+                              }}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                selected
+                                  ? 'bg-[#FF7A00] text-white border-[#FF7A00] shadow-md'
+                                  : 'bg-white text-gray-500 border-[#E7DED6] hover:border-[#FF7A00]'
+                              }`}
+                            >
+                              {spec}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="mt-6">
                     <p className="text-sm font-black text-gray-700 mb-3">Languages spoken</p>
@@ -1213,7 +1297,17 @@ export default function StaffOnboardingPage() {
                     </div>
                   </div>
 
-                  {role === 'operations_manager' ? (
+                  {role === 'customer_service' ? (
+                    <div className="rounded-3xl border border-[#E7DED6] bg-blue-50/30 p-6 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#7C3AED] shadow-sm">
+                        <ShieldCheck size={24} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-800">Direct System Access</p>
+                        <p className="text-sm text-gray-500">CSAs are onboarded with global support access. No specific zone assignment is required.</p>
+                      </div>
+                    </div>
+                  ) : role === 'operations_manager' ? (
                     <div className="rounded-3xl border border-[#E7DED6] bg-white p-6">
                       <h3 className="text-base font-black text-gray-800 mb-4">Managed zones</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

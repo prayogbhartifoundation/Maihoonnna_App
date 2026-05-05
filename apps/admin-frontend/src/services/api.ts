@@ -186,6 +186,52 @@ export const userApi = {
   },
 };
 
+export const adminUserApi = {
+  /**
+   * Get all users with administrative roles
+   */
+  async getAll(): Promise<User[]> {
+    return apiJson('/admin-users');
+  },
+
+  /**
+   * Get staff eligible for admin portal access
+   */
+  async getEligibleStaff(): Promise<any[]> {
+    return apiJson('/admin-users/eligible-staff');
+  },
+
+  /**
+   * Create/Enable admin access for a user
+   */
+  async create(data: { userId: string; role: string; password?: string }): Promise<User> {
+    return apiJson('/admin-users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Reset password for an admin user
+   */
+  async resetPassword(id: string, password: string): Promise<void> {
+    return apiJson(`/admin-users/${id}/password`, {
+      method: 'PATCH',
+      body: JSON.stringify({ password }),
+    });
+  },
+
+  /**
+   * Toggle user active status
+   */
+  async toggleStatus(id: string, isActive: boolean): Promise<void> {
+    return apiJson(`/admin-users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isActive }),
+    });
+  },
+};
+
 // ============================================================================
 // ZONES API
 // ============================================================================
@@ -324,6 +370,25 @@ export const careCompanionApi = {
   async getByZone(zoneId: string): Promise<CareCompanion[]> {
     await delay();
     return mockCareCompanions.filter(cc => cc.zoneId === zoneId);
+  },
+};
+
+export const customerServiceAgentApi = {
+  async getAll(): Promise<any[]> {
+    return apiJson('/users/customer-service-agents');
+  },
+  async getAllPaginated(params: { search: string; searchBy?: string; page: number; limit: number }): Promise<any> {
+    const query = new URLSearchParams({
+      search: params.search,
+      searchBy: params.searchBy || '',
+      page: params.page.toString(),
+      limit: params.limit.toString()
+    }).toString();
+    return apiJson(`/users/customer-service-agents?${query}`);
+  },
+  async getById(id: string): Promise<any | undefined> {
+    const agents = await this.getAll();
+    return agents.find((agent: any) => agent.id === id);
   },
 };
 

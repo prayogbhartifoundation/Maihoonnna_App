@@ -49,6 +49,7 @@ model User {
   verifiedStaffDocuments     StaffDocument[]        @relation("StaffDocumentVerifiedBy")
   staffProfilesReporting     StaffProfile[]         @relation("StaffProfileReportsTo")
   staffProfile               StaffProfile?          @relation("StaffProfileToUser")
+  customerServiceProfile     CustomerServiceAgent?  @relation("CSAToUser")
   trainingsAssigned          StaffTraining[]        @relation("TrainingAssignedBy")
   subscriberSubscriptions    Subscription[]         @relation("SubscriberSubscriptions")
   vitalHistoryRecords        VitalHistory[]         @relation("VitalRecordedBy")
@@ -375,6 +376,23 @@ model OperationsManager {
 
   @@index([name])
   @@map("operations_managers")
+}
+
+model CustomerServiceAgent {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  name          String
+  photo         String?
+  phone         String?
+  qualification String?
+  experience    Int?
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation("CSAToUser", fields: [userId], references: [id])
+
+  @@index([name])
+  @@map("customer_service_agents")
 }
 
 model StaffProfile {
@@ -1294,6 +1312,8 @@ enum UserRole {
   volunteer
   admin
   master_admin
+  customer_service
+  command_center
 }
 
 enum SubscriptionDuration {
