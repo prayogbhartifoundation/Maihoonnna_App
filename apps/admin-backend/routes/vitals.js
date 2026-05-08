@@ -39,7 +39,13 @@ router.get('/', async (req, res) => {
 
 // ─── POST /api/vitals ───────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
-  const { code, name, unit, dataType, normalMin, normalMax, description, displayOrder } = req.body;
+  const {
+    code, name, unit, dataType, normalMin, normalMax, description, displayOrder,
+    inputMin, inputMax,
+    value1Label, value2Label, normalMin2, normalMax2,
+    textOptions, alertOptions,
+    booleanTrueLabel, booleanFalseLabel, booleanAlertValue
+  } = req.body;
   if (!code || !name || !dataType) {
     return res.status(400).json({ success: false, message: 'code, name, and dataType are required' });
   }
@@ -50,10 +56,24 @@ router.post('/', async (req, res) => {
         name: name.trim(),
         unit: unit || null,
         dataType,
-        normalMin: normalMin !== undefined && normalMin !== '' ? parseFloat(normalMin) : null,
-        normalMax: normalMax !== undefined && normalMax !== '' ? parseFloat(normalMax) : null,
+        inputMin: inputMin != null && inputMin !== '' ? parseFloat(inputMin) : null,
+        inputMax: inputMax != null && inputMax !== '' ? parseFloat(inputMax) : null,
+        normalMin: normalMin != null && normalMin !== '' ? parseFloat(normalMin) : null,
+        normalMax: normalMax != null && normalMax !== '' ? parseFloat(normalMax) : null,
         description: description || null,
         displayOrder: parseInt(displayOrder) || 0,
+        // Dual numeric
+        value1Label: value1Label || null,
+        value2Label: value2Label || null,
+        normalMin2: normalMin2 != null && normalMin2 !== '' ? parseFloat(normalMin2) : null,
+        normalMax2: normalMax2 != null && normalMax2 !== '' ? parseFloat(normalMax2) : null,
+        // Text
+        textOptions: Array.isArray(textOptions) ? textOptions : [],
+        alertOptions: Array.isArray(alertOptions) ? alertOptions : [],
+        // Boolean
+        booleanTrueLabel: booleanTrueLabel || null,
+        booleanFalseLabel: booleanFalseLabel || null,
+        booleanAlertValue: booleanAlertValue != null ? Boolean(booleanAlertValue) : null,
         isActive: true,
         isSystemVital: false,
       },
@@ -246,6 +266,29 @@ router.patch('/:id', async (req, res) => {
   // Map isSystem → isSystemVital if passed
   const data = { ...rest };
   if (req.body.isSystem !== undefined) data.isSystemVital = req.body.isSystem;
+
+  // Parse numeric fields safely
+  const numericFields = ['inputMin', 'inputMax', 'normalMin', 'normalMax', 'normalMin2', 'normalMax2'];
+  numericFields.forEach(f => {
+    if (data[f] !== undefined) {
+      data[f] = (data[f] != null && data[f] !== '') ? parseFloat(data[f]) : null;
+    }
+  });
+
+  // Parse array fields
+  if (data.textOptions !== undefined && !Array.isArray(data.textOptions)) {
+    data.textOptions = [];
+  }
+  if (data.alertOptions !== undefined && !Array.isArray(data.alertOptions)) {
+    data.alertOptions = [];
+  }
+
+  // Parse boolean alert value
+  if (data.booleanAlertValue !== undefined) {
+    data.booleanAlertValue = data.booleanAlertValue != null ? Boolean(data.booleanAlertValue) : null;
+  }
+
+  if (data.displayOrder !== undefined) data.displayOrder = parseInt(data.displayOrder) || 0;
 
   try {
     const vital = await prisma.vitalDefinition.update({ where: { id }, data });

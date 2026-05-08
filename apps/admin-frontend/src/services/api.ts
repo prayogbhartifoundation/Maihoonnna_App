@@ -438,9 +438,11 @@ export const subscriberApi = {
 export const beneficiaryApi = {
   async getAll(): Promise<any[]> {
     try {
-      const data = await apiJson<any[]>('/beneficiaries');
+      const res = await apiJson<any>('/beneficiaries');
+      const data = Array.isArray(res) ? res : (res?.data || []);
+      
       // Normalize to match expected shape
-      return (data || []).map((b: any) => {
+      return data.map((b: any) => {
         const emContacts = Array.isArray(b.emergencyContacts) ? b.emergencyContacts : [];
         const firstEmContact = emContacts[0] || {};
         return {

@@ -228,11 +228,7 @@ export const purchaseSubscription = async (
       startDate: new Date(),
       endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
       visitsTotal: subPackage.visitsPerWeek * 4,
-<<<<<<< HEAD
-      hoursTotal: subPackage.visitsPerWeek * 4,
-=======
       hoursTotal: subPackage.hoursPerMonth || 0,
->>>>>>> 81c0befa855a69acf82da50f535c35871c5b168d
     },
     include: {
       package: true,

@@ -51,23 +51,23 @@ const navigationSections: NavSection[] = [
   {
     title: 'OPERATIONS',
     items: [
-      { path: '/zones', label: 'Zones', icon: MapPin, roles: [] },
-      { path: '/teams', label: 'Teams', icon: Users, roles: [] },
-      { path: '/field-managers', label: 'Field Managers', icon: Calendar, roles: [] },
-      { path: '/care-companions', label: 'Care Companions', icon: UserCheck, roles: [] },
-      { path: '/staff-onboarding', label: 'Staff Onboarding', icon: UserPlus, roles: [] },
-      { path: '/field-management', label: 'Field Management', icon: Calendar, roles: ['master_admin', 'operations_manager', 'field_manager'] },
-      { path: '/operations-managers', label: 'Operations Managers', icon: Users, roles: ['master_admin', 'operations_manager'] },
+      { path: '/field-management', label: 'Field Management', icon: Activity, roles: ['master_admin', 'operations_manager', 'field_manager'] },
+      { path: '/zones', label: 'Zones', icon: MapPin, roles: ['master_admin', 'operations_manager'] },
+      { path: '/teams', label: 'Teams', icon: Users, roles: ['master_admin', 'operations_manager'] },
+      { path: '/field-managers', label: 'Field Managers List', icon: Calendar, roles: ['master_admin', 'operations_manager'] },
+      { path: '/care-companions', label: 'Care Companions', icon: UserCheck, roles: ['master_admin', 'operations_manager'] },
+      { path: '/staff-onboarding', label: 'Staff Onboarding', icon: UserPlus, roles: ['master_admin', 'operations_manager'] },
+      { path: '/operations-managers', label: 'Operations Managers', icon: Users, roles: ['master_admin'] },
       { path: '/customer-service-agents', label: 'CSA', icon: HeadphonesIcon, roles: ['master_admin', 'operations_manager'] },
     ]
   },
   {
     title: 'CLIENTS',
     items: [
-      { path: '/subscribers', label: 'Subscribers', icon: UserCircle, roles: [] },
-      { path: '/enroll', label: 'Enroll Subscriber', icon: UserPlus, roles: [] },
-      { path: '/beneficiaries', label: 'Beneficiaries', icon: Heart, roles: [] },
-      { path: '/callback-requests', label: 'Callback Requests', icon: PhoneCall, roles: [] },
+      { path: '/subscribers', label: 'Subscribers', icon: UserCircle, roles: ['master_admin', 'operations_manager'] },
+      { path: '/enroll', label: 'Enroll Subscriber', icon: UserPlus, roles: ['master_admin', 'operations_manager'] },
+      { path: '/beneficiaries', label: 'Beneficiaries', icon: Heart, roles: ['master_admin', 'operations_manager'] },
+      { path: '/callback-requests', label: 'Callback Requests', icon: PhoneCall, roles: ['master_admin', 'operations_manager', 'customer_service'] },
     ]
   },
   {

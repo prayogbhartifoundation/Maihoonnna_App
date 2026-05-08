@@ -86,6 +86,36 @@ router.put('/:id', async (req, res) => {
       });
     });
 
+    if (req.user?.id && !req.user.id.startsWith('admin_')) {
+      await prisma.activityLog.create({
+        data: {
+          userId: req.user.id,
+          type: 'TEAM',
+          action: 'TEAM_EDITED',
+          details: {
+            entity: 'team',
+            entityId: id,
+            updatedByRole: req.user.role,
+            updatedByName: req.user?.name || 'Admin',
+          }
+        }
+      });
+    } else if (updatedTeam.fieldManager && updatedTeam.fieldManager.userId) {
+      await prisma.activityLog.create({
+        data: {
+          userId: updatedTeam.fieldManager.userId,
+          type: 'TEAM',
+          action: 'TEAM_EDITED',
+          details: {
+            entity: 'team',
+            entityId: id,
+            updatedByRole: req.user?.role || 'system_admin',
+            updatedByName: req.user?.name || 'Admin',
+          }
+        }
+      });
+    }
+
     res.json({ success: true, data: updatedTeam });
   } catch (err) {
     console.error('PUT /api/teams/:id error:', err);

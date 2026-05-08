@@ -153,19 +153,14 @@ router.get('/available-staff', async (req, res) => {
       zoneIds = zoneIds.filter((id) => id === req.user.zoneId);
     }
 
-    if (zoneIds.length === 0) {
-      return res.json({
-        success: true,
-        data: { careCompanions: [], fieldManagers: [], zones: [] },
-      });
-    }
+    // If no matching zones, we'll fetch all active/pending staff (zoneId filter will be undefined)
 
     // Get CCs whose staffProfile.zoneId matches one of these zones
     const ccProfiles = await prisma.staffProfile.findMany({
       where: {
         role: 'care_companion',
         zoneId: zoneIds.length > 0 ? { in: zoneIds } : undefined,
-        employmentStatus: 'active',
+        employmentStatus: { in: ['active', 'bgv_pending'] },
         user: { isActive: true },
       },
       include: {
@@ -184,7 +179,7 @@ router.get('/available-staff', async (req, res) => {
       where: {
         role: 'field_manager',
         zoneId: zoneIds.length > 0 ? { in: zoneIds } : undefined,
-        employmentStatus: 'active',
+        employmentStatus: { in: ['active', 'bgv_pending'] },
         user: { isActive: true },
       },
       include: {
@@ -370,6 +365,23 @@ router.put('/:id/assign-staff', async (req, res) => {
         });
       }
 
+      await tx.activityLog.create({
+        data: {
+          userId: benUpdate.userId,
+          type: 'TEAM',
+          action: 'TEAM_EDITED',
+          details: {
+            entity: 'beneficiary',
+            entityId: id,
+            primaryCcId,
+            secondaryCcId,
+            fieldManagerId,
+            updatedByRole: req.user?.role || 'system',
+            updatedByName: req.user?.name || 'Admin',
+          }
+        }
+      });
+
       return benUpdate;
     });
 
@@ -464,21 +476,83 @@ router.put('/:id', async (req, res) => {
     if (trackWeight !== undefined) dataToUpdate.trackWeight = Boolean(trackWeight);
     if (trackPainLevel !== undefined) dataToUpdate.trackPainLevel = Boolean(trackPainLevel);
     if (trackRespiratoryRate !== undefined) dataToUpdate.trackRespiratoryRate = Boolean(trackRespiratoryRate);
-    if (medicalConditions !== undefined) {
-      dataToUpdate.conditions = {
-        set: [] // or proper update structure
-      };
-    }
-    if (medications !== undefined) {
-      dataToUpdate.medicationList = {
-        set: []   // or proper update structure
-      };
-    }
+    // Don't include relational fields in the core update — handle them separately
     if (isActive !== undefined) dataToUpdate.isActive = Boolean(isActive);
 
-    const updated = await prisma.beneficiary.update({
-      where: { id },
-      data: dataToUpdate
+    // Use a transaction to safely update core fields + relations
+    const updated = await prisma.$transaction(async (tx) => {
+      // 1. Update core beneficiary fields
+      const ben = await tx.beneficiary.update({
+        where: { id },
+        data: dataToUpdate
+      });
+
+      // 2. Sync Medical Conditions (delete old links, create new ones)
+      if (medicalConditions !== undefined && Array.isArray(medicalConditions)) {
+        // Remove current condition links
+        await tx.beneficiaryCondition.deleteMany({ where: { beneficiaryId: id } });
+
+        // Re-link new conditions
+        for (const condName of medicalConditions) {
+          if (!condName) continue;
+          let condition = await tx.medicalCondition.findFirst({
+            where: { name: { equals: condName, mode: 'insensitive' } }
+          });
+          if (!condition) {
+            condition = await tx.medicalCondition.create({
+              data: { name: condName.trim(), slug: condName.trim().toLowerCase().replace(/\s+/g, '-'), category: 'General' }
+            });
+          }
+          await tx.beneficiaryCondition.create({
+            data: { beneficiaryId: id, conditionId: condition.id }
+          });
+        }
+      }
+
+      // 3. Sync Medications (delete old, create new)
+      if (medications !== undefined && Array.isArray(medications)) {
+        // Remove old medications for this beneficiary
+        await tx.medication.deleteMany({ where: { beneficiaryId: id } });
+
+        // Create new medications
+        for (const m of medications) {
+          if (!m || !m.name) continue;
+          await tx.medication.create({
+            data: {
+              beneficiaryId: id,
+              name: m.name,
+              dosage: m.dosage || '',
+              frequency: m.frequency || 'once_daily',
+              timeSlots: m.timeSlots || [],
+              setReminders: !!m.setReminders,
+              startDate: new Date(),
+              isActive: true,
+            }
+          });
+        }
+      }
+
+      const changedFields = Object.keys(dataToUpdate).filter(key => b[key] !== dataToUpdate[key]);
+
+      if (changedFields.length > 0) {
+        await tx.activityLog.create({
+          data: {
+            userId: ben.userId,
+            type: 'PROFILE',
+            action: 'PROFILE_UPDATED',
+            details: {
+              entity: 'beneficiary',
+              entityId: id,
+              entityName: ben.name,
+              fieldsChanged: changedFields,
+              updatedByRole: req.user?.role || 'system',
+              updatedByName: req.user?.name || 'Admin',
+            }
+          }
+        });
+      }
+
+      return ben;
     });
 
     // Sync Vitals Configuration (New Relational System)

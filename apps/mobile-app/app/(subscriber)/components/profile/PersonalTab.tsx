@@ -1,4 +1,4 @@
-import React, { useState, Dispatch, SetStateAction } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import { 
     View, 
     Text, 
@@ -11,6 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
+import { AddressInputField } from '@/components/ui/AddressInputField';
 
 interface PersonalTabProps {
     user: {
@@ -18,6 +19,14 @@ interface PersonalTabProps {
         email: string;
         phone: string;
         location?: string;
+        flatPlot?: string;
+        streetArea?: string;
+        landmark?: string;
+        city?: string;
+        state?: string;
+        pincode?: string;
+        latitude?: number;
+        longitude?: number;
         createdAt: string;
         isVerified: boolean;
     };
@@ -28,6 +37,14 @@ interface PersonalFormData {
     name: string;
     email: string;
     location: string;
+    flatPlot: string;
+    streetArea: string;
+    landmark: string;
+    city: string;
+    state: string;
+    pincode: string;
+    latitude: number;
+    longitude: number;
 }
 
 interface InfoRowProps {
@@ -56,7 +73,7 @@ const InfoRow = ({ icon, label, value, verified, field, type = 'ionicons', isEdi
             {isEditing && field ? (
                 <TextInput 
                     style={styles.editableInput}
-                    value={formData[field]}
+                    value={String(formData[field])}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, [field]: text }))}
                     placeholder={`Enter ${label}`}
                     autoCapitalize={field === 'email' ? 'none' : 'words'}
@@ -81,15 +98,31 @@ export const PersonalTab = ({ user, onUpdate }: PersonalTabProps) => {
     const [formData, setFormData] = useState<PersonalFormData>({
         name: user.name || '',
         email: user.email || '',
-        location: user.location || ''
+        location: user.location || '',
+        flatPlot: user.flatPlot || '',
+        streetArea: user.streetArea || '',
+        landmark: user.landmark || '',
+        city: user.city || '',
+        state: user.state || '',
+        pincode: user.pincode || '',
+        latitude: user.latitude || 0,
+        longitude: user.longitude || 0
     });
 
     // Sync state if user prop changes (important for re-fetches)
-    React.useEffect(() => {
+    useEffect(() => {
         setFormData({
             name: user.name || '',
             email: user.email || '',
-            location: user.location || ''
+            location: user.location || '',
+            flatPlot: user.flatPlot || '',
+            streetArea: user.streetArea || '',
+            landmark: user.landmark || '',
+            city: user.city || '',
+            state: user.state || '',
+            pincode: user.pincode || '',
+            latitude: user.latitude || 0,
+            longitude: user.longitude || 0
         });
     }, [user]);
 
@@ -171,6 +204,81 @@ export const PersonalTab = ({ user, onUpdate }: PersonalTabProps) => {
                     icon="location-outline" label="Address" value={user.location || ''} field="location" 
                     isEditing={isEditing} formData={formData} setFormData={setFormData} 
                 />
+                {isEditing && (
+                    <View style={styles.editAddressSection}>
+                        <AddressInputField
+                            label=""
+                            value={formData.location}
+                            onChangeText={(t) => setFormData(prev => ({ ...prev, location: t }))}
+                            onLocationFetched={(details) => setFormData(prev => ({
+                                ...prev,
+                                location: details.address || prev.location,
+                                city: details.city || prev.city,
+                                state: details.state || prev.state,
+                                pincode: details.pincode || prev.pincode,
+                                latitude: details.latitude || 0,
+                                longitude: details.longitude || 0,
+                                streetArea: details.address?.split(',')[0] || prev.streetArea
+                            }))}
+                        />
+                        <View style={styles.addressGrid}>
+                            <View style={styles.gridItem}>
+                                <Text style={styles.gridLabel}>Flat/Plot</Text>
+                                <TextInput 
+                                    style={styles.gridInput} 
+                                    value={formData.flatPlot} 
+                                    onChangeText={(t) => setFormData(prev => ({ ...prev, flatPlot: t }))}
+                                    placeholder="e.g. 402"
+                                />
+                            </View>
+                            <View style={[styles.gridItem, { flex: 1.5 }]}>
+                                <Text style={styles.gridLabel}>Street/Area</Text>
+                                <TextInput 
+                                    style={styles.gridInput} 
+                                    value={formData.streetArea} 
+                                    onChangeText={(t) => setFormData(prev => ({ ...prev, streetArea: t }))}
+                                    placeholder="e.g. Sector 15"
+                                />
+                            </View>
+                        </View>
+                        <View style={styles.gridItem}>
+                            <Text style={styles.gridLabel}>Landmark</Text>
+                            <TextInput 
+                                style={styles.gridInput} 
+                                value={formData.landmark} 
+                                onChangeText={(t) => setFormData(prev => ({ ...prev, landmark: t }))}
+                                placeholder="Near..."
+                            />
+                        </View>
+                        <View style={styles.addressGrid}>
+                            <View style={styles.gridItem}>
+                                <Text style={styles.gridLabel}>City</Text>
+                                <TextInput 
+                                    style={styles.gridInput} 
+                                    value={formData.city} 
+                                    onChangeText={(t) => setFormData(prev => ({ ...prev, city: t }))}
+                                />
+                            </View>
+                            <View style={styles.gridItem}>
+                                <Text style={styles.gridLabel}>Pincode</Text>
+                                <TextInput 
+                                    style={styles.gridInput} 
+                                    value={formData.pincode} 
+                                    onChangeText={(t) => setFormData(prev => ({ ...prev, pincode: t }))}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+                        </View>
+                        <View style={styles.gridItem}>
+                            <Text style={styles.gridLabel}>State</Text>
+                            <TextInput 
+                                style={styles.gridInput} 
+                                value={formData.state} 
+                                onChangeText={(t) => setFormData(prev => ({ ...prev, state: t }))}
+                            />
+                        </View>
+                    </View>
+                )}
                 <View style={styles.divider} />
                 <InfoRow 
                     icon="calendar-outline" label="Member Since" value={formatDate(user.createdAt)} 
@@ -219,7 +327,16 @@ const styles = StyleSheet.create({
         borderRadius: 10, marginLeft: 10 
     },
     verifiedText: { fontSize: 10, fontWeight: '700', color: '#059669' },
-    divider: { height: 1, backgroundColor: '#F3F4F6', marginLeft: 55 }
+    divider: { height: 1, backgroundColor: '#F3F4F6', marginLeft: 55 },
+    editAddressSection: { marginTop: 10, paddingLeft: 55 },
+    addressGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+    gridItem: { flex: 1, marginBottom: 10 },
+    gridLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 4 },
+    gridInput: {
+        fontSize: 14, fontWeight: '600', color: '#111827',
+        backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
+        borderRadius: 8, padding: 8
+    }
 });
 
 export default PersonalTab;

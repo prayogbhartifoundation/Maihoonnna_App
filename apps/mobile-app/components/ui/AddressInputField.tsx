@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import { API_URL } from '../../constants/api';
+import { getAccurateLocation } from '../../services/location';
 
 export interface LocationDetails {
     latitude: number;
@@ -33,43 +32,49 @@ export const AddressInputField: React.FC<AddressInputFieldProps> = ({
     const handleDetectLocation = async () => {
         setIsLocating(true);
         try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                setIsLocating(false);
-                Alert.alert("Permission Denied", "Please enable location services to auto-detect your address.");
-                return;
-            }
+            const locationData = await getAccurateLocation();
 
-            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-            const { latitude, longitude } = loc.coords;
+            console.log('[Location] Successfully fetched accurate location:', locationData);
 
-            const res = await fetch(`${API_URL}/public/location/reverse-geocode?lat=${latitude}&lng=${longitude}`);
-            const data = await res.json();
+            // Fill in the address field (editable by user)
+            onChangeText(locationData.address);
 
-            if (data.success && data.data) {
-                const { address, city, state, pincode } = data.data;
-                onChangeText(address);
-                onLocationFetched({ latitude, longitude, address, city, state, pincode });
-            } else {
-                Alert.alert("Location Error", "Could not determine your address. Please enter manually.");
-            }
+            // Pass all fields back to the parent form
+            onLocationFetched({
+                latitude: locationData.latitude,
+                longitude: locationData.longitude,
+                address: locationData.address,
+                city: locationData.city,
+                state: locationData.state,
+                pincode: locationData.pincode
+            });
         } catch (error: any) {
-            console.log('Location fetch error:', error);
-            if (error?.message?.includes('User denied Geolocation') || error?.code === 1) {
-                Alert.alert("Location Blocked", "Your browser or device OS is blocking location access. Please check your system privacy settings and try again.");
+            console.log('[Location] Error:', error);
+
+            if (
+                error?.message?.includes('denied') ||
+                error?.code === 1
+            ) {
+                Alert.alert(
+                    "Location Blocked",
+                    Platform.OS === 'web'
+                        ? "Please allow location access in your browser settings and try again."
+                        : "Location access was denied. Please enable it in your device settings."
+                );
             } else {
-                Alert.alert("Location Error", "Could not fetch your location. Please check your connection and try again.");
+                Alert.alert("Location Error", "Could not fetch your location. Please enter it manually.");
             }
         } finally {
             setIsLocating(false);
         }
     };
 
+
     return (
         <View style={styles.inputGroup}>
             {label ? <Text style={styles.label}>{label}</Text> : null}
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
                 style={styles.detectBtn}
                 onPress={handleDetectLocation}
                 disabled={isLocating}

@@ -29,7 +29,7 @@ router.post(
     );
 
     if (admin) {
-      const token = signToken({ role: 'master_admin', phone: admin.phone });
+      const token = signToken({ role: 'master_admin', phone: admin.phone, name: admin.name });
 
       return res.json(
         new ApiResponse(
@@ -97,6 +97,7 @@ router.post(
 
         const token = signToken({
           id: dbUser.id,
+          name: dbUser.name || dbUser.staffProfile?.preferredName || '',
           role: dbUser.role,
           phone: dbUser.phone,
           zoneId: dbUser.staffProfile?.zoneId,

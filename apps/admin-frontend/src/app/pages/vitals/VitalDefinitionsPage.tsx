@@ -28,6 +28,20 @@ interface VitalDefinition {
   dataType: string;
   normalMin: number | null;
   normalMax: number | null;
+  // Dual numeric
+  value1Label: string | null;
+  value2Label: string | null;
+  normalMin2: number | null;
+  normalMax2: number | null;
+  inputMin: number | null;
+  inputMax: number | null;
+  // Text
+  textOptions: string[];
+  alertOptions: string[];
+  // Boolean
+  booleanTrueLabel: string | null;
+  booleanFalseLabel: string | null;
+  booleanAlertValue: boolean | null;
   displayOrder: number;
   isActive: boolean;
   isSystem: boolean;
@@ -42,6 +56,21 @@ const EMPTY_FORM = {
   normalMin: '',
   normalMax: '',
   displayOrder: '0',
+  // Dual
+  value1Label: '',
+  value2Label: '',
+  normalMin2: '',
+  normalMax2: '',
+  inputMin: '',
+  inputMax: '',
+  // Text
+  textOptionsRaw: '',
+  alertOptionsRaw: '',
+  // Boolean
+  booleanTrueLabel: 'Yes',
+  booleanFalseLabel: 'No',
+  booleanAlertValue: 'none' as 'true' | 'false' | 'none',
+  isActive: true,
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -85,10 +114,10 @@ interface ModalProps {
 function Modal({ open, onClose, children, title, subtitle }: ModalProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-        <div className="flex items-start justify-between p-6 border-b border-slate-100">
+      <div className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-start justify-between p-6 border-b border-slate-100 flex-shrink-0">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{title}</h2>
             {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
@@ -100,7 +129,7 @@ function Modal({ open, onClose, children, title, subtitle }: ModalProps) {
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );
@@ -169,6 +198,21 @@ export default function VitalDefinitionsPage() {
       normalMin: v.normalMin !== null ? String(v.normalMin) : '',
       normalMax: v.normalMax !== null ? String(v.normalMax) : '',
       displayOrder: String(v.displayOrder),
+      // Dual
+      value1Label: v.value1Label || '',
+      value2Label: v.value2Label || '',
+      normalMin2: v.normalMin2 !== null ? String(v.normalMin2) : '',
+      normalMax2: v.normalMax2 !== null ? String(v.normalMax2) : '',
+      inputMin: v.inputMin !== null ? String(v.inputMin) : '',
+      inputMax: v.inputMax !== null ? String(v.inputMax) : '',
+      // Text
+      textOptionsRaw: (v.textOptions || []).join(', '),
+      alertOptionsRaw: (v.alertOptions || []).join(', '),
+      // Boolean
+      booleanTrueLabel: v.booleanTrueLabel || 'Yes',
+      booleanFalseLabel: v.booleanFalseLabel || 'No',
+      booleanAlertValue: v.booleanAlertValue === true ? 'true' : v.booleanAlertValue === false ? 'false' : 'none',
+      isActive: v.isActive,
     });
     setFormOpen(true);
   };
@@ -190,6 +234,21 @@ export default function VitalDefinitionsPage() {
         normalMin: form.normalMin !== '' ? parseFloat(form.normalMin) : null,
         normalMax: form.normalMax !== '' ? parseFloat(form.normalMax) : null,
         displayOrder: parseInt(form.displayOrder) || 0,
+        // Dual
+        value1Label: form.value1Label || null,
+        value2Label: form.value2Label || null,
+        normalMin2: form.normalMin2 !== '' ? parseFloat(form.normalMin2) : null,
+        normalMax2: form.normalMax2 !== '' ? parseFloat(form.normalMax2) : null,
+        inputMin: form.inputMin !== '' ? parseFloat(form.inputMin) : null,
+        inputMax: form.inputMax !== '' ? parseFloat(form.inputMax) : null,
+        // Text
+        textOptions: form.textOptionsRaw.split(',').map(s => s.trim()).filter(Boolean),
+        alertOptions: form.alertOptionsRaw.split(',').map(s => s.trim()).filter(Boolean),
+        // Boolean
+        booleanTrueLabel: form.booleanTrueLabel || 'Yes',
+        booleanFalseLabel: form.booleanFalseLabel || 'No',
+        booleanAlertValue: form.booleanAlertValue === 'true' ? true : form.booleanAlertValue === 'false' ? false : null,
+        isActive: form.isActive,
       };
 
       if (editTarget) {
@@ -391,7 +450,7 @@ export default function VitalDefinitionsPage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        {v.normalMin !== null && v.normalMax !== null ? (
+                        {v.dataType === 'numeric' && v.normalMin !== null && v.normalMax !== null ? (
                           <div className="w-28 space-y-1">
                             <div className="flex justify-between text-[10px] text-muted-foreground">
                               <span>{v.normalMin}</span>
@@ -401,6 +460,24 @@ export default function VitalDefinitionsPage() {
                               <div className="h-full bg-orange-400/60 rounded-full mx-3" />
                             </div>
                           </div>
+                        ) : v.dataType === 'dual_numeric' ? (
+                          <div className="text-[10px] text-slate-600 space-y-0.5">
+                            <p>{v.value1Label || 'V1'}: {v.normalMin}-{v.normalMax}</p>
+                            <p>{v.value2Label || 'V2'}: {v.normalMin2}-{v.normalMax2}</p>
+                          </div>
+                        ) : v.dataType === 'text' && (v.alertOptions || []).length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            <span className="text-[10px] text-muted-foreground mr-1">Alert on:</span>
+                            {(v.alertOptions || []).map(opt => (
+                              <Badge key={opt} variant="outline" className="px-1 py-0 h-4 text-[9px] bg-rose-50 text-rose-600 border-rose-100 uppercase">
+                                {opt}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : v.dataType === 'boolean' && v.booleanAlertValue !== null ? (
+                          <span className="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
+                            Alert on: {v.booleanAlertValue ? (v.booleanTrueLabel || 'Yes') : (v.booleanFalseLabel || 'No')}
+                          </span>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">No fixed range</span>
                         )}
@@ -464,95 +541,272 @@ export default function VitalDefinitionsPage() {
       </Card>
 
       {/* ── Add / Edit Modal ──────────────────────────────────────────────────── */}
+
       <Modal
         open={formOpen}
         onClose={() => setFormOpen(false)}
         title={editTarget ? 'Edit vital' : 'Add new vital'}
         subtitle={editTarget ? `Editing: ${editTarget.name}` : 'Define a new vital metric for the system'}
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Code" required>
+        <div className="space-y-8">
+          {/* Section: Basic Information */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Basic Information</h3>
+            
+            <FormField label="Vital name" required>
               <Input
-                placeholder="e.g. SPO2"
-                className="uppercase"
-                value={form.code}
-                onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-                disabled={!!editTarget} // code shouldn't change after creation
+                placeholder="e.g. Blood Oxygen Saturation"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               />
             </FormField>
-            <FormField label="Display Order">
-              <Input
-                type="number"
-                placeholder="0"
-                value={form.displayOrder}
-                onChange={e => setForm(f => ({ ...f, displayOrder: e.target.value }))}
-              />
-            </FormField>
-          </div>
 
-          <FormField label="Vital Name" required>
-            <Input
-              placeholder="e.g. Blood Oxygen Saturation"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Data Type" required>
-              <select
-                className="w-full bg-white border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
-                value={form.dataType}
-                onChange={e => setForm(f => ({ ...f, dataType: e.target.value }))}
-              >
-                <option value="numeric">Numeric (single value)</option>
-                <option value="dual_numeric">Dual Numeric (e.g. BP)</option>
-                <option value="text">Text</option>
-                <option value="boolean">Boolean (Yes/No)</option>
-              </select>
-            </FormField>
-            <FormField label="Unit">
-              <Input
-                placeholder="e.g. %, mmHg, °C"
-                value={form.unit}
-                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-              />
-            </FormField>
-          </div>
-
-          {(form.dataType === 'numeric' || form.dataType === 'dual_numeric') && (
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Normal Min">
+              <FormField label="Code" required>
                 <Input
-                  type="number"
-                  placeholder="e.g. 95"
-                  value={form.normalMin}
-                  onChange={e => setForm(f => ({ ...f, normalMin: e.target.value }))}
+                  placeholder="e.g. SPO2"
+                  className="uppercase"
+                  value={form.code}
+                  onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                  disabled={!!editTarget}
                 />
               </FormField>
-              <FormField label="Normal Max">
+              <FormField label="Unit">
+                <Input
+                  placeholder="e.g. %, mmHg, °C"
+                  value={form.unit}
+                  onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Description">
+              <textarea
+                rows={2}
+                placeholder="Optional description visible to admins only"
+                className="w-full bg-white border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none"
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Data type" required>
+                <select
+                  className="w-full bg-white border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+                  value={form.dataType}
+                  onChange={e => setForm(f => ({ ...f, dataType: e.target.value }))}
+                >
+                  <option value="numeric">Numeric — single value</option>
+                  <option value="dual_numeric">Dual numeric — two values (e.g. BP)</option>
+                  <option value="text">Text — free text or selection</option>
+                  <option value="boolean">Boolean — yes / no</option>
+                </select>
+              </FormField>
+              <FormField label="Display order">
                 <Input
                   type="number"
-                  placeholder="e.g. 100"
-                  value={form.normalMax}
-                  onChange={e => setForm(f => ({ ...f, normalMax: e.target.value }))}
+                  placeholder="0"
+                  value={form.displayOrder}
+                  onChange={e => setForm(f => ({ ...f, displayOrder: e.target.value }))}
+                />
+              </FormField>
+            </div>
+          </div>
+
+          {/* Section: Validation Range (for numbers) */}
+          {(form.dataType === 'numeric' || form.dataType === 'dual_numeric') && (
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Validation Range</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Min allowed value">
+                  <Input
+                    type="number"
+                    placeholder="e.g. 0"
+                    value={form.inputMin}
+                    onChange={e => setForm(f => ({ ...f, inputMin: e.target.value }))}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Rejects readings below this</p>
+                </FormField>
+                <FormField label="Max allowed value">
+                  <Input
+                    type="number"
+                    placeholder="e.g. 100"
+                    value={form.inputMax}
+                    onChange={e => setForm(f => ({ ...f, inputMax: e.target.value }))}
+                  />
+                </FormField>
+              </div>
+            </div>
+          )}
+
+          {/* Section: Configuration for Numeric */}
+          {form.dataType === 'numeric' && (
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Normal Range (Default)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Normal min">
+                  <Input
+                    type="number"
+                    placeholder="e.g. 95"
+                    value={form.normalMin}
+                    onChange={e => setForm(f => ({ ...f, normalMin: e.target.value }))}
+                  />
+                </FormField>
+                <FormField label="Normal max">
+                  <Input
+                    type="number"
+                    placeholder="e.g. 100"
+                    value={form.normalMax}
+                    onChange={e => setForm(f => ({ ...f, normalMax: e.target.value }))}
+                  />
+                </FormField>
+              </div>
+            </div>
+          )}
+
+          {/* Section: Configuration for Dual Numeric */}
+          {form.dataType === 'dual_numeric' && (
+            <div className="space-y-6 pt-4 border-t border-slate-100">
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Field Labels</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Value 1 label">
+                    <Input
+                      placeholder="e.g. Systolic"
+                      value={form.value1Label}
+                      onChange={e => setForm(f => ({ ...f, value1Label: e.target.value }))}
+                    />
+                  </FormField>
+                  <FormField label="Value 2 label">
+                    <Input
+                      placeholder="e.g. Diastolic"
+                      value={form.value2Label}
+                      onChange={e => setForm(f => ({ ...f, value2Label: e.target.value }))}
+                    />
+                  </FormField>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Normal Ranges (Default)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Value 1 normal min">
+                    <Input
+                      type="number"
+                      placeholder="90"
+                      value={form.normalMin}
+                      onChange={e => setForm(f => ({ ...f, normalMin: e.target.value }))}
+                    />
+                  </FormField>
+                  <FormField label="Value 1 normal max">
+                    <Input
+                      type="number"
+                      placeholder="120"
+                      value={form.normalMax}
+                      onChange={e => setForm(f => ({ ...f, normalMax: e.target.value }))}
+                    />
+                  </FormField>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <FormField label="Value 2 normal min">
+                    <Input
+                      type="number"
+                      placeholder="60"
+                      value={form.normalMin2}
+                      onChange={e => setForm(f => ({ ...f, normalMin2: e.target.value }))}
+                    />
+                  </FormField>
+                  <FormField label="Value 2 normal max">
+                    <Input
+                      type="number"
+                      placeholder="80"
+                      value={form.normalMax2}
+                      onChange={e => setForm(f => ({ ...f, normalMax2: e.target.value }))}
+                    />
+                  </FormField>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Section: Configuration for Text */}
+          {form.dataType === 'text' && (
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Text Options</h3>
+              <FormField label="Predefined options">
+                <Input
+                  placeholder="Happy, Neutral, Sad, Anxious (comma separated)"
+                  value={form.textOptionsRaw}
+                  onChange={e => setForm(f => ({ ...f, textOptionsRaw: e.target.value }))}
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Leave blank for free text</p>
+              </FormField>
+              <FormField label="Options that trigger alert">
+                <Input
+                  placeholder="Sad, Anxious (comma separated)"
+                  value={form.alertOptionsRaw}
+                  onChange={e => setForm(f => ({ ...f, alertOptionsRaw: e.target.value }))}
                 />
               </FormField>
             </div>
           )}
 
-          <FormField label="Description">
-            <textarea
-              rows={2}
-              placeholder="Optional description..."
-              className="w-full bg-white border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none"
-              value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            />
-          </FormField>
+          {/* Section: Configuration for Boolean */}
+          {form.dataType === 'boolean' && (
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Boolean Config</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="True label">
+                  <Input
+                    placeholder="Yes"
+                    value={form.booleanTrueLabel}
+                    onChange={e => setForm(f => ({ ...f, booleanTrueLabel: e.target.value }))}
+                  />
+                </FormField>
+                <FormField label="False label">
+                  <Input
+                    placeholder="No"
+                    value={form.booleanFalseLabel}
+                    onChange={e => setForm(f => ({ ...f, booleanFalseLabel: e.target.value }))}
+                  />
+                </FormField>
+              </div>
+              <FormField label="Trigger alert when value is">
+                <select
+                  className="w-full bg-white border border-input rounded-md px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+                  value={form.booleanAlertValue}
+                  onChange={e => setForm(f => ({ ...f, booleanAlertValue: e.target.value as any }))}
+                >
+                  <option value="none">No alert</option>
+                  <option value="true">Alert when "{form.booleanTrueLabel}"</option>
+                  <option value="false">Alert when "{form.booleanFalseLabel}"</option>
+                </select>
+              </FormField>
+            </div>
+          )}
 
-          <div className="flex gap-3 pt-2">
+          {/* Section: Behaviour */}
+          <div className="space-y-4 pt-4 border-t border-slate-100">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Behaviour</h3>
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+              <div>
+                <p className="text-sm font-bold text-slate-900">Vital is active</p>
+                <p className="text-xs text-slate-500">Only active vitals can be captured during visits</p>
+              </div>
+              <button
+                onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))}
+                className="transition-colors"
+              >
+                {form.isActive 
+                  ? <ToggleRight className="w-8 h-8 text-emerald-500" /> 
+                  : <ToggleLeft className="w-8 h-8 text-slate-300" />
+                }
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-6 flex-shrink-0">
             <Button
               variant="outline"
               className="flex-1"

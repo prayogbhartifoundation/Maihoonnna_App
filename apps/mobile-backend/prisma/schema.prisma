@@ -5,65 +5,65 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url	= env("DATABASE_URL")
 }
 
+
 model User {
-  id                         String                 @id @default(uuid())
-  phone                      String                 @unique
-  name                       String?
-  email                      String?                @unique
-  password                   String?
-  age                        Int?
-  role                       UserRole               @default(subscriber)
-  location                   String?
-  latitude                   Float?
-  longitude                  Float?
-  profilePhoto               String?
-  fcmToken                   String?
-  isActive                   Boolean                @default(true)
-  isVerified                 Boolean                @default(false)
-  lastLoginAt                DateTime?
-  createdAt                  DateTime               @default(now())
-  updatedAt                  DateTime               @updatedAt
-  bookedAppointments         Appointment[]          @relation("AppointmentBookedBy")
-  beneficiariesManaged       Beneficiary[]          @relation("BeneficiaryFieldManager")
-  subscriberBeneficiaries    Beneficiary[]          @relation("SubscriberBeneficiaries")
-  beneficiaryProfile         Beneficiary?           @relation("BeneficiaryUser")
-  assignedCallbackRequests   CallbackRequest[]      @relation("CallbackAssignedTo")
-  subscriberCallbackRequests CallbackRequest[]      @relation("SubscriberCallbacks")
-  careCompanionProfile       CareCompanion?         @relation("CareCompanionToUser")
-  couponAttemptLogs          CouponAttemptLog[]
-  couponUsages               CouponUsage[]
-  emergencyRequestsAssigned  EmergencyRequest[]     @relation("AssignedTo")
-  emergencyRequestsRequested EmergencyRequest[]     @relation("RequestedBy")
-  fieldManagersReporting     FieldManager[]         @relation("FieldManagerReportsTo")
-  fieldManagerProfile        FieldManager?          @relation("FieldManagerToUser")
-  assignedMarketingLeads     MarketingLead[]        @relation("LeadAssignedTo")
-  convertedMarketingLeads    MarketingLead[]        @relation("LeadConvertedUser")
-  uploadedMedicalRecords     MedicalRecord[]        @relation("MedicalRecordUploadedBy")
-  medicationAdherenceRecords MedicationAdherence[]  @relation("MedicationRecordedBy")
-  notifications              Notification[]
-  operationsManagerProfile   OperationsManager?     @relation("OperationsManagerToUser")
-  subscriberPayments         Payment[]              @relation("SubscriberPayments")
-  backgroundChecksReviewed   StaffBackgroundCheck[] @relation("BackgroundCheckReviewedBy")
-  verifiedStaffDocuments     StaffDocument[]        @relation("StaffDocumentVerifiedBy")
-  staffProfilesReporting     StaffProfile[]         @relation("StaffProfileReportsTo")
-  staffProfile               StaffProfile?          @relation("StaffProfileToUser")
-  customerServiceProfile     CustomerServiceAgent?  @relation("CSAToUser")
-  trainingsAssigned          StaffTraining[]        @relation("TrainingAssignedBy")
-  subscriberSubscriptions    Subscription[]         @relation("SubscriberSubscriptions")
-  vitalHistoryRecords        VitalHistory[]         @relation("VitalRecordedBy")
-  zonesAsFieldManager        Zone[]                 @relation("ZoneFieldManager")
-  zonesAsOperationsManager   Zone[]                 @relation("ZoneOperationsManager")
+  id                             String                   @id @default(uuid())
+  phone                          String                   @unique
+  name                           String?
+  email                          String?                  @unique
+  password                       String?
+  age                            Int?
+  role                           UserRole                 @default(subscriber)
+  location                       String?
+  latitude                       Float?
+  longitude                      Float?
+  profilePhoto                   String?
+  fcmToken                       String?
+  isActive                       Boolean                  @default(true)
+  isVerified                     Boolean                  @default(false)
+  lastLoginAt                    DateTime?
+  createdAt                      DateTime                 @default(now())
+  updatedAt                      DateTime                 @updatedAt
+  bookedAppointments             Appointment[]            @relation("AppointmentBookedBy")
+  beneficiariesManaged           Beneficiary[]            @relation("BeneficiaryFieldManager")
+  subscriberBeneficiaries        Beneficiary[]            @relation("SubscriberBeneficiaries")
+  beneficiaryProfile             Beneficiary?             @relation("BeneficiaryUser")
+  assignedCallbackRequests       CallbackRequest[]        @relation("CallbackAssignedTo")
+  subscriberCallbackRequests     CallbackRequest[]        @relation("SubscriberCallbacks")
+  careCompanionProfile           CareCompanion?           @relation("CareCompanionToUser")
+  couponAttemptLogs              CouponAttemptLog[]
+  couponUsages                   CouponUsage[]
+  emergencyRequestsAssigned      EmergencyRequest[]       @relation("AssignedTo")
+  emergencyRequestsRequested     EmergencyRequest[]       @relation("RequestedBy")
+  fieldManagersReporting         FieldManager[]           @relation("FieldManagerReportsTo")
+  fieldManagerProfile            FieldManager?            @relation("FieldManagerToUser")
+  assignedMarketingLeads         MarketingLead[]          @relation("LeadAssignedTo")
+  convertedMarketingLeads        MarketingLead[]          @relation("LeadConvertedUser")
+  uploadedMedicalRecords         MedicalRecord[]          @relation("MedicalRecordUploadedBy")
+  medicationAdherenceRecords     MedicationAdherence[]    @relation("MedicationRecordedBy")
+  notifications                  Notification[]
+  operationsManagerProfile       OperationsManager?       @relation("OperationsManagerToUser")
+  subscriberPayments             Payment[]                @relation("SubscriberPayments")
+  backgroundChecksReviewed       StaffBackgroundCheck[]   @relation("BackgroundCheckReviewedBy")
+  verifiedStaffDocuments         StaffDocument[]          @relation("StaffDocumentVerifiedBy")
+  staffProfilesReporting         StaffProfile[]           @relation("StaffProfileReportsTo")
+  staffProfile                   StaffProfile?            @relation("StaffProfileToUser")
+  customerServiceProfile         CustomerServiceAgent?    @relation("CSAToUser")
+  trainingsAssigned              StaffTraining[]          @relation("TrainingAssignedBy")
+  subscriberSubscriptions        Subscription[]           @relation("SubscriberSubscriptions")
+  vitalHistoryRecords            VitalHistory[]           @relation("VitalRecordedBy")
+  zonesAsFieldManager            Zone[]                   @relation("ZoneFieldManager")
+  zonesAsOperationsManager       Zone[]                   @relation("ZoneOperationsManager")
   createdVitalDefinitions        VitalDefinition[]        @relation("VitalDefinitionCreator")
   createdVitalTemplates          VitalConfigTemplate[]    @relation("VitalConfigTemplateCreator")
   createdBeneficiaryVitalConfigs BeneficiaryVitalConfig[] @relation("BeneficiaryVitalConfigCreator")
   updatedBeneficiaryVitalConfigs BeneficiaryVitalConfig[] @relation("BeneficiaryVitalConfigUpdater")
   capturedVitalReadings          VitalReading[]           @relation("VitalReadingCapturedBy")
   acknowledgedVitalAlerts        VitalAlert[]             @relation("VitalAlertAcknowledgedBy")
-  activityLogs               ActivityLog[]
-  addresses                  Address[]
+  activityLogs                   ActivityLog[]
+  addresses                      Address[]
 
   @@index([name])
   @@index([role])
@@ -212,15 +212,15 @@ model SchedulePreference {
 }
 
 model Beneficiary {
-  id                    String                 @id @default(uuid())
-  userId                String                 @unique
+  id                    String                   @id @default(uuid())
+  userId                String                   @unique
   subscriberId          String
   name                  String
   photo                 String?
   dateOfBirth           DateTime?
   age                   Int
-  gender                GenderType             @default(prefer_not_to_say)
-  bloodGroup            BloodGroup             @default(unknown)
+  gender                GenderType               @default(prefer_not_to_say)
+  bloodGroup            BloodGroup               @default(unknown)
   address               String
   flatPlot              String?
   streetArea            String?
@@ -234,39 +234,39 @@ model Beneficiary {
   primaryPhysicianName  String?
   primaryPhysicianPhone String?
   primaryPhysicianSpec  String?
-  hobbiesInterests      String[]               @default([])
-  trackBloodPressure    Boolean                @default(false)
-  trackHeartRate        Boolean                @default(false)
-  trackBloodSugar       Boolean                @default(false)
-  trackTemperature      Boolean                @default(false)
-  trackOxygenSaturation Boolean                @default(false)
-  trackWeight           Boolean                @default(false)
-  trackPainLevel        Boolean                @default(false)
-  trackRespiratoryRate  Boolean                @default(false)
+  hobbiesInterests      String[]                 @default([])
+  trackBloodPressure    Boolean                  @default(false)
+  trackHeartRate        Boolean                  @default(false)
+  trackBloodSugar       Boolean                  @default(false)
+  trackTemperature      Boolean                  @default(false)
+  trackOxygenSaturation Boolean                  @default(false)
+  trackWeight           Boolean                  @default(false)
+  trackPainLevel        Boolean                  @default(false)
+  trackRespiratoryRate  Boolean                  @default(false)
   primaryCcId           String?
   secondaryCcId         String?
   fieldManagerId        String?
-  emotionalScore        Float                  @default(8.0)
-  medicationScore       Float                  @default(100.0)
-  healthScore           Float                  @default(8.0)
-  dietaryRestrictions   String[]               @default([])
-  allergies             String[]               @default([])
+  emotionalScore        Float                    @default(8.0)
+  medicationScore       Float                    @default(100.0)
+  healthScore           Float                    @default(8.0)
+  dietaryRestrictions   String[]                 @default([])
+  allergies             String[]                 @default([])
   mobilityStatus        String?
   cognitiveStatus       String?
   insuranceProvider     String?
   insurancePolicyNo     String?
-  isActive              Boolean                @default(true)
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  isActive              Boolean                  @default(true)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
   maritalStatus         String?
   appointments          Appointment[]
-  fieldManager          User?                  @relation("BeneficiaryFieldManager", fields: [fieldManagerId], references: [id])
-  primaryCC             CareCompanion?         @relation("PrimaryCC", fields: [primaryCcId], references: [id])
-  secondaryCC           CareCompanion?         @relation("SecondaryCC", fields: [secondaryCcId], references: [id])
-  subscriber            User                   @relation("SubscriberBeneficiaries", fields: [subscriberId], references: [id])
-  user                  User                   @relation("BeneficiaryUser", fields: [userId], references: [id])
+  fieldManager          User?                    @relation("BeneficiaryFieldManager", fields: [fieldManagerId], references: [id])
+  primaryCC             CareCompanion?           @relation("PrimaryCC", fields: [primaryCcId], references: [id])
+  secondaryCC           CareCompanion?           @relation("SecondaryCC", fields: [secondaryCcId], references: [id])
+  subscriber            User                     @relation("SubscriberBeneficiaries", fields: [subscriberId], references: [id])
+  user                  User                     @relation("BeneficiaryUser", fields: [userId], references: [id])
   conditions            BeneficiaryCondition[]
-  calls                 CallLog[]              @relation("BeneficiaryCalls")
+  calls                 CallLog[]                @relation("BeneficiaryCalls")
   callbackRequests      CallbackRequest[]
   emergencyContacts     EmergencyContact[]
   emergencyRequests     EmergencyRequest[]
@@ -1046,130 +1046,146 @@ model CallbackRequest {
 }
 
 model VitalDefinition {
-  id              String   @id @default(uuid())
-  code            String   @unique
-  name            String
-  description     String?
-  unit            String?
-  dataType        String   // 'numeric', 'dual_numeric', 'text', 'boolean'
-  inputMin        Float?
-  inputMax        Float?
-  normalMin       Float?
-  normalMax       Float?
-  isSystemVital   Boolean  @default(true)
-  displayOrder    Int      @default(0)
-  iconCode        String?
-  isActive        Boolean  @default(true)
-  createdById     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  description   String?
+  unit          String?
+  dataType      String // 'numeric', 'dual_numeric', 'text', 'boolean'
+  inputMin      Float?
+  inputMax      Float?
+  normalMin     Float?
+  normalMax     Float?
 
-  createdBy       User?    @relation("VitalDefinitionCreator", fields: [createdById], references: [id])
-  templateItems   VitalTemplateItem[]
+  // ── Dual Numeric fields (e.g. Blood Pressure: Systolic/Diastolic) ──
+  value1Label   String?  // e.g. "Systolic"
+  value2Label   String?  // e.g. "Diastolic"
+  normalMin2    Float?   // Normal min for second value
+  normalMax2    Float?   // Normal max for second value
+
+  // ── Text type fields ──
+  textOptions   String[] @default([]) // Predefined options e.g. ["Happy","Sad","Anxious"]
+  alertOptions  String[] @default([]) // Options that trigger an alert e.g. ["Sad","Anxious"]
+
+  // ── Boolean type fields ──
+  booleanTrueLabel  String?  // Custom label for "Yes" (default: "Yes")
+  booleanFalseLabel String?  // Custom label for "No" (default: "No")
+  booleanAlertValue Boolean? // Which boolean value triggers alert (true=Yes, false=No, null=none)
+
+  isSystemVital Boolean  @default(true)
+  displayOrder  Int      @default(0)
+  iconCode      String?
+  isActive      Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdBy          User?                    @relation("VitalDefinitionCreator", fields: [createdById], references: [id])
+  templateItems      VitalTemplateItem[]
   beneficiaryConfigs BeneficiaryVitalConfig[]
-  readings        VitalReading[]
+  readings           VitalReading[]
 
   @@map("vital_definitions")
 }
 
 model VitalConfigTemplate {
-  id              String   @id @default(uuid())
-  name            String
-  description     String?
-  isDefault       Boolean  @default(false)
-  isActive        Boolean  @default(true)
-  createdById     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  createdBy       User?    @relation("VitalConfigTemplateCreator", fields: [createdById], references: [id])
-  items           VitalTemplateItem[]
-  appliedConfigs  BeneficiaryVitalConfig[]
+  createdBy      User?                    @relation("VitalConfigTemplateCreator", fields: [createdById], references: [id])
+  items          VitalTemplateItem[]
+  appliedConfigs BeneficiaryVitalConfig[]
 
   @@map("vital_config_templates")
 }
 
 model VitalTemplateItem {
-  id                  String   @id @default(uuid())
-  templateId          String
-  vitalDefinitionId   String
-  isMandatory         Boolean  @default(false)
-  frequency           String?  // 'every_visit', 'weekly', 'monthly'
-  displayOrder        Int      @default(0)
-  alertOnAbnormal     Boolean  @default(true)
-  createdAt           DateTime @default(now())
+  id                String   @id @default(uuid())
+  templateId        String
+  vitalDefinitionId String
+  isMandatory       Boolean  @default(false)
+  frequency         String? // 'every_visit', 'weekly', 'monthly'
+  displayOrder      Int      @default(0)
+  alertOnAbnormal   Boolean  @default(true)
+  createdAt         DateTime @default(now())
 
-  template            VitalConfigTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  vitalDefinition     VitalDefinition     @relation(fields: [vitalDefinitionId], references: [id])
+  template        VitalConfigTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  vitalDefinition VitalDefinition     @relation(fields: [vitalDefinitionId], references: [id])
 
   @@unique([templateId, vitalDefinitionId])
   @@map("vital_template_items")
 }
 
 model BeneficiaryVitalConfig {
-  id                  String   @id @default(uuid())
-  beneficiaryId       String
-  vitalDefinitionId   String
-  templateId          String?
-  isActive            Boolean  @default(true)
-  isMandatory         Boolean  @default(false)
-  frequency           String   @default("every_visit")
-  alertOnAbnormal     Boolean  @default(true)
-  
-  customNormalMin     Float?
-  customNormalMax     Float?
+  id                String  @id @default(uuid())
+  beneficiaryId     String
+  vitalDefinitionId String
+  templateId        String?
+  isActive          Boolean @default(true)
+  isMandatory       Boolean @default(false)
+  frequency         String  @default("every_visit")
+  alertOnAbnormal   Boolean @default(true)
 
-  effectiveFrom       DateTime @default(now()) @db.Date
-  effectiveTo         DateTime? @db.Date
-  notes               String?
+  customNormalMin Float?
+  customNormalMax Float?
 
-  createdById         String?
-  updatedById         String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  effectiveFrom DateTime  @default(now()) @db.Date
+  effectiveTo   DateTime? @db.Date
+  notes         String?
 
-  beneficiary         Beneficiary          @relation(fields: [beneficiaryId], references: [id])
-  vitalDefinition     VitalDefinition      @relation(fields: [vitalDefinitionId], references: [id])
-  template            VitalConfigTemplate? @relation(fields: [templateId], references: [id])
-  createdBy           User?                @relation("BeneficiaryVitalConfigCreator", fields: [createdById], references: [id])
-  updatedBy           User?                @relation("BeneficiaryVitalConfigUpdater", fields: [updatedById], references: [id])
-  readings            VitalReading[]
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  beneficiary     Beneficiary          @relation(fields: [beneficiaryId], references: [id])
+  vitalDefinition VitalDefinition      @relation(fields: [vitalDefinitionId], references: [id])
+  template        VitalConfigTemplate? @relation(fields: [templateId], references: [id])
+  createdBy       User?                @relation("BeneficiaryVitalConfigCreator", fields: [createdById], references: [id])
+  updatedBy       User?                @relation("BeneficiaryVitalConfigUpdater", fields: [updatedById], references: [id])
+  readings        VitalReading[]
 
   @@unique([beneficiaryId, vitalDefinitionId, effectiveFrom])
   @@map("beneficiary_vital_configs")
 }
 
 model VitalReading {
-  id                  String   @id @default(uuid())
-  beneficiaryId       String
-  vitalDefinitionId   String
-  encounterId         String?  
-  configId            String?
+  id                String  @id @default(uuid())
+  beneficiaryId     String
+  vitalDefinitionId String
+  encounterId       String?
+  configId          String?
 
-  valueNumeric        Float?
-  valueNumeric2       Float?
-  valueText           String?
+  valueNumeric  Float?
+  valueNumeric2 Float?
+  valueText     String?
 
-  unit                String?
-  isAbnormal          Boolean?
-  abnormalityNotes    String?
+  unit             String?
+  isAbnormal       Boolean?
+  abnormalityNotes String?
 
-  capturedById        String
-  capturedAt          DateTime @default(now())
-  captureMethod       String   @default("manual") // 'manual', 'device', 'auto'
-  deviceId            String?
+  capturedById  String
+  capturedAt    DateTime @default(now())
+  captureMethod String   @default("manual") // 'manual', 'device', 'auto'
+  deviceId      String?
 
-  latitude            Float?
-  longitude           Float?
+  latitude  Float?
+  longitude Float?
 
-  createdAt           DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  beneficiary         Beneficiary             @relation(fields: [beneficiaryId], references: [id])
-  vitalDefinition     VitalDefinition         @relation(fields: [vitalDefinitionId], references: [id])
-  encounter           Visit?                  @relation(fields: [encounterId], references: [id])
-  config              BeneficiaryVitalConfig? @relation(fields: [configId], references: [id])
-  capturedBy          User                    @relation("VitalReadingCapturedBy", fields: [capturedById], references: [id])
-  alerts              VitalAlert[]
+  beneficiary     Beneficiary             @relation(fields: [beneficiaryId], references: [id])
+  vitalDefinition VitalDefinition         @relation(fields: [vitalDefinitionId], references: [id])
+  encounter       Visit?                  @relation(fields: [encounterId], references: [id])
+  config          BeneficiaryVitalConfig? @relation(fields: [configId], references: [id])
+  capturedBy      User                    @relation("VitalReadingCapturedBy", fields: [capturedById], references: [id])
+  alerts          VitalAlert[]
 
   @@index([beneficiaryId, capturedAt(sort: Desc)])
   @@index([encounterId])
@@ -1178,19 +1194,19 @@ model VitalReading {
 }
 
 model VitalAlert {
-  id                  String   @id @default(uuid())
-  readingId           String
-  beneficiaryId       String
-  alertType           String?  // 'below_normal', 'above_normal', 'critical'
-  notifiedUsers       String[] // array of user IDs
-  message             String?
-  acknowledgedById    String?
-  acknowledgedAt      DateTime?
-  createdAt           DateTime @default(now())
+  id               String    @id @default(uuid())
+  readingId        String
+  beneficiaryId    String
+  alertType        String? // 'below_normal', 'above_normal', 'critical'
+  notifiedUsers    String[] // array of user IDs
+  message          String?
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+  createdAt        DateTime  @default(now())
 
-  reading             VitalReading @relation(fields: [readingId], references: [id])
-  beneficiary         Beneficiary  @relation(fields: [beneficiaryId], references: [id])
-  acknowledgedBy      User?        @relation("VitalAlertAcknowledgedBy", fields: [acknowledgedById], references: [id])
+  reading        VitalReading @relation(fields: [readingId], references: [id])
+  beneficiary    Beneficiary  @relation(fields: [beneficiaryId], references: [id])
+  acknowledgedBy User?        @relation("VitalAlertAcknowledgedBy", fields: [acknowledgedById], references: [id])
 
   @@map("vital_alerts")
 }

@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import GlobalHeader from './components/shared/GlobalHeader';
 import AddMedicineModal, { type Medication } from './components/shared/AddMedicineModal';
+import { AddressInputField } from '../../components/ui/AddressInputField';
 
 export default function EditBeneficiaryScreen() {
     const router = useRouter();
@@ -23,6 +24,14 @@ export default function EditBeneficiaryScreen() {
     const [age, setAge] = useState('');
     const [relationship, setRelationship] = useState('');
     const [address, setAddress] = useState('');
+    const [flatPlot, setFlatPlot] = useState('');
+    const [streetArea, setStreetArea] = useState('');
+    const [landmark, setLandmark] = useState('');
+    const [city, setCity] = useState('');
+    const [state, setState] = useState('');
+    const [pincode, setPincode] = useState('');
+    const [latitude, setLatitude] = useState(0);
+    const [longitude, setLongitude] = useState(0);
     const [conditions, setConditions] = useState<string[]>([]);
     const [medications, setMedications] = useState<Medication[]>([]);
     const [physicianName, setPhysicianName] = useState('');
@@ -82,6 +91,16 @@ export default function EditBeneficiaryScreen() {
                     setPhysicianPhone(beneficiary.primaryPhysicianPhone || '');
                     setPhysicianSpec(beneficiary.primaryPhysicianSpec || '');
                     setHobbiesText(beneficiary.hobbiesInterests?.join(', ') || '');
+
+                    // Set detailed address fields
+                    setFlatPlot(beneficiary.flatPlot || '');
+                    setStreetArea(beneficiary.streetArea || '');
+                    setLandmark(beneficiary.landmark || '');
+                    setCity(beneficiary.city || '');
+                    setState(beneficiary.state || '');
+                    setPincode(beneficiary.pincode || '');
+                    setLatitude(beneficiary.latitude || 0);
+                    setLongitude(beneficiary.longitude || 0);
                     
                     const vFlags: Record<string, boolean> = {};
                     // Initialize from relational configs
@@ -116,6 +135,14 @@ export default function EditBeneficiaryScreen() {
                 gender,
                 relationship,
                 address,
+                flatPlot,
+                streetArea,
+                landmark,
+                city,
+                state,
+                pincode,
+                latitude,
+                longitude,
                 medicalConditions: conditions,
                 medications, 
                 primaryPhysicianName: physicianName,
@@ -231,7 +258,56 @@ export default function EditBeneficiaryScreen() {
                         </View>
                         
                         <Text style={styles.inputLabel}>Address</Text>
-                        <TextInput style={[styles.input, { height: 80 }]} value={address} onChangeText={setAddress} multiline />
+                        <AddressInputField
+                            label=""
+                            value={address}
+                            onChangeText={setAddress}
+                            onLocationFetched={(details) => {
+                                if (details.address) setAddress(details.address);
+                                if (details.city) setCity(details.city);
+                                if (details.state) setState(details.state);
+                                if (details.pincode) setPincode(details.pincode);
+                                if (details.latitude) setLatitude(details.latitude);
+                                if (details.longitude) setLongitude(details.longitude);
+                                // Set streetArea as the first part of the address
+                                if (details.address) setStreetArea(details.address.split(',')[0]);
+                            }}
+                        />
+
+                        <View style={styles.row}>
+                            <View style={{ flex: 1, marginRight: 10 }}>
+                                <Text style={styles.inputLabel}>Flat / Plot / Building</Text>
+                                <TextInput style={styles.input} value={flatPlot} onChangeText={setFlatPlot} placeholder="e.g. 402, Sunshine" />
+                            </View>
+                            <View style={{ flex: 1.5 }}>
+                                <Text style={styles.inputLabel}>Street / Area *</Text>
+                                <TextInput style={styles.input} value={streetArea} onChangeText={setStreetArea} placeholder="e.g. Sector 15" />
+                            </View>
+                        </View>
+
+                        <Text style={styles.inputLabel}>Landmark (Optional)</Text>
+                        <TextInput style={styles.input} value={landmark} onChangeText={setLandmark} placeholder="e.g. Near HDFC Bank" />
+
+                        <View style={styles.row}>
+                            <View style={{ flex: 1, marginRight: 10 }}>
+                                <Text style={styles.inputLabel}>City *</Text>
+                                <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="City" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.inputLabel}>Pincode *</Text>
+                                <TextInput style={styles.input} value={pincode} onChangeText={setPincode} keyboardType="numeric" placeholder="Pincode" />
+                            </View>
+                        </View>
+
+                        <Text style={styles.inputLabel}>State *</Text>
+                        <TextInput style={styles.input} value={state} onChangeText={setState} placeholder="State" />
+
+                        {latitude !== 0 && (
+                            <View style={styles.coordsBadge}>
+                                <Ionicons name="location" size={12} color="#10B981" />
+                                <Text style={styles.coordsText}>GPS coordinates saved</Text>
+                            </View>
+                        )}
                     </View>
 
                     {/* Medical Conditions */}
@@ -456,5 +532,7 @@ const styles = StyleSheet.create({
     optionBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 10, borderRadius: 10, marginBottom: 5 },
     optionBtnActive: { backgroundColor: '#FFF5ED' },
     optionText: { fontSize: 16, color: '#4B5563' },
-    optionTextActive: { color: '#F97316', fontWeight: '600' }
+    optionTextActive: { color: '#F97316', fontWeight: '600' },
+    coordsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10, backgroundColor: '#ECFDF5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
+    coordsText: { fontSize: 12, color: '#10B981', fontWeight: '600' }
 });

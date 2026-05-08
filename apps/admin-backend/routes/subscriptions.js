@@ -456,6 +456,22 @@ router.post('/admin-enroll', async (req, res) => {
         },
       });
 
+      await tx.activityLog.create({
+        data: {
+          userId: subscriberUser.id,
+          type: 'SUBSCRIPTION',
+          action: 'ENROLLED',
+          details: {
+            entity: 'subscription',
+            entityId: sub.id,
+            packageId: pkg.id,
+            beneficiaryId: beneficiary.id,
+            updatedByRole: req.user?.role || 'system',
+            updatedByName: req.user?.name || 'Admin',
+          }
+        }
+      });
+
       return {
         subscription: sub,
         subscriber: {
@@ -553,6 +569,23 @@ router.post('/enroll', async (req, res) => {
           })),
         });
       }
+      
+      await tx.activityLog.create({
+        data: {
+          userId: subscriberId,
+          type: 'SUBSCRIPTION',
+          action: 'ENROLLED',
+          details: {
+            entity: 'subscription',
+            entityId: sub.id,
+            packageId,
+            beneficiaryId,
+            updatedByRole: req.user?.role || 'system',
+            updatedByName: req.user?.name || 'Admin',
+          }
+        }
+      });
+
       return sub;
     });
     res.status(201).json({ success: true, data: subscription });

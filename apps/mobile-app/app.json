@@ -20,14 +20,8 @@
     "android": {
       "package": "com.rajeev_23.maihoonna",
       "adaptiveIcon": {
-<<<<<<< HEAD
         "foregroundImage": "./assets/images/group2.png",
         "backgroundColor": "#E6F4FE"
-=======
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -35,7 +29,6 @@
         "googleMaps": {
           "apiKey": ""
         }
->>>>>>> 81c0befa855a69acf82da50f535c35871c5b168d
       }
     },
 
@@ -59,7 +52,9 @@
           "locationAlwaysAndWhenInUsePermission": "MaiHoonNa needs your location to show your address on the map and find nearby care services.",
           "locationWhenInUsePermission": "MaiHoonNa needs your location to pin your address and find nearby Care Companions."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-web-browser"
     ],
 
     "extra": {

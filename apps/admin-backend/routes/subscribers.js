@@ -177,6 +177,26 @@ router.put('/:id', async (req, res) => {
       data: dataToUpdate
     });
 
+    const changedFields = Object.keys(dataToUpdate).filter(key => s[key] !== dataToUpdate[key]);
+
+    if (changedFields.length > 0) {
+      await prisma.activityLog.create({
+        data: {
+          userId: id,
+          type: 'PROFILE',
+          action: 'PROFILE_UPDATED',
+          details: {
+            entity: 'subscriber',
+            entityId: id,
+            entityName: updated.name,
+            fieldsChanged: changedFields,
+            updatedByRole: req.user?.role || 'system',
+            updatedByName: req.user?.name || 'Admin',
+          }
+        }
+      });
+    }
+
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error(`PUT /subscribers/:id error:`, err);

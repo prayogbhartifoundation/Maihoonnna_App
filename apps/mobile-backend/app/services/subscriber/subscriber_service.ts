@@ -13,6 +13,14 @@ export const getSubscriberProfile = async (subscriberId: string) => {
       phone: true,
       profilePhoto: true,
       location: true,
+      latitude: true,
+      longitude: true,
+      flatPlot: true,
+      streetArea: true,
+      landmark: true,
+      city: true,
+      state: true,
+      pincode: true,
       createdAt: true,
       isVerified: true,
       isActive: true,
@@ -88,14 +96,34 @@ export const getSubscriberProfile = async (subscriberId: string) => {
   };
 };
 
-export const updateProfile = async (subscriberId: string, data: { name?: string, email?: string, location?: string }) => {
+export const updateProfile = async (subscriberId: string, data: { 
+  name?: string, 
+  email?: string, 
+  location?: string,
+  latitude?: number,
+  longitude?: number,
+  flatPlot?: string,
+  streetArea?: string,
+  landmark?: string,
+  city?: string,
+  state?: string,
+  pincode?: string
+}) => {
   console.log(`[Backend] Updating profile for ${subscriberId}:`, data);
   const updatedUser = await prisma.user.update({
     where: { id: subscriberId },
     data: {
       name: data.name,
       email: data.email,
-      location: data.location
+      location: data.location,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      flatPlot: data.flatPlot,
+      streetArea: data.streetArea,
+      landmark: data.landmark,
+      city: data.city,
+      state: data.state,
+      pincode: data.pincode
     }
   });
   console.log(`[Backend] Update successful for ${subscriberId}`);
