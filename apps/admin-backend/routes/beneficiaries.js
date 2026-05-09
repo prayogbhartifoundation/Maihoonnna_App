@@ -522,10 +522,11 @@ router.put('/:id', async (req, res) => {
               beneficiaryId: id,
               name: m.name,
               dosage: m.dosage || '',
-              frequency: m.frequency || 'once_daily',
+              frequency: m.frequency === 'daily' ? 'once_daily' : (m.frequency || 'once_daily'),
               timeSlots: m.timeSlots || [],
               setReminders: !!m.setReminders,
-              startDate: new Date(),
+              startDate: m.startDate ? new Date(m.startDate) : new Date(),
+              endDate: m.endDate ? new Date(m.endDate) : null,
               isActive: true,
             }
           });
@@ -617,10 +618,11 @@ router.post('/:id/medications', async (req, res) => {
         beneficiaryId: id,
         name,
         dosage,
-        frequency: frequency || 'daily',
+        frequency: frequency === 'daily' ? 'once_daily' : (frequency || 'once_daily'),
         timeSlots: timeSlots || [],
         setReminders: Boolean(setReminders),
-        startDate: new Date(),
+        startDate: req.body.startDate ? new Date(req.body.startDate) : new Date(),
+        endDate: req.body.endDate ? new Date(req.body.endDate) : null,
         isActive: true,
       }
     });
@@ -628,6 +630,24 @@ router.post('/:id/medications', async (req, res) => {
     res.json({ success: true, data: newMed });
   } catch (err) {
     console.error(`POST /beneficiaries/:id/medications error:`, err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── DELETE /api/beneficiaries/:id/medications/:medicationId ───────────────────
+// "Stop" a medication
+router.delete('/:id/medications/:medicationId', async (req, res) => {
+  try {
+    const { medicationId } = req.params;
+    await prisma.medication.update({
+      where: { id: medicationId },
+      data: { 
+        isActive: false,
+        endDate: new Date()
+      }
+    });
+    res.json({ success: true, message: 'Medication stopped' });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -647,7 +667,11 @@ router.post('/:id/conditions', async (req, res) => {
 
     if (!condition) {
       condition = await prisma.medicalCondition.create({
-        data: { name: name.trim() }
+        data: { 
+          name: name.trim(),
+          slug: name.trim().toLowerCase().replace(/\s+/g, '-'),
+          category: 'General'
+        }
       });
     }
 
@@ -661,6 +685,26 @@ router.post('/:id/conditions', async (req, res) => {
     res.json({ success: true, data: linked });
   } catch (err) {
     console.error(`POST /beneficiaries/:id/conditions error:`, err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── DELETE /api/beneficiaries/:id/conditions/:conditionId ─────────────────────
+// "Remove" a condition
+router.delete('/:id/conditions/:conditionId', async (req, res) => {
+  try {
+    const { id, conditionId } = req.params;
+    await prisma.beneficiaryCondition.update({
+      where: { 
+        beneficiaryId_conditionId: { 
+          beneficiaryId: id, 
+          conditionId: conditionId 
+        } 
+      },
+      data: { isActive: false }
+    });
+    res.json({ success: true, message: 'Condition removed' });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });

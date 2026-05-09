@@ -881,7 +881,10 @@ export default function EnrollmentWizardPage() {
                             dosage: fd.get('dosage') as string,
                             frequency: fd.get('frequency') as string,
                             timeSlots: slots,
-                            setReminders: fd.get('reminders') === 'on'
+                            setReminders: fd.get('reminders') === 'on',
+                            startDate: fd.get('startDate') as string,
+                            endDate: fd.get('endDate') as string,
+                            instructions: fd.get('instructions') as string,
                           };
                           if (newMed.name) {
                             setMedications([...medications, newMed]);
@@ -910,6 +913,22 @@ export default function EnrollmentWizardPage() {
                                   <SelectItem value="as_needed">As Needed</SelectItem>
                                 </SelectContent>
                               </Select>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Instructions (Optional)</Label>
+                            <Input name="instructions" placeholder="e.g., Take after food" />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Start Date</Label>
+                              <Input name="startDate" type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>End Date (Optional)</Label>
+                              <Input name="endDate" type="date" />
                             </div>
                           </div>
                           <div className="space-y-2">

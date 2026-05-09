@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { 
   User, Phone, Mail, MapPin, Calendar, Loader2, Heart, Activity, 
-  Thermometer, Droplet, Scale, RefreshCw, UserCheck, ArrowLeft, Edit2
+  Thermometer, Droplet, Scale, RefreshCw, UserCheck, ArrowLeft, Edit2, Trash2
 } from 'lucide-react';
 import { beneficiaryApi, subscriptionApi } from '../../services/api';
 import { StatusChip } from '../components/common/StatusChip';
@@ -118,6 +118,28 @@ export default function BeneficiaryProfilePage() {
       toast.success(`${vitalKey} monitoring ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
       toast.error('Failed to update configuration');
+    }
+  };
+
+  const handleStopMedication = async (medicationId: string) => {
+    if (!id || !confirm('Are you sure you want to stop this medication?')) return;
+    try {
+      await beneficiaryApi.stopMedication(id, medicationId);
+      toast.success('Medication stopped');
+      refreshDetailsBackground();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to stop medication');
+    }
+  };
+
+  const handleRemoveCondition = async (conditionId: string) => {
+    if (!id || !confirm('Are you sure you want to remove this medical condition?')) return;
+    try {
+      await beneficiaryApi.removeCondition(id, conditionId);
+      toast.success('Condition removed');
+      refreshDetailsBackground();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove condition');
     }
   };
 
@@ -273,9 +295,16 @@ export default function BeneficiaryProfilePage() {
                           <button onClick={() => setIsAddConditionOpen(true)} className="text-[#FF7A00] font-black text-[10px] uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full">+ Add</button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {(details.conditions || []).length > 0 ? (
-                            details.conditions.map((bc: any) => (
-                              <span key={bc.conditionId} className="px-4 py-2 bg-[#FFF5EE] text-[#FF7A00] rounded-2xl text-xs font-bold border border-orange-100">{bc.condition?.name}</span>
+                          {(details.conditions || []).filter((bc: any) => bc.isActive).length > 0 ? (
+                            details.conditions.filter((bc: any) => bc.isActive).map((bc: any) => (
+                              <span key={bc.conditionId} className="group relative px-4 py-2 bg-[#FFF5EE] text-[#FF7A00] rounded-2xl text-xs font-bold border border-orange-100 flex items-center gap-2">
+                                {bc.condition?.name}
+                                <Trash2 
+                                  size={12} 
+                                  className="cursor-pointer opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" 
+                                  onClick={() => handleRemoveCondition(bc.conditionId)}
+                                />
+                              </span>
                             ))
                           ) : (
                             <span className="text-sm text-gray-400 italic">None recorded</span>
@@ -288,13 +317,27 @@ export default function BeneficiaryProfilePage() {
                           <button onClick={() => setIsAddMedOpen(true)} className="text-blue-600 font-black text-[10px] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">+ Add</button>
                         </div>
                         <div className="flex flex-col gap-3">
-                          {(details.medications && details.medications.length > 0 && typeof details.medications[0] === 'object') ? (
-                            details.medications.map((m: any) => (
-                              <div key={m.id} className="flex flex-col p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
-                                <span className="text-sm font-black text-blue-900">{m.name} <span className="font-bold text-blue-600 opacity-80">{m.dosage}</span></span>
-                                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
-                                  {m.frequency.replace('_', ' ')} &bull; {m.timeSlots.join(', ')} {m.setReminders ? '🔔' : ''}
-                                </span>
+                          {details.medications && details.medications.filter((m: any) => m.isActive).length > 0 ? (
+                            details.medications.filter((m: any) => m.isActive).map((m: any) => (
+                              <div key={m.id} className="group flex items-center justify-between p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-black text-blue-900">{m.name} <span className="font-bold text-blue-600 opacity-80">{m.dosage}</span></span>
+                                  <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
+                                    {m.frequency.replace('_', ' ')} &bull; {m.timeSlots.join(', ')} {m.setReminders ? '🔔' : ''}
+                                  </span>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Start: {m.startDate ? new Date(m.startDate).toLocaleDateString() : 'N/A'}</span>
+                                    {m.endDate && <span className="text-[9px] font-bold text-red-400 uppercase tracking-tighter">End: {new Date(m.endDate).toLocaleDateString()}</span>}
+                                    {m.instructions && <span className="text-[9px] font-medium text-gray-500 italic">"{m.instructions}"</span>}
+                                  </div>
+                                </div>
+                                <button 
+                                  onClick={() => handleStopMedication(m.id)}
+                                  className="p-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                  title="Stop Medication"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
                               </div>
                             ))
                           ) : (

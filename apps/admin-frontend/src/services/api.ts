@@ -521,6 +521,18 @@ export const beneficiaryApi = {
     });
   },
 
+  async stopMedication(beneficiaryId: string, medicationId: string): Promise<any> {
+    return apiJson(`/beneficiaries/${beneficiaryId}/medications/${medicationId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async removeCondition(beneficiaryId: string, conditionId: string): Promise<any> {
+    return apiJson(`/beneficiaries/${beneficiaryId}/conditions/${conditionId}`, {
+      method: 'DELETE',
+    });
+  },
+
   async updateClinicalConfig(id: string, config: Partial<Beneficiary['clinicalConfiguration']>): Promise<Beneficiary> {
     await delay();
     const index = mockBeneficiaries.findIndex(b => b.id === id);

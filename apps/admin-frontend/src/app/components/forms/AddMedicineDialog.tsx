@@ -20,9 +20,12 @@ export const AddMedicineDialog: React.FC<Props> = ({ isOpen, onClose, beneficiar
   const [formData, setFormData] = useState({
     name: '',
     dosage: '',
-    frequency: 'daily',
+    frequency: 'once_daily',
     timeSlots: [] as string[],
     setReminders: false,
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '',
+    instructions: '',
   });
   
   const [isSaving, setIsSaving] = useState(false);
@@ -47,7 +50,16 @@ export const AddMedicineDialog: React.FC<Props> = ({ isOpen, onClose, beneficiar
       await beneficiaryApi.addMedication(beneficiaryId, formData);
       toast.success('Medication added to schedule');
       onSuccess();
-      setFormData({ name: '', dosage: '', frequency: 'daily', timeSlots: [], setReminders: false });
+      setFormData({ 
+        name: '', 
+        dosage: '', 
+        frequency: 'once_daily', 
+        timeSlots: [], 
+        setReminders: false,
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: '',
+        instructions: '',
+      });
     } catch (err: any) {
       toast.error(err.message || 'Failed to add medication');
     } finally {
@@ -90,12 +102,43 @@ export const AddMedicineDialog: React.FC<Props> = ({ isOpen, onClose, beneficiar
                    <SelectValue placeholder="Select" />
                  </SelectTrigger>
                  <SelectContent>
-                   <SelectItem value="daily">Daily</SelectItem>
+                   <SelectItem value="once_daily">Daily</SelectItem>
                    <SelectItem value="weekly">Weekly</SelectItem>
                    <SelectItem value="as_needed">As Needed</SelectItem>
                  </SelectContent>
                </Select>
-             </div>
+                </div>
+           </div>
+           
+           <div className="space-y-2">
+             <Label className="text-xs font-medium text-gray-700">Instructions (Optional)</Label>
+             <Input 
+               placeholder="e.g., Take after food" 
+               value={formData.instructions}
+               onChange={(e) => setFormData({...formData, instructions: e.target.value})}
+               className="rounded-2xl border-gray-200 focus:border-[#FF7A00] focus:ring-[#FF7A00]"
+             />
+           </div>
+           
+           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-gray-700">Start Date</Label>
+              <Input 
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                className="rounded-2xl border-gray-200 focus:border-[#FF7A00] focus:ring-[#FF7A00]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-gray-700">End Date (Optional)</Label>
+              <Input 
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                className="rounded-2xl border-gray-200 focus:border-[#FF7A00] focus:ring-[#FF7A00]"
+              />
+            </div>
           </div>
 
           <div className="pt-2">
