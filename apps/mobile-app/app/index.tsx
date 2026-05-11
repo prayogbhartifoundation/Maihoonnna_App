@@ -6,14 +6,25 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function Index() {
   const [isReady, setIsReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkLoginState() {
-      const token = await AsyncStorage.getItem("userToken");
-      if (token) {
-        setIsLoggedIn(true);
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        if (token) {
+          setIsLoggedIn(true);
+          const userDataStr = await AsyncStorage.getItem("userData");
+          if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            setRole(userData.role);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading auth state:", err);
+      } finally {
+        setIsReady(true);
       }
-      setIsReady(true);
     }
     checkLoginState();
   }, []);
@@ -26,6 +37,16 @@ export default function Index() {
     );
   }
 
-  // If logged in, go straight to their specific Dashboard! Otherwise, go to Login.
-  return isLoggedIn ? <Redirect href="/(subscriber)" /> : <Redirect href="/(auth)" />;
+  if (!isLoggedIn) {
+    return <Redirect href="/(auth)" />;
+  }
+
+  // Dynamic role-based redirection on startup
+  if (role === "care_companion") {
+    return <Redirect href="/(care-companion)" />;
+  } else if (role === "beneficiary") {
+    return <Redirect href="/(beneficiary)" />;
+  } else {
+    return <Redirect href="/(subscriber)" />;
+  }
 }
