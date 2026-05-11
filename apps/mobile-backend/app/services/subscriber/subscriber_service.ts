@@ -15,12 +15,6 @@ export const getSubscriberProfile = async (subscriberId: string) => {
       location: true,
       latitude: true,
       longitude: true,
-      flatPlot: true,
-      streetArea: true,
-      landmark: true,
-      city: true,
-      state: true,
-      pincode: true,
       createdAt: true,
       isVerified: true,
       isActive: true,
@@ -28,6 +22,18 @@ export const getSubscriberProfile = async (subscriberId: string) => {
   });
 
   if (!user) throw new Error('User not found');
+
+  // Inject fallback defaults for address fields not present on User model
+  // to prevent mobile app from crashing.
+  const userWithFallbackAddress = {
+    ...user,
+    flatPlot: '',
+    streetArea: '',
+    landmark: '',
+    city: '',
+    state: '',
+    pincode: '',
+  };
 
   // 1. Get Beneficiary Count
   const beneficiaryCount = await prisma.beneficiary.count({
@@ -85,7 +91,7 @@ export const getSubscriberProfile = async (subscriberId: string) => {
   });
 
   return {
-    user,
+    user: userWithFallbackAddress,
     stats: {
       beneficiaryCount,
       usedHours,
@@ -118,12 +124,6 @@ export const updateProfile = async (subscriberId: string, data: {
       location: data.location,
       latitude: data.latitude,
       longitude: data.longitude,
-      flatPlot: data.flatPlot,
-      streetArea: data.streetArea,
-      landmark: data.landmark,
-      city: data.city,
-      state: data.state,
-      pincode: data.pincode
     }
   });
   console.log(`[Backend] Update successful for ${subscriberId}`);
@@ -131,7 +131,16 @@ export const updateProfile = async (subscriberId: string, data: {
   // Log Activity
   await logActivity(subscriberId, 'PROFILE', 'PROFILE_UPDATED', { fieldsChanged: Object.keys(data) });
 
-  return updatedUser;
+  // Return updated user with address fallbacks to match expected schema
+  return {
+    ...updatedUser,
+    flatPlot: data.flatPlot || '',
+    streetArea: data.streetArea || '',
+    landmark: data.landmark || '',
+    city: data.city || '',
+    state: data.state || '',
+    pincode: data.pincode || '',
+  };
 };
 
 

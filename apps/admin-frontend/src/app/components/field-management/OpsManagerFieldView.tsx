@@ -1,156 +1,280 @@
+/**
+ * OpsManagerFieldView — Complete Rewrite
+ *
+ * Flow:
+ *   1. Select Field Manager from dropdown
+ *   2. Auto-load FM's team (CCs) + assigned beneficiaries
+ *   3. Appoint a CC to any beneficiary (inline)
+ *   4. Notifications sent to CC, beneficiary, and subscriber via backend
+ */
+
 import React, { useEffect, useState, useCallback } from 'react';
-import { fieldManagerApi, beneficiaryApi } from '../../../services/api';
+import { fieldManagerApi } from '../../../services/api';
 import { toast } from 'sonner';
-import {
-  Users, UserCheck, LayoutDashboard,
-  ChevronRight, CheckCircle2,
-  MapPin, Loader2, Search
-} from 'lucide-react';
-import { 
-  LoadingState, 
-  EmptyState, 
-  StatCard 
-} from './SharedComponents';
+import { Users, UserCheck, CheckCircle2, RefreshCw } from 'lucide-react';
+import { LoadingState, StatCard } from './SharedComponents';
+import FMSelectorDropdown, { type FieldManagerItem } from './FMSelectorDropdown';
+import TeamPanel, { type CCMember } from './TeamPanel';
+import BeneficiaryList, { type BeneficiaryItem } from './BeneficiaryList';
 
 export default function OpsManagerFieldView() {
-  const [activeTab, setActiveTab] = useState<'fms' | 'allocation' | 'teams'>('fms');
-  const [fieldManagers, setFieldManagers] = useState<any[]>([]);
-  const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  // ── State ───────────────────────────────────────────────────────────────────
+  const [fieldManagers, setFieldManagers] = useState<FieldManagerItem[]>([]);
+  const [selectedFM, setSelectedFM] = useState<FieldManagerItem | null>(null);
+  const [team, setTeam] = useState<CCMember[]>([]);
+  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryItem[]>([]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const [fmLoading, setFmLoading] = useState(true);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [benLoading, setBenLoading] = useState(false);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  // ── Load field managers ─────────────────────────────────────────────────────
+  const loadFMs = useCallback(async () => {
+    setFmLoading(true);
     try {
-      const [fms, bens] = await Promise.all([
-        fieldManagerApi.getAll(),
-        beneficiaryApi.getAll()
-      ]);
+      const raw: any[] = await fieldManagerApi.getAll();
+      const fms: FieldManagerItem[] = raw.map((fm: any) => ({
+        id: fm.id,           // FieldManager profile id
+        userId: fm.userId,   // User id (used as fieldManagerId on Beneficiary)
+        name: fm.name,
+        zone: fm.zone,
+        teamCount: fm.teamCount,
+        beneficiaryCount: fm.beneficiaryCount,
+        isAvailable: fm.isAvailable ?? true,
+      }));
       setFieldManagers(fms);
-      setBeneficiaries(bens);
-    } catch (e) {
-      toast.error('Failed to load operational data');
+    } catch (e: any) {
+      toast.error('Failed to load field managers');
     } finally {
-      setLoading(false);
+      setFmLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadFMs(); }, [loadFMs]);
 
-  const handleAssignFM = async (benId: string, fmId: string) => {
+  // ── Load team CCs for selected FM ──────────────────────────────────────────
+  const loadTeam = useCallback(async (fm: FieldManagerItem) => {
+    setTeamLoading(true);
     try {
-      await beneficiaryApi.assignStaff(benId, { fieldManagerId: fmId });
-      toast.success('Beneficiary assigned to Field Manager');
-      loadData();
-    } catch (e) {
-      toast.error('Assignment failed');
+      // /field-manager/my-team?fmId=<fm.id>  (passes FM profile ID)
+      const raw = await fieldManagerApi.getMyTeam(fm.id);
+      setTeam(raw as CCMember[]);
+    } catch (e: any) {
+      toast.error('Failed to load team');
+    } finally {
+      setTeamLoading(false);
+    }
+  }, []);
+
+  // ── Load beneficiaries for selected FM ─────────────────────────────────────
+  const loadBeneficiaries = useCallback(async (fm: FieldManagerItem) => {
+    setBenLoading(true);
+    try {
+      // GET /field-manager/beneficiaries?fmId=<fm.userId>
+      // The backend filters WHERE fieldManagerId = fm.userId
+      const raw = await fieldManagerApi.getBeneficiariesByFM(fm.userId);
+      setBeneficiaries(raw.map((b: any): BeneficiaryItem => ({
+        id: b.id,
+        name: b.name,
+        age: b.age,
+        gender: b.gender,
+        phone: b.phone || b.subscriberPhone,
+        city: b.city,
+        pincode: b.pincode,
+        primaryCcId: b.primaryCcId ?? null,
+        primaryCcName: b.careCompanion ?? b.primaryCcName ?? null,
+        secondaryCcId: b.secondaryCcId ?? null,
+        secondaryCcName: b.secondaryCareCompanion ?? b.secondaryCcName ?? null,
+        activePackage: b.activePackage ?? null,
+        subscriberName: b.subscriberName ?? null,
+      })));
+    } catch (e: any) {
+      toast.error('Failed to load beneficiaries');
+    } finally {
+      setBenLoading(false);
+    }
+  }, []);
+
+  // ── Handle FM selection ─────────────────────────────────────────────────────
+  const handleSelectFM = (fm: FieldManagerItem) => {
+    setSelectedFM(fm);
+    setTeam([]);
+    setBeneficiaries([]);
+    loadTeam(fm);
+    loadBeneficiaries(fm);
+  };
+
+  // ── Assign CC to beneficiary ────────────────────────────────────────────────
+  const handleAssignCC = async (beneficiaryId: string, ccId: string) => {
+    setSubmittingId(beneficiaryId);
+    try {
+      await fieldManagerApi.assignCC(beneficiaryId, { primaryCcId: ccId });
+
+      // Optimistic update in the list
+      setBeneficiaries(prev =>
+        prev.map(b => {
+          if (b.id !== beneficiaryId) return b;
+          const cc = team.find(c => c.id === ccId);
+          return { ...b, primaryCcId: ccId, primaryCcName: cc?.name ?? b.primaryCcName };
+        })
+      );
+
+      // Update team CC load count (optimistic)
+      setTeam(prev =>
+        prev.map(cc =>
+          cc.id === ccId
+            ? { ...cc, primaryBeneficiariesCount: cc.primaryBeneficiariesCount + 1 }
+            : cc
+        )
+      );
+
+      const cc = team.find(c => c.id === ccId);
+      toast.success(`✅ ${cc?.name ?? 'CC'} appointed! Notifications sent to all parties.`);
+    } catch (e: any) {
+      toast.error(e.message || 'Assignment failed');
+    } finally {
+      setSubmittingId(null);
     }
   };
 
+  // ── Remove CC from beneficiary ──────────────────────────────────────────────
+  const handleRemoveCC = async (beneficiaryId: string) => {
+    setSubmittingId(beneficiaryId);
+    try {
+      await fieldManagerApi.assignCC(beneficiaryId, { primaryCcId: null });
+
+      const oldCcId = beneficiaries.find(b => b.id === beneficiaryId)?.primaryCcId;
+
+      // Optimistic update
+      setBeneficiaries(prev =>
+        prev.map(b =>
+          b.id === beneficiaryId ? { ...b, primaryCcId: null, primaryCcName: null } : b
+        )
+      );
+      if (oldCcId) {
+        setTeam(prev =>
+          prev.map(cc =>
+            cc.id === oldCcId
+              ? { ...cc, primaryBeneficiariesCount: Math.max(0, cc.primaryBeneficiariesCount - 1) }
+              : cc
+          )
+        );
+      }
+
+      toast.success('CC removed from beneficiary');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to remove CC');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
+  // ── Refresh all data ────────────────────────────────────────────────────────
+  const handleRefreshAll = () => {
+    if (!selectedFM) return;
+    loadTeam(selectedFM);
+    loadBeneficiaries(selectedFM);
+  };
+
+  // ── Derived stats ───────────────────────────────────────────────────────────
+  const assignedCount = beneficiaries.filter(b => b.primaryCcId).length;
+  const availableCCs = team.filter(cc => cc.isAvailable).length;
+
   return (
-    <div className="space-y-6">
-      {/* Stats Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard label="My Field Managers" value={fieldManagers.length} icon={<Users className="w-4 h-4" />} color="blue" />
-        <StatCard label="Active Beneficiaries" value={beneficiaries.length} icon={<UserCheck className="w-4 h-4" />} color="orange" />
-        <StatCard label="Unassigned" value={beneficiaries.filter(b => !b.fieldManagerId).length} icon={<MapPin className="w-4 h-4" />} color="purple" />
-      </div>
+    <div className="space-y-5">
+      {/* ── FM Selector ──────────────────────────────────────────────────── */}
+      <FMSelectorDropdown
+        fieldManagers={fieldManagers}
+        selectedId={selectedFM?.id ?? null}
+        onChange={handleSelectFM}
+        loading={fmLoading}
+      />
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        <button
-          onClick={() => setActiveTab('fms')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'fms' ? 'border-orange-500 text-orange-600' : 'border-transparent text-muted-foreground'
-          }`}
-        >
-          <Users className="w-4 h-4" /> My Field Managers
-        </button>
-        <button
-          onClick={() => setActiveTab('allocation')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'allocation' ? 'border-orange-500 text-orange-600' : 'border-transparent text-muted-foreground'
-          }`}
-        >
-          <LayoutDashboard className="w-4 h-4" /> Beneficiary Allocation
-        </button>
-      </div>
+      {/* ── Nothing selected yet ────────────────────────────────────────── */}
+      {!selectedFM && !fmLoading && (
+        <div className="bg-white border border-dashed border-[#E7DED6] rounded-2xl py-16 flex flex-col items-center justify-center text-center gap-3">
+          <div className="w-16 h-16 rounded-2xl bg-[#FFF5EE] flex items-center justify-center text-[#FF7A00]">
+            <Users size={32} />
+          </div>
+          <h3 className="text-lg font-black text-gray-700">Select a Field Manager</h3>
+          <p className="text-sm text-gray-400 max-w-xs">
+            Choose a field manager from the dropdown above to view their team and manage beneficiary assignments.
+          </p>
+        </div>
+      )}
 
-      {/* Content */}
-      <div className="space-y-4">
-        {loading ? <LoadingState message="Synchronizing regional data..." /> : (
-          <>
-            {activeTab === 'fms' && (
-              <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-secondary/50 text-muted-foreground font-medium">
-                    <tr>
-                      <th className="px-6 py-4">Field Manager</th>
-                      <th className="px-6 py-4">Zone</th>
-                      <th className="px-6 py-4">Team Size</th>
-                      <th className="px-6 py-4">Beneficiaries</th>
-                      <th className="px-6 py-4">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {fieldManagers.map(fm => (
-                      <tr key={fm.id} className="hover:bg-secondary/30 transition-colors">
-                        <td className="px-6 py-4 font-medium">{fm.name}</td>
-                        <td className="px-6 py-4">{fm.zone || 'N/A'}</td>
-                        <td className="px-6 py-4">{fm.teamSize || 0} CCs</td>
-                        <td className="px-6 py-4">{fm.beneficiaryCount || 0}</td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Active</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      {/* ── Dashboard (after FM selected) ───────────────────────────────── */}
+      {selectedFM && (
+        <>
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <StatCard
+              label="Team Size"
+              value={teamLoading ? '…' : team.length}
+              icon={<Users size={16} />}
+              color="orange"
+            />
+            <StatCard
+              label="Available CCs"
+              value={teamLoading ? '…' : availableCCs}
+              icon={<CheckCircle2 size={16} />}
+              color="green"
+            />
+            <StatCard
+              label="Beneficiaries"
+              value={benLoading ? '…' : beneficiaries.length}
+              icon={<UserCheck size={16} />}
+              color="blue"
+            />
+            <StatCard
+              label="Assigned"
+              value={benLoading ? '…' : assignedCount}
+              icon={<CheckCircle2 size={16} />}
+              color="purple"
+            />
+          </div>
 
-            {activeTab === 'allocation' && (
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search beneficiary..."
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  {beneficiaries
-                    .filter(b => b.name.toLowerCase().includes(search.toLowerCase()))
-                    .map(ben => (
-                      <div key={ben.id} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold">{ben.name}</p>
-                          <p className="text-xs text-muted-foreground">{ben.address || ben.city}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <select
-                            className="text-sm border rounded-lg px-2 py-1 bg-background"
-                            value={ben.fieldManagerId || ''}
-                            onChange={e => handleAssignFM(ben.id, e.target.value)}
-                          >
-                            <option value="">— Unassigned —</option>
-                            {fieldManagers.map(fm => (
-                              <option key={fm.id} value={fm.id}>{fm.name}</option>
-                            ))}
-                          </select>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          {/* Refresh */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleRefreshAll}
+              disabled={teamLoading || benLoading}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-black text-gray-400 hover:text-[#FF7A00] border border-[#E7DED6] rounded-xl hover:border-[#FF7A00] transition-all disabled:opacity-50"
+            >
+              <RefreshCw
+                size={13}
+                className={teamLoading || benLoading ? 'animate-spin' : ''}
+              />
+              Refresh Data
+            </button>
+          </div>
+
+          {/* Two-column layout: Team | Beneficiaries */}
+          <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
+            {/* Team Panel — narrower */}
+            <div className="xl:col-span-2">
+              <TeamPanel
+                team={team}
+                loading={teamLoading}
+                onRefresh={() => loadTeam(selectedFM)}
+              />
+            </div>
+
+            {/* Beneficiary List — wider */}
+            <div className="xl:col-span-3">
+              <BeneficiaryList
+                beneficiaries={beneficiaries}
+                team={team}
+                loading={benLoading}
+                submittingId={submittingId}
+                onAssignCC={handleAssignCC}
+                onRemoveCC={handleRemoveCC}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

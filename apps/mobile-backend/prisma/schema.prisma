@@ -19,6 +19,12 @@ model User {
   location                       String?
   latitude                       Float?
   longitude                      Float?
+  flatPlot                       String?
+  streetArea                     String?
+  landmark                       String?
+  city                           String?
+  state                          String?
+  pincode                        String?
   profilePhoto                   String?
   fcmToken                       String?
   isActive                       Boolean                  @default(true)

@@ -33,24 +33,23 @@ async function getFmTeamIds(fmProfileId) {
 router.get('/my-team', async (req, res) => {
   try {
     const isFM = req.user?.role === 'field_manager';
+    const isOM = req.user?.role === 'operations_manager';
     const isAdmin =
       req.user?.role === 'master_admin' || req.user?.role === 'admin';
 
     let ccWhere = { user: { isActive: true } };
+    const { fmId } = req.query; // Optional: specific FM ID to view
 
-    if (isFM) {
-      const fmProfileId = await getFmProfileId(req.user.id);
-      console.log(
-        `[FM Portal] User: ${req.user.id}, FM Profile: ${fmProfileId}`
-      );
-
-      if (!fmProfileId) {
+    if (isFM || ((isAdmin || isOM) && fmId)) {
+      const targetFmId = isFM ? await getFmProfileId(req.user.id) : fmId;
+      
+      if (!targetFmId) {
         return res
           .status(404)
           .json({ success: false, message: 'Field Manager profile not found' });
       }
-      const teamIds = await getFmTeamIds(fmProfileId);
-      console.log(`[FM Portal] Managed Teams: ${JSON.stringify(teamIds)}`);
+      
+      const teamIds = await getFmTeamIds(targetFmId);
 
       // Filter CCs whose teamId is in FM's teams
       ccWhere = {
@@ -228,6 +227,12 @@ router.get('/my-team/schedule', async (req, res) => {
 router.get('/beneficiaries', async (req, res) => {
   try {
     const isFM = req.user?.role === 'field_manager';
+    const isAdmin = req.user?.role === 'master_admin' || req.user?.role === 'admin';
+    const isOM = req.user?.role === 'operations_manager';
+
+    // Allow admins/ops-managers to scope by a specific FM userId
+    const { fmId } = req.query;
+
     let where = { isActive: true };
 
     if (isFM) {
@@ -247,6 +252,9 @@ router.get('/beneficiaries', async (req, res) => {
           { secondaryCcId: { in: ccIds } },
         ],
       };
+    } else if ((isAdmin || isOM) && fmId) {
+      // Admin / Ops Manager viewing a specific FM's beneficiaries
+      where = { isActive: true, fieldManagerId: fmId };
     }
 
     const beneficiaries = await prisma.beneficiary.findMany({

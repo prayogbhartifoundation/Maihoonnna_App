@@ -55,6 +55,7 @@ const navigationSections: NavSection[] = [
       { path: '/zones', label: 'Zones', icon: MapPin, roles: ['master_admin', 'operations_manager'] },
       { path: '/teams', label: 'Teams', icon: Users, roles: ['master_admin', 'operations_manager'] },
       { path: '/field-managers', label: 'Field Managers List', icon: Calendar, roles: ['master_admin', 'operations_manager'] },
+      { path: '/allocation', label: 'Beneficiary Allocation', icon: Activity, roles: ['master_admin', 'operations_manager'] },
       { path: '/care-companions', label: 'Care Companions', icon: UserCheck, roles: ['master_admin', 'operations_manager'] },
       { path: '/staff-onboarding', label: 'Staff Onboarding', icon: UserPlus, roles: ['master_admin', 'operations_manager'] },
       { path: '/operations-managers', label: 'Operations Managers', icon: Users, roles: ['master_admin'] },

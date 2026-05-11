@@ -54,7 +54,17 @@
         }
       ],
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/group1.png",
+          "color": "#FF7A00",
+          "sounds": [],
+          "androidMode": "default",
+          "androidCollapsedTitle": "MaiHoonNa Notifications"
+        }
+      ]
     ],
 
     "extra": {

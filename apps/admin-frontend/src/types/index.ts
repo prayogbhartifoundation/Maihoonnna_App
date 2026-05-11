@@ -183,8 +183,13 @@ export interface Beneficiary {
   };
   primaryCcId?: string;
   secondaryCcId?: string;
+  fieldManagerId?: string;
   isActive: boolean;
   createdAt: string;
+  distance?: number;
+  nearestZone?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 // ============================================================================

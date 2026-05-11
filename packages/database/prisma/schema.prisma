@@ -7,6 +7,7 @@ datasource db {
   provider = "postgresql"
 }
 
+
 model User {
   id                             String                   @id @default(uuid())
   phone                          String                   @unique
@@ -18,6 +19,12 @@ model User {
   location                       String?
   latitude                       Float?
   longitude                      Float?
+  flatPlot                       String?
+  streetArea                     String?
+  landmark                       String?
+  city                           String?
+  state                          String?
+  pincode                        String?
   profilePhoto                   String?
   fcmToken                       String?
   isActive                       Boolean                  @default(true)
@@ -44,12 +51,12 @@ model User {
   medicationAdherenceRecords     MedicationAdherence[]    @relation("MedicationRecordedBy")
   notifications                  Notification[]
   operationsManagerProfile       OperationsManager?       @relation("OperationsManagerToUser")
-  customerServiceProfile         CustomerServiceAgent?    @relation("CSAToUser")
   subscriberPayments             Payment[]                @relation("SubscriberPayments")
   backgroundChecksReviewed       StaffBackgroundCheck[]   @relation("BackgroundCheckReviewedBy")
   verifiedStaffDocuments         StaffDocument[]          @relation("StaffDocumentVerifiedBy")
   staffProfilesReporting         StaffProfile[]           @relation("StaffProfileReportsTo")
   staffProfile                   StaffProfile?            @relation("StaffProfileToUser")
+  customerServiceProfile         CustomerServiceAgent?    @relation("CSAToUser")
   trainingsAssigned              StaffTraining[]          @relation("TrainingAssignedBy")
   subscriberSubscriptions        Subscription[]           @relation("SubscriberSubscriptions")
   vitalHistoryRecords            VitalHistory[]           @relation("VitalRecordedBy")
@@ -1055,6 +1062,22 @@ model VitalDefinition {
   inputMax      Float?
   normalMin     Float?
   normalMax     Float?
+
+  // ── Dual Numeric fields (e.g. Blood Pressure: Systolic/Diastolic) ──
+  value1Label   String?  // e.g. "Systolic"
+  value2Label   String?  // e.g. "Diastolic"
+  normalMin2    Float?   // Normal min for second value
+  normalMax2    Float?   // Normal max for second value
+
+  // ── Text type fields ──
+  textOptions   String[] @default([]) // Predefined options e.g. ["Happy","Sad","Anxious"]
+  alertOptions  String[] @default([]) // Options that trigger an alert e.g. ["Sad","Anxious"]
+
+  // ── Boolean type fields ──
+  booleanTrueLabel  String?  // Custom label for "Yes" (default: "Yes")
+  booleanFalseLabel String?  // Custom label for "No" (default: "No")
+  booleanAlertValue Boolean? // Which boolean value triggers alert (true=Yes, false=No, null=none)
+
   isSystemVital Boolean  @default(true)
   displayOrder  Int      @default(0)
   iconCode      String?
@@ -1312,6 +1335,8 @@ enum UserRole {
   volunteer
   admin
   master_admin
+  customer_service
+  command_center
 }
 
 enum SubscriptionDuration {

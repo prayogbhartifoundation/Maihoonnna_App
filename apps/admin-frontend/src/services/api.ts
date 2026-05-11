@@ -310,9 +310,10 @@ export const fieldManagerApi = {
   },
 
   // ── Field Manager Portal ────────────────────────────────────────────────────
-  /** Get all CCs in the FM's team (admin sees all) */
-  async getMyTeam(): Promise<any[]> {
-    const data = await apiJson<any>('/field-manager/my-team');
+  /** Get all CCs in the FM's team (admin sees all). Optional fmId for drill-down. */
+  async getMyTeam(fmId?: string): Promise<any[]> {
+    const query = fmId ? `?fmId=${fmId}` : '';
+    const data = await apiJson<any>(`/field-manager/my-team${query}`);
     return data?.data || data || [];
   },
 
@@ -323,9 +324,15 @@ export const fieldManagerApi = {
     return data?.data || data || [];
   },
 
-  /** Get beneficiaries assigned to this FM */
+  /** Get beneficiaries assigned to this FM (called by FM themselves — no filter param needed) */
   async getBeneficiaries(): Promise<any[]> {
     const data = await apiJson<any>('/field-manager/beneficiaries');
+    return data?.data || data || [];
+  },
+
+  /** Get beneficiaries assigned to a specific FM by their userId (admin / ops-manager view) */
+  async getBeneficiariesByFM(fmUserId: string): Promise<any[]> {
+    const data = await apiJson<any>(`/field-manager/beneficiaries?fmId=${encodeURIComponent(fmUserId)}`);
     return data?.data || data || [];
   },
 

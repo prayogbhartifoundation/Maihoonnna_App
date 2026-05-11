@@ -1,55 +1,52 @@
 /**
- * Field Management Portal - Unified Entry Point
- * Renders different views based on User Role:
- * - Admin: Global Drill-Down (Zone -> OM -> FM)
- * - Operations Manager: Regional Oversight (FMs -> Allocation)
- * - Field Manager: Tactical Management (Team -> Schedule -> Beneficiaries)
+ * Field Management Portal — Unified Entry Point
+ *
+ * Role views (will be locked later):
+ *   - Admin / Master Admin → AdminFieldView (global drill-down)
+ *   - Operations Manager  → OpsManagerFieldView (FM select + CC appointment)
+ *   - Field Manager       → FieldManagerView (their team + beneficiaries)
+ *
+ * For now roles are NOT restricted — OpsManagerFieldView is shown to everyone
+ * so the appointment workflow can be tested freely.
  */
 
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import AdminFieldView from '../components/field-management/AdminFieldView';
 import OpsManagerFieldView from '../components/field-management/OpsManagerFieldView';
+import AdminFieldView from '../components/field-management/AdminFieldView';
 import FieldManagerView from '../components/field-management/FieldManagerView';
 
 export default function FieldManagementPage() {
   const { user } = useAuth();
 
-  // Role-based rendering
   const renderView = () => {
+    // TODO: lock roles once tested
+    // For now, show OpsManagerFieldView for everyone except FM
     switch (user?.role) {
-      case 'master_admin':
-      case 'admin':
-        return <AdminFieldView />;
-      case 'operations_manager':
-        return <OpsManagerFieldView />;
       case 'field_manager':
         return <FieldManagerView />;
+      case 'master_admin':
+      case 'admin':
+      case 'operations_manager':
       default:
-        return (
-          <div className="flex flex-col items-center justify-center py-20">
-            <h2 className="text-xl font-semibold">Access Restricted</h2>
-            <p className="text-muted-foreground mt-2">You do not have the required permissions to view this portal.</p>
-          </div>
-        );
+        return <OpsManagerFieldView />;
     }
   };
 
+  const subtitle =
+    user?.role === 'field_manager'
+      ? 'Manage your assigned team and beneficiaries.'
+      : 'Select a Field Manager to manage their team and appoint Care Companions.';
+
   return (
     <div className="space-y-6">
-      {/* Page Header (Common) */}
+      {/* Page Header */}
       <div className="border-b border-border pb-4">
         <h1 className="text-2xl font-bold text-foreground">Field Management Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {user?.role === 'field_manager' 
-            ? 'Tactical control for your assigned team and beneficiaries.'
-            : user?.role === 'operations_manager'
-            ? 'Regional oversight and resource allocation for your assigned zones.'
-            : 'Global operational command and hierarchical performance tracking.'}
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
       </div>
 
-      {/* Role-Specific View */}
+      {/* Content */}
       {renderView()}
     </div>
   );

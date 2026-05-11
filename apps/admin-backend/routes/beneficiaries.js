@@ -4,16 +4,26 @@ const path = require('path');
 
 const { prisma } = require('../lib/prisma');
 const { checkCCAvailability } = require('../services/scheduling');
+const { calculateDistance } = require('../utils/location');
+const { notifyMany } = require('../services/notifications');
 
 // ── GET /api/beneficiaries ───────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { search, searchBy, page, limit } = req.query;
+    const { search, searchBy, page, limit, sortBy, sortOrder = 'desc', filterBy = 'all', fieldManagerId } = req.query;
     const filterParams = {};
+
+    if (fieldManagerId) {
+      filterParams.fieldManagerId = fieldManagerId;
+    }
 
     // RBAC Filtering
     if (req.user && req.user.role === 'field_manager') {
       filterParams.fieldManagerId = req.user.id;
+    }
+
+    if (filterBy === 'unassigned') {
+      filterParams.fieldManagerId = null;
     }
 
     if (search) {
@@ -32,9 +42,22 @@ router.get('/', async (req, res) => {
       }
     }
 
+    // Fetch user's managed zones for distance calculation
+    let managedZones = [];
+    if (req.user && (req.user.role === 'operations_manager' || req.user.role === 'admin' || req.user.role === 'master_admin')) {
+      const zoneQuery = { where: { isActive: true } };
+      if (req.user.role === 'operations_manager') {
+        zoneQuery.where.operationsManagerId = req.user.id;
+      }
+      managedZones = await prisma.zone.findMany({
+        ...zoneQuery,
+        select: { id: true, name: true, latitude: true, longitude: true, pincode: true }
+      });
+    }
+
     const listQuery = {
       where: filterParams,
-      orderBy: { createdAt: 'desc' },
+      orderBy: sortBy && sortBy !== 'distance' ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
       include: {
         subscriber: {
           select: { name: true, phone: true, email: true },
@@ -55,7 +78,10 @@ router.get('/', async (req, res) => {
       },
     };
 
-    if (page && limit) {
+    // If sorting by distance, we'll need to fetch all (or more) and sort in-memory
+    const isDistanceSort = sortBy === 'distance';
+    
+    if (page && limit && !isDistanceSort) {
       const pageNum = Number(page);
       const limitNum = Number(limit);
       if (pageNum > 0 && limitNum > 0) {
@@ -77,8 +103,25 @@ router.get('/', async (req, res) => {
       if (!subMap[s.beneficiaryId]) subMap[s.beneficiaryId] = s;
     });
 
-    const mapped = beneficiaries.map((b) => {
+    let mapped = beneficiaries.map((b) => {
       const activeSub = subMap[b.id];
+      
+      // Calculate distance to nearest managed zone
+      let minDistance = null;
+      let nearestZoneName = null;
+
+      if (managedZones.length > 0 && b.latitude && b.longitude) {
+        managedZones.forEach(zone => {
+          if (zone.latitude && zone.longitude) {
+            const dist = calculateDistance(b.latitude, b.longitude, zone.latitude, zone.longitude);
+            if (minDistance === null || dist < minDistance) {
+              minDistance = dist;
+              nearestZoneName = zone.name;
+            }
+          }
+        });
+      }
+
       return {
         id: b.id,
         userId: b.userId,
@@ -90,6 +133,8 @@ router.get('/', async (req, res) => {
         city: b.city,
         state: b.state,
         pincode: b.pincode,
+        latitude: b.latitude,
+        longitude: b.longitude,
         medicalConditions: b.medicalConditions || [],
         medications: b.medications || [],
         emotionalScore: b.emotionalScore,
@@ -107,8 +152,25 @@ router.get('/', async (req, res) => {
         activePackage: activeSub?.package?.name || null,
         isActive: b.isActive,
         createdAt: b.createdAt,
+        distance: minDistance ? parseFloat(minDistance.toFixed(2)) : null,
+        nearestZone: nearestZoneName
       };
     });
+
+    // Handle distance sorting
+    if (isDistanceSort) {
+      mapped.sort((a, b) => {
+        const distA = a.distance === null ? Infinity : a.distance;
+        const distB = b.distance === null ? Infinity : b.distance;
+        return sortOrder === 'asc' ? distA - distB : distB - distA;
+      });
+
+      // Apply pagination after sorting
+      if (page && limit) {
+        const start = (Number(page) - 1) * Number(limit);
+        mapped = mapped.slice(start, start + Number(limit));
+      }
+    }
 
     if (page && limit) {
       res.json({
@@ -241,51 +303,63 @@ router.get('/available-staff', async (req, res) => {
 
 // ── PUT /api/beneficiaries/:id/assign-staff ───────────────────────────────────
 // Body: { primaryCcId, secondaryCcId, fieldManagerId }  (all optional, null to unassign)
+// Side-effects on new primary CC assignment:
+//   1. Notifies the CC        → "New Assignment"
+//   2. Notifies the Beneficiary user → "Care Companion Assigned"
+//   3. Notifies the Subscriber       → "A CC has been assigned to your family member"
+//   4. Creates an upcoming Visit     → scheduled for 2 days from now at 10 AM
 router.put('/:id/assign-staff', async (req, res) => {
   const { id } = req.params;
   const { primaryCcId, secondaryCcId, fieldManagerId } = req.body;
   try {
+    // Fetch full beneficiary for notifications
     const beneficiary = await prisma.beneficiary.findUnique({
       where: { id },
-      select: { name: true, primaryCcId: true, secondaryCcId: true },
+      select: {
+        name: true,
+        primaryCcId: true,
+        secondaryCcId: true,
+        userId: true,
+        subscriberId: true,
+        address: true,
+      },
     });
 
     if (!beneficiary) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Beneficiary not found' });
+      return res.status(404).json({ success: false, message: 'Beneficiary not found' });
     }
 
-    const data = {};
-    let newPrimaryCcUserId = null;
+    console.log(`[AssignStaff] Ben: ${id}, FM: ${fieldManagerId}, PrimaryCC: ${primaryCcId}, SecondaryCC: ${secondaryCcId}`);
 
+    const data = {};
+    let newPrimaryCC = null;     // { id, name, userId } of newly assigned primary CC
+    let newSecondaryCcUserId = null;
+
+    // ── Validate & track new primary CC ─────────────────────────────────────
     if (primaryCcId !== undefined) {
       if (primaryCcId) {
-        // Check capacity
         const count = await prisma.beneficiary.count({
           where: { primaryCcId, isActive: true },
         });
         const cc = await prisma.careCompanion.findUnique({
           where: { id: primaryCcId },
-          select: { name: true, userId: true, maxPrimaryBeneficiaries: true },
+          select: { id: true, name: true, userId: true, maxPrimaryBeneficiaries: true },
         });
         if (count >= (cc?.maxPrimaryBeneficiaries || 5)) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message: `Care Companion ${cc?.name || ''} has reached maximum primary capacity (5)`,
-            });
+          return res.status(400).json({
+            success: false,
+            message: `Care Companion ${cc?.name || ''} has reached maximum primary capacity (5)`,
+          });
         }
-
-        if (beneficiary.primaryCcId !== primaryCcId && cc && cc.userId) {
-          newPrimaryCcUserId = cc.userId;
+        // Only treat as "new" if it wasn't already assigned
+        if (beneficiary.primaryCcId !== primaryCcId && cc?.userId) {
+          newPrimaryCC = cc;
         }
       }
       data.primaryCcId = primaryCcId || null;
     }
 
-    let newSecondaryCcUserId = null;
+    // ── Validate & track new secondary CC ────────────────────────────────────
     if (secondaryCcId !== undefined) {
       if (secondaryCcId) {
         const count = await prisma.beneficiary.count({
@@ -296,23 +370,21 @@ router.put('/:id/assign-staff', async (req, res) => {
           select: { name: true, userId: true, maxSecondaryBeneficiaries: true },
         });
         if (count >= (cc?.maxSecondaryBeneficiaries || 5)) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message: `Care Companion ${cc?.name || ''} has reached maximum secondary capacity (5)`,
-            });
+          return res.status(400).json({
+            success: false,
+            message: `Care Companion ${cc?.name || ''} has reached maximum secondary capacity (5)`,
+          });
         }
-
-        if (beneficiary.secondaryCcId !== secondaryCcId && cc && cc.userId) {
+        if (beneficiary.secondaryCcId !== secondaryCcId && cc?.userId) {
           newSecondaryCcUserId = cc.userId;
         }
       }
       data.secondaryCcId = secondaryCcId || null;
     }
-    if (fieldManagerId !== undefined)
-      data.fieldManagerId = fieldManagerId || null;
 
+    if (fieldManagerId !== undefined) data.fieldManagerId = fieldManagerId || null;
+
+    // ── DB Transaction: update + activity log ────────────────────────────────
     const updated = await prisma.$transaction(async (tx) => {
       const benUpdate = await tx.beneficiary.update({
         where: { id },
@@ -324,46 +396,6 @@ router.put('/:id/assign-staff', async (req, res) => {
           fieldManager: { select: { id: true, name: true } },
         },
       });
-
-      // Notify the newly assigned Primary CC
-      if (newPrimaryCcUserId) {
-        await tx.notification.create({
-          data: {
-            userId: newPrimaryCcUserId,
-            type: 'system',
-            title: 'New Assignment',
-            body: `You have been assigned as the Primary Care Companion for beneficiary: ${beneficiary.name}.`,
-          },
-        });
-      }
-
-      // Notify the newly assigned Secondary CC
-      if (newSecondaryCcUserId) {
-        await tx.notification.create({
-          data: {
-            userId: newSecondaryCcUserId,
-            type: 'system',
-            title: 'New Assignment',
-            body: `You have been assigned as the Secondary Care Companion for beneficiary: ${beneficiary.name}.`,
-          },
-        });
-      }
-
-      // Notify the Beneficiary when a primary CC is newly assigned
-      if (newPrimaryCcUserId && benUpdate.user?.id) {
-        const ccRecord = await tx.careCompanion.findUnique({
-          where: { userId: newPrimaryCcUserId },
-          select: { name: true },
-        });
-        await tx.notification.create({
-          data: {
-            userId: benUpdate.user.id,
-            type: 'system',
-            title: 'Care Companion Assigned',
-            body: `Your care companion ${ccRecord?.name || 'a care companion'} has been assigned to you. They will be visiting you soon.`,
-          },
-        });
-      }
 
       await tx.activityLog.create({
         data: {
@@ -378,20 +410,103 @@ router.put('/:id/assign-staff', async (req, res) => {
             fieldManagerId,
             updatedByRole: req.user?.role || 'system',
             updatedByName: req.user?.name || 'Admin',
-          }
-        }
+          },
+        },
       });
 
       return benUpdate;
     });
 
+    // ── Post-transaction: notifications + upcoming visit ─────────────────────
+    // (Outside transaction so a push failure never rolls back the DB update)
+    if (newPrimaryCC) {
+      const scheduledTime = new Date();
+      scheduledTime.setDate(scheduledTime.getDate() + 2);
+      scheduledTime.setHours(10, 0, 0, 0);
+
+      // Build notification list
+      const notifications = [
+        // 1. Notify the Care Companion
+        {
+          userId: newPrimaryCC.userId,
+          type: 'system',
+          title: '👋 New Beneficiary Assignment',
+          body: `You have been assigned as the Primary Care Companion for ${beneficiary.name}. Your first visit is scheduled for ${scheduledTime.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} at 10 AM.`,
+          data: { beneficiaryId: id, type: 'cc_assignment' },
+        },
+      ];
+
+      // 2. Notify the Beneficiary (if they have a user account)
+      if (beneficiary.userId) {
+        notifications.push({
+          userId: beneficiary.userId,
+          type: 'system',
+          title: '🤝 Care Companion Assigned',
+          body: `${newPrimaryCC.name} has been assigned as your Care Companion and will visit you on ${scheduledTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at 10 AM.`,
+          data: { ccId: newPrimaryCC.id, type: 'cc_assignment' },
+        });
+      }
+
+      // 3. Notify the Subscriber (family member who enrolled)
+      if (beneficiary.subscriberId && beneficiary.subscriberId !== beneficiary.userId) {
+        notifications.push({
+          userId: beneficiary.subscriberId,
+          type: 'system',
+          title: '✅ Care Companion Assigned',
+          body: `${newPrimaryCC.name} has been assigned to take care of ${beneficiary.name}. First visit: ${scheduledTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at 10 AM.`,
+          data: { beneficiaryId: id, ccId: newPrimaryCC.id, type: 'cc_assignment' },
+        });
+      }
+
+      // 4. Notify secondary CC if newly assigned
+      if (newSecondaryCcUserId) {
+        notifications.push({
+          userId: newSecondaryCcUserId,
+          type: 'system',
+          title: '👋 Secondary Assignment',
+          body: `You have been assigned as the Secondary Care Companion for ${beneficiary.name}.`,
+          data: { beneficiaryId: id, type: 'cc_assignment' },
+        });
+      }
+
+      // Send all notifications (non-blocking)
+      notifyMany(prisma, notifications).catch(err =>
+        console.error('[AssignStaff] Notification batch error:', err.message)
+      );
+
+      // 5. Create an upcoming visit for the new CC
+      const encounterId = `ENC-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+      prisma.visit
+        .create({
+          data: {
+            encounterId,
+            beneficiaryId: id,
+            careCompanionId: newPrimaryCC.id,
+            scheduledTime,
+            status: 'scheduled',
+          },
+        })
+        .catch(err =>
+          console.error('[AssignStaff] Failed to create upcoming visit:', err.message)
+        );
+    } else if (newSecondaryCcUserId) {
+      // Only secondary CC changed — still notify them
+      notifyMany(prisma, [
+        {
+          userId: newSecondaryCcUserId,
+          type: 'system',
+          title: '👋 Secondary Assignment',
+          body: `You have been assigned as the Secondary Care Companion for ${beneficiary.name}.`,
+          data: { beneficiaryId: id, type: 'cc_assignment' },
+        },
+      ]).catch(err => console.error('[AssignStaff] Secondary CC notification error:', err.message));
+    }
+
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error('PUT /beneficiaries/:id/assign-staff error:', err);
     if (err.code === 'P2025')
-      return res
-        .status(404)
-        .json({ success: false, message: 'Beneficiary not found' });
+      return res.status(404).json({ success: false, message: 'Beneficiary not found' });
     res.status(500).json({ success: false, message: err.message });
   }
 });

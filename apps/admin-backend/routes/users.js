@@ -1621,4 +1621,32 @@ router.put('/staff/:userId/deactivate', async (req, res) => {
   }
 });
 
+
+// ── POST /api/users/push-token ────────────────────────────────────────────────
+// Called by mobile app on launch to register or refresh the Expo push token.
+// Stores it in User.fcmToken — the backend uses this field for sending pushes.
+router.post('/push-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'token is required' });
+    }
+
+    if (!req.user?.id) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { fcmToken: token },
+    });
+
+    res.json({ success: true, message: 'Push token registered' });
+  } catch (err) {
+    console.error('POST /users/push-token error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
+

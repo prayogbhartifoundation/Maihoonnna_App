@@ -1,165 +1,137 @@
+/**
+ * FieldManagerView — Field Manager's own dashboard
+ * Shows their team (CCs) and their assigned beneficiaries.
+ * CC appointment handled by Ops Manager — FM has read-only view here.
+ */
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { fieldManagerApi } from '../../../services/api';
 import { toast } from 'sonner';
-import {
-  Users, Calendar, UserCheck, BarChart3, RefreshCw,
-  ChevronRight, Clock, CheckCircle2,
-  ActivitySquare, Phone, MapPin, Loader2, X
-} from 'lucide-react';
-import { 
-  LoadingState, 
-  EmptyState, 
-  StatCard, 
-  statusColor, 
-  statusLabel, 
-  formatTime, 
-  todayStr 
-} from './SharedComponents';
-
-// ─── Tab: Schedule ────────────────────────────────────────────────────────────
-function ScheduleTab({ team }: { team: any[] }) {
-  const [selectedDate, setSelectedDate] = useState(todayStr());
-  const [visits, setVisits] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const loadSchedule = useCallback(async (date: string) => {
-    setLoading(true);
-    try {
-      const data = await fieldManagerApi.getTeamSchedule(date);
-      setVisits(data);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to load schedule');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadSchedule(selectedDate); }, [selectedDate, loadSchedule]);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            className="border border-border rounded-lg px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-orange-500"
-          />
-        </div>
-        <button onClick={() => setSelectedDate(todayStr())} className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors">
-          Today
-        </button>
-      </div>
-
-      {loading ? <LoadingState message="Loading schedule..." /> : (
-        <div className="space-y-3">
-          {visits.length === 0 ? (
-            <EmptyState message={`No visits scheduled.`} icon={<Calendar className="w-12 h-12" />} />
-          ) : (
-            visits.map(v => (
-              <div key={v.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-4">
-                <div className="w-1.5 self-stretch rounded-full shrink-0" style={{ backgroundColor: statusColor(v.status) }} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold text-sm">{v.beneficiaryName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{v.beneficiaryAddress}</p>
-                    </div>
-                    <span className="text-xs px-2 py-0.5 rounded-full shrink-0 font-medium" style={{ backgroundColor: `${statusColor(v.status)}22`, color: statusColor(v.status) }}>
-                      {statusLabel(v.status)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(v.scheduledTime)}</span>
-                    <span className="flex items-center gap-1"><Users className="w-3 h-3" />{v.careCompanionName}</span>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-import { MyTeamTab, BeneficiariesTab } from './SharedComponents';
-
-function FieldManagerBeneficiariesTab({ team }: { team: any[] }) {
-  const [beneficiaries, setBeneficiaries] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fieldManagerApi.getBeneficiaries();
-      setBeneficiaries(data);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to load beneficiaries');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  return <BeneficiariesTab team={team} beneficiaries={beneficiaries} loading={loading} onRefresh={load} />;
-}
+import { Users, UserCheck, CheckCircle2, RefreshCw } from 'lucide-react';
+import { LoadingState, StatCard } from './SharedComponents';
+import TeamPanel, { type CCMember } from './TeamPanel';
+import BeneficiaryList, { type BeneficiaryItem } from './BeneficiaryList';
 
 const TABS = [
   { key: 'team', label: 'My Team', icon: Users },
-  { key: 'schedule', label: 'Schedule', icon: Calendar },
   { key: 'beneficiaries', label: 'Beneficiaries', icon: UserCheck },
-  { key: 'usage', label: 'Benefit Usage', icon: BarChart3 },
 ] as const;
 
+type TabKey = typeof TABS[number]['key'];
+
 export default function FieldManagerView() {
-  const [activeTab, setActiveTab] = useState<typeof TABS[number]['key']>('team');
-  const [team, setTeam] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabKey>('team');
+  const [team, setTeam] = useState<CCMember[]>([]);
+  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryItem[]>([]);
+  const [teamLoading, setTeamLoading] = useState(true);
+  const [benLoading, setBenLoading] = useState(false);
 
   const loadTeam = useCallback(async () => {
-    setLoading(true);
+    setTeamLoading(true);
     try {
       const data = await fieldManagerApi.getMyTeam();
-      setTeam(data);
+      setTeam(data as CCMember[]);
     } catch (e: any) {
       toast.error('Failed to load team');
     } finally {
-      setLoading(false);
+      setTeamLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadTeam(); }, [loadTeam]);
+  const loadBeneficiaries = useCallback(async () => {
+    setBenLoading(true);
+    try {
+      const raw = await fieldManagerApi.getBeneficiaries();
+      setBeneficiaries(
+        raw.map((b: any): BeneficiaryItem => ({
+          id: b.id,
+          name: b.name,
+          age: b.age,
+          phone: b.phone,
+          city: b.city,
+          pincode: b.pincode,
+          primaryCcId: b.primaryCcId ?? null,
+          primaryCcName: b.primaryCcName ?? null,
+          secondaryCcId: b.secondaryCcId ?? null,
+          secondaryCcName: b.secondaryCcName ?? null,
+          activePackage: b.activePackage ?? null,
+        }))
+      );
+    } catch (e: any) {
+      toast.error('Failed to load beneficiaries');
+    } finally {
+      setBenLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTeam();
+  }, [loadTeam]);
+
+  useEffect(() => {
+    if (activeTab === 'beneficiaries' && beneficiaries.length === 0) {
+      loadBeneficiaries();
+    }
+  }, [activeTab, loadBeneficiaries]);
+
+  const assignedCount = beneficiaries.filter(b => b.primaryCcId).length;
+  const availableCCs = team.filter(cc => cc.isAvailable).length;
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Team Size" value={team.length} icon={<Users className="w-4 h-4" />} color="orange" />
-        <StatCard label="Available" value={team.filter(c => c.isAvailable).length} icon={<CheckCircle2 className="w-4 h-4" />} color="green" />
+    <div className="space-y-5">
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard label="Team Size" value={teamLoading ? '…' : team.length} icon={<Users size={16} />} color="orange" />
+        <StatCard label="Available" value={teamLoading ? '…' : availableCCs} icon={<CheckCircle2 size={16} />} color="green" />
+        <StatCard label="Beneficiaries" value={benLoading ? '…' : beneficiaries.length} icon={<UserCheck size={16} />} color="blue" />
+        <StatCard label="Assigned" value={benLoading ? '…' : assignedCount} icon={<CheckCircle2 size={16} />} color="purple" />
       </div>
 
-      <div className="flex gap-1 border-b border-border">
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-[#E7DED6]">
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.key ? 'border-orange-500 text-orange-600' : 'border-transparent text-muted-foreground'
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-black border-b-2 transition-colors ${
+              activeTab === tab.key
+                ? 'border-[#FF7A00] text-[#FF7A00]'
+                : 'border-transparent text-gray-400 hover:text-gray-600'
             }`}
           >
-            <tab.icon className="w-4 h-4" /> {tab.label}
+            <tab.icon size={15} />
+            {tab.label}
           </button>
         ))}
+
+        <div className="ml-auto flex items-center pr-1">
+          <button
+            onClick={() => { loadTeam(); if (activeTab === 'beneficiaries') loadBeneficiaries(); }}
+            className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-gray-400 hover:text-[#FF7A00] transition-colors"
+          >
+            <RefreshCw size={12} />
+            Refresh
+          </button>
+        </div>
       </div>
 
-      <div>
-        {activeTab === 'team' && <MyTeamTab team={team} loading={loading} onRefresh={loadTeam} />}
-        {activeTab === 'schedule' && <ScheduleTab team={team} />}
-        {activeTab === 'beneficiaries' && <FieldManagerBeneficiariesTab team={team} />}
-      </div>
+      {/* Tab Content */}
+      {activeTab === 'team' && (
+        <TeamPanel team={team} loading={teamLoading} onRefresh={loadTeam} />
+      )}
+
+      {activeTab === 'beneficiaries' && (
+        <BeneficiaryList
+          beneficiaries={beneficiaries}
+          team={team}
+          loading={benLoading}
+          submittingId={null}
+          // FM can view but CC appointment is managed by ops manager
+          onAssignCC={async () => {
+            toast.info('CC appointment is managed by your Operations Manager.');
+          }}
+        />
+      )}
     </div>
   );
 }

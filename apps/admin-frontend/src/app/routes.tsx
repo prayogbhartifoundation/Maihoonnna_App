@@ -33,6 +33,7 @@ import CouponsPage from './pages/CouponsPage';
 import SubscriberProfilePage from './pages/SubscriberProfilePage';
 import BeneficiaryProfilePage from './pages/BeneficiaryProfilePage';
 import EnrollmentWizardPage from './pages/EnrollmentWizardPage';
+import AllocationPage from './pages/AllocationPage';
 import CustomerServiceAgentsPage from './pages/CustomerServiceAgentsPage';
 import VitalDefinitionsPage from './pages/vitals/VitalDefinitionsPage';
 import VitalTemplatesPage from './pages/vitals/VitalTemplatesPage';
@@ -101,6 +102,10 @@ export const router = createBrowserRouter([
       {
         path: 'beneficiaries/:id',
         Component: BeneficiaryProfilePage,
+      },
+      {
+        path: 'allocation',
+        Component: AllocationPage,
       },
       {
         path: 'support',

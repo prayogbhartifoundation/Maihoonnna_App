@@ -5,12 +5,9 @@ import {
   MapPin, Users, ChevronRight, ArrowLeft,
   Briefcase, Activity, UserCheck, Search
 } from 'lucide-react';
-import { 
-  LoadingState, 
-  StatCard,
-  MyTeamTab,
-  BeneficiariesTab
-} from './SharedComponents';
+import { LoadingState, StatCard } from './SharedComponents';
+import TeamPanel from './TeamPanel';
+import BeneficiaryList from './BeneficiaryList';
 
 type DrillLevel = 'zones' | 'oms' | 'fms' | 'detail';
 
@@ -57,7 +54,10 @@ export default function AdminFieldView() {
         const zoneOms = oms.filter((om: any) => 
           om.assignedZones?.includes(zone.id) || 
           om.assignedZones?.includes(zone.name) ||
-          om.assignedZones?.some((z: string) => z.toLowerCase() === zone.name.toLowerCase())
+          om.assignedZones?.some((z: any) => {
+            const zStr = typeof z === 'string' ? z : (z?.name ?? z?.id ?? '');
+            return zStr.toLowerCase() === zone.name.toLowerCase();
+          })
         );
         const zoneFms = fms.filter((fm: any) => 
           fm.zoneId === zone.id || 
@@ -321,12 +321,18 @@ export default function AdminFieldView() {
               
               <div className="space-y-4">
                 <h3 className="text-lg font-bold border-b pb-2">Care Companions</h3>
-                <MyTeamTab team={detailData.team} loading={detailLoading} readOnly={true} />
+                <TeamPanel team={detailData.team} loading={detailLoading} />
               </div>
               
               <div className="space-y-4">
                 <h3 className="text-lg font-bold border-b pb-2">Assigned Beneficiaries</h3>
-                <BeneficiariesTab team={detailData.team} beneficiaries={detailData.beneficiaries} loading={detailLoading} readOnly={true} />
+                <BeneficiaryList
+                  beneficiaries={detailData.beneficiaries}
+                  team={detailData.team}
+                  loading={detailLoading}
+                  submittingId={null}
+                  onAssignCC={async () => {}}
+                />
               </div>
             </div>
           )}

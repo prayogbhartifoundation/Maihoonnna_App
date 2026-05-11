@@ -507,3 +507,162 @@
 - Standardized the password change screen across all app modules.
 - Updated `app/(subscriber)/settings/change-password.tsx` to use the shared component.
 - Created new dedicated screens `app/(care-companion)/settings/change-password.tsx` and `app/(beneficiary)/settings/change-password.tsx` that wrap the shared component, ensuring the feature is available in all system modules.
+
+---
+
+## Session: Field Management Rebuild + Push Notification System (2026-05-11)
+
+### Goal
+Complete "fresh start" rebuild of the Field Management dashboard.
+Flow: Select FM → Auto-load team (CCs) → Load zone-assigned beneficiaries → Appoint CC inline.
+Also implement push notifications to CC, beneficiary, and subscriber when a CC is appointed.
+
+---
+
+### Admin Frontend — Component Architecture
+
+**`SharedComponents.tsx`** (rewritten)
+- Stripped all dead code; now exports only focused, reusable primitives:
+  `LoadingState`, `EmptyState`, `ErrorState`, `StatCard`, `AvailabilityBadge`, `CCLoadBadge`, `Avatar`, `SectionHeader`
+
+**`FMSelectorDropdown.tsx`** (new)
+- Styled `<select>` dropdown listing all active Field Managers.
+- Shows mini preview card (name, CC count, beneficiary count, availability dot) after selection.
+- Warns when no FMs exist.
+
+**`TeamPanel.tsx`** (new)
+- Displays all CCs in the selected FM's team.
+- Shows name, CC type (nurse / care assistant), phone, availability badge, primary/secondary load counts, today's visit count.
+- Has a Refresh button.
+
+**`BeneficiaryList.tsx`** (new)
+- Searchable + filterable (All / Unassigned / Assigned) list of beneficiaries.
+- Expandable rows: click a row to open the Appoint CC panel inline.
+- Inline CC selector (dropdown) + Appoint button. Disable when all CCs are at capacity.
+- Remove CC button on currently-assigned beneficiaries.
+
+**`OpsManagerFieldView.tsx`** (full rewrite)
+- Orchestrates all components.
+- On FM select: loads team (CCs) via `fieldManagerApi.getMyTeam(fmId)` and beneficiaries via `fieldManagerApi.getBeneficiariesByFM(fm.userId)`.
+- Stats row: Team Size, Available CCs, Beneficiaries, Assigned.
+- Two-column layout: TeamPanel (2/5 width) + BeneficiaryList (3/5 width).
+- Optimistic updates on assign/remove CC.
+- Shows a placeholder when no FM selected yet.
+
+**`FieldManagerView.tsx`** (cleanup)
+- Removed broken schedule tab.
+- Now reuses `TeamPanel` and `BeneficiaryList` components.
+- BeneficiaryList shown in read-only mode for FM (assignment handled by Ops Manager).
+
+**`AdminFieldView.tsx`** (bug fix)
+- Fixed `TypeError: z.toLowerCase is not a function` crash.
+  Cause: `assignedZones` array can contain objects `{id, name}` instead of plain strings.
+  Fix: safe extraction `typeof z === 'string' ? z : (z?.name ?? z?.id ?? '')` before toLowerCase.
+- Fixed broken imports: replaced removed `MyTeamTab`/`BeneficiariesTab` with `TeamPanel`/`BeneficiaryList`.
+
+**`FieldManagementPage.tsx`** (simplified)
+- Removed strict role gate for testing period.
+- FM role → FieldManagerView. Everyone else → OpsManagerFieldView.
+- Role locking to be applied later.
+
+---
+
+### Admin Backend
+
+**`services/notifications.js`** (new)
+- Expo Push Notification helper using native Node.js `https` module (no extra SDK needed).
+- `notifyUser(tx, { userId, type, title, body, data })`: creates DB `Notification` record + sends Expo push if `User.fcmToken` is an `ExponentPushToken[...]`.
+- `notifyMany(tx, [...])`: batch notification sender.
+- All push errors are silently swallowed (never crash the main DB operation).
+- Uses `setImmediate` to fire pushes outside the DB transaction.
+
+**`routes/beneficiaries.js` — `PUT /:id/assign-staff`** (enhanced)
+- Now fetches full beneficiary (`userId`, `subscriberId`) for notification targeting.
+- On new primary CC assignment:
+  1. Notifies CC: "👋 New Beneficiary Assignment — first visit scheduled 2 days from now at 10 AM"
+  2. Notifies Beneficiary user (if has account): "🤝 Care Companion Assigned"
+  3. Notifies Subscriber (family member): "✅ Care Companion Assigned"
+  4. Notifies secondary CC if newly assigned.
+  5. Creates an upcoming `Visit` record (status: `scheduled`, 2 days from now at 10 AM).
+- All notifications + visit creation happen AFTER the transaction (non-blocking), so notification failure never rolls back the assignment.
+- Added `notifyMany` import from `services/notifications.js`.
+
+**`routes/field-manager.js` — `GET /beneficiaries`** (enhanced)
+- Added `?fmId=<userId>` query param support.
+- When `fmId` is passed and caller is admin or ops_manager: filter `WHERE fieldManagerId = fmId`.
+- This ensures the beneficiary list is scoped to only those allocated to the selected FM (not all beneficiaries).
+
+**`routes/users.js` — `POST /push-token`** (new)
+- Stores Expo push token in `User.fcmToken`.
+- Called by mobile app on launch to register/refresh the device token.
+- Requires valid auth token (Bearer).
+
+---
+
+### Admin Frontend — API Service (`api.ts`)
+
+- Added `fieldManagerApi.getBeneficiariesByFM(fmUserId)`:
+  Calls `GET /field-manager/beneficiaries?fmId=<fmUserId>`
+  Returns only beneficiaries assigned to that specific FM.
+- `fieldManagerApi.getBeneficiaries()` (existing) unchanged — used by FM's own view (no fmId param).
+
+**Why this matters**: Previously `OpsManagerFieldView` was calling `beneficiaryApi.getAllPaginated()` which returned ALL beneficiaries regardless of FM. Now it calls `getBeneficiariesByFM(fm.userId)` and gets only the ones assigned to that FM via Beneficiary Allocation.
+
+---
+
+### Mobile App — Push Notifications
+
+**`package.json`**: Installed `expo-notifications` (SDK 55 compatible).
+
+**`app.json`**: Added `expo-notifications` plugin:
+```json
+["expo-notifications", {
+  "icon": "./assets/images/group1.png",
+  "color": "#FF7A00",
+  "androidMode": "default",
+  "androidCollapsedTitle": "MaiHoonNa Notifications"
+}]
+```
+
+**`services/notifications.ts`** (new)
+- `registerForPushNotifications()`:
+  1. Skips on simulator (physical device only).
+  2. Requests OS notification permission.
+  3. Creates Android notification channel with `FF7A00` accent color.
+  4. Gets Expo push token via `Notifications.getExpoPushTokenAsync({ projectId })`.
+  5. Stores token locally in AsyncStorage.
+  6. POSTs token to `POST /api/users/push-token` with auth header.
+- `addNotificationReceivedListener(handler)`: foreground notification listener.
+- `addNotificationResponseListener(handler)`: tap/open listener.
+- `clearAllNotifications()`: dismisses tray + resets badge count.
+- Foreground handler configured via `Notifications.setNotificationHandler` (show alert + sound + badge).
+
+**`app/_layout.tsx`** (updated)
+- Calls `registerForPushNotifications()` on app startup.
+- Wires up foreground received listener (logs title to console).
+- Wires up tap listener (logs `data` — TODO: navigate to relevant screen based on `data.type`).
+- Cleans up both subscriptions on unmount.
+
+---
+
+### Architecture Notes
+
+**How push notifications flow:**
+```
+Admin appoints CC (PUT /beneficiaries/:id/assign-staff)
+  → DB transaction: update beneficiary + activity log
+  → Post-transaction (non-blocking):
+      → notifyMany() → for each user:
+          → prisma.notification.create (DB record)
+          → fetch user.fcmToken
+          → if ExponentPushToken[...]: POST to exp.host/--/api/v2/push/send
+  → Mobile app receives push via Expo infrastructure
+  → On app open: registerForPushNotifications() syncs device token
+```
+
+**Key design decisions:**
+- Expo Push API used (no Firebase SDK dependency) — free, reliable, cross-platform.
+- `User.fcmToken` field (already existed in schema) repurposed for Expo push tokens.
+- Notifications outside transaction: failure never rolls back CC assignment.
+- `?fmId=` server-side filter: avoids sending all beneficiaries over the wire.
+
