@@ -273,6 +273,7 @@ function mapFieldManager(manager) {
     isActive: manager.user?.isActive ?? true,
     teamCount: manager.teams?.length || 0,
     teamNames: (manager.teams || []).map((team) => team.name),
+    beneficiaryCount: manager.user?._count?.beneficiariesManaged || 0,
     reportsToUserId:
       manager.reportsToUserId || staffProfile?.reportsToUserId || null,
     specialization: staffProfile?.specialization || manager.specialization || [],
@@ -425,6 +426,11 @@ router.get('/field-managers', async (req, res) => {
             email: true,
             isActive: true,
             profilePhoto: true,
+            _count: {
+              select: {
+                beneficiariesManaged: true,
+              },
+            },
             staffProfile: {
               select: {
                 zoneId: true,
