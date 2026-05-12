@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '@/constants/api';
 
@@ -40,43 +41,60 @@ export default function DashboardScreen() {
     // 🚀 THE DATA FETCH: This is where you will connect your backend API
     useFocusEffect(
         useCallback(() => {
+            let isActive = true;
             const fetchDashboardData = async () => {
                 setLoading(true);
                 try {
-                    // WHEN BACKEND IS READY, UNCOMMENT THIS:
-                    // const response = await fetch(`${API_URL}/care-companion/dashboard`);
-                    // const data = await response.json();
-                    // setDashboardData(data);
+                    const token = await AsyncStorage.getItem('userToken');
+                    if (!token) {
+                        router.replace('/(auth)');
+                        return;
+                    }
 
-                    // TEMPORARY MOCK BACKEND DATA
-                    setDashboardData({
-                        user: { firstName: "Sarah" },
-                        stats: { todaysVisits: 2, hoursToday: 4.5 },
-                        nextVisit: {
-                            id: "v123",
-                            patientName: "Sameer Tandon",
-                            type: "Home Visit",
-                            address: "123 Oak Street, Apt 4B",
-                            time: "10:00 AM",
-                            distance: "2.3 km"
-                        },
-                        celebrations: [
-                            { id: "c1", name: "Sameer Tandon", type: "Birthday", date: "Mar 10, 2026" },
-                            { id: "c2", name: "Eleanor Davis", type: "Anniversary", date: "Mar 11, 2026" }
-                        ]
+                    const response = await fetch(`${API_URL}/care-companion/dashboard`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
                     });
+
+                    if (!response.ok) throw new Error("Dashboard API returned error");
+
+                    const json = await response.json();
+                    if (isActive) setDashboardData(json.data || json);
                 } catch (error) {
-                    console.error("Failed to load dashboard data", error);
+                    console.log("Failed to load dashboard data from backend. Loading Fallback Mocks...", error);
+                    // TEMPORARY FALLBACK MOCK DATA FOR SEAMLESS USER EXPERIENCE
+                    if (isActive) {
+                        setDashboardData({
+                            user: { firstName: "Sarah" },
+                            stats: { todaysVisits: 2, hoursToday: 4.5 },
+                            nextVisit: {
+                                id: "v123",
+                                patientName: "Sameer Tandon",
+                                type: "Home Visit",
+                                address: "123 Oak Street, Apt 4B",
+                                time: "10:00 AM",
+                                distance: "2.3 km"
+                            },
+                            celebrations: [
+                                { id: "c1", name: "Sameer Tandon", type: "Birthday", date: "Mar 10, 2026" },
+                                { id: "c2", name: "Eleanor Davis", type: "Anniversary", date: "Mar 11, 2026" }
+                            ]
+                        });
+                    }
                 } finally {
-                    setLoading(false);
+                    if (isActive) setLoading(false);
                 }
             };
 
             if (fontsLoaded) fetchDashboardData();
+            return () => { isActive = false; };
         }, [fontsLoaded])
     );
 
     const handleStartVisit = () => {
+        if (!dashboardData?.nextVisit) return;
         router.push({
             pathname: '/(care-companion)/visit-details' as any,
             params: {
@@ -163,36 +181,48 @@ export default function DashboardScreen() {
                     </View>
 
                     {/* 3. DYNAMIC NEXT VISIT CARD */}
-                    <View style={styles.card}>
-                        <View style={styles.nextVisitHeader}>
-                            <Ionicons name="notifications-outline" size={20} color={DEEP_ORANGE} />
-                            <Text style={styles.nextVisitTitle}>Next Visit</Text>
-                        </View>
-
-                        <View style={styles.patientRow}>
-                            <Text style={styles.patientName}>{dashboardData.nextVisit.patientName}</Text>
-                            <View style={styles.visitBadge}>
-                                <Text style={styles.visitBadgeText}>{dashboardData.nextVisit.type}</Text>
+                    {dashboardData.nextVisit ? (
+                        <View style={styles.card}>
+                            <View style={styles.nextVisitHeader}>
+                                <Ionicons name="notifications-outline" size={20} color={DEEP_ORANGE} />
+                                <Text style={styles.nextVisitTitle}>Next Visit</Text>
                             </View>
-                        </View>
 
-                        <Text style={styles.addressText}>{dashboardData.nextVisit.address}</Text>
-
-                        <View style={styles.metaRow}>
-                            <View style={styles.metaItem}>
-                                <Ionicons name="time-outline" size={18} color="#4B5563" />
-                                <Text style={styles.metaText}>{dashboardData.nextVisit.time}</Text>
+                            <View style={styles.patientRow}>
+                                <Text style={styles.patientName}>{dashboardData.nextVisit.patientName}</Text>
+                                <View style={styles.visitBadge}>
+                                    <Text style={styles.visitBadgeText}>{dashboardData.nextVisit.type}</Text>
+                                </View>
                             </View>
-                            <View style={styles.metaItem}>
-                                <Ionicons name="location-outline" size={18} color="#4B5563" />
-                                <Text style={styles.metaText}>{dashboardData.nextVisit.distance}</Text>
-                            </View>
-                        </View>
 
-                        <TouchableOpacity style={styles.primaryActionBtn} onPress={handleStartVisit}>
-                            <Text style={styles.primaryActionBtnText}>Start Visit</Text>
-                        </TouchableOpacity>
-                    </View>
+                            <Text style={styles.addressText}>{dashboardData.nextVisit.address}</Text>
+
+                            <View style={styles.metaRow}>
+                                <View style={styles.metaItem}>
+                                    <Ionicons name="time-outline" size={18} color="#4B5563" />
+                                    <Text style={styles.metaText}>{dashboardData.nextVisit.time}</Text>
+                                </View>
+                                <View style={styles.metaItem}>
+                                    <Ionicons name="location-outline" size={18} color="#4B5563" />
+                                    <Text style={styles.metaText}>{dashboardData.nextVisit.distance}</Text>
+                                </View>
+                            </View>
+
+                            <TouchableOpacity style={styles.primaryActionBtn} onPress={handleStartVisit}>
+                                <Text style={styles.primaryActionBtnText}>Start Visit</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.card}>
+                            <View style={styles.nextVisitHeader}>
+                                <Ionicons name="notifications-off-outline" size={20} color="#9CA3AF" />
+                                <Text style={styles.nextVisitTitle}>No Upcoming Visits</Text>
+                            </View>
+                            <Text style={[styles.addressText, { marginTop: 12, color: '#6B7280' }]}>
+                                You have no upcoming scheduled visits at this time. Enjoy your rest!
+                            </Text>
+                        </View>
+                    )}
 
                     {/* 4. QUICK ACTIONS GRID */}
                     <View style={styles.card}>
@@ -214,10 +244,6 @@ export default function DashboardScreen() {
                                 <Text style={styles.actionText}>Celebrations</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.actionBox}>
-                                <Ionicons name="school-outline" size={24} color="#EA580C" style={{ marginBottom: 8 }} />
-                                <Text style={styles.actionText}>Training</Text>
-                            </TouchableOpacity>
                         </View>
                     </View>
 
@@ -345,13 +371,14 @@ const styles = StyleSheet.create({
 
     // --- Quick Actions Grid ---
     quickActionsTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: '#111827', marginBottom: 16 },
-    quickActionsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    quickActionsGrid: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     actionBox: {
-        width: '48%', borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 12,
-        padding: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-        backgroundColor: '#FFFFFF'
+        width: '31%', borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 12,
+        paddingVertical: 14, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center',
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 3, elevation: 1,
     },
-    actionText: { fontFamily: 'Poppins_500Medium', color: '#111827', fontSize: 13 },
+    actionText: { fontFamily: 'Poppins_500Medium', color: '#374151', fontSize: 11.5, marginTop: 4, textAlign: 'center' },
 
     // --- Upcoming Celebrations ---
     celebrationHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },

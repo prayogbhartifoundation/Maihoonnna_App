@@ -815,7 +815,7 @@ export const subscriptionApi = {
 };
 
 export const visitApi = {
-  async getAll(params: { beneficiaryId?: string; careCompanionId?: string; date?: string }): Promise<any[]> {
+  async getAll(params: { beneficiaryId?: string; careCompanionId?: string; date?: string; fmUserId?: string }): Promise<any[]> {
     const query = new URLSearchParams(params as any).toString();
     return apiJson(`/visits?${query}`);
   },
@@ -824,7 +824,16 @@ export const visitApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
-  }
+  },
+  async cancel(id: string): Promise<any> {
+    return apiJson(`/visits/${id}`, { method: 'DELETE' });
+  },
+  async update(id: string, data: { careCompanionId: string; scheduledTime: string; durationMinutes: number }): Promise<any> {
+    return apiJson(`/visits/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 export const teamApi = {
@@ -1106,4 +1115,5 @@ export const uploadApi = {
     };
   },
 };
+
 

@@ -15,6 +15,7 @@ interface OperationsManagerItem {
   id: string;
   userId: string;
   name: string;
+  photo?: string | null;
   phone: string;
   email?: string | null;
   qualification?: string | null;

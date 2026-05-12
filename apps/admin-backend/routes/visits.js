@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { prisma } = require('../lib/prisma');
 const { checkCCAvailability } = require('../services/scheduling');
+const { notifyUser } = require('../services/notifications');
 
 /**
  * POST /api/visits
@@ -54,6 +55,10 @@ router.post('/', async (req, res) => {
           durationMinutes,
           status: 'scheduled',
         },
+        include: {
+          beneficiary: { select: { name: true, userId: true } },
+          careCompanion: { select: { name: true, userId: true } },
+        },
       });
 
       // B. Deduct Benefit if provided
@@ -104,6 +109,50 @@ router.post('/', async (req, res) => {
         });
       }
 
+      // D. Send Notifications to Care Companion and Beneficiary
+      const formattedTime = startTime.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+      
+      if (visit.careCompanion?.userId) {
+        await notifyUser(tx, {
+          userId: visit.careCompanion.userId,
+          type: 'visit_reminder',
+          title: 'New Visit Scheduled',
+          body: `A new visit has been scheduled with beneficiary ${visit.beneficiary?.name || 'Unknown'} for ${formattedTime}.`,
+          data: { visitId: visit.id }
+        });
+      }
+
+      if (visit.beneficiary?.userId) {
+        await notifyUser(tx, {
+          userId: visit.beneficiary.userId,
+          type: 'visit_reminder',
+          title: 'Care Companion Visit Scheduled',
+          body: `Care Companion ${visit.careCompanion?.name || 'Unknown'} has been scheduled to visit you on ${formattedTime}.`,
+          data: { visitId: visit.id }
+        });
+      }
+
+      // E. Log Activity (logged against beneficiary's userId for schema constraint safety)
+      await tx.activityLog.create({
+        data: {
+          userId: visit.beneficiary.userId,
+          type: 'VISIT',
+          action: 'VISIT_SCHEDULED',
+          details: {
+            visitId: visit.id,
+            encounterId: visit.encounterId,
+            beneficiaryId,
+            beneficiaryName: visit.beneficiary?.name,
+            careCompanionId,
+            careCompanionName: visit.careCompanion?.name,
+            scheduledTime,
+            durationMinutes,
+            actorName: req.user?.name || 'System Admin',
+            actorPhone: req.user?.phone || 'Static Login',
+          },
+        },
+      });
+
       return visit;
     });
 
@@ -116,7 +165,7 @@ router.post('/', async (req, res) => {
 
 // GET /api/visits - Get all visits (optionally filtered)
 router.get('/', async (req, res) => {
-  const { beneficiaryId, careCompanionId, date } = req.query;
+  const { beneficiaryId, careCompanionId, date, fmUserId } = req.query;
   try {
     const where = {};
     if (beneficiaryId) where.beneficiaryId = beneficiaryId;
@@ -128,18 +177,181 @@ router.get('/', async (req, res) => {
       end.setHours(23, 59, 59, 999);
       where.scheduledTime = { gte: start, lte: end };
     }
+    if (fmUserId) {
+      where.careCompanion = {
+        team: {
+          fieldManager: {
+            userId: fmUserId
+          }
+        }
+      };
+    }
 
     const visits = await prisma.visit.findMany({
       where,
       include: {
-        beneficiary: { select: { name: true } },
-        careCompanion: { select: { name: true } },
+        beneficiary: { select: { id: true, name: true } },
+        careCompanion: {
+          select: {
+            id: true,
+            name: true,
+            team: {
+              select: {
+                id: true,
+                fieldManager: {
+                  select: {
+                    id: true,
+                    userId: true,
+                    name: true,
+                  }
+                }
+              }
+            }
+          }
+        },
       },
       orderBy: { scheduledTime: 'asc' },
     });
 
     res.json({ success: true, data: visits });
   } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/visits/:id - Cancel/delete a scheduled visit
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const visit = await prisma.visit.findUnique({ where: { id } });
+    if (!visit) {
+      return res.status(404).json({ success: false, message: 'Visit not found' });
+    }
+    if (visit.status === 'completed') {
+      return res.status(400).json({ success: false, message: 'Cannot cancel a completed visit' });
+    }
+    await prisma.visit.update({
+      where: { id },
+      data: { status: 'cancelled' },
+    });
+    res.json({ success: true, message: 'Visit cancelled successfully' });
+  } catch (err) {
+    console.error('DELETE /visits/:id error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/visits/:id - Update an upcoming scheduled visit
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
+  const { careCompanionId, scheduledTime, durationMinutes } = req.body;
+
+  if (!careCompanionId || !scheduledTime || !durationMinutes) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    const existingVisit = await prisma.visit.findUnique({
+      where: { id },
+      include: {
+        beneficiary: { select: { name: true, userId: true } },
+        careCompanion: { select: { name: true, userId: true } },
+      },
+    });
+
+    if (!existingVisit) {
+      return res.status(404).json({ success: false, message: 'Visit not found' });
+    }
+
+    if (existingVisit.status !== 'scheduled') {
+      return res.status(400).json({ success: false, message: 'Only scheduled visits can be modified' });
+    }
+
+    const startTime = new Date(scheduledTime);
+
+    // Check availability (exclude this visit itself from checks)
+    if (
+      careCompanionId !== existingVisit.careCompanionId ||
+      startTime.getTime() !== new Date(existingVisit.scheduledTime).getTime() ||
+      durationMinutes !== existingVisit.durationMinutes
+    ) {
+      const availability = await checkCCAvailability(
+        careCompanionId,
+        startTime,
+        durationMinutes,
+        id
+      );
+      if (!availability.isAvailable) {
+        return res.status(409).json({ success: false, message: availability.reason });
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedVisit = await tx.visit.update({
+        where: { id },
+        data: {
+          careCompanionId,
+          scheduledTime: startTime,
+          durationMinutes,
+        },
+        include: {
+          beneficiary: { select: { name: true, userId: true } },
+          careCompanion: { select: { name: true, userId: true } },
+        },
+      });
+
+      // Send notifications
+      const formattedTime = startTime.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+      if (updatedVisit.careCompanion?.userId) {
+        await notifyUser(tx, {
+          userId: updatedVisit.careCompanion.userId,
+          type: 'visit_reminder',
+          title: 'Scheduled Visit Updated',
+          body: `Your scheduled visit with ${updatedVisit.beneficiary?.name || 'Unknown'} has been updated to ${formattedTime}.`,
+          data: { visitId: updatedVisit.id }
+        });
+      }
+
+      if (updatedVisit.beneficiary?.userId) {
+        await notifyUser(tx, {
+          userId: updatedVisit.beneficiary.userId,
+          type: 'visit_reminder',
+          title: 'Scheduled Visit Updated',
+          body: `Your scheduled visit with Care Companion ${updatedVisit.careCompanion?.name || 'Unknown'} has been rescheduled to ${formattedTime}.`,
+          data: { visitId: updatedVisit.id }
+        });
+      }
+
+      // Log activity
+      await tx.activityLog.create({
+        data: {
+          userId: updatedVisit.beneficiary.userId,
+          type: 'VISIT',
+          action: 'VISIT_UPDATED',
+          details: {
+            visitId: updatedVisit.id,
+            encounterId: updatedVisit.encounterId,
+            beneficiaryId: updatedVisit.beneficiaryId,
+            beneficiaryName: updatedVisit.beneficiary?.name,
+            careCompanionId: updatedVisit.careCompanionId,
+            careCompanionName: updatedVisit.careCompanion?.name,
+            oldScheduledTime: existingVisit.scheduledTime,
+            newScheduledTime: startTime,
+            oldDurationMinutes: existingVisit.durationMinutes,
+            newDurationMinutes: durationMinutes,
+            actorName: req.user?.name || 'System Admin',
+            actorPhone: req.user?.phone || 'Static Login',
+          },
+        },
+      });
+
+      return updatedVisit;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('PUT /visits/:id error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

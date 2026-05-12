@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '@/constants/api';
+import { CompanionBackButton } from '../../components/care-companion/CompanionBackButton';
 
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { CompanionBottomNav } from '../../components/care-companion/CompanionBottomNav';
@@ -14,6 +16,13 @@ const GRAY_BG = '#F9FAFB';
 
 export default function HistoryScreen() {
     const router = useRouter();
+    const handleSafeBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/(care-companion)');
+        }
+    };
     const [loading, setLoading] = useState(true);
     const [historyData, setHistoryData] = useState<any>(null);
 
@@ -27,11 +36,23 @@ export default function HistoryScreen() {
     useEffect(() => {
         const fetchHistory = async () => {
             try {
-                // WHEN BACKEND IS READY, UNCOMMENT THIS:
-                // const response = await fetch(`${API_URL}/care-companion/history`);
-                // const data = await response.json();
-                // setHistoryData(data);
-                setFallbackData();
+                const token = await AsyncStorage.getItem('userToken');
+                if (!token) {
+                    router.replace('/(auth)');
+                    return;
+                }
+
+                const response = await fetch(`${API_URL}/care-companion/visits/history`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const resJson = await response.json();
+                if (resJson.success && resJson.data) {
+                    setHistoryData(resJson.data);
+                } else {
+                    setFallbackData();
+                }
             } catch (err) {
                 console.error("Error fetching history", err);
                 setFallbackData();
@@ -100,9 +121,7 @@ export default function HistoryScreen() {
                 {/* Header */}
                 <View style={styles.deepOrangeHeader}>
                     <View style={styles.headerTitleRow}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-                        </TouchableOpacity>
+                        <CompanionBackButton style={styles.backBtn} />
                         <View style={{ flex: 1 }}>
                             <Text style={styles.headerTitle}>Visit History</Text>
                             <Text style={styles.headerSub}>Track your completed visits</Text>

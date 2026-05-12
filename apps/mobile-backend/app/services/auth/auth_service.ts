@@ -168,7 +168,8 @@ export const verifyOtp = async (rawPhone: string, otpCode: string) => {
 
 import bcrypt from 'bcryptjs';
 
-export const registerWithPassword = async (phone: string, name: string, age: number, passwordRaw: string) => {
+export const registerWithPassword = async (rawPhone: string, name: string, age: number, passwordRaw: string) => {
+  const phone = rawPhone.replace(/\D/g, '').slice(-10);
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({ where: { phone } });
   if (existingUser) {
@@ -207,7 +208,8 @@ export const registerWithPassword = async (phone: string, name: string, age: num
   };
 };
 
-export const loginWithPassword = async (phone: string, passwordRaw: string) => {
+export const loginWithPassword = async (rawPhone: string, passwordRaw: string) => {
+  const phone = rawPhone.replace(/\D/g, '').slice(-10);
   const user = await prisma.user.findUnique({ where: { phone } });
 
   if (!user || !user.password) {

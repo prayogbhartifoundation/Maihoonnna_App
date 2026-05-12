@@ -7,7 +7,7 @@ const router = Router();
 // GET /api/care-companion/profile
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id; // From authenticate middleware
+    const userId = (req as any).userId; // From authenticate middleware
 
     const cc = await prisma.user.findUnique({
       where: { id: userId },
@@ -65,7 +65,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 // GET /api/care-companion/profile/assigned-beneficiaries
 router.get('/assigned-beneficiaries', authenticate, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = (req as any).userId;
 
     const cc = await prisma.user.findUnique({
       where: { id: userId },

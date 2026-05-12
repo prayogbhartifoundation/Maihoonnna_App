@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '@/constants/api';
 
@@ -16,7 +17,7 @@ export default function ScheduleScreen() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [scheduleData, setScheduleData] = useState<any>(null);
-    const [activeTab, setActiveTab] = useState('Today (2)');
+    const [activeTab, setActiveTab] = useState('Today');
 
     let [fontsLoaded] = useFonts({
         Poppins_400Regular,
@@ -28,13 +29,29 @@ export default function ScheduleScreen() {
     useEffect(() => {
         const fetchSchedule = async () => {
             try {
-                // WHEN BACKEND IS READY, UNCOMMENT THIS:
-                // const response = await fetch(`${API_URL}/care-companion/schedule`);
-                // const data = await response.json();
-                // setScheduleData(data);
-                setFallbackData();
+                const token = await AsyncStorage.getItem('userToken');
+                if (!token) {
+                    router.replace('/(auth)');
+                    return;
+                }
+
+                const response = await fetch(`${API_URL}/care-companion/schedule`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) throw new Error("Schedule API returned error");
+
+                const json = await response.json();
+                if (json.success && json.data) {
+                    setScheduleData(json.data);
+                } else {
+                    setFallbackData();
+                }
             } catch (err) {
-                console.error("Error fetching schedule", err);
+                console.log("Error fetching schedule from backend, loading fallbacks...", err);
                 setFallbackData();
             } finally {
                 setLoading(false);
@@ -47,9 +64,9 @@ export default function ScheduleScreen() {
     const setFallbackData = () => {
         setScheduleData({
             visits: [
-                { id: 'v1', patientName: 'Margaret Thompson', address: '123 Oak Street, Apt 4B', time: '10:00 AM', distance: '2.3 km', type: 'Home Visit', tabType: 'Today (2)' },
-                { id: 'v2', patientName: 'Robert Chen', address: '456 Maple Avenue', time: '2:00 PM', distance: '3.7 km', type: 'Home Visit', tabType: 'Today (2)' },
-                { id: 'v3', patientName: 'Sameer Tandon', address: '123 Oak Street, Apt 4B', time: '11:00 AM', distance: '2.3 km', type: 'Home Visit', tabType: 'Tomorrow (1)' },
+                { id: 'v1', patientName: 'Margaret Thompson', address: '123 Oak Street, Apt 4B', time: '10:00 AM', distance: '2.3 km', type: 'Home Visit', tabType: 'Today' },
+                { id: 'v2', patientName: 'Robert Chen', address: '456 Maple Avenue', time: '2:00 PM', distance: '3.7 km', type: 'Home Visit', tabType: 'Today' },
+                { id: 'v3', patientName: 'Sameer Tandon', address: '123 Oak Street, Apt 4B', time: '11:00 AM', distance: '2.3 km', type: 'Home Visit', tabType: 'Tomorrow' },
             ]
         });
     };
@@ -94,14 +111,18 @@ export default function ScheduleScreen() {
 
                     {/* Segmented Control */}
                     <View style={styles.segmentedControl}>
-                        {['Today (2)', 'Tomorrow (1)', 'Upcoming (0)'].map(tab => (
+                        {[
+                            { key: 'Today', label: `Today (${scheduleData.visits.filter((v: any) => v.tabType === 'Today').length})` },
+                            { key: 'Tomorrow', label: `Tomorrow (${scheduleData.visits.filter((v: any) => v.tabType === 'Tomorrow').length})` },
+                            { key: 'Upcoming', label: `Upcoming (${scheduleData.visits.filter((v: any) => v.tabType === 'Upcoming').length})` }
+                        ].map(tab => (
                             <TouchableOpacity
-                                key={tab}
-                                style={[styles.tabBtn, activeTab === tab && styles.activeTabBtn]}
-                                onPress={() => setActiveTab(tab)}
+                                key={tab.key}
+                                style={[styles.tabBtn, activeTab === tab.key && styles.activeTabBtn]}
+                                onPress={() => setActiveTab(tab.key)}
                             >
-                                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                                    {tab}
+                                <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
+                                    {tab.label}
                                 </Text>
                             </TouchableOpacity>
                         ))}

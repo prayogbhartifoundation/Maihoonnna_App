@@ -5,12 +5,14 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { fieldManagerApi } from '../../../services/api';
+import { fieldManagerApi, visitApi } from '../../../services/api';
 import { toast } from 'sonner';
 import { Users, UserCheck, CheckCircle2, RefreshCw } from 'lucide-react';
 import { LoadingState, StatCard } from './SharedComponents';
 import TeamPanel, { type CCMember } from './TeamPanel';
 import BeneficiaryList, { type BeneficiaryItem } from './BeneficiaryList';
+import ScheduledVisitsPanel from './ScheduledVisitsPanel';
+import { useAuth } from '../../context/AuthContext';
 
 const TABS = [
   { key: 'team', label: 'My Team', icon: Users },
@@ -20,6 +22,7 @@ const TABS = [
 type TabKey = typeof TABS[number]['key'];
 
 export default function FieldManagerView() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('team');
   const [team, setTeam] = useState<CCMember[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryItem[]>([]);
@@ -126,12 +129,19 @@ export default function FieldManagerView() {
           team={team}
           loading={benLoading}
           submittingId={null}
-          // FM can view but CC appointment is managed by ops manager
-          onAssignCC={async () => {
-            toast.info('CC appointment is managed by your Operations Manager.');
+          onScheduleVisit={async (benId, ccId, time, dur) => {
+            try {
+              await visitApi.create({ beneficiaryId: benId, careCompanionId: ccId, scheduledTime: time, durationMinutes: dur });
+              toast.success('Visit scheduled successfully!');
+            } catch (e: any) {
+              toast.error(e.message || 'Scheduling failed');
+            }
           }}
         />
       )}
+      
+      {/* Scheduled Visits Component */}
+      <ScheduledVisitsPanel defaultFmUserId={user?.id || null} hideFmSelector={true} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { zoneApi, operationsManagerApi, fieldManagerApi, careCompanionApi, beneficiaryApi } from '../../../services/api';
+import { zoneApi, operationsManagerApi, fieldManagerApi, careCompanionApi, beneficiaryApi, visitApi } from '../../../services/api';
 import { toast } from 'sonner';
 import {
   MapPin, Users, ChevronRight, ArrowLeft,
@@ -331,7 +331,14 @@ export default function AdminFieldView() {
                   team={detailData.team}
                   loading={detailLoading}
                   submittingId={null}
-                  onAssignCC={async () => {}}
+                  onScheduleVisit={async (benId, ccId, time, dur) => {
+                     try {
+                       await visitApi.create({ beneficiaryId: benId, careCompanionId: ccId, scheduledTime: time, durationMinutes: dur });
+                       toast.success('Visit scheduled successfully!');
+                     } catch (e: any) {
+                       toast.error(e.message || 'Failed to schedule visit');
+                     }
+                  }}
                 />
               </div>
             </div>

@@ -9,13 +9,14 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { fieldManagerApi } from '../../../services/api';
+import { fieldManagerApi, visitApi } from '../../../services/api';
 import { toast } from 'sonner';
 import { Users, UserCheck, CheckCircle2, RefreshCw } from 'lucide-react';
 import { LoadingState, StatCard } from './SharedComponents';
 import FMSelectorDropdown, { type FieldManagerItem } from './FMSelectorDropdown';
 import TeamPanel, { type CCMember } from './TeamPanel';
 import BeneficiaryList, { type BeneficiaryItem } from './BeneficiaryList';
+import ScheduledVisitsPanel from './ScheduledVisitsPanel';
 
 export default function OpsManagerFieldView() {
   // ── State ───────────────────────────────────────────────────────────────────
@@ -105,66 +106,15 @@ export default function OpsManagerFieldView() {
     loadBeneficiaries(fm);
   };
 
-  // ── Assign CC to beneficiary ────────────────────────────────────────────────
-  const handleAssignCC = async (beneficiaryId: string, ccId: string) => {
+
+  // ── Schedule Visit for beneficiary ──────────────────────────────────────────
+  const handleScheduleVisit = async (beneficiaryId: string, ccId: string, scheduledTime: string, durationMinutes: number) => {
     setSubmittingId(beneficiaryId);
     try {
-      await fieldManagerApi.assignCC(beneficiaryId, { primaryCcId: ccId });
-
-      // Optimistic update in the list
-      setBeneficiaries(prev =>
-        prev.map(b => {
-          if (b.id !== beneficiaryId) return b;
-          const cc = team.find(c => c.id === ccId);
-          return { ...b, primaryCcId: ccId, primaryCcName: cc?.name ?? b.primaryCcName };
-        })
-      );
-
-      // Update team CC load count (optimistic)
-      setTeam(prev =>
-        prev.map(cc =>
-          cc.id === ccId
-            ? { ...cc, primaryBeneficiariesCount: cc.primaryBeneficiariesCount + 1 }
-            : cc
-        )
-      );
-
-      const cc = team.find(c => c.id === ccId);
-      toast.success(`✅ ${cc?.name ?? 'CC'} appointed! Notifications sent to all parties.`);
+      await visitApi.create({ beneficiaryId, careCompanionId: ccId, scheduledTime, durationMinutes });
+      toast.success(`✅ Visit scheduled successfully!`);
     } catch (e: any) {
-      toast.error(e.message || 'Assignment failed');
-    } finally {
-      setSubmittingId(null);
-    }
-  };
-
-  // ── Remove CC from beneficiary ──────────────────────────────────────────────
-  const handleRemoveCC = async (beneficiaryId: string) => {
-    setSubmittingId(beneficiaryId);
-    try {
-      await fieldManagerApi.assignCC(beneficiaryId, { primaryCcId: null });
-
-      const oldCcId = beneficiaries.find(b => b.id === beneficiaryId)?.primaryCcId;
-
-      // Optimistic update
-      setBeneficiaries(prev =>
-        prev.map(b =>
-          b.id === beneficiaryId ? { ...b, primaryCcId: null, primaryCcName: null } : b
-        )
-      );
-      if (oldCcId) {
-        setTeam(prev =>
-          prev.map(cc =>
-            cc.id === oldCcId
-              ? { ...cc, primaryBeneficiariesCount: Math.max(0, cc.primaryBeneficiariesCount - 1) }
-              : cc
-          )
-        );
-      }
-
-      toast.success('CC removed from beneficiary');
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to remove CC');
+      toast.error(e.message || 'Scheduling failed');
     } finally {
       setSubmittingId(null);
     }
@@ -268,11 +218,11 @@ export default function OpsManagerFieldView() {
                 team={team}
                 loading={benLoading}
                 submittingId={submittingId}
-                onAssignCC={handleAssignCC}
-                onRemoveCC={handleRemoveCC}
+                onScheduleVisit={handleScheduleVisit}
               />
             </div>
           </div>
+          <ScheduledVisitsPanel defaultFmUserId={selectedFM.userId} />
         </>
       )}
     </div>

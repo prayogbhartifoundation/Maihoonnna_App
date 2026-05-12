@@ -24,9 +24,23 @@ export const checkInSchema = Joi.object({
 export const checkOutSchema = Joi.object({
   visitId: Joi.string().uuid().required(),
   vitals: vitalsSchema.optional(),
+  vitalsList: Joi.array().items(
+    Joi.object({
+      vitalDefinitionId: Joi.string().uuid().required(),
+      valueNumeric: Joi.number().optional().allow(null),
+      valueNumeric2: Joi.number().optional().allow(null),
+      valueText: Joi.string().allow('', null).optional(),
+    })
+  ).optional(),
   mood: Joi.string().valid('happy', 'neutral', 'sad', 'depressed').optional(),
   medicationAdherence: Joi.boolean().default(false),
-  notes: Joi.string().optional(),
+  medicationsList: Joi.array().items(
+    Joi.object({
+      medicationId: Joi.string().uuid().required(),
+      taken: Joi.boolean().required(),
+    })
+  ).optional(),
+  notes: Joi.string().allow('', null).optional(),
 });
 
 export const rateVisitSchema = Joi.object({

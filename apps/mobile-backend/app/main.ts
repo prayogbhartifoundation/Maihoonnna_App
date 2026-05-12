@@ -22,6 +22,8 @@ import addressesRouter from './api/subscriber/addresses.routes';
 // Care Companion Routes
 import visitsRouter from './api/care_companion/visits.routes';
 import profileRouter from './api/care_companion/profile.routes';
+import dashboardCcRouter from './api/care_companion/dashboard.routes';
+import scheduleCcRouter from './api/care_companion/schedule.routes';
 
 // Admin Routes
 import usersRouter from './api/admin/users.routes';
@@ -105,6 +107,8 @@ app.use(`${API}/subscriber`, subscriberRouter);
 // Role: Care Companion endpoints
 app.use(`${API}/care-companion/visits`, visitsRouter);
 app.use(`${API}/care-companion/profile`, profileRouter);
+app.use(`${API}/care-companion/dashboard`, dashboardCcRouter);
+app.use(`${API}/care-companion/schedule`, scheduleCcRouter);
 
 // Role: Admin endpoints
 app.use(`${API}/admin/users`, usersRouter);

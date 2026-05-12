@@ -2,10 +2,12 @@ import React, { useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { ProfilePhotoUploader } from '@/components/ui/ProfilePhotoUploader';
+import { CompanionBackButton } from '../../components/care-companion/CompanionBackButton';
 import Animated, { 
     useSharedValue, 
     useAnimatedStyle, 
@@ -66,6 +68,13 @@ const CustomToggle = ({ value, onValueChange }: { value: boolean, onValueChange:
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const handleSafeBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/(care-companion)');
+        }
+    };
     const [loading, setLoading] = useState(true);
     const [profileData, setProfileData] = useState<any>(null);
 
@@ -89,13 +98,24 @@ export default function ProfileScreen() {
             const fetchProfileData = async () => {
                 setLoading(true);
                 try {
-                    const response = await fetch(`${API_BASE_URL}/care-companion/profile`);
+                    const token = await AsyncStorage.getItem('userToken');
+                    if (!token) {
+                        router.replace('/(auth)');
+                        return;
+                    }
+
+                    const response = await fetch(`${API_BASE_URL}/care-companion/profile`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
                     if (!response.ok) throw new Error("Backend offline");
 
                     const json = await response.json();
                     if (isActive) setProfileData(json.data || json);
                 } catch (error) {
-                    console.log("Backend not detected. Loading Mock Profile UI...");
+                    console.log("Backend not detected or error. Loading Mock Profile UI...", error);
                     if (isActive) {
                         setProfileData({
                             name: "Sarah Chen",
@@ -148,9 +168,7 @@ export default function ProfileScreen() {
                     style={styles.deepOrangeHeader}
                 >
                     <View style={styles.headerRow}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-                        </TouchableOpacity>
+                        <CompanionBackButton style={styles.backButton} />
                         <View>
                             <Text style={styles.headerTitle}>Profile</Text>
                             <Text style={styles.headerSub}>Manage your account</Text>
