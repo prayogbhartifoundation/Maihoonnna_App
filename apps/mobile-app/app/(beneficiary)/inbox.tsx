@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -30,7 +30,11 @@ const styles = StyleSheet.create({
     header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 28 },
     headerTitle: { fontSize: 28, fontWeight: '700', color: '#111827', fontFamily: 'Outfit-Bold' },
     headerSub: { fontSize: 15, color: '#374151', marginTop: 4, fontFamily: 'Outfit-Regular' },
-    content: { flex: 1, padding: 20 },
+    content: { 
+        flex: 1, 
+        padding: 20,
+        paddingBottom: Platform.OS === 'ios' ? 120 : 100,
+    },
     emptyState: {
         flex: 1,
         alignItems: 'center',

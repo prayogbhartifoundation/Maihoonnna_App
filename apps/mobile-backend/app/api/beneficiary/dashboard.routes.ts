@@ -140,7 +140,11 @@ router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response
             include: {
                 primaryCC: { include: { user: true } },
                 secondaryCC: { include: { user: true } },
-                fieldManager: true, 
+                fieldManager: {
+                    include: {
+                        fieldManagerProfile: true
+                    }
+                }, 
             },
         });
 
@@ -158,7 +162,7 @@ router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response
                 role: 'Primary Care Coordinator',
                 bio: beneficiary.primaryCC.bio || 'Board-certified nurse practitioner with years of experience in geriatric care. Specialized in chronic disease management and patient education.',
                 photo: beneficiary.primaryCC.photo,
-                phone: null // Would need to fetch from user relation if CC had a phone, assuming CCs use the app to call too
+                phone: (beneficiary.primaryCC as any).user?.phone || null
             });
         }
 
@@ -170,19 +174,22 @@ router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response
                 role: 'Secondary Care Coordinator',
                 bio: beneficiary.secondaryCC.bio || 'Registered nurse with expertise in home healthcare coordination. Passionate about improving quality of life for seniors.',
                 photo: beneficiary.secondaryCC.photo,
-                phone: null
+                phone: (beneficiary.secondaryCC as any).user?.phone || null
             });
         }
 
-        if (beneficiary.fieldManager && (beneficiary as any).fieldManager.isActive !== false) {
+        if (beneficiary.fieldManager && beneficiary.fieldManager.isActive !== false) {
+            const fmProfile = (beneficiary.fieldManager as any).fieldManagerProfile;
+            const qualification = fmProfile?.qualification || 'Healthcare Operations Manager';
+            const experience = fmProfile?.experience || 5;
             team.push({
-                id: (beneficiary as any).fieldManager.id,
+                id: beneficiary.fieldManager.id,
                 level: 'Field Manager',
-                name: (beneficiary as any).fieldManager.name || 'Field Manager',
+                name: fmProfile?.name || beneficiary.fieldManager.name || 'Field Manager',
                 role: 'Field Manager',
-                bio: 'Healthcare operations manager overseeing care delivery in the region. Available for escalations and support.',
-                photo: null, 
-                phone: (beneficiary as any).fieldManager.phone
+                bio: `${qualification}. Experienced operations manager with ${experience} years of expertise in overseeing local care teams, healthcare logistics, and emergency escalations.`,
+                photo: fmProfile?.photo || null, 
+                phone: fmProfile?.phone || beneficiary.fieldManager.phone || null
             });
         }
 
@@ -213,5 +220,102 @@ router.post('/log-call', authenticate, async (req: AuthRequest, res: Response) =
         res.status(500).json({ success: false, message: error.message });
     }
 });
+
+// Fetch Scheduled/Upcoming and Past Visits
+router.get('/:userId/visits', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.params.userId as string;
+
+        const beneficiary = await prisma.beneficiary.findFirst({
+            where: { userId: userId },
+        });
+
+        if (!beneficiary) {
+            return res.status(404).json({ success: false, message: 'Beneficiary profile not found' });
+        }
+
+        const visits = await prisma.visit.findMany({
+            where: {
+                beneficiaryId: beneficiary.id,
+            },
+            include: {
+                careCompanion: true,
+            },
+            orderBy: {
+                scheduledTime: 'desc',
+            },
+        });
+
+        const upcomingRaw = visits.filter(v => v.status === 'scheduled').reverse();
+        const pastRaw = visits.filter(v => v.status !== 'scheduled');
+
+        const formatVisit = (v: any, isUpcoming: boolean) => {
+            const dateObj = new Date(v.scheduledTime);
+            
+            // Format time (e.g. 11:00 AM)
+            let hours = dateObj.getHours();
+            const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const formattedTime = `${hours}:${minutes} ${ampm}`;
+
+            // Format date for upcoming (e.g. "Thursday, February 26")
+            const optionsUpcoming: Intl.DateTimeFormatOptions = { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            const formattedDateUpcoming = dateObj.toLocaleDateString('en-US', optionsUpcoming);
+
+            // Format date for past (e.g. "Feb 10")
+            const optionsPast: Intl.DateTimeFormatOptions = { 
+                month: 'short', 
+                day: 'numeric' 
+            };
+            const formattedDatePast = dateObj.toLocaleDateString('en-US', optionsPast);
+
+            // Compute duration hours text
+            const durationMin = v.durationMinutes || 120;
+            const durationHours = durationMin / 60;
+            const durationText = `${durationHours} hour${durationHours !== 1 ? 's' : ''}`;
+
+            // Alternate default titles based on index or database note
+            const defaultTitles = ['Regular Check-up', 'Health Assessment', 'Medication Review', 'Wellness Visit'];
+            const titleIndex = v.id ? (v.id.charCodeAt(0) % defaultTitles.length) : 0;
+            const title = v.notes || defaultTitles[titleIndex];
+
+            return {
+                id: v.id,
+                title,
+                date: isUpcoming ? formattedDateUpcoming : formattedDatePast,
+                time: formattedTime,
+                duration: durationText,
+                companionName: v.careCompanion?.name || 'Care Companion',
+                type: 'Home Visit',
+                status: v.status,
+            };
+        };
+
+        const upcoming = upcomingRaw.map(v => formatVisit(v, true));
+        const past = pastRaw.map(v => formatVisit(v, false));
+
+        res.json({ 
+            success: true, 
+            data: { upcoming, past } 
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Sub-routes modularization for scalability
+import interactionsRouter from './interactions.routes';
+import medicalRecordsRouter from './medical-records.routes';
+import profileRouter from './profile.routes';
+
+router.use('/interactions', interactionsRouter);
+router.use('/medical-records', medicalRecordsRouter);
+router.use('/profile', profileRouter);
 
 export default router;

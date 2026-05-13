@@ -20,4 +20,53 @@ router.post('/adherence', authenticate, validate(createAdherenceSchema), async (
   res.status(201).json({ success: true, data: record });
 });
 
-export default router;
+/**
+ * GET /api/shared/medications/beneficiary/:beneficiaryId/today
+ * Returns today's personalized medicine schedules.
+ */
+router.get('/beneficiary/:beneficiaryId/today', authenticate, async (req: Request, res: Response) => {
+  try {
+    const data = await medicationService.getTodayMedications(req.params.beneficiaryId as string);
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * POST /api/shared/medications/adherence/log
+ * Registers if a medication has been checked off or missed, updating all calculations.
+ */
+router.post('/adherence/log', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { beneficiaryId, medicationId, scheduledTimeIso, taken, recordedBy } = req.body;
+    if (!beneficiaryId || !medicationId || !scheduledTimeIso || taken === undefined) {
+      return res.status(400).json({ success: false, message: 'Missing required body elements' });
+    }
+    const result = await medicationService.logAdherence(
+      beneficiaryId,
+      medicationId,
+      scheduledTimeIso,
+      taken,
+      recordedBy || 'system'
+    );
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * GET /api/shared/medications/beneficiary/:beneficiaryId/metrics
+ * Returns global summary statistics (average, taken, missed counts).
+ */
+router.get('/beneficiary/:beneficiaryId/metrics', authenticate, async (req: Request, res: Response) => {
+  try {
+    const metrics = await medicationService.getMedicationMetrics(req.params.beneficiaryId as string);
+    res.json({ success: true, data: metrics });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+export default router;

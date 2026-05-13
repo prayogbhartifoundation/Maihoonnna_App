@@ -32,6 +32,7 @@ type Medication = {
     frequency: string;
     timesPerDay: string[];
     setReminders: boolean;
+    totalDays?: string;
 };
 
 export default function MedicalInfoScreen() {
@@ -84,7 +85,8 @@ export default function MedicalInfoScreen() {
         dosage: '',
         frequency: 'Daily',
         timesPerDay: [],
-        setReminders: false
+        setReminders: false,
+        totalDays: ''
     });
 
     useEffect(() => {
@@ -148,7 +150,7 @@ export default function MedicalInfoScreen() {
         if (newMedicine.name.trim().length > 0) {
             setMedications([...medications, newMedicine]);
         }
-        setNewMedicine({ name: '', dosage: '', frequency: 'Daily', timesPerDay: [], setReminders: false });
+        setNewMedicine({ name: '', dosage: '', frequency: 'Daily', timesPerDay: [], setReminders: false, totalDays: '' });
         setShowMedicineModal(false);
     };
 
@@ -255,7 +257,7 @@ export default function MedicalInfoScreen() {
                                 <View key={index} style={styles.medicineCard}>
                                     <View style={styles.medicineInfo}>
                                         <Text style={styles.medicineName}>{med.name}</Text>
-                                        <Text style={styles.medicineSub}>{med.dosage} • {med.frequency}</Text>
+                                        <Text style={styles.medicineSub}>{med.dosage} • {med.frequency}{med.totalDays ? ` • ${med.totalDays} days` : ' • Ongoing'}</Text>
                                     </View>
                                     <View style={styles.medicineRight}>
                                         {/* Shows the first selected time as pill, if any */}
@@ -428,6 +430,16 @@ export default function MedicalInfoScreen() {
                                 </View>
                             </View>
                         </View>
+
+                        <Text style={styles.inputLabelSm}>Duration (Days)</Text>
+                        <TextInput
+                            style={styles.modalInput}
+                            placeholder="e.g. 30 (Leave blank for ongoing)"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="numeric"
+                            value={newMedicine.totalDays}
+                            onChangeText={(t) => setNewMedicine({...newMedicine, totalDays: t})}
+                        />
 
                         <View style={styles.dividerLine} />
 

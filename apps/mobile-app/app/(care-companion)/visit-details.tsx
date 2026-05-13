@@ -225,8 +225,15 @@ export default function VisitDetailsScreen() {
             const json = await response.json();
             if (json.success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                
+                if (Platform.OS === 'web') {
+                    window.alert("Encounter Saved!\n\nThe scheduled visit logs and dynamic vitals have been saved to your patient records.");
+                    router.replace('/(care-companion)');
+                    return;
+                }
+
                 Alert.alert("Encounter Saved", "The scheduled visit logs and dynamic vitals have been saved to your patient records.", [
-                    { text: "Done", onPress: () => handleSafeBack() }
+                    { text: "Done", onPress: () => router.replace('/(care-companion)') }
                 ]);
             } else {
                 Alert.alert("Error", json.message || "Failed to complete checkout.");
@@ -261,8 +268,12 @@ export default function VisitDetailsScreen() {
             {/* FORCE hide the header */}
             <Stack.Screen options={{ headerShown: false, headerTransparent: true, title: '' }} />
 
-            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                <ScrollView bounces={false} contentContainerStyle={styles.scrollContent}>
+            <KeyboardAvoidingView 
+                style={{ flex: 1 }} 
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                enabled={Platform.OS !== 'web'}
+            >
+                <ScrollView bounces={false} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
 
                     {/* Header */}
                     <View style={styles.deepOrangeHeader}>
@@ -579,7 +590,7 @@ export default function VisitDetailsScreen() {
                             </TouchableOpacity>
                         )}
 
-                        <View style={{ height: 40 }} />
+                        <View style={{ height: 100 }} />
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>

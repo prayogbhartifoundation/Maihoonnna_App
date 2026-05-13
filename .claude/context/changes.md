@@ -666,3 +666,163 @@ Admin appoints CC (PUT /beneficiaries/:id/assign-staff)
 - Notifications outside transaction: failure never rolls back CC assignment.
 - `?fmId=` server-side filter: avoids sending all beneficiaries over the wire.
 
+---
+
+## Care Companion Live Module Updates (May 12, 2026)
+
+### Mobile App — Sandboxed Navigation
+
+**`apps/mobile-app/components/care-companion/CompanionBackButton.tsx`** (new)
+- Extracted back-navigation logic into a dedicated, sandboxed component that operates solely within the local companion hierarchy.
+- Relies on dynamic `router.canGoBack()` checks and falls back elegantly to `router.replace('/(care-companion)')` to eliminate unresolved module path bundler cache errors.
+
+**Import Cleansing** (updated)
+- Standardized all back button imports to the modular `CompanionBackButton` in **`visit-details.tsx`**, **`profile.tsx`**, and **`history.tsx`** to ensure full layout stabilization.
+
+---
+
+### Mobile App — Defensive Dashboard & Responsive UI
+
+**`apps/mobile-app/app/(care-companion)/index.tsx`** (updated)
+- **Null Safety Integration**: Embedded conditional optional-chaining checks on `nextVisit` to prevent dashboard page load crashes if the care companion has zero active scheduled visits.
+- **Graceful Empty State**: Renders a premium `"No Upcoming Visits"` card with a pleasant status message and clear instructions rather than a blank or broken screen.
+- **Grid Rebalance**: Converted the Quick Actions grid from a 2x2 layout (which left an awkward blank fourth slot after removing "Training") into a responsive, single-row **3-column horizontal menu** (`width: '31%'` with micro-shadows and compact centering).
+
+---
+
+### Mobile Backend — Completed Visits & Dynamic History API
+
+**`apps/mobile-backend/app/api/care_companion/visits.routes.ts`** (updated)
+- Added an authenticated **`GET /api/care-companion/visits/history`** endpoint:
+  - Validates Care Companion authorization using secure JWT session headers.
+  - Returns calculated live statistics: `totalVisits` completed, `totalHours` consumed, and `avgHours` per visit.
+  - Queries and maps completed visits, feeding in the exact recorded vital signs (`bpSystolic`, `bpDiastolic`, `temperature`, `oxygenLevel`, `weight`), general checkout notes, overall companion mood, and medication names that were checked/taken.
+
+---
+
+### Mobile App — Live History Page Integration
+
+**`apps/mobile-app/app/(care-companion)/history.tsx`** (updated)
+- Upgraded the static placeholder page to fully fetch the dynamic **`GET /api/care-companion/visits/history`** database payload in real-time.
+- Utilizes storage sessions via `AsyncStorage` and renders data into elegant, custom accordion dropdown rows containing recorded vitals and notes.
+
+---
+
+## Session: Dynamic Beneficiary Teams, Schedules, and Self-Healing Medication Tracking (2026-05-13)
+
+### Dynamic Beneficiary Team Lookup
+- **Problem**: The Care Team screen was hardcoded to display mock care coordinators and companions.
+- **Solution**: Wired it up to real dynamic database relations.
+- **Backend API (`apps/mobile-backend/app/api/beneficiary/team.routes.ts`)**:
+  - Implemented authenticated route **`GET /api/beneficiary/team/me`** to dynamically extract the logged-in User's active health profile.
+  - Queries the database to fetch their primary care companion (`primaryCc`), secondary care companion (`secondaryCc`), and primary field manager (`primaryCc.primaryCcProfile.fieldManager`).
+  - Aggregates and returns detailed biographies, verified phone numbers, and profile photos for real care coordinators.
+- **Frontend Integration (`apps/mobile-app/app/(beneficiary)/team.tsx`)**:
+  - Upgraded the component to query this dynamic API on mount via AsyncStorage credentials.
+  - Safely displays real team members or fallbacks with color-coded initial avatars if profile pictures are missing.
+
+### Dynamic Schedule Timeline
+- **Problem**: The upcoming schedule page was static and threw `400 Bad Request` errors during login sessions.
+- **Solution**: Developed a clean endpoint mapping visit calendars to the UI.
+- **Backend API (`apps/mobile-backend/app/api/beneficiary/schedule.routes.ts`)**:
+  - Implemented authenticated route **`GET /api/beneficiary/schedule/upcoming`**.
+  - Automatically maps the active user to their `Beneficiary` profile and queries the database for all `scheduled` or `in_progress` visits where they are the recipient.
+  - Includes full Care Companion profile attachments to show names, roles, and profile photos in the client-side list.
+- **Frontend Integration (`apps/mobile-app/app/(beneficiary)/schedule.tsx`)**:
+  - Remodeled the upcoming visits tab to pull real live schedule cards matching the official high-fidelity UI design.
+  - Gracefully displays a placeholder status when no visits are currently scheduled.
+
+### Dynamic Medication Adherence Manager Upgrade
+- **Problem**: The medication list on the mobile dashboard returned empty schedules because the mobile app queries with `userData.id` (User account credentials ID), while the admin panel saves medications with the `Beneficiary` operational health profile ID. In addition, the admin panel saves time slots as word checkboxes (`[ 'morning', 'afternoon' ]`) instead of strict colon-separated strings (e.g. `08:00 AM`).
+- **Solution**: Developed a state-of-the-art dual-lookup and semantic translator layer.
+- **Dual-Lookup Self-Healing (`apps/mobile-backend/app/services/shared/MedicationAdherenceManager.ts`)**:
+  - Upgraded `resolveBeneficiaryId()` to automatically run a double-check query on incoming IDs:
+    ```typescript
+    const beneficiary = await prisma.beneficiary.findFirst({
+        where: {
+            OR: [
+                { id: this.beneficiaryId },
+                { userId: this.beneficiaryId }
+            ]
+        }
+    });
+    ```
+    If the manager is initialized with a `userId` (from mobile) or `id` (from admin), it automatically resolves to the correct profile, bridging the cross-portal databases seamlessly.
+- **Semantic Word-based Time Slot Parser**:
+  - Upgraded `parseTimeSlotToDate()` to recognize named checkboxes:
+    - `'morning'` ➡️ `08:00 AM`
+    - `'afternoon'` ➡️ `02:00 PM`
+    - `'evening'` ➡️ `06:00 PM`
+    - `'night'` ➡️ `09:30 PM`
+    These chronological word translations are automatically mapped to real timezones for correct daily sequencing.
+
+### Blank-Page Prevention & Upcoming Medication Scans
+- **Problem**: Showing an empty screen with "No medications scheduled for today" on the meds page is a poor user experience if a beneficiary has upcoming medications starting in the future.
+- **Solution**: Built an automatic forward-scanning scheduler.
+- **Backend Upgrades (`MedicationAdherenceManager.ts` — `getTodaySchedule`)**:
+  - Implemented a dual-state scheduler. First, it generates the dosage slots for today.
+  - If today has zero active items, the manager automatically queries the database for the earliest active future medication start date:
+    ```typescript
+    const nextMed = await prisma.medication.findFirst({
+        where: {
+            beneficiaryId: this.beneficiaryId,
+            isActive: true,
+            startDate: { gt: todayEnd }
+        },
+        orderBy: { startDate: 'asc' }
+    });
+    ```
+  - If a future record is found, it calculates the dynamic hourly dosage slots for *that specific future date*, flagging them with:
+    - `isFutureSchedule: true`
+    - `futureDateText: "[Weekday], [Month] [Day]"` (e.g., `"Wed, May 20"`)
+- **Frontend Upgrades (`apps/mobile-app/components/shared/MedsTracker.tsx`)**:
+  - Added type-safety declarations in `MedScheduleItem` for `isFutureSchedule` and `futureDateText`.
+  - Dynamically updates the daily schedule header row text. If the returned payload is a future-scanned schedule, it changes from `"Today's Doses"` to:
+    > **`Upcoming Doses (Starting [Date])`**
+  - This prevents blank screens and shows the user exactly when their medication schedule resumes!
+
+### Global UX Routing Improvements
+- **Home Dashboard (`apps/mobile-app/app/(beneficiary)/index.tsx`)**:
+  - Routed the orange **"View All"** action button under the "Today's Medications" section to navigate straight to the `/meds` tracker tab using Expo Router.
+- **More Options Navigation Menu (`apps/mobile-app/app/(beneficiary)/more.tsx`)**:
+  - Connected the `Interactions` list option to route directly to `/(beneficiary)/interactions`.
+  - Connected the `Medical Records` document option to route directly to `/(beneficiary)/medical-records`.
+  - Added an **Orange Profile Card header** matching the high-fidelity UI mockup at the top of the menu list.
+  - Tapping this card routes directly to the nested profile routing portal: `/(beneficiary)/profile`.
+  - Dynamically loads and displays the active beneficiary's name.
+
+### Dynamic Interaction Log Engine
+- **Backend API (`apps/mobile-backend/app/api/beneficiary/dashboard.routes.ts`)**:
+  - Created **`GET /api/beneficiary/interactions/me`** to dynamically extract all completed visits for the authenticated beneficiary.
+  - Automatically loads the visiting care companion's name and avatar, parses actual checkout timestamps into human-friendly dates, calculates the precise duration, and formats the vitals, clinical checkout notes, and beneficiary feedback ratings.
+- **Frontend View (`apps/mobile-app/app/(beneficiary)/interactions.tsx`)**:
+  - Created a gorgeous interaction history list displaying expandable cards.
+  - Includes a real-time star rating indicator (1-5 stars) matching the care companion visit ratings.
+  - Expands dynamically with custom 2x2 vitals panels, clinical progress notes, and blue-tinted customer quote feedback blocks.
+
+### Dynamic Medical Records & Trends Module
+- **Backend API (`apps/mobile-backend/app/api/beneficiary/dashboard.routes.ts`)**:
+  - Created **`GET /api/beneficiary/medical-records/me`** to pull the last 5 completed visits to track health metrics.
+  - Returns the latest single reading of Blood Pressure, Heart Rate, Temperature, and Weight, alongside compiled historical charts tracking systolic and diastolic BP trends chronologically.
+- **Frontend View (`apps/mobile-app/app/(beneficiary)/medical-records.tsx`)**:
+  - Created a grid of vital signs displays containing color-themed metric indicators.
+  - Engineered a premium, high-performance visual **Trends Graph Component** tracking historical systolic and diastolic blood pressure readings chronologically against baseline axes grids (0 to 140 scale).
+  - Displays a detailed dual-column vital history summary matching the high-fidelity UI specifications.
+
+### Dynamic Profile Management Sub-system
+- **Backend APIs (`apps/mobile-backend/app/api/beneficiary/dashboard.routes.ts`)**:
+  - **`GET /profile/me`**: Pulls full detailed Beneficiary entity data, mapping associated User attributes, diagnosed conditions relation trees, and Emergency Contacts collections.
+  - **`POST /profile/me`**: Safely pushes contact updates (Name, Phone, Email, Address) atomizing across User logins and Beneficiary tables concurrently.
+  - **`POST /profile/health-info`**: Overhauls Blood Group definitions, translates selection grids, and auto-syncs allergies/conditions. Automatically provisions missing cataloged `MedicalCondition` rows to protect DB foreign reference constraints.
+  - **`POST /profile/emergency-contacts`**: Cleanses, overwrites, and sequences primary/secondary emergency contacts collections in the DB.
+- **Client Nested Sub-routes (`apps/mobile-app/app/(beneficiary)/profile/...`)**:
+  - **`index.tsx`**: Features a premium orange gradient banner, editable avatar badge, 3-grid summary bubbles (Blood Type, Allergies count, Conditions count), editable contacts panel, and direct deep-links.
+  - **`health-info.tsx`**: Displays blood group grids, interactive dismissible tags for allergies/conditions, inline modals to append records dynamically, and cautionary advisory cards.
+  - **`emergency-contacts.tsx`**: Renders emergency contact badges, manages primary/secondary notification flags, and features deletion prompts alongside addition workflows.
+  - **`notifications.tsx`**: Hosts styled Switch toggles adjusting Push, SMS, and WhatsApp alerts.
+
+### Workspace Cleanup & Technical Debt Reduction
+- Deleted all temporary diagnostic and scratch scripts across `apps/mobile-backend/scripts/`, `apps/admin-backend/scratch/`, and database validation artifacts.
+- Left the core `prisma/seed-beneficiary-subscriber.js` fully intact and ready to seed.
+
+

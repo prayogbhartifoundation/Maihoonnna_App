@@ -185,36 +185,7 @@ export default function BeneficiaryDashboard() {
                     </View>
                 </View>
 
-                {/* Subscription Hours Row */}
-                {displayData.subscription && (
-                    <View style={styles.hoursCard}>
-                        <View style={styles.hoursHeader}>
-                            <View style={[styles.statIconBadge, { backgroundColor: '#FFF7ED', marginBottom: 0 }]}>
-                                <Feather name="clock" size={20} color="#F97316" />
-                            </View>
-                            <View style={{ marginLeft: 12 }}>
-                                <Text style={styles.hoursTitle}>Care Hours</Text>
-                                <Text style={styles.hoursSubtitle}>{displayData.subscription.packageName}</Text>
-                            </View>
-                        </View>
-                        <View style={styles.hoursGrid}>
-                            <View style={styles.hourItem}>
-                                <Text style={styles.hourValue}>{displayData.subscription.hoursTotal}h</Text>
-                                <Text style={styles.hourLabel}>Allocated</Text>
-                            </View>
-                            <View style={styles.hourDivider} />
-                            <View style={styles.hourItem}>
-                                <Text style={styles.hourValue}>{displayData.subscription.hoursUsed}h</Text>
-                                <Text style={styles.hourLabel}>Used</Text>
-                            </View>
-                            <View style={styles.hourDivider} />
-                            <View style={styles.hourItem}>
-                                <Text style={[styles.hourValue, { color: '#FF6A00' }]}>{displayData.subscription.remainingHours}h</Text>
-                                <Text style={styles.hourLabel}>Remaining</Text>
-                            </View>
-                        </View>
-                    </View>
-                )}
+
 
                 {/* Care Coordinator Section */}
                 <View style={styles.sectionHeader}>
@@ -248,7 +219,9 @@ export default function BeneficiaryDashboard() {
                 {/* Medications Section */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Today's Medications</Text>
-                    <TouchableOpacity><Text style={styles.linkText}>View All</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.push('/(beneficiary)/meds' as any)}>
+                        <Text style={styles.linkText}>View All</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {displayData.todaysMedications.map(med => (
@@ -305,7 +278,7 @@ export default function BeneficiaryDashboard() {
                         <Text style={styles.actionSubtitle}>Companion</Text>
                     </TouchableOpacity>
                 </View>
-                <View style={{ height: 40 }} />
+                <View style={{ height: Platform.OS === 'ios' ? 120 : 100 }} />
             </View>
         </ScrollView>
     );

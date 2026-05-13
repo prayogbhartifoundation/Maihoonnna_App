@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, SafeAreaView
+    TouchableOpacity, SafeAreaView, Platform, Image
 } from 'react-native';
 import { router } from 'expo-router';
 import {
     Feather, MaterialCommunityIcons,
     FontAwesome5, Ionicons, AntDesign
 } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logoutWithConfirm } from '@/utils/logout';
+import { API_URL } from '@/constants/api';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -30,6 +32,26 @@ function MenuItem({ icon, label, iconBg, onPress }: MenuItemProps) {
 }
 
 export default function MoreOptionsScreen() {
+    const [profileName, setProfileName] = useState('Margaret Williams');
+
+    useEffect(() => {
+        loadProfileName();
+    }, []);
+
+    const loadProfileName = async () => {
+        try {
+            const userDataStr = await AsyncStorage.getItem('userData');
+            if (userDataStr) {
+                const userData = JSON.parse(userDataStr);
+                if (userData.name) {
+                    setProfileName(userData.name);
+                }
+            }
+        } catch (e) {
+            console.error('Error loading profile name:', e);
+        }
+    };
+
     const menuItems: MenuItemProps[] = [
         {
             icon: <FontAwesome5 name="user-friends" size={18} color="#3B82F6" />,
@@ -41,13 +63,13 @@ export default function MoreOptionsScreen() {
             icon: <MaterialCommunityIcons name="history" size={20} color="#8B5CF6" />,
             label: 'Interactions',
             iconBg: '#F5F3FF',
-            onPress: () => {},
+            onPress: () => router.push('/(beneficiary)/interactions'),
         },
         {
             icon: <MaterialCommunityIcons name="file-document-outline" size={20} color="#10B981" />,
             label: 'Medical Records',
             iconBg: '#ECFDF5',
-            onPress: () => {},
+            onPress: () => router.push('/(beneficiary)/medical-records'),
         },
         {
             icon: <FontAwesome5 name="stethoscope" size={16} color="#EF4444" />,
@@ -92,6 +114,24 @@ export default function MoreOptionsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {/* Orange Profile Card at the Top */}
+                <TouchableOpacity
+                    style={styles.profileCard}
+                    onPress={() => router.push('/(beneficiary)/profile')}
+                    activeOpacity={0.9}
+                >
+                    <Image
+                        source={require('../../assets/images/group4.png')}
+                        style={styles.profileAvatar}
+                        defaultSource={require('../../assets/images/group4.png')}
+                    />
+                    <View style={styles.profileTextWrap}>
+                        <Text style={styles.profileName}>{profileName}</Text>
+                        <Text style={styles.profileSubtitle}>View & edit profile</Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+
                 {/* Menu List */}
                 <View style={styles.card}>
                     {menuItems.map((item, index) => (
@@ -114,7 +154,7 @@ export default function MoreOptionsScreen() {
                     <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
 
-                <View style={{ height: 32 }} />
+                <View style={{ height: Platform.OS === 'ios' ? 120 : 100 }} />
             </ScrollView>
         </SafeAreaView>
     );
@@ -149,6 +189,42 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
+    },
+    profileCard: {
+        backgroundColor: '#FF6F00',
+        borderRadius: 24,
+        padding: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+        shadowColor: '#FF6F00',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        elevation: 6,
+    },
+    profileAvatar: {
+        width: 54,
+        height: 54,
+        borderRadius: 27,
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+        marginRight: 16,
+    },
+    profileTextWrap: {
+        flex: 1,
+    },
+    profileName: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        fontFamily: 'Outfit-Bold',
+        marginBottom: 2,
+    },
+    profileSubtitle: {
+        fontSize: 13,
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontFamily: 'Outfit-Regular',
     },
     card: {
         backgroundColor: '#FFFFFF',

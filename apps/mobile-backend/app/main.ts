@@ -115,6 +115,7 @@ app.use(`${API}/admin/users`, usersRouter);
 
 // Role: Beneficiary endpoints
 app.use(`${API}/beneficiary/dashboard`, beneficiaryDashboardRouter);
+app.use(`${API}/beneficiary`, beneficiaryDashboardRouter);
 
 // Shared endpoints
 app.use(`${API}/shared/medications`, medicationsRouter);

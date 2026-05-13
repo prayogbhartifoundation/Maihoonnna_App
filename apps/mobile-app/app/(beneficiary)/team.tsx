@@ -31,7 +31,7 @@ export default function CareTeamScreen() {
     const fetchTeam = async () => {
         try {
             const token = await AsyncStorage.getItem('userToken');
-            const userStr = await AsyncStorage.getItem('user');
+            const userStr = await AsyncStorage.getItem('userData');
 
             // Fallback for UI demo when backend is offline
             if (!token || !userStr) {
@@ -126,7 +126,7 @@ export default function CareTeamScreen() {
 
             // 1. Try to get caller info
             const token = await AsyncStorage.getItem('userToken');
-            const userStr = await AsyncStorage.getItem('user');
+            const userStr = await AsyncStorage.getItem('userData');
 
             if (token && userStr) {
                 const user = JSON.parse(userStr);
@@ -173,7 +173,7 @@ export default function CareTeamScreen() {
                     <Ionicons name="arrow-back" size={24} color="#1F2937" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Your Care Team</Text>
-                <View style={{ width: 40 }} /> {/* Spacer */}
+                <View style={{ width: 40 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -208,10 +208,10 @@ export default function CareTeamScreen() {
                                 {loggingCall === member.id ? (
                                     <ActivityIndicator size="small" color="#FFFFFF" />
                                 ) : (
-                                    <>
-                                        <Ionicons name="call-outline" size={18} color="#FFFFFF" />
-                                        <Text style={styles.callButtonText}>Call</Text>
-                                    </>
+                                    <Ionicons name="call-outline" size={18} color="#FFFFFF" />
+                                )}
+                                {loggingCall !== member.id && (
+                                    <Text style={styles.callButtonText}>Call</Text>
                                 )}
                             </TouchableOpacity>
 
