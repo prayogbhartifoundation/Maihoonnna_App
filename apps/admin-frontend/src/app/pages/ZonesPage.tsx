@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   MapPin, Plus, X, Building2, Power, PowerOff,
   Phone, Calendar, Edit2, Trash2, Loader2,
-  Navigation, AlertTriangle, Users, UserCheck, ChevronRight
+  Navigation, AlertTriangle, Users, UserCheck, ChevronRight,
+  Map as MapIcon
 } from 'lucide-react';
 import { usePincodeLookup } from '../hooks/usePincodeLookup';
 import DataFilter from '../components/common/DataFilter';
+import LocationPickerModal from '../components/common/LocationPickerModal';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001/api';
 
@@ -62,6 +64,7 @@ const ZonesPage = () => {
   const [form, setForm] = useState({ ...emptyForm });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const [showLookupResults, setShowLookupResults] = useState(false);
   const { loading: lookupLoading, error: lookupError, results: lookupResults, lookup: runLookup, reset: resetLookup } = usePincodeLookup();
@@ -640,6 +643,15 @@ const ZonesPage = () => {
                   />
                 </div>
               </div>
+              
+              <button
+                type="button"
+                onClick={() => setShowLocationPicker(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-orange-50 text-[#FF7A00] font-black uppercase text-[10px] tracking-widest border border-orange-100 hover:bg-orange-100 transition shadow-sm"
+              >
+                <MapIcon size={14} />
+                Pick Accurate Location on Map
+              </button>
 
               {/* Lease Dates */}
               <div className="grid grid-cols-2 gap-3">
@@ -675,6 +687,32 @@ const ZonesPage = () => {
           </div>
         </div>
       )}
+
+      <LocationPickerModal
+        isOpen={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        initialLat={parseFloat(form.latitude)}
+        initialLng={parseFloat(form.longitude)}
+        initialAddress={`${form.address}, ${form.city}, ${form.state} ${form.pincode}`}
+        onSelectLocation={(lat, lng, addressDetails) => {
+          console.log('Location selected:', { lat, lng, addressDetails });
+          setForm(f => {
+            const newState = {
+              ...f,
+              latitude: lat.toFixed(6),
+              longitude: lng.toFixed(6),
+              ...(addressDetails ? {
+                address: addressDetails.fullAddress,
+                city: addressDetails.city,
+                state: addressDetails.state,
+                pincode: addressDetails.pincode
+              } : {})
+            };
+            console.log('Updating form state to:', newState);
+            return newState;
+          });
+        }}
+      />
 
       {/* MODAL: Assign Field Manager */}
       {showAssignModal && assigningZone && (

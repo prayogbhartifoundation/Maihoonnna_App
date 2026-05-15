@@ -36,6 +36,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
   const [ccOptions, setCcOptions] = useState<CCOption[]>([]);
   const [ccLoading, setCcLoading] = useState(false);
   const [selectedCcId, setSelectedCcId] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>('');
 
   // ── Edit modal state ────────────────────────────────────────────────────────
   const [editingVisit, setEditingVisit] = useState<any | null>(null);
@@ -88,6 +89,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
       const params: any = {};
       if (selectedFmUserId) params.fmUserId = selectedFmUserId;
       if (selectedCcId) params.careCompanionId = selectedCcId;
+      if (selectedDate) params.date = selectedDate;
       const response = await visitApi.getAll(params);
       setVisits(Array.isArray(response) ? response : []);
     } catch (e: any) {
@@ -95,7 +97,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
     } finally {
       setLoading(false);
     }
-  }, [selectedFmUserId, selectedCcId]);
+  }, [selectedFmUserId, selectedCcId, selectedDate]);
 
   useEffect(() => {
     fetchVisits();
@@ -249,6 +251,59 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
                 ))}
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Date filter */}
+          <div className="flex-[1.5] relative">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+              <span className="flex items-center gap-1.5"><CalendarClock size={12} className="text-[#1D4ED8]" /> Filter by Date</span>
+              {selectedDate && (
+                <button 
+                  onClick={() => setSelectedDate('')}
+                  className="text-[#FF7A00] hover:text-[#E06B00] text-[9px] font-black uppercase tracking-tighter"
+                >
+                  Clear filter
+                </button>
+              )}
+            </label>
+            <div className="flex flex-col gap-2">
+              <div className="relative group">
+                <input
+                  type="date"
+                  value={selectedDate === 'next_7' ? '' : selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border transition-all cursor-pointer text-sm font-semibold focus:outline-none ${
+                    selectedDate && selectedDate !== 'next_7'
+                      ? 'border-[#1D4ED8] bg-[#E8F0FF]/30 text-[#1D4ED8]'
+                      : 'border-[#E7DED6] bg-white text-gray-700 focus:border-[#1D4ED8]'
+                  }`}
+                />
+                <Clock size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${
+                  selectedDate && selectedDate !== 'next_7' ? 'text-[#1D4ED8]' : 'text-gray-400'
+                }`} />
+              </div>
+              
+              <div className="flex gap-1.5 flex-wrap">
+                {[
+                  { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
+                  { label: 'Tomorrow', value: format(new Date(Date.now() + 86400000), 'yyyy-MM-dd') },
+                  { label: 'Next 7 Days', value: 'next_7' },
+                ].map((pill) => (
+                  <button
+                    key={pill.label}
+                    type="button"
+                    onClick={() => setSelectedDate(pill.value)}
+                    className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tight transition-all border shadow-sm ${
+                      selectedDate === pill.value
+                        ? 'bg-[#1D4ED8] text-white border-[#1D4ED8] scale-105'
+                        : 'bg-white text-gray-400 border-[#E7DED6] hover:border-gray-300 hover:text-gray-600'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

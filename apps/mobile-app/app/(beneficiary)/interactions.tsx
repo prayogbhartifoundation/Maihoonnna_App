@@ -3,7 +3,7 @@ import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     SafeAreaView, ActivityIndicator, Platform, Dimensions
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
@@ -29,6 +29,7 @@ interface Interaction {
 
 export default function InteractionsScreen() {
     const router = useRouter();
+    const { visitId } = useLocalSearchParams();
     const [interactions, setInteractions] = useState<Interaction[]>([]);
     const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(true);
@@ -58,8 +59,10 @@ export default function InteractionsScreen() {
             const data = await response.json();
             if (data.success && data.data && data.data.length > 0) {
                 setInteractions(data.data);
-                // Expand the first interaction by default for premium visual layout
-                if (data.data[0]?.id) {
+                // Expand the interaction matching visitId, or the first one by default
+                if (visitId) {
+                    setExpandedIds({ [visitId as string]: true });
+                } else if (data.data[0]?.id) {
                     setExpandedIds({ [data.data[0].id]: true });
                 }
             } else {
@@ -109,7 +112,11 @@ export default function InteractionsScreen() {
             }
         ];
         setInteractions(fallbacks);
-        setExpandedIds({ 'fallback-1': true }); // Expand first item by default
+        if (visitId) {
+            setExpandedIds({ [visitId as string]: true });
+        } else {
+            setExpandedIds({ 'fallback-1': true }); // Expand first item by default
+        }
     };
 
     const toggleExpand = (id: string) => {

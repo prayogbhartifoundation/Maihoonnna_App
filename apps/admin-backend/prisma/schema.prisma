@@ -7,7 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
 model User {
   id                             String                   @id @default(uuid())
   phone                          String                   @unique
@@ -1052,30 +1051,30 @@ model CallbackRequest {
 }
 
 model VitalDefinition {
-  id            String   @id @default(uuid())
-  code          String   @unique
-  name          String
-  description   String?
-  unit          String?
-  dataType      String // 'numeric', 'dual_numeric', 'text', 'boolean'
-  inputMin      Float?
-  inputMax      Float?
-  normalMin     Float?
-  normalMax     Float?
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  unit        String?
+  dataType    String // 'numeric', 'dual_numeric', 'text', 'boolean'
+  inputMin    Float?
+  inputMax    Float?
+  normalMin   Float?
+  normalMax   Float?
 
   // ── Dual Numeric fields (e.g. Blood Pressure: Systolic/Diastolic) ──
-  value1Label   String?  // e.g. "Systolic"
-  value2Label   String?  // e.g. "Diastolic"
-  normalMin2    Float?   // Normal min for second value
-  normalMax2    Float?   // Normal max for second value
+  value1Label String? // e.g. "Systolic"
+  value2Label String? // e.g. "Diastolic"
+  normalMin2  Float? // Normal min for second value
+  normalMax2  Float? // Normal max for second value
 
   // ── Text type fields ──
-  textOptions   String[] @default([]) // Predefined options e.g. ["Happy","Sad","Anxious"]
-  alertOptions  String[] @default([]) // Options that trigger an alert e.g. ["Sad","Anxious"]
+  textOptions  String[] @default([]) // Predefined options e.g. ["Happy","Sad","Anxious"]
+  alertOptions String[] @default([]) // Options that trigger an alert e.g. ["Sad","Anxious"]
 
   // ── Boolean type fields ──
-  booleanTrueLabel  String?  // Custom label for "Yes" (default: "Yes")
-  booleanFalseLabel String?  // Custom label for "No" (default: "No")
+  booleanTrueLabel  String? // Custom label for "Yes" (default: "Yes")
+  booleanFalseLabel String? // Custom label for "No" (default: "No")
   booleanAlertValue Boolean? // Which boolean value triggers alert (true=Yes, false=No, null=none)
 
   isSystemVital Boolean  @default(true)

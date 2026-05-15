@@ -433,4 +433,43 @@ router.get('/beneficiaries/:id/benefit-usage', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/field-manager/my-team/cc/:id/availability
+// Toggles the isAvailable status of a Care Companion
+// ─────────────────────────────────────────────────────────────────────────────
+router.patch('/my-team/cc/:id/availability', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isAvailable } = req.body;
+
+    if (typeof isAvailable !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'isAvailable must be a boolean' });
+    }
+
+    // Verify FM access if role is FM
+    if (req.user?.role === 'field_manager') {
+      const fmProfileId = await getFmProfileId(req.user.id);
+      const teamIds = await getFmTeamIds(fmProfileId);
+
+      const cc = await prisma.careCompanion.findFirst({
+        where: { id, teamId: { in: teamIds } },
+      });
+
+      if (!cc) {
+        return res.status(404).json({ success: false, message: 'Care Companion not found in your team' });
+      }
+    }
+
+    const updated = await prisma.careCompanion.update({
+      where: { id },
+      data: { isAvailable },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('PATCH /my-team/cc/:id/availability error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

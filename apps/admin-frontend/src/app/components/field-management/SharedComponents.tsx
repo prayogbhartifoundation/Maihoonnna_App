@@ -87,17 +87,32 @@ export function StatCard({
 }
 
 // ─── Availability Badge ────────────────────────────────────────────────────────
-export function AvailabilityBadge({ isAvailable }: { isAvailable: boolean }) {
+export function AvailabilityBadge({ 
+  isAvailable, 
+  onClick,
+  loading = false 
+}: { 
+  isAvailable: boolean; 
+  onClick?: () => void;
+  loading?: boolean;
+}) {
   return (
-    <span
-      className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-tight ${
+    <button
+      onClick={onClick}
+      disabled={!onClick || loading}
+      className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${
         isAvailable
-          ? 'bg-[#F0FDF4] text-[#15803D] border-[#DCFCE7]'
-          : 'bg-[#FFF1F2] text-[#E11D48] border-[#FFE4E6]'
-      }`}
+          ? 'bg-[#F0FDF4] text-[#15803D] border-[#DCFCE7] hover:bg-[#DCFCE7]'
+          : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+      } ${!onClick ? 'cursor-default' : 'cursor-pointer active:scale-95'} ${loading ? 'opacity-50' : ''}`}
     >
-      {isAvailable ? 'Available' : 'Busy'}
-    </span>
+      {loading ? (
+        <Loader2 size={10} className="animate-spin" />
+      ) : (
+        <div className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-[#15803D]' : 'bg-gray-400'}`} />
+      )}
+      {isAvailable ? 'Online' : 'Offline'}
+    </button>
   );
 }
 

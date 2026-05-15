@@ -20,7 +20,7 @@ async function checkCCAvailability(
   excludeVisitId = null
 ) {
   const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
-  const BUFFER_MS = 30 * 60000; // 30 minutes
+  const BUFFER_MS = 0; // Buffer removed as per user request
 
   // 1. Check Global Lunch Lock
   const lunchStartConfig = await prisma.systemConfig.findUnique({ where: { key: 'globalLunchStart' } });

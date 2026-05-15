@@ -9,6 +9,7 @@ import {
   Search, Users, Calendar, Clock,
   Loader2, AlertCircle, X, ChevronRight, Phone, MapPin
 } from 'lucide-react';
+import { visitApi } from '../../../services/api';
 import { LoadingState, EmptyState, Avatar, SectionHeader } from './SharedComponents';
 import type { CCMember } from './TeamPanel';
 
@@ -49,7 +50,7 @@ export default function BeneficiaryList({
   const [scheduleState, setScheduleState] = useState<Record<string, { ccId: string; date: string; time: string; duration: number }>>({});
 
   // Available CCs (for dropdown)
-  const availableCCs = team; // We can show all team members for scheduling
+  const availableCCs = team; 
 
   // Filtered & searched list
   const filtered = useMemo(() => {
@@ -102,10 +103,27 @@ export default function BeneficiaryList({
   };
 
   const updateSchedule = (benId: string, key: string, value: any) => {
-    setScheduleState(prev => ({
-      ...prev,
-      [benId]: { ...prev[benId], [key]: value }
-    }));
+    setScheduleState(prev => {
+      const newState = { ...prev, [benId]: { ...prev[benId], [key]: value } };
+      checkConflict(benId, newState[benId]);
+      return newState;
+    });
+  };
+
+  const [conflicts, setConflicts] = useState<Record<string, string | null>>({});
+
+  const checkConflict = async (benId: string, state: any) => {
+    if (!state.ccId || !state.date || !state.time || !state.duration) {
+      setConflicts(prev => ({ ...prev, [benId]: null }));
+      return;
+    }
+    try {
+      const scheduledTime = new Date(`${state.date}T${state.time}`).toISOString();
+      const res = await visitApi.checkAvailability(state.ccId, scheduledTime, state.duration);
+      setConflicts(prev => ({ ...prev, [benId]: res.isAvailable ? null : res.reason }));
+    } catch (e) {
+      console.error('Availability check failed', e);
+    }
   };
 
   return (
@@ -220,19 +238,24 @@ export default function BeneficiaryList({
                         {/* Care Companion Select */}
                         <div>
                           <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Care Companion</label>
-                          <select
-                            value={state.ccId}
-                            onChange={e => updateSchedule(ben.id, 'ccId', e.target.value)}
-                            onClick={e => e.stopPropagation()}
-                            className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
-                          >
-                            <option value="">— Select Care Companion —</option>
-                            {availableCCs.map(cc => (
-                              <option key={cc.id} value={cc.id}>
-                                {cc.name} {cc.isAvailable ? '✓' : '(Busy)'}
-                              </option>
-                            ))}
-                          </select>
+                            <select
+                              value={state.ccId}
+                              onChange={e => updateSchedule(ben.id, 'ccId', e.target.value)}
+                              onClick={e => e.stopPropagation()}
+                              className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
+                            >
+                              <option value="">— Select Care Companion —</option>
+                              {availableCCs.map(cc => (
+                                <option 
+                                  key={cc.id} 
+                                  value={cc.id}
+                                  className={!cc.isAvailable ? 'text-gray-400' : ''}
+                                  disabled={!cc.isAvailable}
+                                >
+                                  {cc.name} {!cc.isAvailable ? '(Offline)' : ''}
+                                </option>
+                              ))}
+                            </select>
                         </div>
 
                         <div className="flex gap-3">
@@ -256,12 +279,16 @@ export default function BeneficiaryList({
                               value={state.time}
                               onChange={e => updateSchedule(ben.id, 'time', e.target.value)}
                               onClick={e => e.stopPropagation()}
-                              className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
+                              className={`w-full px-3 py-2.5 rounded-xl border text-sm font-bold transition-colors focus:outline-none ${
+                                conflicts[ben.id] 
+                                  ? 'bg-gray-50 text-gray-400 border-gray-200' 
+                                  : 'bg-white text-gray-700 border-[#E7DED6] focus:border-[#FF7A00]'
+                              }`}
                             />
                           </div>
                         </div>
 
-                        <div className="flex gap-3 items-end pt-2">
+                        <div className="flex gap-3 items-start pt-2">
                            {/* Duration Select */}
                            <div className="flex-1">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
@@ -281,27 +308,40 @@ export default function BeneficiaryList({
                           </div>
 
                           {/* Submit Button */}
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              handleSchedule(ben.id);
-                            }}
-                            disabled={!state.ccId || !state.date || !state.time || isSubmitting}
-                            className="flex-1 px-5 py-2.5 bg-[#FF7A00] text-white rounded-xl text-xs font-black uppercase tracking-wide hover:bg-[#E66E00] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-orange-200 h-[42px]"
-                          >
-                            {isSubmitting ? (
-                              <>
-                                <Loader2 size={13} className="animate-spin" />
-                                Scheduling...
-                              </>
-                            ) : (
-                              <>
-                                <Calendar size={13} />
-                                Schedule Visit
-                              </>
-                            )}
-                          </button>
+                          <div className="flex-1">
+                            <label className="block h-4 mb-1"></label>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleSchedule(ben.id);
+                              }}
+                              disabled={!state.ccId || !state.date || !state.time || isSubmitting || !!conflicts[ben.id]}
+                              className="w-full px-5 py-2.5 bg-[#FF7A00] text-white rounded-xl text-xs font-black uppercase tracking-wide hover:bg-[#E66E00] transition-all disabled:opacity-40 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-orange-200 h-[42px]"
+                            >
+                              {isSubmitting ? (
+                                <>
+                                  <Loader2 size={13} className="animate-spin" />
+                                  Scheduling...
+                                </>
+                              ) : (
+                                <>
+                                  <Calendar size={13} />
+                                  Schedule Visit
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
+
+                        {/* Conflict Warning */}
+                        {conflicts[ben.id] && (
+                          <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-100 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                            <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                            <p className="text-[11px] font-bold text-red-600 leading-tight">
+                              {conflicts[ben.id]}
+                            </p>
+                          </div>
+                        )}
 
                       </div>
                     </div>

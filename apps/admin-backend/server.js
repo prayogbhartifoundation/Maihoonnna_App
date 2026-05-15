@@ -98,6 +98,7 @@ app.use('/api/vitals', verifyToken, require('./routes/vitals'));
 app.use('/api/coupons', verifyToken, require('./routes/coupons'));
 app.use('/api/field-manager', verifyToken, require('./routes/field-manager'));
 app.use('/api/activity-logs', verifyToken, require('./routes/activity-logs'));
+app.use('/api/location', verifyToken, require('./routes/location'));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/ping', (req, res) => res.json({ message: 'pong' }));

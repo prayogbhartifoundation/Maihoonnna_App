@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 
@@ -16,6 +17,7 @@ type Visit = {
 };
 
 export default function ScheduleScreen() {
+    const router = useRouter();
     const [upcomingVisits, setUpcomingVisits] = useState<Visit[]>([]);
     const [pastVisits, setPastVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
@@ -179,7 +181,15 @@ export default function ScheduleScreen() {
                     <Text style={[styles.sectionHeader, { marginTop: 24 }]}>Past Visits</Text>
                     {pastVisits.length > 0 ? (
                         pastVisits.map(visit => (
-                            <View key={visit.id} style={styles.card}>
+                            <TouchableOpacity 
+                                key={visit.id} 
+                                style={styles.card}
+                                activeOpacity={0.7}
+                                onPress={() => router.push({
+                                    pathname: '/(beneficiary)/interactions',
+                                    params: { visitId: visit.id }
+                                })}
+                            >
                                 {/* Completed gray badge */}
                                 <View style={styles.badgeCompleted}>
                                     <Text style={styles.badgeCompletedText}>Completed</Text>
@@ -199,7 +209,7 @@ export default function ScheduleScreen() {
                                         <Text style={styles.detailText}>{visit.companionName}</Text>
                                     </View>
                                 </View>
-                            </View>
+                            </TouchableOpacity>
                         ))
                     ) : (
                         <View style={styles.emptyState}>

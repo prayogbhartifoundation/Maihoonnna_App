@@ -96,11 +96,10 @@ export default function FieldManagerView() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-black border-b-2 transition-colors ${
-              activeTab === tab.key
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-black border-b-2 transition-colors ${activeTab === tab.key
                 ? 'border-[#FF7A00] text-[#FF7A00]'
                 : 'border-transparent text-gray-400 hover:text-gray-600'
-            }`}
+              }`}
           >
             <tab.icon size={15} />
             {tab.label}
@@ -139,7 +138,7 @@ export default function FieldManagerView() {
           }}
         />
       )}
-      
+
       {/* Scheduled Visits Component */}
       <ScheduledVisitsPanel defaultFmUserId={user?.id || null} hideFmSelector={true} />
     </div>

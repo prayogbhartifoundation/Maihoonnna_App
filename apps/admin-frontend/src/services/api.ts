@@ -61,7 +61,7 @@ const apiFetch = async (url: string, options: RequestInit = {}) => {
   return window.fetch(url, { ...options, headers });
 };
 
-const apiJson = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
+export const apiJson = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
   const headers =
     options.body instanceof FormData
       ? options.headers
@@ -346,6 +346,14 @@ export const fieldManagerApi = {
     return apiJson<any>(`/beneficiaries/${beneficiaryId}/assign-staff`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+    });
+  },
+
+  /** Toggle CC availability (Online/Offline) */
+  async toggleCCAvailability(ccId: string, isAvailable: boolean): Promise<any> {
+    return apiJson<any>(`/field-manager/my-team/cc/${ccId}/availability`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isAvailable }),
     });
   },
 };
@@ -833,6 +841,10 @@ export const visitApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  },
+  async checkAvailability(careCompanionId: string, scheduledTime: string, durationMinutes: number): Promise<{ isAvailable: boolean; reason: string | null }> {
+    const query = new URLSearchParams({ careCompanionId, scheduledTime, durationMinutes: durationMinutes.toString() }).toString();
+    return apiJson(`/visits/check-availability?${query}`);
   },
 };
 

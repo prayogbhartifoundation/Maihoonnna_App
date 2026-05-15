@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Users, Phone, RefreshCw } from 'lucide-react';
+import { fieldManagerApi } from '../../../services/api';
 import { LoadingState, EmptyState, AvailabilityBadge, CCLoadBadge, Avatar, SectionHeader } from './SharedComponents';
 
 export interface CCMember {
@@ -30,6 +31,19 @@ interface Props {
 
 export default function TeamPanel({ team, loading, onRefresh }: Props) {
   const available = team.filter(cc => cc.isAvailable).length;
+  const [togglingId, setTogglingId] = React.useState<string | null>(null);
+
+  const handleToggle = async (ccId: string, currentStatus: boolean) => {
+    setTogglingId(ccId);
+    try {
+      await fieldManagerApi.toggleCCAvailability(ccId, !currentStatus);
+      if (onRefresh) onRefresh();
+    } catch (e: any) {
+      import('sonner').then(({ toast }) => toast.error('Failed to update status'));
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   return (
     <div className="bg-white border border-[#E7DED6] rounded-2xl overflow-hidden">
@@ -38,7 +52,7 @@ export default function TeamPanel({ team, loading, onRefresh }: Props) {
         subtitle={
           loading
             ? 'Loading...'
-            : `${team.length} member${team.length !== 1 ? 's' : ''} · ${available} available`
+            : `${team.length} member${team.length !== 1 ? 's' : ''} · ${available} online`
         }
         icon={<Users size={18} />}
         action={
@@ -107,8 +121,12 @@ export default function TeamPanel({ team, loading, onRefresh }: Props) {
                   <p className="text-sm font-black text-gray-700">{cc.todayVisitCount ?? 0}</p>
                 </div>
 
-                {/* Availability */}
-                <AvailabilityBadge isAvailable={cc.isAvailable} />
+                {/* Availability Toggle */}
+                <AvailabilityBadge 
+                  isAvailable={cc.isAvailable} 
+                  onClick={() => handleToggle(cc.id, cc.isAvailable)}
+                  loading={togglingId === cc.id}
+                />
               </div>
             </div>
           ))}

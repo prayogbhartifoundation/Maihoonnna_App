@@ -171,11 +171,20 @@ router.get('/', async (req, res) => {
     if (beneficiaryId) where.beneficiaryId = beneficiaryId;
     if (careCompanionId) where.careCompanionId = careCompanionId;
     if (date) {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
-      where.scheduledTime = { gte: start, lte: end };
+      if (date === 'next_7') {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setDate(end.getDate() + 7);
+        end.setHours(23, 59, 59, 999);
+        where.scheduledTime = { gte: start, lte: end };
+      } else {
+        const start = new Date(date);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(date);
+        end.setHours(23, 59, 59, 999);
+        where.scheduledTime = { gte: start, lte: end };
+      }
     }
     if (fmUserId) {
       where.careCompanion = {
@@ -214,6 +223,24 @@ router.get('/', async (req, res) => {
     });
 
     res.json({ success: true, data: visits });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/visits/check-availability
+router.get('/check-availability', async (req, res) => {
+  const { careCompanionId, scheduledTime, durationMinutes } = req.query;
+  try {
+    if (!careCompanionId || !scheduledTime || !durationMinutes) {
+      return res.status(400).json({ success: false, message: 'Missing parameters' });
+    }
+    const availability = await checkCCAvailability(
+      careCompanionId,
+      new Date(scheduledTime),
+      parseInt(durationMinutes)
+    );
+    res.json({ success: true, data: availability });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
