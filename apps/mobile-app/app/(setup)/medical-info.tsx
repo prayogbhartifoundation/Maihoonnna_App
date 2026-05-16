@@ -83,7 +83,7 @@ export default function MedicalInfoScreen() {
     const [newMedicine, setNewMedicine] = useState<Medication>({
         name: '',
         dosage: '',
-        frequency: 'Daily',
+        frequency: 'once_daily',
         timesPerDay: [],
         setReminders: false,
         totalDays: ''
@@ -150,7 +150,7 @@ export default function MedicalInfoScreen() {
         if (newMedicine.name.trim().length > 0) {
             setMedications([...medications, newMedicine]);
         }
-        setNewMedicine({ name: '', dosage: '', frequency: 'Daily', timesPerDay: [], setReminders: false, totalDays: '' });
+        setNewMedicine({ name: '', dosage: '', frequency: 'once_daily', timesPerDay: [], setReminders: false, totalDays: '' });
         setShowMedicineModal(false);
     };
 
@@ -419,14 +419,24 @@ export default function MedicalInfoScreen() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.inputLabelSm}>Frequency</Text>
-                                {/* Simulated Dropdown UI */}
-                                <View style={[styles.modalInput, styles.dropdownRow]}>
-                                    <TextInput 
-                                        style={{ flex: 1, color: '#111827' }}
-                                        value={newMedicine.frequency}
-                                        onChangeText={(t) => setNewMedicine({...newMedicine, frequency: t})}
-                                    />
-                                    <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                                <View style={styles.timeChipsRow}>
+                                    {[
+                                        { label: 'Once', value: 'once_daily' },
+                                        { label: 'Twice', value: 'twice_daily' },
+                                        { label: 'Thrice', value: 'thrice_daily' }
+                                    ].map((f) => (
+                                        <TouchableOpacity 
+                                            key={f.value} 
+                                            style={[
+                                                styles.timeChip, 
+                                                newMedicine.frequency === f.value ? styles.timeChipSelected : styles.timeChipUnselected,
+                                                { paddingVertical: 8 }
+                                            ]}
+                                            onPress={() => setNewMedicine({...newMedicine, frequency: f.value})}
+                                        >
+                                            <Text style={[styles.timeChipText, { fontSize: 11 }]}>{f.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
                                 </View>
                             </View>
                         </View>

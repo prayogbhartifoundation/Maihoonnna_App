@@ -910,7 +910,6 @@ export default function EnrollmentWizardPage() {
                                   <SelectItem value="once_daily">Once Daily</SelectItem>
                                   <SelectItem value="twice_daily">Twice Daily</SelectItem>
                                   <SelectItem value="thrice_daily">Thrice Daily</SelectItem>
-                                  <SelectItem value="as_needed">As Needed</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>

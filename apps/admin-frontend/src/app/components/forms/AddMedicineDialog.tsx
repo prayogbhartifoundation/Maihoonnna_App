@@ -96,19 +96,19 @@ export const AddMedicineDialog: React.FC<Props> = ({ isOpen, onClose, beneficiar
                />
              </div>
              <div className="space-y-2">
-               <Label className="text-xs font-medium text-gray-700">Frequency</Label>
-               <Select value={formData.frequency} onValueChange={(val) => setFormData({...formData, frequency: val})}>
-                 <SelectTrigger className="rounded-2xl border-gray-200">
-                   <SelectValue placeholder="Select" />
-                 </SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="once_daily">Daily</SelectItem>
-                   <SelectItem value="weekly">Weekly</SelectItem>
-                   <SelectItem value="as_needed">As Needed</SelectItem>
-                 </SelectContent>
-               </Select>
-                </div>
-           </div>
+                <Label className="text-xs font-medium text-gray-700">Frequency</Label>
+                <Select value={formData.frequency} onValueChange={(val) => setFormData({...formData, frequency: val})}>
+                  <SelectTrigger className="rounded-2xl border-gray-200">
+                    <SelectValue placeholder="Select Frequency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="once_daily">Once Daily</SelectItem>
+                    <SelectItem value="twice_daily">Twice Daily</SelectItem>
+                    <SelectItem value="thrice_daily">Thrice Daily</SelectItem>
+                  </SelectContent>
+                </Select>
+             </div>
+          </div>
            
            <div className="space-y-2">
              <Label className="text-xs font-medium text-gray-700">Instructions (Optional)</Label>

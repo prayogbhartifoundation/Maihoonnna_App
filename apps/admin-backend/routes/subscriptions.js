@@ -296,7 +296,7 @@ router.post('/admin-enroll', async (req, res) => {
                     create: medications.map((m) => ({
                       name: m.name,
                       dosage: m.dosage || '1 unit',
-                      frequency: m.frequency === 'daily' ? 'once_daily' : (m.frequency || 'once_daily'),
+                      frequency: m.frequency || 'once_daily',
                       instructions: m.instructions,
                       timeSlots: m.timeSlots || [],
                       setReminders: !!m.setReminders,

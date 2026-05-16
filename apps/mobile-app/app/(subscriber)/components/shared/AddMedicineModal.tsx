@@ -27,22 +27,16 @@ interface AddMedicineModalProps {
 }
 
 const FREQUENCIES = [
-    { label: 'Daily', value: 'Once Daily' },
-    { label: 'Twice Daily', value: 'Twice Daily' },
-    { label: 'Thrice Daily', value: 'Thrice Daily' },
-    { label: 'Every 8 Hours', value: 'Every 8 Hours' },
-    { label: 'Weekly', value: 'Weekly' },
-    { label: 'As Needed', value: 'As Needed' },
+    { label: 'Once Daily', value: 'once_daily' },
+    { label: 'Twice Daily', value: 'twice_daily' },
+    { label: 'Thrice Daily', value: 'thrice_daily' },
 ];
 
 // How many time slots map to each frequency
 const FREQUENCY_TIMES: Record<string, number> = {
-    'Once Daily': 1,
-    'Twice Daily': 2,
-    'Thrice Daily': 3,
-    'Every 8 Hours': 3,
-    'Weekly': 1,
-    'As Needed': 1,
+    'once_daily': 1,
+    'twice_daily': 2,
+    'thrice_daily': 3,
 };
 
 const TIME_SLOTS = ['Morning', 'Afternoon', 'Evening', 'Night'];
@@ -50,7 +44,7 @@ const TIME_SLOTS = ['Morning', 'Afternoon', 'Evening', 'Night'];
 const EMPTY: Medication = {
     name: '',
     dosage: '',
-    frequency: 'Once Daily',
+    frequency: 'once_daily',
     timeSlots: [],
     setReminders: true,
 };
