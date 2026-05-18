@@ -45,17 +45,19 @@ const delay = (ms: number = 300) => new Promise(resolve => setTimeout(resolve, m
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001/api';
 
 const apiFetch = async (url: string, options: RequestInit = {}) => {
-  const savedUser = localStorage.getItem('maihonna_user');
-  let token = '';
-  if (savedUser) {
+  const savedAuth = localStorage.getItem('maihonna_user');
+  let accessToken = '';
+  
+  if (savedAuth) {
     try {
-      token = JSON.parse(savedUser).token;
+      const authData = JSON.parse(savedAuth);
+      accessToken = authData.accessToken || authData.token; // Fallback for transition
     } catch (e) {}
   }
   
   const headers = {
     ...options.headers,
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
   };
   
   return window.fetch(url, { ...options, headers });
@@ -93,7 +95,7 @@ export const authApi = {
    * @param otp - One-time password
    * @returns User object if credentials are valid
    */
-  async login(phone: string, password: string): Promise<User> {
+  async login(phone: string, password: string): Promise<any> {
     const response = await window.fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -101,6 +103,8 @@ export const authApi = {
     });
     const result = await response.json();
     if (!result.success) throw new Error(result.message || 'Invalid credentials');
+    
+    // Return the new consolidated auth object { user, accessToken, refreshToken }
     return result.data;
   },
 

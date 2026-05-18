@@ -1,4 +1,5 @@
 # Root gitignore
+.claude/
 node_modules/
 .env
 .DS_Store

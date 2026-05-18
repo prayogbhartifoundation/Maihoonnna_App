@@ -6,6 +6,7 @@ import { MaterialCommunityIcons, Feather, AntDesign, FontAwesome5 } from '@expo/
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
+import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 
 // Temporary Mock ID until Auth Context is provided
 const MOCK_BENEFICIARY_ID = "8340d860-2641-479c-b26a-8b9a71bcec29"; // A valid UUID format
@@ -22,6 +23,7 @@ interface DashboardData {
         role: string;
         bio: string;
         photo: string | null;
+        phone?: string | null;
     } | null;
     subscription?: {
         packageName: string;
@@ -92,7 +94,8 @@ export default function BeneficiaryDashboard() {
                     name: "Dr. Sarah Johnson",
                     role: "Primary Care Coordinator",
                     bio: "Board-certified nurse practitioner with 15+ years of experience in geriatric care.",
-                    photo: "https://i.pravatar.cc/150?img=32"
+                    photo: "https://i.pravatar.cc/150?img=32",
+                    phone: "+91 98765 43210"
                 },
                 todaysMedications: [
                     { id: '1', name: 'Lisinopril', dosage: '10mg', condition: 'Blood Pressure', time: '08:00 AM', completed: true, adherenceScore: 95 },
@@ -123,7 +126,8 @@ export default function BeneficiaryDashboard() {
             name: "Dr. Sarah Johnson",
             role: "Primary Care Coordinator",
             bio: "Board-certified nurse practitioner with 15+ years of experience in geriatric care.",
-            photo: null
+            photo: null,
+            phone: "+91 98765 43210"
         },
         todaysMedications: [
             { id: '1', name: 'Lisinopril', dosage: '10mg', condition: 'Blood Pressure', time: '08:00 AM', completed: false, adherenceScore: 95 },
@@ -210,9 +214,17 @@ export default function BeneficiaryDashboard() {
                         </View>
                         <Text style={styles.ccBio}>{displayData.careCoordinator.bio}</Text>
 
-                        <TouchableOpacity style={styles.primaryBtn}>
-                            <Text style={styles.primaryBtnText}>Call Now</Text>
-                        </TouchableOpacity>
+                        <ConnectContactButton
+                            name={displayData.careCoordinator.name}
+                            role={displayData.careCoordinator.role}
+                            phone={displayData.careCoordinator.phone || null}
+                            photo={displayData.careCoordinator.photo}
+                            trigger={
+                                <View style={styles.primaryBtn}>
+                                    <Text style={styles.primaryBtnText}>Call Now</Text>
+                                </View>
+                            }
+                        />
                     </View>
                 )}
 

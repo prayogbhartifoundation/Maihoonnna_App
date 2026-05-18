@@ -1,5 +1,4 @@
 const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
 const { Pool } = require('pg');
 
 /**
@@ -33,7 +32,6 @@ if (process.env.NODE_ENV !== 'production') {
 const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    adapter: new PrismaPg(pool),
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 
@@ -42,3 +40,4 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 module.exports = { prisma, pool };
+

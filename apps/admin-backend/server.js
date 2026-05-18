@@ -11,8 +11,8 @@ const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const ALLOWED_ORIGINS = FRONTEND_URL.split(',').map((s) => s.trim());
 
-const { JWT_SECRET } = require('./middleware/auth');
-const jwt = require('jsonwebtoken');
+const { verifyToken, authorizeRoles } = require('./middleware/auth');
+const { verifyAccessToken } = require('./utils/jwt');
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
@@ -25,18 +25,12 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for authenticated admin users
+    // Skip rate limiting for authenticated staff/admin users
     const authHeader = req.headers['authorization'];
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        // If it's a valid token, skip rate limiting
-        return !!decoded;
-      } catch (err) {
-        // Invalid token, don't skip
-        return false;
-      }
+      const decoded = verifyAccessToken(token);
+      return !!decoded;
     }
     return false;
   },
@@ -71,34 +65,37 @@ const payloadLimit = process.env.JSON_PAYLOAD_LIMIT || '2mb';
 app.use(express.json({ limit: payloadLimit }));
 app.use(express.urlencoded({ extended: true, limit: payloadLimit }));
 
-const { verifyToken } = require('./middleware/auth');
-
 // ─── Routes ───────────────────────────────────────────────────────────────────
 // Public routes
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/pincode', require('./routes/pincode'));
 
-// Protected routes
-app.use('/api/zones', verifyToken, require('./routes/zones'));
-app.use('/api/users', verifyToken, require('./routes/users'));
-app.use('/api/admin-users', verifyToken, require('./routes/admin-users'));
-app.use('/api/upload-document', verifyToken, require('./routes/upload'));
-app.use('/api/callbacks', verifyToken, require('./routes/callbacks'));
-app.use('/api/teams', verifyToken, require('./routes/teams'));
-app.use('/api/subscribers', verifyToken, require('./routes/subscribers'));
-app.use('/api/beneficiaries', verifyToken, require('./routes/beneficiaries'));
+// Protected routes (Staff/Admin)
+const staffOnly = verifyToken;
+const adminsOnly = [verifyToken, authorizeRoles('admin', 'master_admin')];
+const mastersOnly = [verifyToken, authorizeRoles('master_admin')];
+
+app.use('/api/zones', staffOnly, require('./routes/zones'));
+app.use('/api/users', staffOnly, require('./routes/users'));
+app.use('/api/admin-users', mastersOnly, require('./routes/admin-users'));
+app.use('/api/upload-document', staffOnly, require('./routes/upload'));
+app.use('/api/callbacks', staffOnly, require('./routes/callbacks'));
+app.use('/api/teams', adminsOnly, require('./routes/teams'));
+app.use('/api/subscribers', staffOnly, require('./routes/subscribers'));
+app.use('/api/beneficiaries', staffOnly, require('./routes/beneficiaries'));
+
 // ─── Subscription & Benefits ──────────────────────────────────────────────────
-app.use('/api/benefit-types', verifyToken, require('./routes/benefitTypes'));
-app.use('/api/benefits', verifyToken, require('./routes/benefits'));
-app.use('/api/packages', verifyToken, require('./routes/packages'));
-app.use('/api/subscriptions', verifyToken, require('./routes/subscriptions'));
-app.use('/api/visits', verifyToken, require('./routes/visits'));
-app.use('/api/vitals', verifyToken, require('./routes/vitals'));
-app.use('/api/coupons', verifyToken, require('./routes/coupons'));
-app.use('/api/field-manager', verifyToken, require('./routes/field-manager'));
-app.use('/api/activity-logs', verifyToken, require('./routes/activity-logs'));
-app.use('/api/location', verifyToken, require('./routes/location'));
+app.use('/api/benefit-types', adminsOnly, require('./routes/benefitTypes'));
+app.use('/api/benefits', adminsOnly, require('./routes/benefits'));
+app.use('/api/packages', adminsOnly, require('./routes/packages'));
+app.use('/api/subscriptions', staffOnly, require('./routes/subscriptions'));
+app.use('/api/visits', staffOnly, require('./routes/visits'));
+app.use('/api/vitals', staffOnly, require('./routes/vitals'));
+app.use('/api/coupons', adminsOnly, require('./routes/coupons'));
+app.use('/api/field-manager', adminsOnly, require('./routes/field-manager'));
+app.use('/api/activity-logs', adminsOnly, require('./routes/activity-logs'));
+app.use('/api/location', staffOnly, require('./routes/location'));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/ping', (req, res) => res.json({ message: 'pong' }));

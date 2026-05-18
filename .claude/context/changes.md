@@ -1004,3 +1004,32 @@ This section provides the **Low-Level Design (LLD)** and code-level mechanics im
         },
       });
       ```
+
+---
+
+## Session: Security Hardening & Auth Infrastructure Upgrade (2026-05-16)
+
+### Professional Authentication (JWT + RBAC)
+
+- **Dual-Token System**: Implemented Access Tokens (1h) and Refresh Tokens (7d) to replace the legacy 24h static token system.
+- **Refresh Token Rotation**: Created a database-backed session management system (`User.refreshToken`) that allows for secure token rotation and remote session invalidation.
+- **New Auth Endpoints**: Added `/api/auth/refresh` (token renewal), `/api/auth/logout` (session clearing), and `/api/auth/me` (profile verification).
+- **RBAC Middleware**: Implemented `authorizeRoles` middleware to enforce strict access boundaries between Field Managers, Admins, and Master Admins.
+- **Route Protection**: Secured all sensitive admin routes in `server.js` using specific role requirements (e.g., locking admin management to `master_admin`).
+
+### Password Security & Identity
+
+- **Credential Migration**: Completely removed all hardcoded plain-text credentials (e.g., `ADMIN_CREDENTIALS` array) from the source code.
+- **Bcrypt Integration**: Enforced `bcryptjs` hashing for all user accounts.
+- **Database Seeding**: Created a secure database-backed Master Admin account (``) to replace the hardcoded fallback, ensuring the system is production-ready.
+
+### Data Integrity & Beneficiary Sync
+
+- **Medication Overwrite Logic**: Refactored the beneficiary update flow to support "Overwrite Sync" for medications.
+- **Historical Protection**: Removed cascading deletes on medication adherence logs to ensure that updating a medication list never deletes past medical history.
+- **Audit Logging**: Enhanced `ActivityLog` to track exactly which admin performed a beneficiary update and what specific changes were made.
+
+### Frontend Synchronization
+
+- **API Interceptor**: Updated the Admin Frontend's `apiFetch` to handle the new `accessToken` header and nested user profile structure.
+- **Auth Context**: Rewrote the frontend `AuthContext` to support seamless login/logout and session persistence using the new multi-token response.

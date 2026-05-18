@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 
 import { API_URL } from '@/constants/api';
 
@@ -33,37 +34,8 @@ export default function CareTeamScreen() {
             const token = await AsyncStorage.getItem('userToken');
             const userStr = await AsyncStorage.getItem('userData');
 
-            // Fallback for UI demo when backend is offline
             if (!token || !userStr) {
-                setTeam([
-                    {
-                        id: 'mock-1',
-                        level: 'Primary',
-                        name: 'Dr. Sarah Johnson',
-                        role: 'Primary Care Coordinator',
-                        bio: 'Board-certified nurse practitioner with 15+ years of experience in geriatric care. Specialized in chronic disease management and patient education.',
-                        photo: null,
-                        phone: '1234567890'
-                    },
-                    {
-                        id: 'mock-2',
-                        level: 'Secondary',
-                        name: 'Mark Thompson',
-                        role: 'Secondary Care Coordinator',
-                        bio: 'Registered nurse with expertise in home healthcare coordination. Passionate about improving quality of life for seniors.',
-                        photo: null,
-                        phone: '0987654321'
-                    },
-                    {
-                        id: 'mock-3',
-                        level: 'Field Manager',
-                        name: 'Emily Chen',
-                        role: 'Field Manager',
-                        bio: 'Healthcare operations manager overseeing care delivery in the region. Available for escalations and support.',
-                        photo: null,
-                        phone: '5555555555'
-                    }
-                ]);
+                setError('Session expired or unauthorized. Please sign in again.');
                 setLoading(false);
                 return;
             }
@@ -80,41 +52,13 @@ export default function CareTeamScreen() {
             const data = await response.json();
             if (data.success) {
                 setTeam(data.data);
+                setError(null);
             } else {
-                setError(data.message || 'Failed to fetch team');
+                setError(data.message || 'Failed to fetch team details');
             }
         } catch (e: any) {
             console.error('Fetch Team Error:', e);
-            // Fallback
-            setTeam([
-                {
-                    id: 'mock-1',
-                    level: 'Primary',
-                    name: 'Dr. Sarah Johnson',
-                    role: 'Primary Care Coordinator',
-                    bio: 'Board-certified nurse practitioner with 15+ years of experience in geriatric care. Specialized in chronic disease management and patient education.',
-                    photo: null,
-                    phone: '1234567890'
-                },
-                {
-                    id: 'mock-2',
-                    level: 'Secondary',
-                    name: 'Mark Thompson',
-                    role: 'Secondary Care Coordinator',
-                    bio: 'Registered nurse with expertise in home healthcare coordination. Passionate about improving quality of life for seniors.',
-                    photo: null,
-                    phone: '0987654321'
-                },
-                {
-                    id: 'mock-3',
-                    level: 'Field Manager',
-                    name: 'Emily Chen',
-                    role: 'Field Manager',
-                    bio: 'Healthcare operations manager overseeing care delivery in the region. Available for escalations and support.',
-                    photo: null,
-                    phone: '5555555555'
-                }
-            ]);
+            setError('Unable to load care team details. Please check your network connection.');
         } finally {
             setLoading(false);
         }
@@ -177,6 +121,23 @@ export default function CareTeamScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
+                {error && team.length === 0 && (
+                    <View style={styles.errorCard}>
+                        <Ionicons name="alert-circle-outline" size={48} color="#EF4444" style={{ marginBottom: 12 }} />
+                        <Text style={styles.errorText}>{error}</Text>
+                        <TouchableOpacity style={styles.retryBtn} onPress={fetchTeam}>
+                            <Text style={styles.retryBtnText}>Retry Fetch</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {!error && team.length === 0 && (
+                    <View style={styles.emptyCard}>
+                        <Ionicons name="people-outline" size={48} color="#9CA3AF" style={{ marginBottom: 12 }} />
+                        <Text style={styles.emptyText}>No care team members assigned to this beneficiary yet.</Text>
+                    </View>
+                )}
+
                 {team.map((member) => (
                     <View key={member.id} style={styles.card}>
                         <View style={styles.badgeContainer}>
@@ -200,20 +161,18 @@ export default function CareTeamScreen() {
                         <Text style={styles.memberBio}>{member.bio}</Text>
 
                         <View style={styles.actionRow}>
-                            <TouchableOpacity
-                                style={[styles.actionButton, styles.callButton]}
-                                onPress={() => handleCall(member)}
-                                disabled={loggingCall === member.id}
-                            >
-                                {loggingCall === member.id ? (
-                                    <ActivityIndicator size="small" color="#FFFFFF" />
-                                ) : (
-                                    <Ionicons name="call-outline" size={18} color="#FFFFFF" />
-                                )}
-                                {loggingCall !== member.id && (
-                                    <Text style={styles.callButtonText}>Call</Text>
-                                )}
-                            </TouchableOpacity>
+                            <ConnectContactButton
+                                name={member.name}
+                                role={member.role}
+                                phone={member.phone}
+                                photo={member.photo}
+                                trigger={
+                                    <View style={[styles.actionButton, styles.callButton]}>
+                                        <Ionicons name="call-outline" size={18} color="#FFFFFF" />
+                                        <Text style={styles.callButtonText}>Call</Text>
+                                    </View>
+                                }
+                            />
 
                             <TouchableOpacity style={[styles.actionButton, styles.emailButton]}>
                                 <Ionicons name="mail-outline" size={18} color="#4B5563" />
@@ -354,5 +313,46 @@ const styles = StyleSheet.create({
         color: '#4B5563',
         fontSize: 16,
         fontWeight: '600',
+    },
+    errorCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 20,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+    },
+    errorText: {
+        fontSize: 14,
+        color: '#DC2626',
+        textAlign: 'center',
+        marginBottom: 16,
+        lineHeight: 20,
+    },
+    retryBtn: {
+        backgroundColor: '#F97316',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 10,
+    },
+    retryBtnText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    emptyCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 20,
+    },
+    emptyText: {
+        fontSize: 14,
+        color: '#6B7280',
+        textAlign: 'center',
     },
 });

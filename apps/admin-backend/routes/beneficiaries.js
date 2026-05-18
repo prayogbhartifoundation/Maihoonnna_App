@@ -624,9 +624,9 @@ router.put('/:id', async (req, res) => {
         }
       }
 
-      // 3. Sync Medications (delete old, create new)
+      // 3. Sync Medications (Overwrite old with new)
       if (medications !== undefined && Array.isArray(medications)) {
-        // Remove old medications for this beneficiary
+        // Remove old medications (Cascade will handle adherence records)
         await tx.medication.deleteMany({ where: { beneficiaryId: id } });
 
         // Create new medications
@@ -650,19 +650,20 @@ router.put('/:id', async (req, res) => {
 
       const changedFields = Object.keys(dataToUpdate).filter(key => b[key] !== dataToUpdate[key]);
 
-      if (changedFields.length > 0) {
+      if (changedFields.length > 0 || medications !== undefined) {
+        // Log who updated this beneficiary (The Admin)
         await tx.activityLog.create({
           data: {
-            userId: ben.userId,
+            userId: req.user?.id || ben.userId, 
             type: 'PROFILE',
             action: 'PROFILE_UPDATED',
             details: {
               entity: 'beneficiary',
               entityId: id,
-              entityName: ben.name,
-              fieldsChanged: changedFields,
-              updatedByRole: req.user?.role || 'system',
-              updatedByName: req.user?.name || 'Admin',
+              beneficiaryName: ben.name,
+              changes: changedFields,
+              medicationsOverwritten: medications !== undefined,
+              updatedBy: req.user?.name || 'Administrator'
             }
           }
         });

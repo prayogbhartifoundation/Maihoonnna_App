@@ -121,6 +121,7 @@ async function handleBeneficiaryDashboard(req: AuthRequest, res: Response) {
                     role: 'Primary Care Coordinator',
                     bio: beneficiary.primaryCC.bio || 'Experienced care companion.',
                     photo: beneficiary.primaryCC.photo,
+                    phone: (beneficiary.primaryCC as any).user?.phone || null
                 } : null,
                 todaysMedications
             },

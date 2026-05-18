@@ -24,11 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for saved session on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('maihonna_user');
-    if (savedUser) {
+    const savedAuth = localStorage.getItem('maihonna_user');
+    if (savedAuth) {
       try {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
+        const authData = JSON.parse(savedAuth);
+        // The new structure has authData.user, old has authData directly as user
+        setUser(authData.user || authData);
         setIsAuthenticated(true);
       } catch (error) {
         localStorage.removeItem('maihonna_user');
@@ -38,10 +39,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (phone: string, password: string) => {
     try {
-      const authenticatedUser = await authApi.login(phone, password);
-      setUser(authenticatedUser);
+      const authResponse = await authApi.login(phone, password);
+      // authResponse = { user, accessToken, refreshToken }
+      setUser(authResponse.user);
       setIsAuthenticated(true);
-      localStorage.setItem('maihonna_user', JSON.stringify(authenticatedUser));
+      localStorage.setItem('maihonna_user', JSON.stringify(authResponse));
     } catch (error) {
       throw error;
     }
@@ -49,10 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const biometricLogin = async (userId: string) => {
     try {
-      const authenticatedUser = await authApi.biometricLogin(userId);
-      setUser(authenticatedUser);
+      const authResponse = await authApi.biometricLogin(userId);
+      // For biometric (mock), ensure it matches structure if it returns user directly
+      const userData = (authResponse as any).user || authResponse;
+      setUser(userData);
       setIsAuthenticated(true);
-      localStorage.setItem('maihonna_user', JSON.stringify(authenticatedUser));
+      localStorage.setItem('maihonna_user', JSON.stringify(authResponse));
     } catch (error) {
       throw error;
     }
