@@ -1,0 +1,125 @@
+# Execution Plan
+- [x] Initial Phase
+- [x] Fixing Zone Creation
+- [x] Fixing Staff Onboarding (Mock Fallbacks)
+- [x] Storage Service Architecture (Adapter Pattern)
+- [x] Backend File Upload Integration
+- [x] Prisma Client Synchronization
+- [x] End-to-End Supabase File Upload Wiring
+  - [x] Added SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY to Admin Panel backend .env
+  - [x] Added `staffOnboardingApi.uploadDocument()` in frontend api.ts
+  - [x] Updated StaffOnboardingPage to track File objects and upload after onboarding
+- [x] Auth System Fixes
+  - [x] Added 9090909090 / 010101 as valid admin login in `auth.js`
+  - [x] Converted single hardcoded credential to `ADMIN_CREDENTIALS` array for extensibility
+- [x] Frontend Mock Fallback Bug Fixes
+  - [x] Fixed `getMetadata()` to only fallback on network failure (not 403/500)
+  - [x] Fixed `onboard()` to re-throw real backend HTTP errors instead of silently mocking
+  - [x] Root cause: frontend was showing mock zone IDs → causing 400 on submit
+- [x] Subscription & Benefits System
+  - [x] Added 5 new Prisma models: BenefitType, Benefit, Package, PackageBenefit, PackageDiscount
+  - [x] Implemented CRUD backend routes for BenefitTypes, Benefits, and Packages
+  - [x] Created frontend management pages for Benefit Types and Benefits Library
+  - [x] Wired real APIs in `api.ts` and updated router
+  - [x] Dynamic Package Refactoring:
+    - [x] Merged `Package` into `SubscriptionPackage` and removed `SubscriptionType` enum
+    - [x] Refactored all backend services to handle string-based types
+    - [x] Fixed `seed_test.ts` and successfully seeded fresh DB
+    - [x] Ensured backend routes are compatible with the frontend wizard field names
+- [x] Supabase Key Configuration (2026-04-01)
+  - [x] Root cause: Missing `.env` file in `Admin_panel/backend/`.
+  - [x] Solution: Created a `.env` template in the directory.
+  - [ ] User Action: Replace placeholders in `Admin_panel/backend/.env` with real credentials.
+- [x] Dynamic Staff Profile Editing (2026-03-30)
+  - [x] Created reusable `StaffEditModal.tsx` for CC, FM, OM pages
+  - [x] `GET /api/users/staff/:userId` — fetch merged staff details
+  - [x] `PUT /api/users/staff/:userId` — transactional multi-table update
+  - [x] Edit buttons added to OperationsManagersPage, CareCompanionsPage, FieldManagerPage
+  - [x] Onboarding page intentionally untouched
+- [x] Zone Management Dual-Assignment (2026-03-30)
+  - [x] Zone PUT supports both `fieldManagerId` and `operationsManagerId`
+  - [x] ZonesPage fetches and displays both FM and OM assignments per zone
+  - [x] Unified assignment modal with FM/OM tab toggle
+  - [x] Fixed zone assignment to use `userId` (not role id) for correct DB match
+- [x] Subscription Package Auto-Cost Calculation (2026-03-30)
+  - [x] `Benefit` interface updated with `unitCost` and `isChargeable` fields
+  - [x] Reactive `useEffect` auto-computes total: SUM(unitCost × units) × duration
+  - [x] UI shows per-benefit cost and running subtotals in "Set Units" step
+- [x] Beneficiary Staff Assignment via Pincode (2026-03-30)
+  - [x] `GET /api/beneficiaries/available-staff?pincode=` returns zone-filtered CC/FM list
+  - [x] `PUT /api/beneficiaries/:id/assign-staff` — update primaryCcId/secondaryCcId/fieldManagerId
+  - [x] `BeneficiariesPage.tsx` rewritten with "Assign Staff" tab
+  - [x] Primary/secondary selection with live conflict filtering (secondary excludes primary choice)
+  - [x] Pincode displayed on beneficiary cards and used to determine available staff pool
+- [x] Seeding & Benefit Library Fix (2026-03-30)
+  - [x] Updated `seed_test.ts` with Beneficiary/Zone/Staff for pincode `110059`
+  - [x] Added `isActive` filtering to Benefit Library and Package Wizard
+  - [x] Updated backend `benefits.js` route to support `activeOnly` query
+  - [x] Successfully re-seeded database with matching test data
+- [x] Vitals Management & Package Pricing Fixes (2026-03-31)
+  - [x] Full VitalDefinition CRUD and dynamic mobile rendering
+  - [x] Fixed `basePrice` vs `price` mapping crashes during checkout
+  - [x] UI Revamp for Registration and Medical Information forms
+- [x] Onboarding UX & Relationship Persistence (2026-03-31)
+  - [x] Bottom-sheet selection for Relationship and Hobbies
+  - [x] Persisted `relationship` field in DB + updated `purchaseSubscription`
+- [x] Global Package Visibility & Advanced Coupon Engine (2026-03-31)
+  - [x] Added `isGlobal` visibility flag to Subscription Packages
+  - [x] Full Coupon Engine (Models, CRUD, Validation Service)
+  - [x] Integrated Coupons into Mobile Checkout and Backend Purchase flow
+  - [x] Fixed Prisma regeneration and relative import issues
+
+
+- [x] Pincode Lookup Service & Automated Location Entry (2026-04-01)
+  - [x] Created backend proxy GET /api/pincode/:pincode
+  - [x] Developed reusable usePincodeLookup frontend hook
+  - [x] Integrated auto-fill and multi-area selection in ZonesPage.tsx
+  - [x] Integrated auto-fill and layout-fixed dropdown in StaffOnboardingPage.tsx
+  - [x] Successfully rebased and pushed changes to origin/main
+
+- [x] Search UI Modernization & UI Stability (2026-04-01)
+  - [x] Rebuilt `DataFilter.tsx` as a unified search bar with internal category dropdown (Amazon style)
+  - [x] Added `Clear All` reset functionality
+  - [x] Refactored 6 major pages to fix stale closures via `useCallback`
+  - [x] Implemented "Anti-Flicker" Loading Overlays to maintain cursor focus during searches
+- [x] Flexible Infrastructure (Amazon Ready) (2026-04-01)
+  - [x] Abstracted `StorageService` for both Supabase and AWS S3 providers
+  - [x] Initialized backend/frontend `.env` with real credentials and AWS placeholders
+  - [x] Added generic `/api/upload-document/profile-photo` endpoint for all user types
+  - [x] Updated `supabaseStorage.js` to handle both Anon and Service Role keys
+
+- [x] Backend Hardening & Production Ready (2026-04-02)
+  - [x] Decoupled `admin-backend` as a standalone production-ready app
+  - [x] Implemented Prisma & Pool Singletons to prevent connection leaks
+  - [x] Migrated to Prisma 7 (Updated `prisma.config.ts`, removed schema `url`)
+  - [x] Added `postinstall` auto-generation for cloud hosting environments
+  - [x] Implemented strict frontend validation (Phone, Aadhaar, PAN, Dates)
+  - [x] Created unified `seed.js` for relational test data population
+  - [x] Successfully synchronized and pushed all backend changes to `dev` branch
+
+- [x] Subscription Package Overhaul & Refined Pricing (2026-04-06)
+  - [x] Supported `mrp`, `discountPercentage`, and `miscellaneousCost` in Prisma
+  - [x] Fixed 500 server error on package publication
+  - [x] Redesigned Admin Wizard with automated formula pricing and manual override
+  - [x] Updated Mobile App to show dynamic units, strike-through MRP, and discount badges
+  - [x] Synced schema across `admin-backend` and `mobile-backend`
+  - [x] Refined price calculation logic to apply discounts strictly to benefit subtotals
+
+- [x] Pincode Serviceability & Enrollment Wizard UI Modernization (2026-04-07)
+  - [x] Standardized `GET /api/zones/check-pincode/:pincode` backend response
+  - [x] Updated `PincodeCheck.tsx` to return full zone data
+  - [x] Integrated auto-fill for Subscriber/Beneficiary City & State in Enrollment Wizard
+  - [x] Redesigned "Medical & Life" step with dynamic Conditions, Medications, and Hobbies
+  - [x] Integrated structured Medication scheduling (slots, reminders) in UI and Backend
+  - [x] Implemented dynamic MedicalCondition auto-creation/linking in `admin-enroll` route
+  - [x] Fixed JSX structural breakages and restored wizard stability
+
+- [x] Core Service Delivery Logic & Staff Password Management (2026-04-07)
+  - [x] Integrated `bcryptjs` for secure staff password management (Sales, FM, OM)
+  - [x] Implemented DB-backed login for staff roles in `admin-backend`
+  - [x] Added RBAC filtering to `beneficiaries.js` (FMs only see their assigned data)
+  - [x] Automated `Notification` dispatch on CC/Nurse assignment via Prisma transaction
+  - [x] Developed transactional visit `checkOut` in `mobile-backend` with automatic hour/unit deduction
+  - [x] Implemented `PackageHoursLog` for service usage auditing
+  - [x] Created `assigned-beneficiaries` dashboard endpoint for CC/Nurse mobile app
+  - [x] Updated Staff Onboarding frontend with Access & Security settings

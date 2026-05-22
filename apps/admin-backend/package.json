@@ -1,0 +1,39 @@
+{
+  "name": "maihoonna-admin-backend",
+  "version": "1.0.0",
+  "description": "Admin Panel Backend API for MaiHoonNa",
+  "main": "server.js",
+  "prisma": {
+    "schema": "prisma/schema.prisma",
+    "seed": "node prisma/seed.js"
+  },
+  "scripts": {
+    "dev": "node server.js",
+    "build": "prisma generate",
+    "start": "node server.js",
+    "copy-schema": "node scripts/copy-schema.js",
+    "postinstall": "prisma generate",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1018.0",
+    "@prisma/adapter-pg": "^7.6.0",
+    "@prisma/client": "^7.5.0",
+    "@supabase/supabase-js": "^2.100.1",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.3.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "pg": "^8.20.0",
+    "prisma": "^7.6.0",
+    "uuid": "^13.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3"
+  }
+}

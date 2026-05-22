@@ -1,0 +1,32 @@
+# Test Results
+- Zones Fetch: Success (Status 200)
+- Onboarding Fetch: Success (Status 200)
+- Staff Metadata: Success (Mock Fallback)
+- Prisma Client Generate: Success
+- Storage Adapter Initialization: Success
+- Upload Document Endpoint: Wired and ready (pending Supabase Service Role Key)
+- Frontend File Tracking: File objects now stored in pendingFiles Map
+- Upload-After-Onboard Flow: Configured to run after staffProfileId is returned
+- Login with 9090909090/010101: Success — token generated correctly
+- Staff Onboard 400 Bug: Fixed — was caused by mock zone IDs being submitted to real backend
+- Supabase Upload: FAILING — error "Invalid Compact JWS" — key entered is malformed or wrong type
+  - Must use Service Role key (long JWT starting with eyJ), NOT anon/public key
+  - Get from: Supabase Dashboard → Project Settings → API → Service Role
+- Benefits Schema Push: Success (`npx prisma db push --skip-generate`)
+- Benefits Client Generate: Success (`npx prisma generate`)
+- Backend Routes (BenefitTypes/Benefits/Packages): Mounted and ready (server restart required)
+- Frontend API Integration: `api.ts` cleaned and wired to real endpoints
+- Global TypeScript Check: `npx tsc --noEmit` Success (all subscription enum errors fixed)
+- Database Force-Reset: `npx prisma db push --force-reset` Success (merged SubscriptionPackage model)
+- Test Data Seeding: `npx ts-node prisma/seed_test.ts` Success (beneficiaries and packages populated)
+- Pincode Serviceability Check: Success — `GET /api/zones/check-pincode` returns correct area metadata.
+- Enrollment Wizard UI (Step 3): Manual Verification — Dynamic Condition/Medication/Hobby dialogs and lists functioning correctly.
+- Pincode Auto-Fill integration: Manual Verification — Subscriber/Beneficiary City & State auto-populate on 10-digit pincode entry.
+- Backend Admin-Enroll Pipeline: Success — Nested `medicationList` with slots and dynamically resolved `MedicalCondition` links persisted atomically.
+- **JSX structural integrity**: `EnrollmentWizardPage.tsx` compiles and transitions through all 5 steps without runtime crashes.
+- **Staff Auth Integration**: Manual Verification — Staff logins (Sales/FM/OM) now authenticated against DB via bcrypt hashing.
+- **RBAC Data Filtering**: Manual Verification — Field Managers correctly see only their assigned beneficiaries and available staff in their zone.
+- **CC Notification Dispatch**: Success — `Notification` records automatically created upon CC assignment within `assign-staff` Prisma transaction.
+- **Assigned Beneficiaries Endpoint**: Success — `GET /api/care-companion/profile/assigned-beneficiaries` returns correct data for CC app dashboard.
+- **Service Usage Deduction**: Success — `checkOut` Prisma transaction correctly subtracts hours from `Subscription` and logs audit trace in `PackageHoursLog`.
+- **Database Schema Sync**: Success — `npx prisma db push` run to fix missing `maritalStatus` column in Supabase DB, resolving `mobile-backend` startup crash.

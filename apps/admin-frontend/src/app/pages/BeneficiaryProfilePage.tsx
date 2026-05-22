@@ -1,0 +1,606 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router';
+import { 
+  User, Phone, Mail, MapPin, Calendar, Loader2, Heart, Activity, 
+  Thermometer, Droplet, Scale, RefreshCw, UserCheck, ArrowLeft, Edit2, Trash2
+} from 'lucide-react';
+import { beneficiaryApi, subscriptionApi } from '../../services/api';
+import { StatusChip } from '../components/common/StatusChip';
+import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
+import { RefreshButton } from '../components/common/RefreshButton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Label } from '../components/ui/label';
+import { Button } from '../components/ui/button';
+import { Switch } from '../components/ui/switch';
+import { toast } from 'sonner';
+import { EditBeneficiaryDialog } from '../components/forms/EditBeneficiaryDialog';
+import { AddMedicineDialog } from '../components/forms/AddMedicineDialog';
+import { AddConditionDialog } from '../components/forms/AddConditionDialog';
+
+interface StaffPool {
+  careCompanions: { id: string; userId: string; name: string; zone: string; isAvailable: boolean }[];
+  fieldManagers: { id: string; userId: string; name: string; zone: string; isAvailable: boolean }[];
+  zones: { id: string; name: string; pincode: string }[];
+}
+
+const vitalIcons: any = {
+  bloodPressure: Activity, spO2: Activity, temperature: Thermometer,
+  heartRate: Heart, bloodSugar: Droplet, weight: Scale,
+};
+
+export default function BeneficiaryProfilePage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [details, setDetails] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddMedOpen, setIsAddMedOpen] = useState(false);
+  const [isAddConditionOpen, setIsAddConditionOpen] = useState(false);
+
+  const [staffPool, setStaffPool] = useState<StaffPool>({ careCompanions: [], fieldManagers: [], zones: [] });
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [pendingPrimary, setPendingPrimary] = useState<string | null | undefined>(undefined);
+  const [pendingSecondary, setPendingSecondary] = useState<string | null | undefined>(undefined);
+
+  const fetchDetails = async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await beneficiaryApi.getById(id);
+      setDetails(data);
+      if (data.pincode) {
+        fetchStaffPool(data.pincode);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load beneficiary details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshDetailsBackground = async () => {
+    if (!id) return;
+    try {
+      const data = await beneficiaryApi.getById(id);
+      setDetails(data);
+      // Optional: don't auto-fetch staff pool to avoid heavy nested calls unless needed, 
+      // but here we just update the details to catch relationship/med change.
+    } catch (err) {
+      console.error('Background refresh failed', err);
+    }
+  };
+
+  const fetchStaffPool = async (pincode: string) => {
+    setLoadingStaff(true);
+    try {
+      const pool = await beneficiaryApi.getAvailableStaff(pincode);
+      setStaffPool(pool);
+    } catch (err) {
+      console.error('Failed to load available staff', err);
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDetails();
+  }, [id]);
+
+  const handleAssignStaff = async () => {
+    if (!details || !id) return;
+    setAssigning(true);
+    try {
+      const payload: any = {};
+      if (pendingPrimary !== undefined) payload.primaryCcId = pendingPrimary;
+      if (pendingSecondary !== undefined) payload.secondaryCcId = pendingSecondary;
+      await beneficiaryApi.assignStaff(id, payload);
+      toast.success('Staff assigned successfully!');
+      setPendingPrimary(undefined);
+      setPendingSecondary(undefined);
+      await fetchDetails();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to assign staff');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleVitalToggle = async (vitalKey: string, enabled: boolean) => {
+    if (!details) return;
+    try {
+      await beneficiaryApi.updateClinicalConfig(details.id, {
+        [vitalKey]: { ...details.clinicalConfiguration?.[vitalKey], enabled },
+      });
+      await fetchDetails();
+      toast.success(`${vitalKey} monitoring ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      toast.error('Failed to update configuration');
+    }
+  };
+
+  const handleStopMedication = async (medicationId: string) => {
+    if (!id || !confirm('Are you sure you want to stop this medication?')) return;
+    try {
+      await beneficiaryApi.stopMedication(id, medicationId);
+      toast.success('Medication stopped');
+      refreshDetailsBackground();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to stop medication');
+    }
+  };
+
+  const handleRemoveCondition = async (conditionId: string) => {
+    if (!id || !confirm('Are you sure you want to remove this medical condition?')) return;
+    try {
+      await beneficiaryApi.removeCondition(id, conditionId);
+      toast.success('Condition removed');
+      refreshDetailsBackground();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove condition');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8 bg-[#F4EAE3] min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-[#FF7A00]" />
+          <p className="font-bold text-sm uppercase tracking-widest text-gray-500">Loading Beneficiary Profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !details) {
+    return (
+      <div className="p-8 bg-[#F4EAE3] min-h-screen">
+        <Button variant="ghost" onClick={() => navigate('/beneficiaries')} className="mb-6 gap-2">
+          <ArrowLeft size={16} /> Back to Beneficiaries
+        </Button>
+        <div className="bg-white rounded-[32px] p-20 border border-dashed border-[#E7DED6] text-center">
+          <h2 className="text-xl font-bold text-gray-800">{error || 'Beneficiary not found'}</h2>
+          <Button onClick={() => navigate('/beneficiaries')} className="mt-6 bg-[#FF7A00]">Return to List</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const effectivePrimary = pendingPrimary !== undefined ? pendingPrimary : details.primaryCcId;
+  const effectiveSecondary = pendingSecondary !== undefined ? pendingSecondary : details.secondaryCcId;
+  const hasChanges = pendingPrimary !== undefined || pendingSecondary !== undefined;
+
+  return (
+    <div className="p-8 bg-[#F4EAE3] min-h-screen">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <button 
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+          
+          <RefreshButton onRefresh={refreshDetailsBackground} label="Refresh Data" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+              <div className="flex flex-col items-center text-center">
+                {/* Profile Photo Uploader */}
+                <div className="mb-4">
+                  <ProfilePhotoUploader
+                    config={{
+                      targetType: 'beneficiary',
+                      targetId: details.id,
+                      currentPhotoUrl: details.photo || null,
+                      name: details.name,
+                      size: 96,
+                      editable: true,
+                      accentColor: '#FF7A00',
+                      onSuccess: (url) => {
+                        setDetails((prev: any) => ({ ...prev, photo: url }));
+                        toast.success('Beneficiary photo updated successfully');
+                      },
+                      onError: (err) => {
+                        toast.error(`Photo upload failed: ${err}`);
+                      },
+                    }}
+                  />
+                </div>
+                <h1 className="text-2xl font-black text-gray-900 tracking-tight">{details.name}</h1>
+                <div className="mt-2">
+                  <StatusChip status={details.isActive ? 'Active' : 'Inactive'} />
+                </div>
+                <p className="text-xs font-bold text-gray-400 mt-4 uppercase tracking-[0.2em]">Age: {details.age} • {details.gender}{details.relationship ? ` • ${details.relationship}` : ''}</p>
+              </div>
+
+              <div className="mt-8 space-y-4 pt-8 border-t border-gray-50">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-[#FF7A00] flex-shrink-0">
+                    <Phone size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Emergency Contact</p>
+                    <p className="text-sm font-bold text-gray-700">{details.emergencyContacts?.[0]?.name || 'N/A'}</p>
+                    {details.emergencyContacts?.[0]?.phone && <p className="text-xs text-gray-500">{details.emergencyContacts[0].phone}</p>}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-green-50 flex items-center justify-center text-green-600 flex-shrink-0">
+                    <MapPin size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Zone / Pincode</p>
+                    <p className="text-sm font-bold text-gray-700">{details.pincode || 'N/A'}</p>
+                    {details.city && <p className="text-xs text-gray-500">{details.city}, {details.state}</p>}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0">
+                    <Calendar size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Registered On</p>
+                    <p className="text-sm font-bold text-gray-700">{details.createdAt ? new Date(details.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : '--'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setIsEditModalOpen(true)}
+                className="w-full mt-8 py-3 rounded-2xl bg-[#F4EAE3] text-gray-700 font-black uppercase tracking-widest text-[10px] border border-[#E7DED6] hover:bg-[#E7DED6] transition-colors flex items-center justify-center gap-2">
+                <Edit2 size={14} /> Edit Care Profile
+              </button>
+            </div>
+
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-[#E7DED6]">
+               <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Subscriber Info</h4>
+               <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
+                     <User size={20} />
+                  </div>
+                  <div className="flex-1">
+                     <p className="text-sm font-bold text-gray-800">{details.subscriber?.name || 'Unknown'}</p>
+                     <p className="text-xs font-bold text-gray-500">{details.subscriber?.phone}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/subscribers/${details.subscriberId}`)}>
+                     View
+                  </Button>
+               </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            <Tabs defaultValue="profile" className="space-y-8">
+              <TabsList className="bg-white/50 p-1.5 rounded-3xl h-auto flex gap-1 border border-[#E7DED6] backdrop-blur-sm">
+                <TabsTrigger value="profile" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Health Profile</TabsTrigger>
+                <TabsTrigger value="membership" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Membership</TabsTrigger>
+                <TabsTrigger value="assign" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Staff Assignment</TabsTrigger>
+                <TabsTrigger value="clinical" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Clinical Config</TabsTrigger>
+              </TabsList>
+
+               <TabsContent value="profile" className="space-y-8 mt-0 outline-none">
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                   <h3 className="text-lg font-black text-gray-800 mb-6">Medical Summary</h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Medical Information</Label>
+                          <button onClick={() => setIsAddConditionOpen(true)} className="text-[#FF7A00] font-black text-[10px] uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full">+ Add</button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {(details.conditions || []).filter((bc: any) => bc.isActive).length > 0 ? (
+                            details.conditions.filter((bc: any) => bc.isActive).map((bc: any) => (
+                              <span key={bc.conditionId} className="group relative px-4 py-2 bg-[#FFF5EE] text-[#FF7A00] rounded-2xl text-xs font-bold border border-orange-100 flex items-center gap-2">
+                                {bc.condition?.name}
+                                <Trash2 
+                                  size={12} 
+                                  className="cursor-pointer opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" 
+                                  onClick={() => handleRemoveCondition(bc.conditionId)}
+                                />
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-400 italic">None recorded</span>
+                          )}
+                        </div>
+                     </div>
+                     <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-black text-gray-700 block uppercase tracking-widest">Current Medications</Label>
+                          <button onClick={() => setIsAddMedOpen(true)} className="text-blue-600 font-black text-[10px] uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">+ Add</button>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          {details.medications && details.medications.filter((m: any) => m.isActive).length > 0 ? (
+                            details.medications.filter((m: any) => m.isActive).map((m: any) => (
+                              <div key={m.id} className="group flex items-center justify-between p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-black text-blue-900">{m.name} <span className="font-bold text-blue-600 opacity-80">{m.dosage}</span></span>
+                                  <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-1">
+                                    {m.frequency.replace('_', ' ')} &bull; {m.timeSlots.join(', ')} {m.setReminders ? '🔔' : ''}
+                                  </span>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Start: {m.startDate ? new Date(m.startDate).toLocaleDateString() : 'N/A'}</span>
+                                    {m.endDate && <span className="text-[9px] font-bold text-red-400 uppercase tracking-tighter">End: {new Date(m.endDate).toLocaleDateString()}</span>}
+                                    {m.instructions && <span className="text-[9px] font-medium text-gray-500 italic">"{m.instructions}"</span>}
+                                  </div>
+                                </div>
+                                <button 
+                                  onClick={() => handleStopMedication(m.id)}
+                                  className="p-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                  title="Stop Medication"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-400 italic">No structured medications logged</span>
+                          )}
+                        </div>
+                     </div>
+                   </div>
+                   <div className="mt-12 pt-8 border-t border-gray-50">
+                      <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Care Scores</h4>
+                      <div className="grid grid-cols-3 gap-4">
+                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 text-center">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Emotional</p>
+                            <p className="text-3xl font-black text-blue-600">{details.emotionalScore || '8.0'}</p>
+                         </div>
+                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 text-center">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Health</p>
+                            <p className="text-3xl font-black text-green-600">{details.healthScore || '7.5'}</p>
+                         </div>
+                         <div className="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 text-center">
+                            <p className="text-xs font-bold text-gray-400 uppercase mb-2">Medication</p>
+                            <p className="text-3xl font-black text-orange-600">{details.medicationScore || '100'}%</p>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="membership" className="space-y-6 mt-0 outline-none">
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                   {details.subscriptions?.[0] ? (
+                     <div className="space-y-8">
+                       <div className="flex items-center justify-between">
+                         <div>
+                            <h3 className="text-xl font-black text-gray-800">{details.subscriptions[0].package?.name || 'Active Package'}</h3>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Valid until {new Date(details.subscriptions[0].endDate).toLocaleDateString()}</p>
+                         </div>
+                         <StatusChip status="Active" />
+                       </div>
+                       <div className="pt-6 border-t border-gray-50">
+                          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Benefit Balances</h4>
+                          <div className="space-y-4">
+                             {(details.subscriptions[0].balances || []).length > 0 ? (
+                               details.subscriptions[0].balances.map((bal: any) => (
+                                 <div key={bal.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#FDFBF9] rounded-2xl border border-orange-50 gap-4">
+                                   <div className="flex items-center gap-4">
+                                      <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-[#FF7A00] font-bold text-lg">
+                                         {bal.benefit?.benefitType?.iconCode || '🎁'}
+                                      </div>
+                                      <div>
+                                         <p className="text-sm font-black text-gray-800">{bal.benefit?.name}</p>
+                                         <p className="text-[10px] font-bold text-gray-400 uppercase">{bal.benefit?.unitLabel || 'units'}</p>
+                                      </div>
+                                   </div>
+                                   <div className="flex items-center gap-6 justify-between sm:justify-end">
+                                      <div className="text-right">
+                                         <p className="text-sm font-black text-gray-900">{bal.totalUnits === -1 ? '∞' : (bal.totalUnits - bal.usedUnits)} / {bal.totalUnits === -1 ? '∞' : bal.totalUnits}</p>
+                                         <p className="text-[10px] font-bold text-gray-400 uppercase">Remaining</p>
+                                      </div>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={async () => {
+                                          if (confirm(`Consume 1 unit of ${bal.benefit?.name}?`)) {
+                                            try {
+                                              await subscriptionApi.consume(details.subscriptions[0].id, {
+                                                benefitId: bal.benefitId,
+                                                units: 1,
+                                                notes: 'Manual deduction from Admin Panel'
+                                              });
+                                              toast.success('Benefit unit consumed');
+                                              fetchDetails();
+                                            } catch (e: any) {
+                                              toast.error(e.message);
+                                            }
+                                          }
+                                        }}
+                                        className="h-8 rounded-xl border-orange-200 text-[#FF7A00] hover:bg-orange-50 font-black uppercase text-[9px] tracking-widest"
+                                      >
+                                        Consume
+                                      </Button>
+                                   </div>
+                                 </div>
+                               ))
+                             ) : (
+                               <div className="py-12 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                                  <p className="text-sm font-bold text-gray-400 uppercase">No active benefit balances found</p>
+                               </div>
+                             )}
+                          </div>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-center gap-4 py-20 text-center">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center text-gray-300">
+                           <Activity size={32} />
+                        </div>
+                        <div>
+                           <h3 className="text-lg font-black text-gray-800">No Active Subscription</h3>
+                           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 max-w-xs mx-auto">This beneficiary is not currently enrolled in any silver, gold, or platinum packages.</p>
+                        </div>
+                        <Button className="mt-4 bg-[#FF7A00] rounded-2xl px-8 h-12 font-black uppercase tracking-widest text-[10px]">Enroll in Package</Button>
+                     </div>
+                   )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="assign" className="space-y-6 mt-0 outline-none">
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                  <div className="flex items-center justify-between mb-8">
+                     <div>
+                        <h3 className="text-lg font-black text-gray-800">Staff Assignment</h3>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Manage Care Companions & Field Managers</p>
+                     </div>
+                     {details.pincode && (
+                        <div className="bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 flex items-center gap-2">
+                           <MapPin size={14} className="text-[#FF7A00]" />
+                           <span className="text-xs font-black text-[#FF7A00]">PIN: {details.pincode}</span>
+                        </div>
+                     )}
+                  </div>
+
+                  {!details.pincode ? (
+                    <div className="flex flex-col items-center gap-3 py-16 text-center bg-gray-50 rounded-[32px] border border-dashed border-gray-200">
+                      <MapPin className="w-12 h-12 text-gray-200" />
+                      <p className="font-bold text-gray-400 uppercase tracking-widest text-sm">Pincode missing on profile</p>
+                      <button 
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="text-[#FF7A00] font-black text-[10px] uppercase tracking-widest underline underline-offset-4"
+                      >
+                        Add Pincode to continue
+                      </button>
+                    </div>
+                  ) : loadingStaff ? (
+                    <div className="flex flex-col items-center justify-center py-24 gap-4">
+                      <RefreshCw className="w-10 h-10 animate-spin text-[#FF7A00]" />
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Searching Zone Staff...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-10">
+                      {staffPool.zones.length > 0 ? (
+                        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-100 rounded-2xl text-xs font-bold text-green-700 uppercase tracking-tight">
+                          <UserCheck className="w-5 h-5 flex-shrink-0" /> 
+                          Successfully matched with Zone: <span className="underline ml-1">{staffPool.zones[0].name}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 p-4 bg-orange-50 border border-orange-100 rounded-2xl text-xs font-bold text-[#FF7A00] uppercase tracking-tight">
+                          <Activity className="w-5 h-5 flex-shrink-0" /> 
+                          No exact zone match for PIN {details.pincode}. Showing all available staff.
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Primary CC Selection */}
+                        <div className="space-y-4">
+                          <Label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-orange-500"></div> Primary Companion
+                          </Label>
+                          <div className="space-y-2">
+                            {staffPool.careCompanions.map(cc => (
+                              <button key={cc.id} onClick={() => setPendingPrimary(cc.id)} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${effectivePrimary === cc.id ? 'bg-orange-50 border-[#FF7A00] shadow-sm' : 'bg-white border-gray-100 hover:border-orange-200 hover:bg-gray-50/50'}`}>
+                                <div className="text-left">
+                                  <p className="font-bold text-gray-800 text-sm">{cc.name}</p>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{cc.isAvailable ? 'Available' : 'Limited availability'}</p>
+                                </div>
+                                {effectivePrimary === cc.id && <div className="w-6 h-6 rounded-full bg-[#FF7A00] flex items-center justify-center text-white shadow-sm shadow-orange-200"><UserCheck size={12} /></div>}
+                              </button>
+                            ))}
+                            <button onClick={() => setPendingPrimary(null)} className={`w-full p-4 rounded-2xl border border-dashed transition-all text-center text-[10px] font-black uppercase tracking-widest ${effectivePrimary === null ? 'bg-red-50 border-red-200 text-red-600' : 'border-gray-100 text-gray-400 hover:border-red-200 hover:text-red-500'}`}>
+                               Unassign Primary
+                            </button>
+                          </div>
+                        </div>
+                        {/* Secondary CC Selection */}
+                        <div className="space-y-4">
+                          <Label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-blue-500"></div> Secondary / Temporary
+                          </Label>
+                          <div className="space-y-2">
+                            {staffPool.careCompanions.filter(cc => cc.id !== effectivePrimary).map(cc => (
+                              <button key={cc.id} onClick={() => setPendingSecondary(cc.id)} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${effectiveSecondary === cc.id ? 'bg-blue-50 border-blue-400 shadow-sm' : 'bg-white border-gray-100 hover:border-blue-200 hover:bg-gray-50/50'}`}>
+                                <div className="text-left">
+                                  <p className="font-bold text-gray-800 text-sm">{cc.name}</p>
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{cc.isAvailable ? 'Available' : 'Assigned'}</p>
+                                </div>
+                                {effectiveSecondary === cc.id && <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-sm shadow-blue-200"><UserCheck size={12} /></div>}
+                              </button>
+                            ))}
+                            <button onClick={() => setPendingSecondary(null)} className={`w-full p-4 rounded-2xl border border-dashed transition-all text-center text-[10px] font-black uppercase tracking-widest ${effectiveSecondary === null ? 'bg-red-50 border-red-200 text-red-600' : 'border-gray-100 text-gray-400 hover:border-red-200 hover:text-red-500'}`}>
+                               Unassign Secondary
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="pt-8 border-t border-gray-50">
+                        <Button onClick={handleAssignStaff} disabled={!hasChanges || assigning} className="w-full h-16 bg-[#FF7A00] hover:bg-orange-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-orange-100 transition-all active:scale-[0.98] disabled:opacity-50">
+                          {assigning ? <><RefreshCw className="w-5 h-5 mr-3 animate-spin" /> Committing Changes...</> : 'Save Assignment Configuration'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="clinical" className="space-y-6 mt-0 outline-none">
+                 <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                    <h3 className="text-lg font-black text-gray-800 mb-2">Vitals Monitoring</h3>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">Configure live tracking parameters</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       {Object.entries(details.clinicalConfiguration || {}).map(([key, config]: [string, any]) => {
+                          const Icon = vitalIcons[key] || Activity;
+                          const vitalLabel = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                          return (
+                             <div key={key} className={`flex items-center justify-between p-6 rounded-[24px] border transition-all ${config.enabled ? 'bg-white border-orange-100 shadow-sm' : 'bg-gray-50/50 border-gray-100 opacity-60'}`}>
+                                <div className="flex items-center gap-4">
+                                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${config.enabled ? 'bg-orange-50 text-[#FF7A00]' : 'bg-gray-200 text-gray-400'}`}>
+                                      <Icon size={24} />
+                                   </div>
+                                   <div>
+                                      <p className="font-bold text-gray-800 text-sm">{vitalLabel}</p>
+                                      <p className="text-[10px] font-black text-gray-400 uppercase mt-1">Freq: {config.frequency}</p>
+                                   </div>
+                                </div>
+                                <Switch checked={config.enabled} onCheckedChange={(checked) => handleVitalToggle(key, checked)} className="data-[state=checked]:bg-[#FF7A00]" />
+                             </div>
+                          );
+                       })}
+                    </div>
+                 </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+
+      <EditBeneficiaryDialog
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        beneficiary={details}
+        onSuccess={() => {
+          setIsEditModalOpen(false);
+          refreshDetailsBackground();
+        }}
+      />
+
+      <AddMedicineDialog 
+        isOpen={isAddMedOpen} 
+        onClose={() => setIsAddMedOpen(false)} 
+        beneficiaryId={details.id} 
+        onSuccess={() => {
+          setIsAddMedOpen(false);
+          refreshDetailsBackground();
+        }} 
+      />
+
+      <AddConditionDialog 
+        isOpen={isAddConditionOpen} 
+        onClose={() => setIsAddConditionOpen(false)} 
+        beneficiaryId={details.id} 
+        onSuccess={() => {
+          setIsAddConditionOpen(false);
+          refreshDetailsBackground();
+        }} 
+      />
+    </div>
+  );
+}

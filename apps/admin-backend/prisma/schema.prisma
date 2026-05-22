@@ -1,0 +1,1583 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                             String                   @id @default(uuid())
+  phone                          String                   @unique
+  name                           String?
+  email                          String?                  @unique
+  password                       String?
+  age                            Int?
+  role                           UserRole                 @default(subscriber)
+  location                       String?
+  latitude                       Float?
+  longitude                      Float?
+  flatPlot                       String?
+  streetArea                     String?
+  landmark                       String?
+  city                           String?
+  state                          String?
+  pincode                        String?
+  profilePhoto                   String?
+  fcmToken                       String?
+  isActive                       Boolean                  @default(true)
+  isVerified                     Boolean                  @default(false)
+  refreshToken                   String?
+  lastLoginAt                    DateTime?
+  createdAt                      DateTime                 @default(now())
+  updatedAt                      DateTime                 @updatedAt
+  bookedAppointments             Appointment[]            @relation("AppointmentBookedBy")
+  beneficiariesManaged           Beneficiary[]            @relation("BeneficiaryFieldManager")
+  subscriberBeneficiaries        Beneficiary[]            @relation("SubscriberBeneficiaries")
+  beneficiaryProfile             Beneficiary?             @relation("BeneficiaryUser")
+  assignedCallbackRequests       CallbackRequest[]        @relation("CallbackAssignedTo")
+  subscriberCallbackRequests     CallbackRequest[]        @relation("SubscriberCallbacks")
+  careCompanionProfile           CareCompanion?           @relation("CareCompanionToUser")
+  couponAttemptLogs              CouponAttemptLog[]
+  couponUsages                   CouponUsage[]
+  emergencyRequestsAssigned      EmergencyRequest[]       @relation("AssignedTo")
+  emergencyRequestsRequested     EmergencyRequest[]       @relation("RequestedBy")
+  fieldManagersReporting         FieldManager[]           @relation("FieldManagerReportsTo")
+  fieldManagerProfile            FieldManager?            @relation("FieldManagerToUser")
+  assignedMarketingLeads         MarketingLead[]          @relation("LeadAssignedTo")
+  convertedMarketingLeads        MarketingLead[]          @relation("LeadConvertedUser")
+  uploadedMedicalRecords         MedicalRecord[]          @relation("MedicalRecordUploadedBy")
+  medicationAdherenceRecords     MedicationAdherence[]    @relation("MedicationRecordedBy")
+  notifications                  Notification[]
+  operationsManagerProfile       OperationsManager?       @relation("OperationsManagerToUser")
+  subscriberPayments             Payment[]                @relation("SubscriberPayments")
+  backgroundChecksReviewed       StaffBackgroundCheck[]   @relation("BackgroundCheckReviewedBy")
+  verifiedStaffDocuments         StaffDocument[]          @relation("StaffDocumentVerifiedBy")
+  staffProfilesReporting         StaffProfile[]           @relation("StaffProfileReportsTo")
+  staffProfile                   StaffProfile?            @relation("StaffProfileToUser")
+  customerServiceProfile         CustomerServiceAgent?    @relation("CSAToUser")
+  trainingsAssigned              StaffTraining[]          @relation("TrainingAssignedBy")
+  subscriberSubscriptions        Subscription[]           @relation("SubscriberSubscriptions")
+  vitalHistoryRecords            VitalHistory[]           @relation("VitalRecordedBy")
+  zonesAsFieldManager            Zone[]                   @relation("ZoneFieldManager")
+  zonesAsOperationsManager       Zone[]                   @relation("ZoneOperationsManager")
+  createdVitalDefinitions        VitalDefinition[]        @relation("VitalDefinitionCreator")
+  createdVitalTemplates          VitalConfigTemplate[]    @relation("VitalConfigTemplateCreator")
+  createdBeneficiaryVitalConfigs BeneficiaryVitalConfig[] @relation("BeneficiaryVitalConfigCreator")
+  updatedBeneficiaryVitalConfigs BeneficiaryVitalConfig[] @relation("BeneficiaryVitalConfigUpdater")
+  capturedVitalReadings          VitalReading[]           @relation("VitalReadingCapturedBy")
+  acknowledgedVitalAlerts        VitalAlert[]             @relation("VitalAlertAcknowledgedBy")
+  activityLogs                   ActivityLog[]
+  addresses                      Address[]
+
+  @@index([name])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  code      String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("otps")
+}
+
+model MedicalCondition {
+  id                    String                 @id @default(uuid())
+  name                  String                 @unique
+  slug                  String                 @unique
+  category              String
+  icdCode               String?
+  description           String?
+  icon                  String?
+  isCommon              Boolean                @default(false)
+  isActive              Boolean                @default(true)
+  sortOrder             Int                    @default(0)
+  beneficiaryConditions BeneficiaryCondition[]
+
+  @@map("medical_conditions")
+}
+
+model BeneficiaryCondition {
+  id            String            @id @default(uuid())
+  beneficiaryId String
+  conditionId   String
+  severity      ConditionSeverity @default(moderate)
+  diagnosedAt   DateTime?
+  diagnosedBy   String?
+  notes         String?
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  beneficiary   Beneficiary       @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  condition     MedicalCondition  @relation(fields: [conditionId], references: [id])
+
+  @@unique([beneficiaryId, conditionId])
+  @@map("beneficiary_conditions")
+}
+
+model MedicalRecord {
+  id              String       @id @default(uuid())
+  beneficiaryId   String
+  uploadedBy      String
+  recordType      RecordType   @default(prescription)
+  title           String
+  fileUrl         String?
+  thumbnailUrl    String?
+  mimeType        String?
+  fileSizeBytes   Int?
+  doctorName      String?
+  doctorPhone     String?
+  doctorSpecialty String?
+  hospitalName    String?
+  hospitalAddress String?
+  recordDate      DateTime?
+  expiryDate      DateTime?
+  notes           String?
+  tags            String[]     @default([])
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  beneficiary     Beneficiary  @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  uploadedByUser  User         @relation("MedicalRecordUploadedBy", fields: [uploadedBy], references: [id])
+  medications     Medication[]
+
+  @@map("medical_records")
+}
+
+model Medication {
+  id                 String                @id @default(uuid())
+  beneficiaryId      String
+  medicalRecordId    String?
+  name               String
+  genericName        String?
+  dosage             String
+  route              MedicationRoute       @default(oral)
+  frequency          MedicationFrequency   @default(twice_daily)
+  timeSlots          String[]              @default([])
+  instructions       String?
+  sideEffects        String?
+  prescribedBy       String?
+  startDate          DateTime
+  endDate            DateTime?
+  totalDays          Int?
+  refillReminderDays Int?
+  setReminders       Boolean               @default(false)
+  isActive           Boolean               @default(true)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  adherenceRecords   MedicationAdherence[]
+  beneficiary        Beneficiary           @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  medicalRecord      MedicalRecord?        @relation(fields: [medicalRecordId], references: [id])
+
+  @@map("medications")
+}
+
+model EmergencyContact {
+  id                String      @id @default(uuid())
+  beneficiaryId     String
+  name              String
+  phone             String
+  alternatePhone    String?
+  email             String?
+  relationship      String
+  address           String?
+  isPrimary         Boolean     @default(false)
+  isVerified        Boolean     @default(false)
+  notifyOnVisit     Boolean     @default(false)
+  notifyOnEmergency Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  beneficiary       Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+
+  @@map("emergency_contacts")
+}
+
+model SchedulePreference {
+  id                 String      @id @default(uuid())
+  beneficiaryId      String      @unique
+  preferredDays      String[]    @default([])
+  avoidDays          String[]    @default([])
+  preferredSlot      String
+  preferredTimeFrom  String?
+  preferredTimeTo    String?
+  preferFemaleCc     Boolean     @default(false)
+  languagePreference String?
+  specialNotes       String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  beneficiary        Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+
+  @@map("schedule_preferences")
+}
+
+model Beneficiary {
+  id                    String                   @id @default(uuid())
+  userId                String                   @unique
+  subscriberId          String
+  name                  String
+  photo                 String?
+  dateOfBirth           DateTime?
+  age                   Int
+  gender                GenderType               @default(prefer_not_to_say)
+  bloodGroup            BloodGroup               @default(unknown)
+  address               String
+  flatPlot              String?
+  streetArea            String?
+  landmark              String?
+  city                  String?
+  state                 String?
+  pincode               String?
+  latitude              Float?
+  longitude             Float?
+  relationship          String?
+  primaryPhysicianName  String?
+  primaryPhysicianPhone String?
+  primaryPhysicianSpec  String?
+  hobbiesInterests      String[]                 @default([])
+  trackBloodPressure    Boolean                  @default(false)
+  trackHeartRate        Boolean                  @default(false)
+  trackBloodSugar       Boolean                  @default(false)
+  trackTemperature      Boolean                  @default(false)
+  trackOxygenSaturation Boolean                  @default(false)
+  trackWeight           Boolean                  @default(false)
+  trackPainLevel        Boolean                  @default(false)
+  trackRespiratoryRate  Boolean                  @default(false)
+  primaryCcId           String?
+  secondaryCcId         String?
+  fieldManagerId        String?
+  emotionalScore        Float                    @default(8.0)
+  medicationScore       Float                    @default(100.0)
+  healthScore           Float                    @default(8.0)
+  dietaryRestrictions   String[]                 @default([])
+  allergies             String[]                 @default([])
+  mobilityStatus        String?
+  cognitiveStatus       String?
+  insuranceProvider     String?
+  insurancePolicyNo     String?
+  isActive              Boolean                  @default(true)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  maritalStatus         String?
+  appointments          Appointment[]
+  fieldManager          User?                    @relation("BeneficiaryFieldManager", fields: [fieldManagerId], references: [id])
+  primaryCC             CareCompanion?           @relation("PrimaryCC", fields: [primaryCcId], references: [id])
+  secondaryCC           CareCompanion?           @relation("SecondaryCC", fields: [secondaryCcId], references: [id])
+  subscriber            User                     @relation("SubscriberBeneficiaries", fields: [subscriberId], references: [id])
+  user                  User                     @relation("BeneficiaryUser", fields: [userId], references: [id])
+  conditions            BeneficiaryCondition[]
+  calls                 CallLog[]                @relation("BeneficiaryCalls")
+  callbackRequests      CallbackRequest[]
+  emergencyContacts     EmergencyContact[]
+  emergencyRequests     EmergencyRequest[]
+  medicalRecords        MedicalRecord[]
+  adherenceRecords      MedicationAdherence[]
+  medicationList        Medication[]
+  packageHourLogs       PackageHoursLog[]
+  payments              Payment[]
+  schedulePreference    SchedulePreference?
+  subscriptions         Subscription[]
+  visits                Visit[]
+  vitalConfigs          BeneficiaryVitalConfig[]
+  vitalReadings         VitalReading[]
+  vitalAlerts           VitalAlert[]
+  vitalHistory          VitalHistory[]
+
+  @@index([name])
+  @@index([city])
+  @@index([pincode])
+  @@index([subscriberId])
+  @@index([fieldManagerId])
+  @@index([primaryCcId])
+  @@index([secondaryCcId])
+  @@map("beneficiaries")
+}
+
+model CareCompanion {
+  id                        String                     @id @default(uuid())
+  userId                    String                     @unique
+  name                      String
+  photo                     String?
+  bio                       String                     @default("")
+  specialization            String[]                   @default([])
+  languages                 String[]                   @default([])
+  zone                      String
+  experience                Int?
+  qualifications            String[]                   @default([])
+  nursingRegistrationNumber String?
+  nursingCouncil            String?
+  ccType                    String?                    @default("care_assistant") // nurse | care_assistant
+  shiftPreference           ShiftPreference            @default(any)
+  maxDailyVisits            Int?
+  maxPrimaryBeneficiaries   Int                        @default(5)
+  maxSecondaryBeneficiaries Int                        @default(5)
+  willingClinicVisits       Boolean                    @default(false)
+  hasTwoWheeler             Boolean                    @default(false)
+  rating                    Float                      @default(5.0)
+  totalVisits               Int                        @default(0)
+  isAvailable               Boolean                    @default(true)
+  isVerified                Boolean                    @default(false)
+  teamId                    String?
+  joinedAt                  DateTime?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  appointments              Appointment[]
+  primaryFor                Beneficiary[]              @relation("PrimaryCC")
+  secondaryFor              Beneficiary[]              @relation("SecondaryCC")
+  team                      Team?                      @relation(fields: [teamId], references: [id])
+  user                      User                       @relation("CareCompanionToUser", fields: [userId], references: [id])
+  blockers                  StaffAvailabilityBlocker[]
+  visits                    Visit[]
+
+  @@index([name])
+  @@index([teamId])
+  @@index([zone])
+  @@index([isAvailable])
+  @@map("care_companions")
+}
+
+model FieldManager {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  name             String
+  photo            String?
+  zone             String
+  phone            String?
+  qualification    String?
+  experience       Int?
+  previousEmployer String?
+  maxTeamSize      Int?      @default(15)
+  canApproveRoster Boolean   @default(true)
+  canOnboardCCs    Boolean   @default(false)
+  reportsToUserId  String?
+  isAvailable      Boolean   @default(true)
+  joinedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  reportsToUser    User?     @relation("FieldManagerReportsTo", fields: [reportsToUserId], references: [id])
+  user             User      @relation("FieldManagerToUser", fields: [userId], references: [id])
+  teams            Team[]
+
+  @@index([name])
+  @@map("field_managers")
+}
+
+model OperationsManager {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  name          String
+  photo         String?
+  phone         String?
+  qualification String?
+  experience    Int?
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation("OperationsManagerToUser", fields: [userId], references: [id])
+
+  @@index([name])
+  @@map("operations_managers")
+}
+
+model CustomerServiceAgent {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  name          String
+  photo         String?
+  phone         String?
+  qualification String?
+  experience    Int?
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation("CSAToUser", fields: [userId], references: [id])
+
+  @@index([name])
+  @@map("customer_service_agents")
+}
+
+model StaffProfile {
+  id                     String                 @id @default(uuid())
+  userId                 String                 @unique
+  role                   UserRole
+  preferredName          String?
+  dateOfBirth            DateTime?
+  gender                 GenderType             @default(prefer_not_to_say)
+  whatsappPhone          String?
+  alternatePhone         String?
+  addressLine1           String?
+  addressLine2           String?
+  city                   String?
+  state                  String?
+  pincode                String?
+  aadhaarNumberEncrypted String?
+  panNumberEncrypted     String?
+  languages              String[]               @default([])
+  specialization         String[]               @default([])
+  zoneId                 String?
+  teamId                 String?
+  reportsToUserId        String?
+  employmentStatus       StaffEmploymentStatus  @default(draft)
+  joinedAt               DateTime?
+  activatedAt            DateTime?
+  deactivatedAt          DateTime?
+  notes                  String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  bgvVerified            Boolean                @default(false)
+  kycVerified            Boolean                @default(false)
+  bgvAgency              String?
+  bgvType                String?
+  backgroundChecks       StaffBackgroundCheck[]
+  documents              StaffDocument[]
+  reportsToUser          User?                  @relation("StaffProfileReportsTo", fields: [reportsToUserId], references: [id])
+  team                   Team?                  @relation(fields: [teamId], references: [id])
+  user                   User                   @relation("StaffProfileToUser", fields: [userId], references: [id])
+  zone                   Zone?                  @relation(fields: [zoneId], references: [id])
+  trainings              StaffTraining[]
+
+  @@index([role])
+  @@index([employmentStatus])
+  @@index([zoneId])
+  @@index([teamId])
+  @@map("staff_profiles")
+}
+
+model StaffDocument {
+  id             String            @id @default(uuid())
+  staffProfileId String
+  documentType   StaffDocumentType
+  fileName       String?
+  fileKey        String?
+  fileUrl        String?
+  mimeType       String?
+  fileSizeBytes  Int?
+  isRequired     Boolean           @default(false)
+  isVerified     Boolean           @default(false)
+  verifiedAt     DateTime?
+  verifiedBy     String?
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  staffProfile   StaffProfile      @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  verifiedByUser User?             @relation("StaffDocumentVerifiedBy", fields: [verifiedBy], references: [id])
+
+  @@unique([staffProfileId, documentType])
+  @@map("staff_documents")
+}
+
+model StaffBackgroundCheck {
+  id                  String                @id @default(uuid())
+  staffProfileId      String
+  backgroundCheckType BackgroundCheckType
+  status              BackgroundCheckStatus @default(pending)
+  agency              String?
+  referenceNumber     String?
+  initiatedAt         DateTime?
+  completedAt         DateTime?
+  validUntil          DateTime?
+  reportUrl           String?
+  reviewedBy          String?
+  notes               String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  reviewedByUser      User?                 @relation("BackgroundCheckReviewedBy", fields: [reviewedBy], references: [id])
+  staffProfile        StaffProfile          @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("staff_background_checks")
+}
+
+model StaffTraining {
+  id             String              @id @default(uuid())
+  staffProfileId String
+  trainingType   StaffTrainingType
+  title          String?
+  assignedBy     String?
+  dueAt          DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  status         StaffTrainingStatus @default(assigned)
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  assignedByUser User?               @relation("TrainingAssignedBy", fields: [assignedBy], references: [id])
+  staffProfile   StaffProfile        @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("staff_trainings")
+}
+
+model Team {
+  id             String          @id @default(uuid())
+  name           String
+  fieldManagerId String
+  zone           String
+  description    String?
+  maxCapacity    Int             @default(15)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  careCompanions CareCompanion[]
+  staffProfiles  StaffProfile[]
+  fieldManager   FieldManager    @relation(fields: [fieldManagerId], references: [id])
+
+  @@map("teams")
+}
+
+model BenefitType {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  description  String?
+  iconCode     String?
+  displayOrder Int       @default(0)
+  isActive     Boolean   @default(true)
+  isSystem     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  benefits     Benefit[]
+
+  @@map("benefit_types")
+}
+
+model Benefit {
+  id              String                       @id @default(uuid())
+  benefitTypeId   String
+  name            String
+  description     String?
+  isChargeable    Boolean                      @default(false)
+  unitCost        Float?
+  currency        String                       @default("INR")
+  unitLabel       String?
+  defaultUnits    Int                          @default(1)
+  isActive        Boolean                      @default(true)
+  displayOrder    Int                          @default(0)
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  benefitType     BenefitType                  @relation(fields: [benefitTypeId], references: [id])
+  packageBenefits PackageBenefit[]
+  balances        SubscriptionBenefitBalance[]
+
+  @@map("benefits")
+}
+
+model PackageBenefit {
+  id               String              @id @default(uuid())
+  packageId        String
+  benefitId        String
+  unitsIncluded    Int                 @default(1)
+  unitsPeriod      String              @default("monthly")
+  isUnlimited      Boolean             @default(false)
+  allowRollover    Boolean             @default(false)
+  maxRolloverUnits Int?
+  displayOrder     Int                 @default(0)
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  benefit          Benefit             @relation(fields: [benefitId], references: [id])
+  package          SubscriptionPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, benefitId])
+  @@map("package_benefits")
+}
+
+model PackageDiscount {
+  id            String              @id @default(uuid())
+  packageId     String
+  billingCycle  String
+  discountType  String
+  discountValue Float
+  finalCost     Float?
+  isActive      Boolean             @default(true)
+  validFrom     DateTime?
+  validTo       DateTime?
+  createdAt     DateTime            @default(now())
+  package       SubscriptionPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, billingCycle])
+  @@map("package_discounts")
+}
+
+model SubscriptionPackage {
+  id                 String            @id @default(uuid())
+  type               String            @unique
+  name               String
+  tagline            String?
+  description        String
+  basePrice          Float
+  currency           String            @default("INR")
+  billingCycle       String            @default("monthly")
+  isFreeTrial        Boolean           @default(false)
+  trialDurationDays  Int?
+  activeFrom         DateTime          @default(now())
+  activeTo           DateTime?
+  discountSixMonths  Float             @default(10.0)
+  discountAnnual     Float             @default(20.0)
+  durationMonths     Int               @default(1)
+  visitsPerWeek      Int               @default(0)
+  hoursPerMonth      Float             @default(0)
+  maxBeneficiaries   Int               @default(1)
+  features           String[]          @default([])
+  highlightFeatures  String[]          @default([])
+  color              String?
+  isPopular          Boolean           @default(false)
+  isGlobal           Boolean           @default(true)
+  isActive           Boolean           @default(true)
+  sortOrder          Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  discountPercentage Float             @default(0)
+  mrp                Float             @default(0)
+  miscellaneousCost  Float             @default(0)
+  packageBenefits    PackageBenefit[]
+  packageDiscounts   PackageDiscount[]
+  subscriptions      Subscription[]
+
+  @@map("subscription_packages")
+}
+
+model Subscription {
+  id               String                       @id @default(uuid())
+  subscriberId     String
+  beneficiaryId    String
+  packageType      String
+  duration         SubscriptionDuration         @default(monthly)
+  startDate        DateTime
+  endDate          DateTime
+  renewalDate      DateTime?
+  autoRenew        Boolean                      @default(false)
+  visitsCompleted  Int                          @default(0)
+  visitsTotal      Int
+  hoursUsed        Float                        @default(0.0)
+  hoursTotal       Float
+  isActive         Boolean                      @default(true)
+  cancelledAt      DateTime?
+  cancellationNote String?
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+  hoursLogs        PackageHoursLog[]
+  payments         Payment[]
+  benefitBalances  SubscriptionBenefitBalance[]
+  beneficiary      Beneficiary                  @relation(fields: [beneficiaryId], references: [id])
+  package          SubscriptionPackage          @relation(fields: [packageType], references: [type])
+  subscriber       User                         @relation("SubscriberSubscriptions", fields: [subscriberId], references: [id])
+
+  @@index([subscriberId])
+  @@index([beneficiaryId])
+  @@index([isActive])
+  @@map("subscriptions")
+}
+
+model PackageHoursLog {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  beneficiaryId  String
+  visitId        String?      @unique
+  hoursConsumed  Float
+  balanceBefore  Float
+  balanceAfter   Float
+  description    String?
+  loggedAt       DateTime     @default(now())
+  beneficiary    Beneficiary  @relation(fields: [beneficiaryId], references: [id])
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  visit          Visit?       @relation(fields: [visitId], references: [id])
+
+  @@map("package_hours_logs")
+}
+
+model Payment {
+  id                   String        @id @default(uuid())
+  invoiceNumber        String?       @unique
+  subscriberId         String
+  beneficiaryId        String
+  subscriptionId       String
+  packageType          String
+  baseAmount           Float
+  discountAmount       Float         @default(0.0)
+  couponCode           String?
+  taxAmount            Float         @default(0.0)
+  amountPaid           Float
+  currency             String        @default("INR")
+  paymentMethod        String        @default("UPI")
+  paymentStatus        PaymentStatus @default(pending)
+  transactionId        String?       @unique
+  gatewayName          String?
+  gatewayOrderId       String?
+  gatewayPaymentId     String?
+  gatewaySignature     String?
+  gatewayResponse      Json?
+  failureCode          String?
+  failureReason        String?
+  refundId             String?
+  refundAmount         Float?
+  refundedAt           DateTime?
+  refundReason         String?
+  planStartDate        DateTime
+  planEndDate          DateTime
+  isSubscriptionActive Boolean       @default(true)
+  enrolledAt           DateTime      @default(now())
+  paidAt               DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  beneficiary          Beneficiary   @relation(fields: [beneficiaryId], references: [id])
+  subscriber           User          @relation("SubscriberPayments", fields: [subscriberId], references: [id])
+  subscription         Subscription  @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriberId])
+  @@index([beneficiaryId])
+  @@index([subscriptionId])
+  @@index([paymentStatus])
+  @@map("payments")
+}
+
+model Appointment {
+  id               String            @id @default(uuid())
+  beneficiaryId    String
+  careCompanionId  String?
+  scheduledDate    DateTime
+  durationMinutes  Int               @default(60)
+  status           AppointmentStatus @default(pending)
+  bookedBy         String?
+  notes            String?
+  addressId        String?
+  isServiceRequest Boolean           @default(false)
+  rescheduleCount  Int               @default(0)
+  rescheduleReason String?
+  previousDate     DateTime?
+  confirmedAt      DateTime?
+  reminderSentAt   DateTime?
+  cancellationNote String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  beneficiary      Beneficiary       @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  bookedByUser     User?             @relation("AppointmentBookedBy", fields: [bookedBy], references: [id])
+  careCompanion    CareCompanion?    @relation(fields: [careCompanionId], references: [id])
+  address          Address?          @relation(fields: [addressId], references: [id])
+  visit            Visit?
+
+  @@index([beneficiaryId])
+  @@index([careCompanionId])
+  @@index([addressId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("appointments")
+}
+
+model Address {
+  id           String        @id @default(uuid())
+  userId       String
+  label        String?
+  addressLine  String
+  city         String
+  state        String
+  pincode      String
+  latitude     Float?
+  longitude    Float?
+  isDefault    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  user         User          @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Visit {
+  id                         String                @id @default(uuid())
+  encounterId                String                @unique
+  beneficiaryId              String
+  careCompanionId            String
+  appointmentId              String?               @unique
+  scheduledTime              DateTime
+  checkInTime                DateTime?
+  checkOutTime               DateTime?
+  durationMinutes            Int?
+  status                     VisitStatus           @default(scheduled)
+  checkInLat                 Float?
+  checkInLng                 Float?
+  checkOutLat                Float?
+  checkOutLng                Float?
+  isGeoVerified              Boolean               @default(false)
+  geoDistanceMeters          Float?
+  manualCheckInReason        String?
+  bpSystolic                 Int?
+  bpDiastolic                Int?
+  heartRate                  Int?
+  oxygenLevel                Float?
+  bloodSugarFasting          Float?
+  bloodSugarPostMeal         Float?
+  temperature                Float?
+  weight                     Float?
+  height                     Float?
+  bmi                        Float?
+  painLevel                  Int?
+  respiratoryRate            Int?
+  extraVitals                Json?
+  mood                       MoodType?
+  happinessScore             Int?
+  cognitiveScore             Int?
+  mobilityScore              Int?
+  appetiteScore              Int?
+  sleepQualityScore          Int?
+  hygieneScore               Int?
+  socialEngagement           Boolean               @default(false)
+  activitiesDone             String[]              @default([])
+  medicationAdherence        Boolean               @default(false)
+  medicationNotes            String?
+  notes                      String?
+  visitSummary               String?
+  followUpRequired           Boolean               @default(false)
+  followUpNotes              String?
+  followUpDate               DateTime?
+  escalateToManager          Boolean               @default(false)
+  escalationReason           String?
+  rating                     Int?
+  feedback                   String?
+  ccSelfRating               Int?
+  locationLat                Float?
+  locationLng                Float?
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+  medicationAdherenceRecords MedicationAdherence[]
+  packageHoursLog            PackageHoursLog?
+  appointment                Appointment?          @relation(fields: [appointmentId], references: [id])
+  beneficiary                Beneficiary           @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  careCompanion              CareCompanion         @relation(fields: [careCompanionId], references: [id])
+  vitalReadings              VitalReading[]
+  vitalHistory               VitalHistory[]
+
+  @@index([beneficiaryId])
+  @@index([careCompanionId])
+  @@index([status])
+  @@index([scheduledTime])
+  @@map("visits")
+}
+
+model VitalHistory {
+  id                 String      @id @default(uuid())
+  beneficiaryId      String
+  visitId            String?
+  recordedBy         String
+  recordedAt         DateTime    @default(now())
+  bpSystolic         Int?
+  bpDiastolic        Int?
+  heartRate          Int?
+  oxygenLevel        Float?
+  bloodSugarFasting  Float?
+  bloodSugarPostMeal Float?
+  temperature        Float?
+  weight             Float?
+  height             Float?
+  bmi                Float?
+  painLevel          Int?
+  respiratoryRate    Int?
+  beneficiary        Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  recordedByUser     User        @relation("VitalRecordedBy", fields: [recordedBy], references: [id])
+  visit              Visit?      @relation(fields: [visitId], references: [id])
+
+  @@index([beneficiaryId])
+  @@index([visitId])
+  @@index([recordedAt])
+  @@map("vital_history")
+}
+
+model MedicationAdherence {
+  id             String      @id @default(uuid())
+  beneficiaryId  String
+  medicationId   String
+  visitId        String?
+  scheduledTime  DateTime
+  taken          Boolean     @default(false)
+  takenTime      DateTime?
+  skippedReason  String?
+  administeredBy String?
+  recordedBy     String
+  beneficiary    Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  medication     Medication  @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  recordedByUser User        @relation("MedicationRecordedBy", fields: [recordedBy], references: [id])
+  visit          Visit?      @relation(fields: [visitId], references: [id])
+
+  @@index([beneficiaryId])
+  @@index([medicationId])
+  @@index([scheduledTime])
+  @@index([taken])
+  @@map("medication_adherence")
+}
+
+model EmergencyRequest {
+  id              String          @id @default(uuid())
+  ticketNumber    String          @unique
+  beneficiaryId   String
+  requestedBy     String
+  status          EmergencyStatus @default(open)
+  type            String?
+  description     String?
+  locationLat     Float?
+  locationLng     Float?
+  locationAddress String?
+  assignedTo      String?
+  assignedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  resolvedAt      DateTime?
+  resolutionNotes String?
+  notes           Json            @default("[]")
+  assignee        User?           @relation("AssignedTo", fields: [assignedTo], references: [id])
+  beneficiary     Beneficiary     @relation(fields: [beneficiaryId], references: [id])
+  requester       User            @relation("RequestedBy", fields: [requestedBy], references: [id])
+
+  @@map("emergency_requests")
+}
+
+model CallLog {
+  id           String      @id @default(uuid())
+  callerId     String
+  receiverId   String
+  callType     String      @default("voice")
+  status       String      @default("completed")
+  durationSecs Int?
+  startedAt    DateTime    @default(now())
+  endedAt      DateTime?
+  caller       Beneficiary @relation("BeneficiaryCalls", fields: [callerId], references: [id])
+
+  @@map("call_logs")
+}
+
+model Notification {
+  id         String              @id @default(uuid())
+  userId     String
+  type       NotificationType
+  channel    NotificationChannel @default(push)
+  title      String
+  body       String
+  data       Json?               @default("{}")
+  isRead     Boolean             @default(false)
+  readAt     DateTime?
+  sentAt     DateTime?
+  failedAt   DateTime?
+  failReason String?
+  createdAt  DateTime            @default(now())
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Zone {
+  id                    String         @id @default(uuid())
+  name                  String         @unique
+  code                  String?        @unique
+  city                  String
+  address               String
+  state                 String
+  pincode               String
+  latitude              Float?
+  longitude             Float?
+  radiusKm              Float?
+  phone                 String?
+  email                 String?
+  leaseStartDate        DateTime?
+  leaseEndDate          DateTime?
+  rentAmount            Float?
+  isActive              Boolean        @default(true)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  fieldManagerId        String?
+  operationsManagerId   String?
+  staffProfiles         StaffProfile[]
+  fieldManagerUser      User?          @relation("ZoneFieldManager", fields: [fieldManagerId], references: [id])
+  operationsManagerUser User?          @relation("ZoneOperationsManager", fields: [operationsManagerId], references: [id])
+
+  @@index([name])
+  @@index([city])
+  @@index([pincode])
+  @@map("zones")
+}
+
+model MarketingLead {
+  id              String     @id @default(uuid())
+  name            String
+  phone           String
+  email           String?
+  city            String?
+  pincode         String?
+  source          LeadSource @default(website)
+  status          LeadStatus @default(new)
+  interests       String[]   @default([])
+  notes           String?
+  assignedTo      String?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  utmContent      String?
+  referralCode    String?
+  followUpAt      DateTime?
+  lastContactedAt DateTime?
+  convertedAt     DateTime?
+  convertedUserId String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  assignedToUser  User?      @relation("LeadAssignedTo", fields: [assignedTo], references: [id])
+  convertedUser   User?      @relation("LeadConvertedUser", fields: [convertedUserId], references: [id])
+
+  @@map("marketing_leads")
+}
+
+model CallbackRequest {
+  id             String         @id @default(uuid())
+  name           String
+  phone          String
+  message        String?
+  subscriberId   String?
+  beneficiaryId  String?
+  status         CallbackStatus @default(pending)
+  assignedTo     String?
+  notes          String?
+  scheduledAt    DateTime?
+  calledAt       DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  assignedToUser User?          @relation("CallbackAssignedTo", fields: [assignedTo], references: [id])
+  beneficiary    Beneficiary?   @relation(fields: [beneficiaryId], references: [id])
+  subscriber     User?          @relation("SubscriberCallbacks", fields: [subscriberId], references: [id])
+
+  @@map("callback_requests")
+}
+
+model VitalDefinition {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  unit        String?
+  dataType    String // 'numeric', 'dual_numeric', 'text', 'boolean'
+  inputMin    Float?
+  inputMax    Float?
+  normalMin   Float?
+  normalMax   Float?
+
+  // ── Dual Numeric fields (e.g. Blood Pressure: Systolic/Diastolic) ──
+  value1Label String? // e.g. "Systolic"
+  value2Label String? // e.g. "Diastolic"
+  normalMin2  Float? // Normal min for second value
+  normalMax2  Float? // Normal max for second value
+
+  // ── Text type fields ──
+  textOptions  String[] @default([]) // Predefined options e.g. ["Happy","Sad","Anxious"]
+  alertOptions String[] @default([]) // Options that trigger an alert e.g. ["Sad","Anxious"]
+
+  // ── Boolean type fields ──
+  booleanTrueLabel  String? // Custom label for "Yes" (default: "Yes")
+  booleanFalseLabel String? // Custom label for "No" (default: "No")
+  booleanAlertValue Boolean? // Which boolean value triggers alert (true=Yes, false=No, null=none)
+
+  isSystemVital Boolean  @default(true)
+  displayOrder  Int      @default(0)
+  iconCode      String?
+  isActive      Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdBy          User?                    @relation("VitalDefinitionCreator", fields: [createdById], references: [id])
+  templateItems      VitalTemplateItem[]
+  beneficiaryConfigs BeneficiaryVitalConfig[]
+  readings           VitalReading[]
+
+  @@map("vital_definitions")
+}
+
+model VitalConfigTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy      User?                    @relation("VitalConfigTemplateCreator", fields: [createdById], references: [id])
+  items          VitalTemplateItem[]
+  appliedConfigs BeneficiaryVitalConfig[]
+
+  @@map("vital_config_templates")
+}
+
+model VitalTemplateItem {
+  id                String   @id @default(uuid())
+  templateId        String
+  vitalDefinitionId String
+  isMandatory       Boolean  @default(false)
+  frequency         String? // 'every_visit', 'weekly', 'monthly'
+  displayOrder      Int      @default(0)
+  alertOnAbnormal   Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  template        VitalConfigTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  vitalDefinition VitalDefinition     @relation(fields: [vitalDefinitionId], references: [id])
+
+  @@unique([templateId, vitalDefinitionId])
+  @@map("vital_template_items")
+}
+
+model BeneficiaryVitalConfig {
+  id                String  @id @default(uuid())
+  beneficiaryId     String
+  vitalDefinitionId String
+  templateId        String?
+  isActive          Boolean @default(true)
+  isMandatory       Boolean @default(false)
+  frequency         String  @default("every_visit")
+  alertOnAbnormal   Boolean @default(true)
+
+  customNormalMin Float?
+  customNormalMax Float?
+
+  effectiveFrom DateTime  @default(now()) @db.Date
+  effectiveTo   DateTime? @db.Date
+  notes         String?
+
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  beneficiary     Beneficiary          @relation(fields: [beneficiaryId], references: [id])
+  vitalDefinition VitalDefinition      @relation(fields: [vitalDefinitionId], references: [id])
+  template        VitalConfigTemplate? @relation(fields: [templateId], references: [id])
+  createdBy       User?                @relation("BeneficiaryVitalConfigCreator", fields: [createdById], references: [id])
+  updatedBy       User?                @relation("BeneficiaryVitalConfigUpdater", fields: [updatedById], references: [id])
+  readings        VitalReading[]
+
+  @@unique([beneficiaryId, vitalDefinitionId, effectiveFrom])
+  @@map("beneficiary_vital_configs")
+}
+
+model VitalReading {
+  id                String  @id @default(uuid())
+  beneficiaryId     String
+  vitalDefinitionId String
+  encounterId       String?
+  configId          String?
+
+  valueNumeric  Float?
+  valueNumeric2 Float?
+  valueText     String?
+
+  unit             String?
+  isAbnormal       Boolean?
+  abnormalityNotes String?
+
+  capturedById  String
+  capturedAt    DateTime @default(now())
+  captureMethod String   @default("manual") // 'manual', 'device', 'auto'
+  deviceId      String?
+
+  latitude  Float?
+  longitude Float?
+
+  createdAt DateTime @default(now())
+
+  beneficiary     Beneficiary             @relation(fields: [beneficiaryId], references: [id])
+  vitalDefinition VitalDefinition         @relation(fields: [vitalDefinitionId], references: [id])
+  encounter       Visit?                  @relation(fields: [encounterId], references: [id])
+  config          BeneficiaryVitalConfig? @relation(fields: [configId], references: [id])
+  capturedBy      User                    @relation("VitalReadingCapturedBy", fields: [capturedById], references: [id])
+  alerts          VitalAlert[]
+
+  @@index([beneficiaryId, capturedAt(sort: Desc)])
+  @@index([encounterId])
+  @@index([vitalDefinitionId, capturedAt(sort: Desc)])
+  @@map("vital_readings")
+}
+
+model VitalAlert {
+  id               String    @id @default(uuid())
+  readingId        String
+  beneficiaryId    String
+  alertType        String? // 'below_normal', 'above_normal', 'critical'
+  notifiedUsers    String[] // array of user IDs
+  message          String?
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+  createdAt        DateTime  @default(now())
+
+  reading        VitalReading @relation(fields: [readingId], references: [id])
+  beneficiary    Beneficiary  @relation(fields: [beneficiaryId], references: [id])
+  acknowledgedBy User?        @relation("VitalAlertAcknowledgedBy", fields: [acknowledgedById], references: [id])
+
+  @@map("vital_alerts")
+}
+
+model Coupon {
+  id                String        @id @default(uuid())
+  code              String        @unique
+  name              String
+  description       String?
+  type              CouponType
+  discountValue     Float
+  minOrderAmount    Float?
+  maxDiscountAmount Float?
+  startDate         DateTime
+  endDate           DateTime
+  isActive          Boolean       @default(true)
+  isVisible         Boolean       @default(true)
+  isAutoApply       Boolean       @default(false)
+  usageLimit        Int?
+  usedCount         Int           @default(0)
+  perUserLimit      Int?
+  allowedPackages   String[]      @default([])
+  allowedUserRoles  String[]      @default([])
+  firstTimeOnly     Boolean       @default(false)
+  isStackable       Boolean       @default(false)
+  deviceLimit       Int?
+  ipLimit           Int?
+  campaignName      String?
+  source            String?
+  createdBy         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  usages            CouponUsage[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id              String   @id @default(uuid())
+  couponId        String
+  userId          String
+  subscriptionId  String?
+  orderAmount     Float
+  discountApplied Float
+  usedAt          DateTime @default(now())
+  coupon          Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_usages")
+}
+
+model CouponAttemptLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  couponCode  String
+  ipAddress   String?
+  deviceInfo  String?
+  status      String
+  errorReason String?
+  attemptedAt DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([couponCode])
+  @@map("coupon_attempt_logs")
+}
+
+model SubscriptionBenefitBalance {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  benefitId      String
+  totalUnits     Int          @default(0)
+  usedUnits      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  benefit        Benefit      @relation(fields: [benefitId], references: [id])
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, benefitId])
+  @@map("subscription_benefit_balances")
+}
+
+model StaffAvailabilityBlocker {
+  id              String        @id @default(uuid())
+  careCompanionId String
+  startTime       DateTime
+  endTime         DateTime
+  reason          String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  careCompanion   CareCompanion @relation(fields: [careCompanionId], references: [id], onDelete: Cascade)
+
+  @@index([careCompanionId])
+  @@map("staff_availability_blockers")
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  group       String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+enum UserRole {
+  subscriber
+  beneficiary
+  care_companion
+  field_manager
+  operations_manager
+  emergency_coordinator
+  volunteer
+  admin
+  master_admin
+  customer_service
+  command_center
+}
+
+enum SubscriptionDuration {
+  monthly
+  six_months
+  annual
+}
+
+enum VisitStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+}
+
+enum AppointmentStatus {
+  pending
+  confirmed
+  rescheduled
+  completed
+  cancelled
+  no_show
+}
+
+enum MoodType {
+  happy
+  neutral
+  sad
+  anxious
+  depressed
+}
+
+enum EmergencyStatus {
+  open
+  in_progress
+  resolved
+}
+
+enum PaymentStatus {
+  pending
+  success
+  failed
+  refunded
+  partially_refunded
+}
+
+enum ConditionSeverity {
+  mild
+  moderate
+  severe
+  critical
+}
+
+enum RecordType {
+  prescription
+  lab_report
+  discharge_summary
+  imaging
+  vaccination
+  insurance
+  other
+}
+
+enum MedicationFrequency {
+  once_daily
+  twice_daily
+  thrice_daily
+  four_times_daily
+  every_6_hours
+  every_8_hours
+  every_12_hours
+  weekly
+  fortnightly
+  monthly
+  as_needed
+}
+
+enum MedicationRoute {
+  oral
+  sublingual
+  topical
+  inhaled
+  injectable
+  nasal
+  ophthalmic
+  otic
+  rectal
+}
+
+enum LeadSource {
+  website
+  mobile_app
+  referral
+  social_media
+  cold_call
+  event
+  partner
+  other
+}
+
+enum LeadStatus {
+  new
+  contacted
+  interested
+  converted
+  lost
+  do_not_contact
+}
+
+enum CallbackStatus {
+  pending
+  called
+  resolved
+  cancelled
+}
+
+enum NotificationType {
+  visit_reminder
+  medication_reminder
+  emergency_alert
+  payment_due
+  payment_success
+  payment_failed
+  subscription_expiry
+  appointment_confirmed
+  appointment_cancelled
+  care_report
+  system
+}
+
+enum NotificationChannel {
+  push
+  sms
+  whatsapp
+  email
+  in_app
+}
+
+enum GenderType {
+  male
+  female
+  other
+  prefer_not_to_say
+}
+
+enum BloodGroup {
+  A_positive
+  A_negative
+  B_positive
+  B_negative
+  O_positive
+  O_negative
+  AB_positive
+  AB_negative
+  unknown
+}
+
+enum StaffEmploymentStatus {
+  draft
+  pending_verification
+  pending_documents
+  bgv_pending
+  bgv_in_progress
+  active
+  on_leave
+  inactive
+  rejected
+}
+
+enum StaffDocumentType {
+  aadhaar_front
+  aadhaar_back
+  pan_card
+  nursing_certificate
+  first_aid_certificate
+  offer_letter
+  bgv_report
+  other
+}
+
+enum BackgroundCheckType {
+  police_clearance
+  address_verification
+  employment_history
+  education_verification
+  identity_verification
+  reference_check
+}
+
+enum BackgroundCheckStatus {
+  pending
+  in_progress
+  cleared
+  flagged
+  failed
+  expired
+}
+
+enum ShiftPreference {
+  any
+  morning
+  afternoon
+  evening
+  night
+}
+
+enum StaffTrainingType {
+  geriatric_care_orientation
+  first_aid_emergency_response
+  vitals_capture_documentation
+  smart_glasses
+  other
+}
+
+enum StaffTrainingStatus {
+  assigned
+  in_progress
+  completed
+  waived
+}
+
+enum CouponType {
+  percentage
+  fixed
+  free_trial
+  free_benefit
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String // SECURITY, PROFILE, SUBSCRIPTION
+  action    String // PASSWORD_CHANGED, PROFILE_UPDATED, PLAN_RENEWED
+  details   Json?
+  status    String   @default("success") // success, failure
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@map("activity_logs")
+}
