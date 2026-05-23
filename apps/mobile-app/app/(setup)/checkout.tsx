@@ -10,19 +10,31 @@ import {
     Platform,
     KeyboardAvoidingView,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    Dimensions
 } from 'react-native';
 import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 
 // 🛑 BACKEND SETUP
 import { API_URL } from '@/constants/api';
 const UPI_APPS = ['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'Amazon Pay'];
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const FIGMA_WIDTH = 716;
+const figmaScale = Math.min(SCREEN_WIDTH / FIGMA_WIDTH, 1);
+const fs = (value: number) => Math.round(value * figmaScale);
 
 export default function CheckoutScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const [fontsLoaded] = useFonts({
+        Poppins_400Regular,
+        Poppins_500Medium,
+        Poppins_600SemiBold,
+        Poppins_700Bold
+    });
 
     // 🛑 BACKEND STATE
     const packageId = (params.packageId as string) || 'silver';
@@ -212,6 +224,14 @@ export default function CheckoutScreen() {
         }
     };
 
+    if (!fontsLoaded) {
+        return (
+            <View style={[styles.mainBackground, styles.loadingContainer]}>
+                <ActivityIndicator size="small" color="#FE6700" />
+            </View>
+        );
+    }
+
     return (
         <View style={styles.mainBackground}>
 
@@ -300,6 +320,68 @@ export default function CheckoutScreen() {
                                     <Text style={styles.qrText}>Or scan QR code with any UPI app</Text>
                                 </View>
 
+                                <View style={styles.divider} />
+
+                                {/* ─── PROMO / COUPON SECTION ─── */}
+                                <View style={styles.couponCard}>
+                                    <View style={styles.couponHeader}>
+                                        <Ionicons name="pricetag-outline" size={20} color="#FE6700" />
+                                        <Text style={styles.couponHeaderText}>Have a Promo Code?</Text>
+                                    </View>
+
+                                    {!appliedCoupon ? (
+                                        <>
+                                            <View style={styles.promoInputRow}>
+                                                <TextInput
+                                                    style={[styles.promoInput, couponError ? { borderColor: '#EF4444' } : {}]}
+                                                    placeholder="Enter coupon code (e.g. SAVE20)"
+                                                    placeholderTextColor="#9CA3AF"
+                                                    value={promoCode}
+                                                    onChangeText={(text) => { setPromoCode(text.toUpperCase()); setCouponError(''); }}
+                                                    autoCapitalize="characters"
+                                                    autoCorrect={false}
+                                                    editable={!isApplyingCoupon}
+                                                />
+                                                <TouchableOpacity
+                                                    style={[styles.applyBtnOutline, (!promoCode || isApplyingCoupon) && { opacity: 0.5 }]}
+                                                    onPress={handleApplyCoupon}
+                                                    disabled={!promoCode || isApplyingCoupon}
+                                                >
+                                                    {isApplyingCoupon ? (
+                                                        <ActivityIndicator size="small" color="#FE6700" />
+                                                    ) : (
+                                                        <Text style={styles.applyBtnText}>Apply</Text>
+                                                    )}
+                                                </TouchableOpacity>
+                                            </View>
+
+                                            {couponError ? (
+                                                <View style={styles.couponErrorRow}>
+                                                    <Ionicons name="close-circle" size={16} color="#EF4444" />
+                                                    <Text style={styles.couponErrorText}>{couponError}</Text>
+                                                </View>
+                                            ) : (
+                                                <Text style={styles.couponHint}>Enter a valid coupon code to get a discount on this order.</Text>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <View style={styles.couponAppliedBox}>
+                                            <View style={styles.couponAppliedLeft}>
+                                                <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                                                <View style={{ marginLeft: 10 }}>
+                                                    <Text style={styles.couponAppliedCode}>{promoCode.toUpperCase()}</Text>
+                                                    <Text style={styles.couponAppliedSaving}>You saved ₹{appliedCoupon.discountApplied.toFixed(2)}!</Text>
+                                                </View>
+                                            </View>
+                                            <TouchableOpacity onPress={handleRemoveCoupon} style={styles.removeBtn}>
+                                                <Text style={styles.removeBtnText}>Remove</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+
+                                <View style={styles.divider} />
+
                                 <TouchableOpacity
                                     style={[styles.payButton, isProcessing && { opacity: 0.7 }]}
                                     onPress={handlePay}
@@ -337,64 +419,6 @@ export default function CheckoutScreen() {
 
                     </View>
                     {/* END MASTER PAYMENT CARD */}
-
-                    {/* ─── PROMO / COUPON SECTION (Always Visible) ─── */}
-                    <View style={styles.couponCard}>
-                        <View style={styles.couponHeader}>
-                            <Ionicons name="pricetag-outline" size={20} color="#FE6700" />
-                            <Text style={styles.couponHeaderText}>Have a Promo Code?</Text>
-                        </View>
-
-                        {!appliedCoupon ? (
-                            <>
-                                <View style={styles.promoInputRow}>
-                                    <TextInput
-                                        style={[styles.promoInput, couponError ? { borderColor: '#EF4444' } : {}]}
-                                        placeholder="Enter coupon code (e.g. SAVE20)"
-                                        placeholderTextColor="#9CA3AF"
-                                        value={promoCode}
-                                        onChangeText={(text) => { setPromoCode(text.toUpperCase()); setCouponError(''); }}
-                                        autoCapitalize="characters"
-                                        autoCorrect={false}
-                                        editable={!isApplyingCoupon}
-                                    />
-                                    <TouchableOpacity
-                                        style={[styles.applyBtnOutline, (!promoCode || isApplyingCoupon) && { opacity: 0.5 }]}
-                                        onPress={handleApplyCoupon}
-                                        disabled={!promoCode || isApplyingCoupon}
-                                    >
-                                        {isApplyingCoupon ? (
-                                            <ActivityIndicator size="small" color="#FE6700" />
-                                        ) : (
-                                            <Text style={styles.applyBtnText}>Apply</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-
-                                {couponError ? (
-                                    <View style={styles.couponErrorRow}>
-                                        <Ionicons name="close-circle" size={16} color="#EF4444" />
-                                        <Text style={styles.couponErrorText}>{couponError}</Text>
-                                    </View>
-                                ) : (
-                                    <Text style={styles.couponHint}>Enter a valid coupon code to get a discount on this order.</Text>
-                                )}
-                            </>
-                        ) : (
-                            <View style={styles.couponAppliedBox}>
-                                <View style={styles.couponAppliedLeft}>
-                                    <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                                    <View style={{ marginLeft: 10 }}>
-                                        <Text style={styles.couponAppliedCode}>{promoCode.toUpperCase()}</Text>
-                                        <Text style={styles.couponAppliedSaving}>You saved ₹{appliedCoupon.discountApplied.toFixed(2)}!</Text>
-                                    </View>
-                                </View>
-                                <TouchableOpacity onPress={handleRemoveCoupon} style={styles.removeBtn}>
-                                    <Text style={styles.removeBtnText}>Remove</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    </View>
 
                     {/* DYNAMIC ORDER SUMMARY */}
                     <View style={styles.summaryContainer}>
@@ -442,123 +466,118 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
-    mainBackground: { flex: 1, backgroundColor: '#FAF5F0' },
+    mainBackground: { flex: 1, backgroundColor: '#FFF1E6' },
+    loadingContainer: { alignItems: 'center', justifyContent: 'center' },
     safeAreaWhite: { backgroundColor: '#FFFFFF' },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 20 : 10, paddingBottom: 16 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', paddingHorizontal: fs(44), paddingTop: Platform.OS === 'android' ? fs(20) : fs(16), paddingBottom: fs(24) },
     backBtn: { width: 40, alignItems: 'flex-start' },
     headerSpacer: { width: 40 },
     headerTitles: { flex: 1, alignItems: 'center' },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#111827', textAlign: 'center' },
-    headerSubtitle: { fontSize: 13, fontWeight: '400', color: '#6B7280', marginTop: 2, textAlign: 'center' },
-    scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
-    sectionTitle: { fontSize: 22, fontWeight: '700', color: '#111827', marginTop: 20 },
-    sectionSubtitle: { fontSize: 15, fontWeight: '400', color: '#111827', marginTop: 4, marginBottom: 16 },
-    securityBadge: { flexDirection: 'row', backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#34D399', borderRadius: 8, padding: 16, marginBottom: 24, alignItems: 'center' },
-    securityIcon: { marginRight: 12 },
-    securityTextBold: { color: '#059669', fontWeight: '600', fontSize: 13 },
-    securityText: { color: '#059669', fontWeight: '400', fontSize: 13, marginTop: 2, paddingRight: 20 },
+    headerTitle: { fontFamily: 'Poppins_400Regular', fontSize: fs(28), lineHeight: fs(36), color: '#000000', textAlign: 'center' },
+    headerSubtitle: { fontFamily: 'Poppins_400Regular', fontSize: fs(22), lineHeight: fs(30), color: '#6B6B6B', marginTop: 1, textAlign: 'center' },
+    scrollContent: { width: '100%', maxWidth: 716, alignSelf: 'center', paddingHorizontal: fs(36), paddingTop: fs(51), paddingBottom: fs(48) },
+    sectionTitle: { fontFamily: 'Poppins_400Regular', fontSize: fs(38), lineHeight: fs(50), color: '#000000' },
+    sectionSubtitle: { fontFamily: 'Poppins_400Regular', fontSize: fs(26), lineHeight: fs(36), color: '#000000', marginTop: fs(6), marginBottom: fs(29) },
+    securityBadge: { flexDirection: 'row', backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#0BB85F', borderRadius: fs(13), paddingHorizontal: fs(29), paddingVertical: fs(27), marginBottom: fs(41), alignItems: 'center' },
+    securityIcon: { marginRight: fs(25) },
+    securityTextBold: { color: '#07A640', fontFamily: 'Poppins_400Regular', fontSize: fs(23), lineHeight: fs(30) },
+    securityText: { color: '#07A640', fontFamily: 'Poppins_400Regular', fontSize: fs(23), lineHeight: fs(30), marginTop: 1, paddingRight: fs(20) },
 
     // TABS WRAPPER
     tabsWrapper: {
         flexDirection: 'row',
         backgroundColor: '#FFFFFF',
-        borderRadius: 30,
-        padding: 6,           // 👈 Added a bit more padding inside the white box
-        gap: 8,               // 👈 This creates the perfect space between the pills!
-        marginBottom: 24,
+        borderRadius: fs(30),
+        padding: fs(10),
+        gap: fs(14),
+        marginBottom: fs(56),
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
-            android: { elevation: 3 },
-            web: { boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.08)' }
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 18 },
+            android: { elevation: 7 },
+            web: { boxShadow: '0px 8px 22px rgba(0, 0, 0, 0.18)' }
         }),
     },
-    tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 26 },
+    tab: { flex: 1, minHeight: fs(68), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: fs(34) },
     tabActive: { backgroundColor: '#FE6700' },
     tabInactive: { backgroundColor: '#FFE1CC' },
-    tabText: { marginLeft: 6, fontSize: 13, fontWeight: '600', color: '#4B5563' },
+    tabText: { marginLeft: fs(8), fontSize: fs(23), lineHeight: fs(29), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000' },
     tabTextActive: { color: '#FFFFFF' },
 
     // MASTER PAYMENT CARD (Fixes the missing white background from Screenshot 10)
     paymentCard: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        padding: 24,
-        ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12 }, android: { elevation: 3 }, web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.06)' } }),
+        borderRadius: fs(20),
+        paddingHorizontal: fs(24),
+        paddingTop: fs(49),
+        paddingBottom: fs(46),
+        ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.08, shadowRadius: 18 }, android: { elevation: 4 }, web: { boxShadow: '0px 7px 20px rgba(0, 0, 0, 0.08)' } }),
     },
 
     // UPI GREY BOX
-    upiAppsContainer: { backgroundColor: '#E6E6E6', borderColor: '#BEDBFF', borderWidth: 0.86, borderRadius: 10, padding: 16, marginBottom: 24 },
-    upiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-    upiHeaderText: { fontSize: 14, fontWeight: '600', color: '#111827', marginLeft: 8 },
+    upiAppsContainer: { backgroundColor: '#E6E6E6', borderColor: '#BEDBFF', borderWidth: 0.86, borderRadius: fs(12), paddingHorizontal: fs(28), paddingTop: fs(29), paddingBottom: fs(22), marginBottom: fs(35) },
+    upiHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: fs(20) },
+    upiHeaderText: { fontSize: fs(23), lineHeight: fs(31), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000', marginLeft: fs(22) },
     upiAppsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-    upiAppPill: { backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 6, marginRight: 8, marginBottom: 8 },
-    upiAppText: { fontSize: 13, fontWeight: '500', color: '#111827' },
+    upiAppPill: { backgroundColor: '#FFFFFF', paddingHorizontal: fs(20), paddingVertical: fs(8), borderRadius: fs(5), marginRight: fs(14), marginBottom: fs(14) },
+    upiAppText: { fontSize: fs(22), lineHeight: fs(30), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000' },
 
     placeholderBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-    placeholderText: { marginTop: 12, fontWeight: '400', color: '#9CA3AF', fontSize: 16 },
-    inputLabel: { fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 8 },
-    input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, paddingHorizontal: 16, height: 50, fontSize: 15, fontWeight: '400' },
-    inputHelper: { fontSize: 12, fontWeight: '400', color: '#6B7280', marginTop: 6, marginBottom: 24 },
+    placeholderText: { marginTop: 12, fontWeight: '400', color: '#9CA3AF', fontSize: 16, fontFamily: 'Poppins_400Regular' },
+    inputLabel: { fontSize: fs(23), lineHeight: fs(31), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000', marginBottom: fs(16) },
+    input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#C8C8C8', borderRadius: fs(12), paddingHorizontal: fs(26), height: fs(79), fontSize: fs(26), lineHeight: fs(34), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000' },
+    inputHelper: { fontSize: fs(19), lineHeight: fs(27), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#6B6B6B', marginTop: fs(17), marginBottom: fs(35) },
 
     // QR BOX (Fixes the white border box from Screenshot 10)
-    qrBox: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 32, alignItems: 'center', marginBottom: 24 },
-    qrIcon: { marginBottom: 12 },
-    qrText: { fontSize: 14, fontWeight: '400', color: '#6B7280' },
+    qrBox: { backgroundColor: '#F9FAFB', borderRadius: fs(12), paddingVertical: fs(44), alignItems: 'center', marginBottom: fs(29) },
+    qrIcon: { marginBottom: fs(25) },
+    qrText: { fontSize: fs(22), lineHeight: fs(30), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#4B5563' },
 
     promoTipBox: { flexDirection: 'row', backgroundColor: '#FFF7F2', borderWidth: 1, borderColor: '#FFE1CC', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 16 },
     giftIcon: { marginRight: 12 },
     promoTipTextContainer: { flex: 1 },
     promoTipText: { fontSize: 13, fontWeight: '400', color: '#111827' },
     promoHighlight: { color: '#FE6700', fontWeight: '700' },
-    applyBtnText: { color: '#FE6700', fontWeight: '600', fontSize: 14 },
-    promoInputRow: { flexDirection: 'row', marginBottom: 24 },
-    promoInput: { flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, paddingHorizontal: 16, height: 50, fontSize: 15, fontWeight: '400', marginRight: 12 },
-    applyBtnOutline: { borderWidth: 1, borderColor: '#FE6700', borderRadius: 8, justifyContent: 'center', paddingHorizontal: 20, backgroundColor: '#FFFFFF' },
-    payButton: { backgroundColor: '#FE6700', flexDirection: 'row', height: 54, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-    payBtnIcon: { marginRight: 8 },
-    payButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-    termsText: { textAlign: 'center', fontSize: 12, fontWeight: '400', color: '#6B7280', paddingHorizontal: 16, lineHeight: 18 },
+    applyBtnText: { color: '#FE6700', fontWeight: '600', fontSize: fs(22), lineHeight: fs(30), fontFamily: 'Poppins_600SemiBold' },
+    promoInputRow: { flexDirection: 'row', marginBottom: fs(15) },
+    promoInput: { flex: 1, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: fs(12), paddingHorizontal: fs(25), height: fs(58), fontSize: fs(24), lineHeight: fs(32), fontWeight: '400', fontFamily: 'Poppins_400Regular', marginRight: fs(24) },
+    applyBtnOutline: { borderWidth: 1, borderColor: '#FE6700', borderRadius: fs(10), justifyContent: 'center', paddingHorizontal: fs(21), backgroundColor: '#FFFFFF' },
+    payButton: { backgroundColor: '#FE6700', flexDirection: 'row', height: fs(78), borderRadius: fs(9), justifyContent: 'center', alignItems: 'center', marginBottom: fs(35) },
+    payBtnIcon: { marginRight: fs(14) },
+    payButtonText: { color: '#FFFFFF', fontSize: fs(26), lineHeight: fs(34), fontWeight: '600', fontFamily: 'Poppins_600SemiBold' },
+    termsText: { textAlign: 'center', fontSize: fs(19), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#6B6B6B', paddingHorizontal: fs(16), lineHeight: fs(27) },
 
     // ORDER SUMMARY
     summaryContainer: {
-        marginTop: 32, // Spaced apart from the payment card
-        backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24,
-        ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12 }, android: { elevation: 3 }, web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.05)' } }),
+        marginTop: fs(47),
+        backgroundColor: '#FFFFFF', borderRadius: fs(20), paddingHorizontal: fs(40), paddingTop: fs(26), paddingBottom: fs(36),
+        ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.08, shadowRadius: 18 }, android: { elevation: 4 }, web: { boxShadow: '0px 7px 20px rgba(0, 0, 0, 0.08)' } }),
     },
-    summaryTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 24 },
-    planName: { fontSize: 18, fontWeight: '700', color: '#111827' },
-    planDuration: { fontSize: 14, fontWeight: '400', color: '#6B7280', marginBottom: 16, marginTop: 4 },
-    featuresList: { marginBottom: 24 },
-    featureRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    featureText: { fontSize: 14, fontWeight: '400', color: '#111827', marginLeft: 12 },
-    divider: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 20 },
-    priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-    priceLabel: { fontSize: 14, fontWeight: '400', color: '#4B5563' },
-    priceValue: { fontSize: 14, fontWeight: '600', color: '#111827' },
-    totalLabel: { fontSize: 16, fontWeight: '600', color: '#111827' },
-    totalValue: { fontSize: 16, fontWeight: '700', color: '#FE6700' },
+    summaryTitle: { fontSize: fs(26), lineHeight: fs(36), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000', marginBottom: fs(28) },
+    planName: { fontSize: fs(30), lineHeight: fs(40), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000' },
+    planDuration: { fontSize: fs(23), lineHeight: fs(31), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#6B6B6B', marginBottom: fs(23), marginTop: fs(15) },
+    featuresList: { backgroundColor: '#F9FAFB', borderRadius: fs(11), paddingHorizontal: fs(26), paddingTop: fs(28), paddingBottom: fs(16), marginBottom: fs(25) },
+    featureRow: { flexDirection: 'row', alignItems: 'center', marginBottom: fs(18) },
+    featureText: { fontSize: fs(23), lineHeight: fs(31), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000', marginLeft: fs(22) },
+    divider: { height: 1, backgroundColor: '#E5E7EB', marginBottom: fs(22) },
+    priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: fs(22) },
+    priceLabel: { fontSize: fs(23), lineHeight: fs(31), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000' },
+    priceValue: { fontSize: fs(23), lineHeight: fs(31), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000' },
+    totalLabel: { fontSize: fs(26), lineHeight: fs(36), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000' },
+    totalValue: { fontSize: fs(26), lineHeight: fs(36), fontWeight: '600', fontFamily: 'Poppins_600SemiBold', color: '#FE6700' },
 
     // COUPON SECTION
     couponCard: {
-        marginTop: 16,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 20,
-        ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12 },
-            android: { elevation: 3 },
-            web: { boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.05)' }
-        }),
+        marginBottom: fs(31),
     },
-    couponHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
-    couponHeaderText: { fontSize: 15, fontWeight: '700', color: '#111827' },
-    couponHint: { fontSize: 12, color: '#9CA3AF', marginTop: -16 },
+    couponHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: fs(18), gap: fs(8) },
+    couponHeaderText: { fontSize: fs(26), lineHeight: fs(36), fontWeight: '400', fontFamily: 'Poppins_400Regular', color: '#000000' },
+    couponHint: { fontSize: fs(16), lineHeight: fs(22), color: '#9CA3AF', fontFamily: 'Poppins_400Regular' },
     couponErrorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -16 },
-    couponErrorText: { fontSize: 13, color: '#EF4444', flex: 1 },
+    couponErrorText: { fontSize: 13, color: '#EF4444', flex: 1, fontFamily: 'Poppins_400Regular' },
     couponAppliedBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ECFDF5', borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#34D399' },
     couponAppliedLeft: { flexDirection: 'row', alignItems: 'center' },
-    couponAppliedCode: { fontSize: 14, fontWeight: '700', color: '#047857', letterSpacing: 0.5 },
-    couponAppliedSaving: { fontSize: 12, color: '#059669', marginTop: 2 },
+    couponAppliedCode: { fontSize: 14, fontWeight: '700', color: '#047857', letterSpacing: 0.5, fontFamily: 'Poppins_700Bold' },
+    couponAppliedSaving: { fontSize: 12, color: '#059669', marginTop: 2, fontFamily: 'Poppins_400Regular' },
     removeBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#FEE2E2', borderRadius: 6 },
-    removeBtnText: { fontSize: 13, fontWeight: '700', color: '#EF4444' },
+    removeBtnText: { fontSize: 13, fontWeight: '700', color: '#EF4444', fontFamily: 'Poppins_700Bold' },
 });

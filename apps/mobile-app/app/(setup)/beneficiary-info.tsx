@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Modal, Pressable, Animated, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Modal, Pressable, Animated, Dimensions, ActivityIndicator } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -8,6 +8,7 @@ import GlobalDrawer from '../(subscriber)/components/shared/GlobalDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { AddressPicker, SelectedAddress } from '../../components/ui/AddressPicker';
 import { useLocationPermission } from '../../hooks/useLocationPermission';
 import { PhotoPickerInput } from '../../components/ui/PhotoPickerInput';
@@ -16,6 +17,11 @@ import { AddressInputField } from '../../components/ui/AddressInputField';
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const [fontsLoaded] = useFonts({
+        Poppins_400Regular,
+        Poppins_500Medium,
+        Poppins_600SemiBold
+    });
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
@@ -83,6 +89,14 @@ export default function BeneficiaryInfoScreen() {
             <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
         </TouchableOpacity>
     );
+
+    if (!fontsLoaded) {
+        return (
+            <SafeAreaView style={[styles.safeArea, styles.loadingContainer]}>
+                <ActivityIndicator size="small" color="#FF5C00" />
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -256,7 +270,7 @@ export default function BeneficiaryInfoScreen() {
 
                         <View style={styles.row}>
                             <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                                <Text style={styles.label}>Flat / Plot / Building</Text>
+                                <Text style={[styles.label, styles.rowLabel]}>Flat / Plot / Building</Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="e.g. 402, Sunshine"
@@ -266,7 +280,7 @@ export default function BeneficiaryInfoScreen() {
                                 />
                             </View>
                             <View style={[styles.inputGroup, { flex: 1.5 }]}>
-                                <Text style={styles.label}>Street / Area *</Text>
+                                <Text style={[styles.label, styles.rowLabel]}>Street / Area *</Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="e.g. Sector 15"
@@ -328,19 +342,20 @@ export default function BeneficiaryInfoScreen() {
                                 <Text style={styles.coordsText}>GPS coordinates saved</Text>
                             </View>
                         )}
+
+                        <View style={styles.divider} />
+
+                        <View style={styles.buttonRow}>
+                            <TouchableOpacity style={styles.prevBtn} onPress={handleBack}>
+                                <Text style={styles.prevBtnText}>Previous</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
+                                <Text style={styles.nextBtnText}>Next</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                 </ScrollView>
-
-                {/* Footer Buttons */}
-                <View style={styles.buttonRow}>
-                    <TouchableOpacity style={styles.prevBtn} onPress={handleBack}>
-                        <Text style={styles.prevBtnText}>Previous</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
-                        <Text style={styles.nextBtnText}>Next</Text>
-                    </TouchableOpacity>
-                </View>
 
             {/* Relationship Selection Modal */}
             <Modal visible={showRelationshipModal} transparent animationType="slide">
@@ -394,58 +409,72 @@ export default function BeneficiaryInfoScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FFF5ED' },
-    row: { flexDirection: 'row', alignItems: 'center' },
-    header: { backgroundColor: '#FFFFFF', paddingTop: 10 },
-    headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 10 },
+    safeArea: { flex: 1, backgroundColor: '#FFF1E6' },
+    loadingContainer: { alignItems: 'center', justifyContent: 'center' },
+    row: { flexDirection: 'row', alignItems: 'flex-start' },
+    header: { backgroundColor: '#FFFFFF' },
+    headerTopRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingTop: 10, paddingBottom: 11 },
     headerIcons: { flexDirection: 'row', alignItems: 'center' },
-    backButton: { width: 40 },
-    headerTextContainer: { alignItems: 'center' },
-    headerTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
-    headerSubtitle: { fontSize: 12, color: '#9CA3AF', textAlign: 'center' },
-    notifBadge: { position: 'absolute', right: -4, top: -2, backgroundColor: '#E46C2B', borderRadius: 10, width: 18, height: 18, justifyContent: 'center', alignItems: 'center' },
-    notifText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+    backButton: { width: 44, height: 44, justifyContent: 'center' },
+    headerTextContainer: { flex: 1, alignItems: 'flex-start', justifyContent: 'center', paddingLeft: 7 },
+    headerTitle: { fontFamily: 'Poppins_400Regular', fontSize: 18, lineHeight: 24, color: '#000000' },
+    headerSubtitle: { fontFamily: 'Poppins_400Regular', fontSize: 16, lineHeight: 22, color: '#8F95A3', marginTop: 2 },
+    notifBadge: { position: 'absolute', right: -7, top: -7, backgroundColor: '#FF5C00', borderRadius: 10, width: 19, height: 19, justifyContent: 'center', alignItems: 'center' },
+    notifText: { color: 'white', fontSize: 10, fontWeight: '600', fontFamily: 'Poppins_600SemiBold' },
     progressBarBg: { height: 4, backgroundColor: '#E5E7EB', width: '100%' },
-    progressBarFill: { height: 4, backgroundColor: '#F97316', width: '40%' },
+    progressBarFill: { height: 4, backgroundColor: '#FF5C00', width: '40%' },
 
-    scrollContent: { padding: 15 },
-    formCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, elevation: 1 },
-    sectionTitle: { fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 20 },
+    scrollContent: { paddingHorizontal: 22, paddingTop: 32, paddingBottom: 36 },
+    formCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 15,
+        paddingHorizontal: 26,
+        paddingTop: 27,
+        paddingBottom: 24,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.18,
+        shadowRadius: 6,
+        elevation: 5
+    },
+    sectionTitle: { fontFamily: 'Poppins_400Regular', fontSize: 20, lineHeight: 28, color: '#000000', marginBottom: 18 },
 
-    label: { fontSize: 14, fontWeight: '500', color: '#111827', marginBottom: 10 },
-    inputGroup: { marginBottom: 20 },
-    input: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 10, padding: 12, fontSize: 15, color: '#111827' },
-    inputWithIcon: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 10, padding: 12 },
-    flexInput: { flex: 1, fontSize: 15, color: '#111827' },
-    textArea: { height: 80, textAlignVertical: 'top' },
+    label: { fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 20, color: '#000000', marginBottom: 12 },
+    rowLabel: { minHeight: 40 },
+    inputGroup: { marginBottom: 14 },
+    input: { height: 53, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 9, paddingHorizontal: 16, paddingVertical: 0, fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 20, color: '#111827' },
+    inputWithIcon: { height: 53, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 9, paddingHorizontal: 16 },
+    flexInput: { flex: 1, fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 20, color: '#111827' },
+    textArea: { height: 103, textAlignVertical: 'top', paddingTop: 14 },
 
-    photoUploadContainer: { alignItems: 'center', marginBottom: 25 },
+    photoUploadContainer: { alignItems: 'center', marginTop: 14, marginBottom: 25 },
     photoBox: { width: 150, height: 90, borderRadius: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' },
-    uploadLabel: { fontSize: 12, color: '#4B5563', marginTop: 5 },
+    uploadLabel: { fontFamily: 'Poppins_400Regular', fontSize: 12, color: '#4B5563', marginTop: 5 },
     editIconBadge: { position: 'absolute', bottom: -5, right: -5, backgroundColor: '#F97316', padding: 5, borderRadius: 10 },
-    photoHint: { fontSize: 11, color: '#4B5563', marginTop: 10 },
+    photoHint: { fontFamily: 'Poppins_400Regular', fontSize: 11, color: '#4B5563', marginTop: 10 },
 
-    segmentContainer: { flexDirection: 'row', marginBottom: 5 },
-    segmentBtn: { backgroundColor: '#E5E7EB', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, marginRight: 10 },
-    segmentBtnActive: { backgroundColor: '#F97316' },
-    segmentText: { fontSize: 13, color: '#4B5563' },
-    segmentTextActive: { color: '#FFFFFF', fontWeight: '500' },
+    segmentContainer: { flexDirection: 'row', marginBottom: 6 },
+    segmentBtn: { backgroundColor: '#E5E5E5', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14, marginRight: 9 },
+    segmentBtnActive: { backgroundColor: '#FF5C00' },
+    segmentText: { fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 16, color: '#000000' },
+    segmentTextActive: { color: '#FFFFFF', fontFamily: 'Poppins_400Regular' },
 
-    buttonRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 20 },
-    prevBtn: { flex: 0.48, borderWidth: 1, borderColor: '#F97316', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-    prevBtnText: { color: '#F97316', fontSize: 16, fontWeight: '600' },
-    nextBtn: { flex: 0.48, backgroundColor: '#F97316', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-    nextBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+    divider: { height: 1, backgroundColor: '#E5E7EB', marginTop: 8, marginBottom: 14 },
+    buttonRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    prevBtn: { flex: 0.48, height: 53, borderWidth: 1, borderColor: '#FF5C00', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    prevBtnText: { color: '#FF5C00', fontSize: 18, lineHeight: 25, fontWeight: '600', fontFamily: 'Poppins_600SemiBold' },
+    nextBtn: { flex: 0.48, height: 53, backgroundColor: '#FF5C00', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    nextBtnText: { color: '#FFFFFF', fontSize: 18, lineHeight: 25, fontWeight: '600', fontFamily: 'Poppins_600SemiBold' },
 
     // Modal Styles
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: 'white', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 20, maxHeight: '70%' },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-    modalTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
+    modalTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, fontWeight: '600', color: '#111827' },
     optionBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 10, borderRadius: 10, marginBottom: 5 },
     optionBtnActive: { backgroundColor: '#FFF5ED' },
-    optionText: { fontSize: 16, color: '#4B5563' },
-    optionTextActive: { color: '#F97316', fontWeight: '600' },
+    optionText: { fontFamily: 'Poppins_400Regular', fontSize: 16, color: '#4B5563' },
+    optionTextActive: { color: '#F97316', fontWeight: '600', fontFamily: 'Poppins_600SemiBold' },
     coordsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-    coordsText: { fontSize: 12, color: '#10B981', fontWeight: '500' },
+    coordsText: { fontFamily: 'Poppins_500Medium', fontSize: 12, color: '#10B981', fontWeight: '500' },
 });

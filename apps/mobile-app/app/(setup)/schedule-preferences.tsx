@@ -8,6 +8,7 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
+    ActivityIndicator,
     Animated,
     Dimensions
 } from 'react-native';
@@ -19,10 +20,15 @@ import GlobalDrawer from '../(subscriber)/components/shared/GlobalDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 
 export default function SchedulePreferencesScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const [fontsLoaded] = useFonts({
+        Poppins_400Regular,
+        Poppins_600SemiBold
+    });
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
@@ -67,6 +73,14 @@ export default function SchedulePreferencesScreen() {
     const handleBack = () => {
         router.back();
     };
+
+    if (!fontsLoaded) {
+        return (
+            <SafeAreaView style={[styles.safeArea, styles.loadingContainer]}>
+                <ActivityIndicator size="small" color="#FF5C00" />
+            </SafeAreaView>
+        );
+    }
 
     const TimingPill = ({ label, active, onPress }: { label: string, active: boolean, onPress: () => void }) => (
         <TouchableOpacity
@@ -147,19 +161,20 @@ export default function SchedulePreferencesScreen() {
                                 I agree to the <Text style={styles.boldText}>Terms of Service</Text> and <Text style={styles.boldText}>Privacy Policy</Text>. I understand that this is a demo application and no actual data will be stored.
                             </Text>
                         </View>
+
+                        <View style={styles.divider} />
+
+                        <View style={styles.buttonContainerStacked}>
+                            <TouchableOpacity style={styles.completeBtn} onPress={handleEnrollment}>
+                                <Text style={styles.completeBtnText}>Complete Enrollment</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.prevBtnStacked} onPress={handleBack}>
+                                <Text style={styles.prevBtnTextStacked}>Previous</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                 </ScrollView>
-
-                {/* Footer Buttons - Stacking them exactly as per the Mockup */}
-                <View style={styles.buttonContainerStacked}>
-                    <TouchableOpacity style={styles.completeBtn} onPress={handleEnrollment}>
-                        <Text style={styles.completeBtnText}>Complete Enrollment</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.prevBtnStacked} onPress={handleBack}>
-                        <Text style={styles.prevBtnTextStacked}>Previous</Text>
-                    </TouchableOpacity>
-                </View>
 
             </KeyboardAvoidingView>
 
@@ -174,38 +189,52 @@ export default function SchedulePreferencesScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FFF5ED' },
-    header: { backgroundColor: '#FFFFFF', paddingTop: 10 },
-    headerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 10 },
+    safeArea: { flex: 1, backgroundColor: '#FFF1E6' },
+    loadingContainer: { alignItems: 'center', justifyContent: 'center' },
+    header: { backgroundColor: '#FFFFFF' },
+    headerTopRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingTop: 10, paddingBottom: 11 },
     headerIcons: { flexDirection: 'row', alignItems: 'center' },
-    backButton: { width: 40 },
-    headerTextContainer: { alignItems: 'center' },
-    headerTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
-    headerSubtitle: { fontSize: 12, color: '#9CA3AF', textAlign: 'center' },
-    notifBadge: { position: 'absolute', right: -4, top: -2, backgroundColor: '#E46C2B', borderRadius: 10, width: 18, height: 18, justifyContent: 'center', alignItems: 'center' },
-    notifText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+    backButton: { width: 44, height: 44, justifyContent: 'center' },
+    headerTextContainer: { flex: 1, alignItems: 'flex-start', justifyContent: 'center', paddingLeft: 7 },
+    headerTitle: { fontFamily: 'Poppins_400Regular', fontSize: 18, lineHeight: 24, color: '#000000' },
+    headerSubtitle: { fontFamily: 'Poppins_400Regular', fontSize: 16, lineHeight: 22, color: '#8F95A3', marginTop: 2 },
+    notifBadge: { position: 'absolute', right: -7, top: -7, backgroundColor: '#FF5C00', borderRadius: 10, width: 19, height: 19, justifyContent: 'center', alignItems: 'center' },
+    notifText: { color: 'white', fontSize: 10, fontWeight: 'bold', fontFamily: 'Poppins_600SemiBold' },
     progressBarBg: { height: 4, backgroundColor: '#E5E7EB', width: '100%' },
-    progressBarFill: { height: 4, backgroundColor: '#F97316', width: '100%' },
+    progressBarFill: { height: 4, backgroundColor: '#FF5C00', width: '100%' },
 
-    scrollContent: { padding: 15 },
-    formCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, elevation: 1 },
-    sectionTitle: { fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 20 },
+    scrollContent: { paddingHorizontal: 29, paddingTop: 39, paddingBottom: 40 },
+    formCard: {
+        minHeight: 1114,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 17,
+        paddingHorizontal: 32,
+        paddingTop: 40,
+        paddingBottom: 40,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.18,
+        shadowRadius: 6,
+        elevation: 5
+    },
+    sectionTitle: { fontFamily: 'Poppins_400Regular', fontSize: 24, lineHeight: 31, color: '#000000', marginBottom: 17 },
 
-    label: { fontSize: 14, fontWeight: '500', color: '#111827', marginBottom: 15 },
-    pillContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 30 },
-    timingPill: { backgroundColor: '#E5E7EB', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, marginEnd: 10, marginBottom: 10 },
-    timingPillActive: { backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#F97316' },
-    timingText: { color: '#4B5563', fontSize: 13, fontWeight: '500' },
-    timingTextActive: { color: '#111827', fontWeight: '600' },
+    label: { fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 20, color: '#000000', marginBottom: 31 },
+    pillContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 39 },
+    timingPill: { backgroundColor: '#E5E5E5', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 4, marginRight: 15, marginBottom: 19 },
+    timingPillActive: { backgroundColor: '#E5E5E5' },
+    timingText: { color: '#000000', fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 20 },
+    timingTextActive: { color: '#000000', fontFamily: 'Poppins_400Regular' },
 
-    agreementBox: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 20, marginBottom: 20 },
-    checkbox: { marginRight: 12 },
-    agreementText: { flex: 1, fontSize: 13, color: '#4B5563', lineHeight: 20 },
-    boldText: { fontWeight: '600', color: '#111827' },
+    agreementBox: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 50 },
+    checkbox: { marginRight: 12, marginTop: 0 },
+    agreementText: { flex: 1, fontFamily: 'Poppins_400Regular', fontSize: 14, color: '#000000', lineHeight: 20 },
+    boldText: { fontFamily: 'Poppins_400Regular', color: '#000000' },
+    divider: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 18 },
 
-    buttonContainerStacked: { paddingHorizontal: 20, paddingVertical: 20 },
-    completeBtn: { backgroundColor: '#F97316', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 15 },
-    completeBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-    prevBtnStacked: { borderWidth: 1, borderColor: '#F97316', borderRadius: 12, paddingVertical: 16, alignItems: 'center', backgroundColor: '#FFFFFF' },
-    prevBtnTextStacked: { color: '#F97316', fontSize: 16, fontWeight: '600' }
+    buttonContainerStacked: { alignItems: 'center' },
+    completeBtn: { width: '100%', height: 63, backgroundColor: '#FF5C00', borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 27 },
+    completeBtnText: { color: '#FFFFFF', fontSize: 22, lineHeight: 30, fontWeight: '600', fontFamily: 'Poppins_600SemiBold' },
+    prevBtnStacked: { width: '48%', minWidth: 225, height: 66, borderWidth: 1, borderColor: '#FF5C00', borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+    prevBtnTextStacked: { color: '#FF5C00', fontSize: 22, lineHeight: 30, fontWeight: '600', fontFamily: 'Poppins_600SemiBold' }
 });

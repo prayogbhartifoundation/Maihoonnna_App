@@ -178,6 +178,15 @@ export default function MedicalInfoScreen() {
         setHobbiesText(updatedHobbies.join(', '));
     };
 
+    const formatFrequency = (frequency: string) => {
+        const labels: Record<string, string> = {
+            once_daily: 'Once Daily',
+            twice_daily: 'Twice Daily',
+            thrice_daily: 'Thrice Daily'
+        };
+        return labels[frequency] || frequency;
+    };
+
     const Checkbox = ({ label, checked, onPress }: { label: string, checked: boolean, onPress: () => void }) => (
         <TouchableOpacity style={styles.checkboxContainer} onPress={onPress}>
             <View style={[styles.checkboxBox, checked && styles.checkboxChecked]}>
@@ -257,7 +266,7 @@ export default function MedicalInfoScreen() {
                                 <View key={index} style={styles.medicineCard}>
                                     <View style={styles.medicineInfo}>
                                         <Text style={styles.medicineName}>{med.name}</Text>
-                                        <Text style={styles.medicineSub}>{med.dosage} • {med.frequency}{med.totalDays ? ` • ${med.totalDays} days` : ' • Ongoing'}</Text>
+                                        <Text style={styles.medicineSub}>{med.dosage} • {formatFrequency(med.frequency)}{med.totalDays ? ` • ${med.totalDays} days` : ''}</Text>
                                     </View>
                                     <View style={styles.medicineRight}>
                                         {/* Shows the first selected time as pill, if any */}
@@ -546,66 +555,78 @@ export default function MedicalInfoScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FEF4E8' }, // Pastel cream background based on screenshot
+    safeArea: { flex: 1, backgroundColor: '#FFF1E6' },
     
     // Header
     headerContainer: { backgroundColor: '#FFFFFF' },
-    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
-    headerIconBtn: { width: 40 },
-    headerTitleBox: { alignItems: 'center' },
-    headerTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
-    headerSubtitle: { fontSize: 13, color: '#9CA3AF', marginTop: 2 },
+    headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22, paddingTop: 10, paddingBottom: 11 },
+    headerIconBtn: { width: 44, height: 44, justifyContent: 'center' },
+    headerTitleBox: { flex: 1, alignItems: 'flex-start', justifyContent: 'center', paddingLeft: 7 },
+    headerTitle: { fontSize: 16, lineHeight: 22, fontWeight: '400', color: '#111827' },
+    headerSubtitle: { fontSize: 15, lineHeight: 20, color: '#8F95A3', marginTop: 2 },
     headerRightIcons: { flexDirection: 'row', alignItems: 'center' },
-    badge: { position: 'absolute', right: -6, top: -4, backgroundColor: '#F97316', borderRadius: 10, width: 18, height: 18, justifyContent: 'center', alignItems: 'center' },
+    badge: { position: 'absolute', right: -7, top: -7, backgroundColor: '#FF5C00', borderRadius: 10, width: 19, height: 19, justifyContent: 'center', alignItems: 'center' },
     badgeText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
     progressTrack: { height: 3, backgroundColor: '#E5E7EB', width: '100%' },
-    progressFill: { height: 3, backgroundColor: '#F97316', width: '60%' }, // 3 of 5
+    progressFill: { height: 3, backgroundColor: '#FF5C00', width: '60%' },
     
-    scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 },
+    scrollContent: { paddingHorizontal: 21, paddingTop: 31, paddingBottom: 40 },
 
     // Card Components
-    card: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16 },
-    cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    sectionTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
-    addBtnCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F97316', justifyContent: 'center', alignItems: 'center' },
+    card: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 17,
+        marginBottom: 20,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 3,
+        elevation: 3
+    },
+    cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    sectionTitle: { fontSize: 18, lineHeight: 24, fontWeight: '400', color: '#111827' },
+    addBtnCircle: { width: 33, height: 33, borderRadius: 17, backgroundColor: '#FF5C00', justifyContent: 'center', alignItems: 'center' },
     
     // Conditions Panel
-    conditionTag: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F9F5FF', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, marginBottom: 10 },
-    conditionText: { fontSize: 15, color: '#374151', fontWeight: '500' },
+    conditionTag: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8F0FF', paddingHorizontal: 12, height: 48, borderRadius: 13, marginBottom: 9 },
+    conditionText: { fontSize: 16, color: '#2D2D35', fontWeight: '400' },
     
     // Medications Panel
-    medicineCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF5F5', padding: 16, borderRadius: 12, marginBottom: 10 },
+    medicineCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF1F1', paddingHorizontal: 21, minHeight: 72, borderRadius: 12, marginBottom: 1 },
     medicineInfo: { flex: 1 },
-    medicineName: { fontSize: 15, fontWeight: '600', color: '#374151', marginBottom: 4 },
-    medicineSub: { fontSize: 12, color: '#6B7280' },
+    medicineName: { fontSize: 16, lineHeight: 20, fontWeight: '400', color: '#2D2D35', marginBottom: 3 },
+    medicineSub: { fontSize: 12, lineHeight: 16, color: '#2D2D35' },
     medicineRight: { flexDirection: 'row', alignItems: 'center' },
-    timePill: { backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-    timePillText: { fontSize: 12, color: '#374151', fontWeight: '500' },
+    timePill: { backgroundColor: '#FFFFFF', paddingHorizontal: 13, paddingVertical: 6, borderRadius: 13 },
+    timePillText: { fontSize: 12, color: '#374151', fontWeight: '400' },
 
-    emptyText: { fontSize: 14, color: '#9CA3AF', fontStyle: 'italic', marginBottom: 10 },
+    emptyText: { fontSize: 16, color: '#9CA3AF', fontStyle: 'italic', marginTop: 4, marginBottom: 9 },
 
     // Vitals Form & Checkboxes
-    subHeading: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 14 },
-    checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    checkboxBox: { width: 18, height: 18, borderWidth: 1.5, borderColor: '#9CA3AF', borderRadius: 4, marginRight: 10, justifyContent: 'center', alignItems: 'center' },
-    checkboxChecked: { backgroundColor: '#F97316', borderColor: '#F97316' },
-    checkboxLabel: { fontSize: 14, color: '#374151' },
+    subHeading: { fontSize: 16, lineHeight: 20, fontWeight: '400', color: '#111827', marginTop: 6, marginBottom: 12, paddingHorizontal: 8 },
+    checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 8 },
+    checkboxBox: { width: 17, height: 17, borderWidth: 1.2, borderColor: '#111827', borderRadius: 3, marginRight: 8, justifyContent: 'center', alignItems: 'center' },
+    checkboxChecked: { backgroundColor: '#FF5C00', borderColor: '#FF5C00' },
+    checkboxLabel: { flex: 1, fontSize: 16, lineHeight: 21, color: '#111827' },
 
     // Input Fields
-    inputLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 },
-    input: { borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 10, padding: 14, fontSize: 15, color: '#111827' },
-    dropdownInputBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 10 },
-    dropdownInput: { flex: 1, padding: 14, fontSize: 15, color: '#111827' },
-    hintText: { fontSize: 11, color: '#9CA3AF', marginTop: 8 },
+    inputLabel: { fontSize: 16, lineHeight: 20, fontWeight: '400', color: '#111827', marginBottom: 10, paddingHorizontal: 8 },
+    input: { height: 51, borderWidth: 1, borderColor: '#D7DCE3', borderRadius: 9, paddingHorizontal: 15, paddingVertical: 0, fontSize: 16, color: '#111827', marginHorizontal: 8 },
+    dropdownInputBox: { height: 49, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D7DCE3', borderRadius: 9, marginHorizontal: 8 },
+    dropdownInput: { flex: 1, paddingHorizontal: 18, fontSize: 16, color: '#111827' },
+    hintText: { fontSize: 12, color: '#6B7280', marginTop: 35, paddingHorizontal: 8 },
 
-    dividerLine: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 24 },
+    dividerLine: { height: 1, backgroundColor: '#E8E8E8', marginTop: 29, marginBottom: 12, marginHorizontal: 8 },
 
     // Action Buttons
-    actionButtonsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    outlineBtn: { flex: 0.48, borderWidth: 1, borderColor: '#F97316', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-    outlineBtnText: { color: '#F97316', fontSize: 16, fontWeight: '600' },
-    solidBtn: { flex: 0.48, backgroundColor: '#F97316', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-    solidBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+    actionButtonsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 7, paddingTop: 1 },
+    outlineBtn: { flex: 0.48, height: 50, borderWidth: 1, borderColor: '#FF5C00', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    outlineBtnText: { color: '#FF5C00', fontSize: 18, fontWeight: '600' },
+    solidBtn: { flex: 0.48, height: 50, backgroundColor: '#FF5C00', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    solidBtnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '600' },
 
     // Modals Base
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
