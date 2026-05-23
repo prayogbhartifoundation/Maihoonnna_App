@@ -23,7 +23,7 @@ export default function CareTeamScreen() {
     const [team, setTeam] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [loggingCall, setLoggingCall] = useState<string | null>(null); // Track ID of member being called
+    const [loggingCall, setLoggingCall] = useState<string | null>(null);
 
     useEffect(() => {
         fetchTeam();
@@ -68,7 +68,6 @@ export default function CareTeamScreen() {
         try {
             setLoggingCall(member.id);
 
-            // 1. Try to get caller info
             const token = await AsyncStorage.getItem('userToken');
             const userStr = await AsyncStorage.getItem('userData');
 
@@ -76,7 +75,6 @@ export default function CareTeamScreen() {
                 const user = JSON.parse(userStr);
                 const beneficiaryId = user.id;
 
-                // 2. Log call to backend
                 await fetch(`${API_URL}/beneficiary/log-call`, {
                     method: 'POST',
                     headers: {
@@ -90,8 +88,7 @@ export default function CareTeamScreen() {
                 }).catch(e => console.error("Call Log Error:", e));
             }
 
-            // 3. Initiate native phone call
-            const phoneNumber = member.phone || '0000000000'; // Default if none
+            const phoneNumber = member.phone || '0000000000';
             Linking.openURL(`tel:${phoneNumber}`);
 
         } catch (e) {
@@ -104,7 +101,7 @@ export default function CareTeamScreen() {
     if (loading) {
         return (
             <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#F97316" />
+                <ActivityIndicator size="large" color="#FE6700" />
             </View>
         );
     }
@@ -138,12 +135,10 @@ export default function CareTeamScreen() {
                     </View>
                 )}
 
-                {team.map((member) => (
-                    <View key={member.id} style={styles.card}>
-                        <View style={styles.badgeContainer}>
-                            <Text style={styles.badgeText}>{member.level}</Text>
-                        </View>
+                {team.map((member) => {
+                    const isPrimary = member.level === 'Primary';
 
+<<<<<<< Updated upstream
                         <View style={styles.profileRow}>
                             <View style={styles.avatar}>
                                 {member.photo ? (
@@ -155,8 +150,61 @@ export default function CareTeamScreen() {
                             <View style={styles.profileInfo}>
                                 <Text style={styles.memberName}>{member.name}</Text>
                                 <Text style={styles.memberRole}>{member.role}</Text>
+=======
+                    return (
+                        <View key={member.id} style={styles.card}>
+
+                            {/* Conditional Badge Rendering */}
+                            <View style={[
+                                styles.badgeContainer,
+                                isPrimary ? styles.badgeOrange : styles.badgeGrey
+                            ]}>
+                                <Text style={[
+                                    styles.badgeText,
+                                    isPrimary ? styles.badgeTextOrange : styles.badgeTextGrey
+                                ]}>
+                                    {member.level}
+                                </Text>
                             </View>
+
+                            <View style={styles.profileRow}>
+                                <View style={styles.avatar}>
+                                    {member.photo ? (
+                                        <Image source={{ uri: member.photo }} style={styles.avatarImage} />
+                                    ) : (
+                                        <Ionicons name="person" size={30} color="#9CA3AF" />
+                                    )}
+                                </View>
+
+                                <View style={styles.profileInfo}>
+                                    <Text style={styles.memberName}>{member.name}</Text>
+                                    <Text style={styles.memberRole}>{member.role}</Text>
+                                </View>
+>>>>>>> Stashed changes
+                            </View>
+
+                            <Text style={styles.memberBio}>{member.bio}</Text>
+
+                            {/* FIX: Full Width Action Area */}
+                            <View style={styles.actionArea}>
+                                <View style={styles.buttonWrapper}>
+                                    <ConnectContactButton
+                                        name={member.name}
+                                        role={member.role}
+                                        phone={member.phone}
+                                        photo={member.photo}
+                                        trigger={
+                                            <View style={styles.callButton}>
+                                                <Ionicons name="call" size={18} color="#FFFFFF" />
+                                                <Text style={styles.callButtonText}>Call</Text>
+                                            </View>
+                                        }
+                                    />
+                                </View>
+                            </View>
+
                         </View>
+<<<<<<< Updated upstream
 
                         <Text style={styles.memberBio}>{member.bio}</Text>
 
@@ -181,6 +229,10 @@ export default function CareTeamScreen() {
                         </View>
                     </View>
                 ))}
+=======
+                    );
+                })}
+>>>>>>> Stashed changes
             </ScrollView>
         </View>
     );
@@ -231,19 +283,45 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
     },
+
+    // --- Badge Styles ---
     badgeContainer: {
+<<<<<<< Updated upstream
         backgroundColor: '#FFEED9',
+=======
+        alignSelf: 'flex-start',
+        height: 24,
+        borderRadius: 999,
+        justifyContent: 'center',
+>>>>>>> Stashed changes
         paddingHorizontal: 12,
         paddingVertical: 4,
         borderRadius: 12,
         alignSelf: 'flex-start',
         marginBottom: 16,
     },
+    badgeOrange: {
+        backgroundColor: '#FFF0E6', // Light Orange
+    },
+    badgeGrey: {
+        backgroundColor: '#F3F4F6', // Light Grey
+    },
     badgeText: {
         color: '#F97316',
         fontSize: 12,
+<<<<<<< Updated upstream
         fontWeight: '500',
+=======
+        lineHeight: 16,
     },
+    badgeTextOrange: {
+        color: '#FE6700',
+>>>>>>> Stashed changes
+    },
+    badgeTextGrey: {
+        color: '#4B5563',
+    },
+
     profileRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -282,6 +360,7 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         marginBottom: 20,
     },
+<<<<<<< Updated upstream
     actionRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -314,6 +393,34 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+=======
+
+    // --- FIX: Action Button Styles ---
+    actionArea: {
+        width: '100%',
+        marginTop: 4,
+    },
+    buttonWrapper: {
+        width: '100%',
+    },
+    callButton: {
+        width: '100%',
+        height: 48, // Slightly taller for a better tap target
+        borderRadius: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FE6700',
+    },
+    callButtonText: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 16,
+        color: '#FFFFFF',
+        marginLeft: 8, // Using margin to separate text and icon evenly
+    },
+
+    // --- Error & Empty States ---
+>>>>>>> Stashed changes
     errorCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
