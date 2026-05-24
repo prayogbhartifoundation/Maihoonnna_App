@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ProfilePhotoUploader } from '@/components/ui/ProfilePhotoUploader';
 
@@ -44,7 +44,14 @@ export const ProfileHero = ({ user, stats, onPhotoUpdated }: ProfileHeroProps) =
 
     return (
         <View style={styles.container}>
-            <View style={styles.topSpace} />
+            <ImageBackground
+                source={require('../../../../assets/images/bg01.png')}
+                style={styles.topBackground}
+                imageStyle={styles.topBackgroundImage}
+                resizeMode="cover"
+            >
+                <View style={styles.topSpace} />
+            </ImageBackground>
             <View style={styles.content}>
                 {/* ── Profile Photo Uploader ── */}
                 <View style={styles.avatarWrapper}>
@@ -52,7 +59,7 @@ export const ProfileHero = ({ user, stats, onPhotoUpdated }: ProfileHeroProps) =
                         config={{
                             targetType: 'self',
                             currentPhotoUrl: user.profilePhoto,
-                            size: 100,
+                            size: 96,
                             editable: true,
                             initials: getInitials(user.name),
                             accentColor: '#F97316',
@@ -69,20 +76,18 @@ export const ProfileHero = ({ user, stats, onPhotoUpdated }: ProfileHeroProps) =
 
                 {/* Stats Bar */}
                 <View style={styles.statsBar}>
-                    <View style={styles.statItem}>
-                        <Ionicons name="people-outline" size={20} color="#F97316" />
+                    <View style={[styles.statItem, styles.beneficiaryStat]}>
+                        <Ionicons name="people-outline" size={24} color="#FF5B0A" />
                         <Text style={styles.statValue}>{stats.beneficiaryCount}</Text>
                         <Text style={styles.statLabel}>Beneficiaries</Text>
                     </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                        <Ionicons name="pulse-outline" size={20} color="#3B82F6" />
+                    <View style={[styles.statItem, styles.hoursStat]}>
+                        <Ionicons name="pulse-outline" size={24} color="#1F6BFF" />
                         <Text style={styles.statValue}>{stats.usedHours}h</Text>
                         <Text style={styles.statLabel}>Hours Used</Text>
                     </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                        <Ionicons name="ribbon-outline" size={20} color="#A855F7" />
+                    <View style={[styles.statItem, styles.availableStat]}>
+                        <Ionicons name="ribbon-outline" size={24} color="#A12BFF" />
                         <Text style={styles.statValue}>{stats.availableHours}h</Text>
                         <Text style={styles.statLabel}>Available</Text>
                     </View>
@@ -93,40 +98,66 @@ export const ProfileHero = ({ user, stats, onPhotoUpdated }: ProfileHeroProps) =
 };
 
 const styles = StyleSheet.create({
-    container: { alignItems: 'center' },
-    topSpace: { height: 60 },
-    content: {
-        width: '100%',
-        backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        paddingTop: 60,
-        paddingBottom: 24,
+    container: {
         alignItems: 'center',
-        paddingHorizontal: 20,
+        backgroundColor: '#FFF2E8',
+        marginBottom: 0,
+    },
+    topBackground: {
+        width: '100%',
+        height: 149,
+        overflow: 'hidden',
+        borderBottomLeftRadius: 23,
+        borderBottomRightRadius: 23,
+    },
+    topBackgroundImage: {
+        borderBottomLeftRadius: 23,
+        borderBottomRightRadius: 23,
+    },
+    topSpace: { height: 149 },
+    content: {
+        width: '93%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        marginTop: -43,
+        marginBottom: -1,
+        paddingTop: 49,
+        paddingBottom: 30,
+        alignItems: 'center',
+        paddingHorizontal: 25,
+        ...Platform.select({
+            ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 8 },
+            android: { elevation: 3 },
+        }),
     },
     avatarWrapper: {
         position: 'absolute',
-        top: -50,
+        top: -64,
         zIndex: 10,
     },
-    name: { fontSize: 24, fontWeight: '800', color: '#111827', marginBottom: 4 },
-    meta: { fontSize: 13, color: '#6B7280', marginBottom: 24 },
+    name: { fontSize: 26, fontWeight: '800', color: '#111111', marginBottom: 4 },
+    meta: { fontSize: 17, color: '#333333', marginBottom: 28 },
     statsBar: {
         flexDirection: 'row',
-        backgroundColor: '#F9FAFB',
-        borderRadius: 20,
-        paddingVertical: 16,
-        paddingHorizontal: 12,
+        backgroundColor: '#FFFFFF',
         width: '100%',
         justifyContent: 'space-between',
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
+        gap: 16,
     },
-    statItem: { flex: 1, alignItems: 'center' },
-    statValue: { fontSize: 16, fontWeight: '700', color: '#111827', marginTop: 4 },
-    statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-    statDivider: { width: 1, backgroundColor: '#E5E7EB', height: '60%', alignSelf: 'center' },
+    statItem: {
+        flex: 1,
+        minHeight: 91,
+        borderRadius: 13,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 11,
+    },
+    beneficiaryStat: { backgroundColor: '#FFF5ED' },
+    hoursStat: { backgroundColor: '#EEF6FF' },
+    availableStat: { backgroundColor: '#FBF1FF' },
+    statValue: { fontSize: 23, fontWeight: '800', color: '#000000', marginTop: 5 },
+    statLabel: { fontSize: 13, color: '#333333', marginTop: 2 },
+    statDivider: { width: 0, height: 0 },
 });
 
 export default ProfileHero;

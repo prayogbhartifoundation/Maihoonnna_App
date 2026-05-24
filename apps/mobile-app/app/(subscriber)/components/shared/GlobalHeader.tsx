@@ -52,28 +52,34 @@ export default GlobalHeader;
 const styles = StyleSheet.create({
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, 
+        paddingHorizontal: 10,
         paddingTop: Platform.OS === 'android' ? 10 : 0, 
-        paddingBottom: 10,
+        paddingBottom: 8,
+        minHeight: 70,
         backgroundColor: '#FFFFFF',
-        borderBottomWidth: 1, borderBottomColor: '#F3F4F6'
+        borderBottomWidth: 0,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+        elevation: 2,
     },
-    leftSection: { width: 40 },
-    rightSection: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    leftSection: { width: 34 },
+    rightSection: { flexDirection: 'row', alignItems: 'center', gap: 11 },
     iconBtn: { 
-        width: 40, height: 40, 
+        width: 34, height: 40,
         justifyContent: 'center', alignItems: 'center',
         position: 'relative'
     },
-    spacer: { width: 40 },
+    spacer: { width: 34 },
     headerTitle: { 
-        flex: 1, textAlign: 'center',
-        fontSize: 18, fontWeight: '700', color: '#111827' 
+        flex: 1, textAlign: 'left',
+        fontSize: 16, fontWeight: '500', color: '#111111'
     },
     badge: { 
-        position: 'absolute', top: 6, right: 6, backgroundColor: '#F97316', 
-        width: 14, height: 14, borderRadius: 7, justifyContent: 'center', alignItems: 'center',
-        borderWidth: 1.5, borderColor: '#FFF'
+        position: 'absolute', top: 3, right: 0, backgroundColor: '#FF5B0A',
+        width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center',
+        borderWidth: 1, borderColor: '#FFF'
     },
-    badgeText: { color: '#FFF', fontSize: 7, fontWeight: '800' },
+    badgeText: { color: '#FFF', fontSize: 9, fontWeight: '800' },
 });

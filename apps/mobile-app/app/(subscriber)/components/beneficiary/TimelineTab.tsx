@@ -30,7 +30,7 @@ export const TimelineTab = ({ visits }: { visits: VisitProps[] }) => {
     }
 
     return (
-        <View style={{ paddingHorizontal: 20, paddingTop: 10 }}>
+        <View style={styles.container}>
             {visits.map((visit, i) => (
                 <View key={visit.id || i} style={styles.visitCard}>
                     {/* Header: Avatar, Info, Status/Rate */}
@@ -126,68 +126,69 @@ export const TimelineTab = ({ visits }: { visits: VisitProps[] }) => {
 };
 
 const styles = StyleSheet.create({
+    container: {
+        backgroundColor: '#FFFFFF',
+        marginHorizontal: 14,
+        paddingHorizontal: 18,
+        paddingTop: 25,
+        paddingBottom: 15,
+        borderBottomLeftRadius: 15,
+        borderBottomRightRadius: 15,
+        ...Platform.select({
+            ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8 },
+            android: { elevation: 2 },
+        }),
+    },
     emptyTab: { alignItems: 'center', paddingVertical: 40 },
     emptyTabText: { fontSize: 14, color: '#9CA3AF', marginTop: 10 },
     
     visitCard: {
-        backgroundColor: '#EAEAEA', 
-        borderRadius: 16, 
-        padding: 18, 
-        marginBottom: 16,
-        ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 4 },
-            android: { elevation: 1 },
-        }),
+        backgroundColor: '#E5E5E5',
+        borderRadius: 7,
+        padding: 16,
+        marginBottom: 27,
     },
     
-    visitHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+    visitHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 19 },
     visitCompanionPhoto: { width: 48, height: 48, borderRadius: 24, marginRight: 14, backgroundColor: '#D1D5DB' },
-    visitCompanionName: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 3 },
-    visitDate: { fontSize: 12, color: '#4B5563', fontWeight: '500', marginBottom: 2 },
-    visitDuration: { fontSize: 12, color: '#4B5563', fontWeight: '500' },
+    visitCompanionName: { fontSize: 17, fontWeight: '700', color: '#111111', marginBottom: 3 },
+    visitDate: { fontSize: 15, color: '#333333', fontWeight: '400', marginBottom: 2 },
+    visitDuration: { fontSize: 15, color: '#333333', fontWeight: '400' },
     
     starsRow: { flexDirection: 'row', alignItems: 'center' },
     rateButton: { 
-        backgroundColor: '#F97316', 
-        borderRadius: 12, 
-        paddingHorizontal: 16, 
-        paddingVertical: 7,
+        backgroundColor: '#FF5B0A',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
         alignItems: 'center',
         justifyContent: 'center'
     },
     rateButtonText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
     
-    visitSectionLabel: { fontSize: 13, fontWeight: '700', color: '#111827', marginBottom: 8 },
+    visitSectionLabel: { fontSize: 14, fontWeight: '700', color: '#111111', marginBottom: 8 },
     activitiesTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     activityTag: { 
         backgroundColor: '#FFFFFF', 
-        borderRadius: 8, 
-        paddingHorizontal: 12, 
+        borderRadius: 4,
+        paddingHorizontal: 9,
         paddingVertical: 5,
-        ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 2 },
-            android: { elevation: 0.5 },
-        }),
     },
-    activityTagText: { fontSize: 12, color: '#1F2937', fontWeight: '500' },
+    activityTagText: { fontSize: 13, color: '#111111', fontWeight: '400' },
     
-    vitalsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+    vitalsRow: { flexDirection: 'row', gap: 8, marginBottom: 15 },
     vitalChip: { 
         backgroundColor: '#FFFFFF', 
-        borderRadius: 8, 
+        borderRadius: 4,
         paddingVertical: 8,
-        paddingHorizontal: 12, 
+        paddingHorizontal: 9,
         flex: 1, 
         alignItems: 'flex-start',
-        ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3 },
-            android: { elevation: 1 },
-        }),
     },
-    vitalLabel: { fontSize: 10, color: '#6B7280', fontWeight: '600', marginBottom: 3 },
-    vitalValue: { fontSize: 13, fontWeight: '700', color: '#111827' },
+    vitalLabel: { fontSize: 12, color: '#4B5563', fontWeight: '400', marginBottom: 3 },
+    vitalValue: { fontSize: 14, fontWeight: '800', color: '#111111' },
     
-    visitNotes: { fontSize: 13, color: '#374151', lineHeight: 18, fontWeight: '500' },
+    visitNotes: { fontSize: 15, color: '#333333', lineHeight: 21, fontWeight: '400' },
 });
 
 export default TimelineTab;

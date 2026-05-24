@@ -61,11 +61,11 @@ interface InfoRowProps {
 
 const InfoRow = ({ icon, label, value, verified, field, type = 'ionicons', isEditing, formData, setFormData }: InfoRowProps) => (
     <View style={styles.infoRow}>
-        <View style={styles.iconBox}>
+        <View style={[styles.iconBox, iconToneByLabel[label]?.box]}>
             {type === 'ionicons' ? (
-                <Ionicons name={icon as any} size={20} color="#F97316" />
+                <Ionicons name={icon as any} size={23} color={iconToneByLabel[label]?.color || '#FF5B0A'} />
             ) : (
-                <MaterialCommunityIcons name={icon as any} size={20} color="#F97316" />
+                <MaterialCommunityIcons name={icon as any} size={23} color={iconToneByLabel[label]?.color || '#FF5B0A'} />
             )}
         </View>
         <View style={styles.infoContent}>
@@ -91,6 +91,14 @@ const InfoRow = ({ icon, label, value, verified, field, type = 'ionicons', isEdi
         </View>
     </View>
 );
+
+const iconToneByLabel: Record<string, { color: string; box: object }> = {
+    'Full Name': { color: '#FF5B0A', box: { backgroundColor: '#FFEBCB' } },
+    'Email Address': { color: '#1F6BFF', box: { backgroundColor: '#DDEBFF' } },
+    'Phone Number': { color: '#16A34A', box: { backgroundColor: '#D8F9E1' } },
+    Address: { color: '#A12BFF', box: { backgroundColor: '#F2DFFF' } },
+    'Member Since': { color: '#E8A400', box: { backgroundColor: '#FFF4B8' } },
+};
 
 export const PersonalTab = ({ user, onUpdate }: PersonalTabProps) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -290,52 +298,63 @@ export const PersonalTab = ({ user, onUpdate }: PersonalTabProps) => {
 };
 
 const styles = StyleSheet.create({
-    container: { paddingHorizontal: 20, paddingTop: 10 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+    container: {
+        marginHorizontal: 15,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 15,
+        paddingHorizontal: 16,
+        paddingTop: 18,
+        paddingBottom: 16,
+        borderWidth: 1,
+        borderColor: '#F2E7DE',
+        shadowColor: '#4A2B17',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+    sectionTitle: { fontSize: 20, fontWeight: '600', color: '#111111' },
     headerButtons: { flexDirection: 'row', alignItems: 'center' },
     cancelBtn: { marginRight: 15 },
-    cancelText: { color: '#6B7280', fontSize: 14, fontWeight: '600' },
-    saveBtn: { backgroundColor: '#F97316', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 },
+    cancelText: { color: '#566174', fontSize: 14, fontWeight: '600' },
+    saveBtn: { backgroundColor: '#FF5B0A', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 },
     saveText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
     card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        padding: 16,
-        marginBottom: 20,
-        borderWidth: 1, borderColor: '#F3F4F6'
+        backgroundColor: 'transparent',
+        padding: 0,
+        marginBottom: 0,
     },
-    infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+    infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7 },
     iconBox: {
-        width: 40, height: 40, borderRadius: 20, 
-        backgroundColor: '#FFF5ED', 
+        width: 47, height: 47, borderRadius: 24,
         justifyContent: 'center', alignItems: 'center',
-        marginRight: 15
+        marginRight: 14
     },
     infoContent: { flex: 1 },
-    infoLabel: { fontSize: 12, color: '#9CA3AF', marginBottom: 2 },
+    infoLabel: { fontSize: 13, color: '#3A3A3A', marginBottom: 3, fontWeight: '400' },
     editableInput: {
-        fontSize: 15, fontWeight: '600', color: '#F97316',
-        borderBottomWidth: 1, borderBottomColor: '#FBD38D',
+        fontSize: 16, fontWeight: '600', color: '#111111',
+        borderBottomWidth: 1, borderBottomColor: '#FFB47D',
         paddingVertical: 2
     },
-    valueRow: { flexDirection: 'row', alignItems: 'center' },
-    infoValue: { fontSize: 15, fontWeight: '600', color: '#111827' },
+    valueRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+    infoValue: { fontSize: 16, fontWeight: '600', color: '#111111', lineHeight: 21 },
     verifiedBadge: { 
-        backgroundColor: '#ECFDF5', 
-        paddingHorizontal: 8, paddingVertical: 2, 
-        borderRadius: 10, marginLeft: 10 
+        backgroundColor: '#EAFBF0',
+        paddingHorizontal: 9, paddingVertical: 2,
+        borderRadius: 11, marginLeft: 9
     },
-    verifiedText: { fontSize: 10, fontWeight: '700', color: '#059669' },
-    divider: { height: 1, backgroundColor: '#F3F4F6', marginLeft: 55 },
-    editAddressSection: { marginTop: 10, paddingLeft: 55 },
+    verifiedText: { fontSize: 11, fontWeight: '500', color: '#16A34A' },
+    divider: { height: 0, backgroundColor: 'transparent', marginLeft: 61 },
+    editAddressSection: { marginTop: 8, paddingLeft: 61 },
     addressGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
     gridItem: { flex: 1, marginBottom: 10 },
-    gridLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 4 },
+    gridLabel: { fontSize: 12, color: '#566174', marginBottom: 5 },
     gridInput: {
-        fontSize: 14, fontWeight: '600', color: '#111827',
-        backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
-        borderRadius: 8, padding: 8
+        fontSize: 14, fontWeight: '600', color: '#111111',
+        backgroundColor: '#FFFDFC', borderWidth: 1, borderColor: '#F1DED0',
+        borderRadius: 10, padding: 9
     }
 });
 
