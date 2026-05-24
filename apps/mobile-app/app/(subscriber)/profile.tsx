@@ -102,7 +102,7 @@ export default function ProfileScreen() {
             <ScrollView 
                 style={styles.scrollView} 
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
+                contentContainerStyle={{ paddingBottom: 36 }}
             >
                 {/* Hero section */}
                 <ProfileHero
@@ -121,9 +121,9 @@ export default function ProfileScreen() {
                                 onPress={() => setActiveTab(tab)}
                             >
                                 <Ionicons 
-                                    name={tab === 'Personal' ? 'person-outline' : tab === 'Security' ? 'lock-closed-outline' : 'ribbon-outline'} 
-                                    size={18} 
-                                    color={activeTab === tab ? '#FFF' : '#6B7280'} 
+                                    name={tab === 'Personal' ? 'person-outline' : tab === 'Security' ? 'lock-closed-outline' : 'ribbon-outline'}
+                                    size={17}
+                                    color={activeTab === tab ? '#FFF' : '#3A3A3A'}
                                     style={{ marginRight: 6 }}
                                 />
                                 <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
@@ -155,36 +155,42 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#FAF5F0' },
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF5F0' },
+    container: { flex: 1, backgroundColor: '#FFF2E8' },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF2E8' },
     scrollView: { flex: 1 },
-    tabsWrapper: { paddingHorizontal: 20, marginVertical: 20 },
+    tabsWrapper: { paddingHorizontal: 15, marginTop: 22, marginBottom: 23 },
     tabsContainer: {
-        flexDirection: 'row', 
-        backgroundColor: '#FFFFFF', 
-        borderRadius: 16, 
-        padding: 4,
+        flexDirection: 'row',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 15,
+        padding: 5,
+        borderWidth: 1,
+        borderColor: '#F1DED0',
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-            android: { elevation: 2 }
+            ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
+            android: { elevation: 3 }
         })
     },
-    tabBtn: { 
+    tabBtn: {
         flex: 1, flexDirection: 'row',
-        paddingVertical: 12, alignItems: 'center', justifyContent: 'center',
-        borderRadius: 12
+        minHeight: 46, alignItems: 'center', justifyContent: 'center',
+        borderRadius: 13
     },
-    tabBtnActive: { backgroundColor: '#F97316' },
-    tabText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+    tabBtnActive: { backgroundColor: '#FF5B0A' },
+    tabText: { fontSize: 15, fontWeight: '500', color: '#4B5563' },
     tabTextActive: { color: '#FFFFFF' },
 
     logoutBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        backgroundColor: '#FFFFFF', marginHorizontal: 20, marginTop: 20,
-        paddingVertical: 16, borderRadius: 16,
-        borderWidth: 1, borderColor: '#FEE2E2'
+        backgroundColor: '#FFFFFF', marginHorizontal: 15, marginTop: 20,
+        minHeight: 55, borderRadius: 15,
+        borderWidth: 1, borderColor: '#F2E7DE',
+        ...Platform.select({
+            ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8 },
+            android: { elevation: 2 }
+        })
     },
-    logoutText: { marginLeft: 10, fontSize: 16, fontWeight: '700', color: '#EF4444' },
+    logoutText: { marginLeft: 10, fontSize: 17, fontWeight: '700', color: '#DC2626' },
     errorText: { fontSize: 16, color: '#6B7280', marginBottom: 20 },
     retryBtn: { backgroundColor: '#F97316', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
     retryText: { color: '#FFFFFF', fontWeight: '700' }

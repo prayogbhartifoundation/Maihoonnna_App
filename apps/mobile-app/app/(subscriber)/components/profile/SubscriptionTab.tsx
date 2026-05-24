@@ -75,8 +75,8 @@ const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
                     ].map((item, i) => (
                         <React.Fragment key={i}>
                             <TouchableOpacity style={styles.manageItem} onPress={item.onPress}>
-                                <View style={styles.iconBox}>
-                                    <Ionicons name={item.icon as any} size={20} color="#F97316" />
+                                <View style={[styles.iconBox, manageToneByTitle[item.title]?.box]}>
+                                    <Ionicons name={item.icon as any} size={23} color={manageToneByTitle[item.title]?.color || '#FF5B0A'} />
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.manageTitle}>{item.title}</Text>
@@ -130,12 +130,22 @@ const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
     );
 };
 
+const manageToneByTitle: Record<string, { color: string; box: object }> = {
+    'Upgrade Plan': { color: '#FF5B0A', box: { backgroundColor: '#FFEBCB' } },
+    'Payment Methods': { color: '#1F6BFF', box: { backgroundColor: '#DDEBFF' } },
+    'Billing History': { color: '#A12BFF', box: { backgroundColor: '#F2DFFF' } },
+};
+
 const styles = StyleSheet.create({
-    container: { paddingHorizontal: 20, paddingTop: 10 },
+    container: { paddingHorizontal: 15, paddingTop: 2 },
     planCard: {
-        borderRadius: 24, padding: 24, marginBottom: 24,
+        borderRadius: 13,
+        paddingHorizontal: 24,
+        paddingTop: 23,
+        paddingBottom: 25,
+        marginBottom: 12,
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16 },
+            ios: { shadowColor: '#FF5B0A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.26, shadowRadius: 14 },
             android: { elevation: 8 }
         })
     },
@@ -146,42 +156,55 @@ const styles = StyleSheet.create({
     emptyText: { color: '#9CA3AF', fontWeight: '600', marginTop: 10 },
     emptySubText: { color: '#9CA3AF', fontSize: 13, textAlign: 'center', marginTop: 10 },
 
-    planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
-    planLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 4 },
-    planName: { fontSize: 22, fontWeight: '800', color: '#FFFFFF' },
-    activeBadge: { backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-    activeText: { color: '#059669', fontSize: 12, fontWeight: '800' },
+    planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+    planLabel: { fontSize: 15, color: '#FFFFFF', marginBottom: 6, fontWeight: '400' },
+    planName: { fontSize: 25, fontWeight: '800', color: '#FFFFFF' },
+    activeBadge: { backgroundColor: '#FFFFFF', paddingHorizontal: 13, paddingVertical: 7, borderRadius: 16 },
+    activeText: { color: '#16A34A', fontSize: 14, fontWeight: '600' },
     
-    progressSection: { marginBottom: 24 },
-    progressLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    progressText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
-    progressBarBg: { height: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 },
+    progressSection: { marginBottom: 17 },
+    progressLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+    progressText: { fontSize: 16, color: '#FFFFFF', fontWeight: '600' },
+    progressBarBg: { height: 8, backgroundColor: 'rgba(17,17,17,0.55)', borderRadius: 4 },
     progressBarFill: { height: 8, backgroundColor: '#FFFFFF', borderRadius: 4 },
 
-    planFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-    footerLabel: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
-    footerValue: { fontSize: 13, color: '#FFFFFF', fontWeight: '700' },
+    planFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.55)' },
+    footerLabel: { fontSize: 15, color: '#FFFFFF' },
+    footerValue: { fontSize: 15, color: '#FFFFFF', fontWeight: '700' },
 
-    section: { marginBottom: 24 },
+    section: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 15,
+        paddingHorizontal: 16,
+        paddingTop: 18,
+        paddingBottom: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#F2E7DE',
+        ...Platform.select({
+            ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8 },
+            android: { elevation: 3 },
+        }),
+    },
     sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-    addBtn: { backgroundColor: '#FFF5ED', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12 },
-    addBtnText: { color: '#F97316', fontWeight: '800', fontSize: 13 },
+    sectionTitle: { fontSize: 20, fontWeight: '600', color: '#111111' },
+    addBtn: { backgroundColor: '#FFFFFF', paddingHorizontal: 3, paddingVertical: 4, borderRadius: 8 },
+    addBtnText: { color: '#FF5B0A', fontWeight: '500', fontSize: 14 },
 
-    card: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#F3F4F6' },
+    card: { backgroundColor: 'transparent', borderRadius: 0, padding: 0 },
     manageItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
-    iconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF5ED', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-    manageTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-    manageSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-    divider: { height: 1, backgroundColor: '#F3F4F6', marginLeft: 55 },
+    iconBox: { width: 47, height: 47, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+    manageTitle: { fontSize: 17, fontWeight: '600', color: '#111111' },
+    manageSub: { fontSize: 15, color: '#4B5563', marginTop: 4 },
+    divider: { height: 10, backgroundColor: 'transparent', marginLeft: 61 },
 
-    benCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, marginBottom: 12, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6' },
-    benAvatar: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden' },
-    initialsBox: { width: 48, height: 48, backgroundColor: '#FFF5ED', justifyContent: 'center', alignItems: 'center' },
-    benPhoto: { width: 48, height: 48 },
-    benInitials: { fontSize: 18, fontWeight: '700', color: '#F97316' },
-    benName: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
-    benMeta: { fontSize: 12, color: '#6B7280' },
+    benCard: { backgroundColor: '#F8F8F8', borderRadius: 12, padding: 12, marginBottom: 9, flexDirection: 'row', alignItems: 'center' },
+    benAvatar: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
+    initialsBox: { width: 40, height: 40, backgroundColor: '#FF5B0A', justifyContent: 'center', alignItems: 'center' },
+    benPhoto: { width: 40, height: 40 },
+    benInitials: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+    benName: { fontSize: 16, fontWeight: '700', color: '#111111', marginBottom: 2 },
+    benMeta: { fontSize: 14, color: '#4B5563' },
 });
 
 export default SubscriptionTab;

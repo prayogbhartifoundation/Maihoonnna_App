@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView,
-    TouchableOpacity, Image, Platform, ActivityIndicator
+    TouchableOpacity, Image, Platform, ActivityIndicator, ImageBackground
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -129,47 +129,76 @@ export default function BeneficiaryProfileScreen() {
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
                 {/* ── Hero Card ── */}
-                <LinearGradient colors={['#F97316', '#FDBA74']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroGradient}>
-                    <ProfilePhotoUploader
-                        config={{
-                            targetType: 'beneficiary',
-                            targetId: beneficiary.id,
-                            currentPhotoUrl: beneficiary.photo || null,
-                            size: 90,
-                            editable: true,
-                            initials: (beneficiary.name || 'B').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
-                            accentColor: '#F97316',
-                            onSuccess: (url) => setBeneficiary((prev: any) => ({ ...prev, photo: url })),
-                        }}
-                        style={{ marginBottom: 12 }}
-                    />
-                    <Text style={styles.heroName}>{beneficiary.name}</Text>
-                    <Text style={styles.heroMeta}>{beneficiary.age ? `${beneficiary.age} years` : ''}{beneficiary.relationship ? ` • ${beneficiary.relationship}` : ''}</Text>
-                </LinearGradient>
+                <View style={styles.heroSection}>
+                    <ImageBackground
+                        source={require("../../assets/images/bg01.png")}
+                        style={styles.heroGradient}
+                        imageStyle={styles.heroImage}
+                        resizeMode="cover"
+                    >
+                        <LinearGradient colors={['rgba(249,115,22,0.38)', 'rgba(253,186,116,0.24)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroOverlay} />
+                    </ImageBackground>
 
-                {/* ── Stats Row ── */}
-                <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                        <Text style={styles.statEmoji}>😊</Text>
-                        <Text style={styles.statValue}>{happinessScore}%</Text>
-                        <Text style={styles.statLabel}>Happiness Score</Text>
+                    <View style={styles.avatarFloating}>
+                        <ProfilePhotoUploader
+                            config={{
+                                targetType: 'beneficiary',
+                                targetId: beneficiary.id,
+                                currentPhotoUrl: beneficiary.photo || null,
+                                size: 90,
+                                editable: true,
+                                initials: (beneficiary.name || 'B').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
+                                accentColor: '#F97316',
+                                onSuccess: (url) => setBeneficiary((prev: any) => ({ ...prev, photo: url })),
+                            }}
+                            style={{ marginBottom: 12 }}
+                        />
                     </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                        <Ionicons name="hourglass-outline" size={22} color="#F97316" />
-                        <Text style={styles.statValue}>{beneficiary.hoursUsedPercent || 0}%</Text>
-                        <Text style={styles.statLabel}>Hours Used</Text>
-                    </View>
-                    {beneficiary.vitalsData?.slice(0, 2).map((v: any, i: number) => (
-                        <React.Fragment key={i}>
-                            <View style={styles.statDivider} />
+
+                    <View style={styles.profileCard}>
+                        <Text style={styles.heroName}>{beneficiary.name}</Text>
+                        <Text style={styles.heroMeta}>{beneficiary.age ? `${beneficiary.age} years` : ''}{beneficiary.relationship ? ` • ${beneficiary.relationship}` : ''}</Text>
+
+                        {/* ── Stats Row ── */}
+                        <View style={styles.statsRow}>
                             <View style={styles.statItem}>
-                                <MaterialCommunityIcons name={v.icon} size={22} color={v.color} />
-                                <Text style={styles.statValue}>{v.value}</Text>
-                                <Text style={styles.statLabel}>{v.label}</Text>
+                                <View style={[styles.statIconBox, styles.happinessIconBox]}>
+                                    <Text style={styles.statEmoji}>😊</Text>
+                                </View>
+                                <Text style={styles.statValue}>{happinessScore}%</Text>
+                                <Text style={styles.statLabel}>Happiness Score</Text>
                             </View>
-                        </React.Fragment>
-                    ))}
+                            <View style={styles.statItem}>
+                                <View style={[styles.statIconBox, styles.hoursIconBox]}>
+                                    <Ionicons name="hourglass-outline" size={25} color="#1F6BFF" />
+                                </View>
+                                <Text style={styles.statValue}>{beneficiary.hoursUsedPercent || 0}%</Text>
+                                <Text style={styles.statLabel}>Hours Used</Text>
+                            </View>
+                            {beneficiary.vitalsData?.slice(0, 2).map((v: any, i: number) => (
+                                <View key={i} style={styles.statItem}>
+                                    <View style={[styles.statIconBox, i === 0 ? styles.heartIconBox : styles.bpIconBox]}>
+                                        <MaterialCommunityIcons name={v.icon} size={24} color={v.color} />
+                                    </View>
+                                    <Text style={styles.statValue}>{v.value}</Text>
+                                    <Text style={styles.statLabel}>{v.label}</Text>
+                                </View>
+                            ))}
+                        </View>
+
+                        {conditions.length > 0 && (
+                            <View style={styles.conditionsSection}>
+                                <Text style={styles.conditionsTitle}>Medical Conditions:</Text>
+                                <View style={styles.conditionsTags}>
+                                    {conditions.map((c: string, i: number) => (
+                                        <View key={i} style={styles.conditionTag}>
+                                            <Text style={styles.conditionTagText}>{c}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
+                    </View>
                 </View>
 
                 {/* ── Next Visit Card (New Feature) ── */}
@@ -186,7 +215,7 @@ export default function BeneficiaryProfileScreen() {
                             <Ionicons
                                 name={tab === 'Timeline' ? 'time-outline' : tab === 'Vitals' ? 'pulse-outline' : 'document-text-outline'}
                                 size={16}
-                                color={activeTab === tab ? '#F97316' : '#9CA3AF'}
+                                color={activeTab === tab ? '#FF5B0A' : '#333333'}
                                 style={{ marginRight: 4 }}
                             />
                             <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
@@ -206,7 +235,7 @@ export default function BeneficiaryProfileScreen() {
                             <Image
                                 source={require("../../assets/images/group4.png")}
                                 resizeMode="contain"
-                                style={{ width: 60, height: 60 }}
+                                style={{ width: 94, height: 94 }}
                             />
                         </View>
                         <View style={{ flex: 1, marginLeft: 15 }}>
@@ -241,68 +270,150 @@ export default function BeneficiaryProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FAF5F0' },
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF5F0' },
+    safeArea: { flex: 1, backgroundColor: '#FFF2E8' },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF2E8' },
     notFoundText: { fontSize: 16, color: '#6B7280', marginBottom: 16 },
     backBtn: { backgroundColor: '#F97316', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
     backBtnText: { color: '#FFF', fontWeight: '600' },
 
-    scrollContent: { paddingBottom: 40 },
+    scrollContent: { paddingBottom: 34 },
 
     /* Hero */
-    heroGradient: { paddingVertical: 32, alignItems: 'center' },
+    heroSection: {
+        position: 'relative',
+        paddingBottom: 0,
+    },
+    heroGradient: {
+        height: 151,
+        overflow: 'hidden',
+        borderBottomLeftRadius: 23,
+        borderBottomRightRadius: 23,
+    },
+    heroImage: {
+        borderBottomLeftRadius: 23,
+        borderBottomRightRadius: 23,
+    },
+    heroOverlay: {
+        flex: 1,
+    },
+    avatarFloating: {
+        position: 'absolute',
+        top: 58,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 20,
+        elevation: 20,
+    },
+    profileCard: {
+        backgroundColor: '#FFFFFF',
+        marginHorizontal: 14,
+        marginTop: -48,
+        borderRadius: 15,
+        paddingTop: 83,
+        paddingHorizontal: 30,
+        paddingBottom: 28,
+        alignItems: 'center',
+        zIndex: 1,
+        ...Platform.select({
+            ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 8 },
+            android: { elevation: 3 },
+        }),
+    },
     heroPhoto: { width: 80, height: 80, borderRadius: 40, marginBottom: 12, borderWidth: 3, borderColor: '#FFF' },
-    heroName: { fontSize: 22, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
-    heroMeta: { fontSize: 14, color: '#FFE4CC' },
+    heroName: { fontSize: 25, fontWeight: '800', color: '#111111', marginBottom: 3 },
+    heroMeta: { fontSize: 17, color: '#333333' },
 
     /* Stats Row */
     statsRow: {
-        flexDirection: 'row', backgroundColor: '#FFFFFF', marginHorizontal: 20,
-        borderRadius: 16, padding: 16, marginTop: -20, marginBottom: 20,
-        ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12 },
-            android: { elevation: 4 },
-        }),
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        width: '100%',
+        marginTop: 34,
+        rowGap: 25,
     },
-    statItem: { flex: 1, alignItems: 'center' },
-    statDivider: { width: 1, backgroundColor: '#F3F4F6', marginVertical: 4 },
-    statEmoji: { fontSize: 20, marginBottom: 4 },
-    statValue: { fontSize: 14, fontWeight: '700', color: '#111827', marginTop: 4, marginBottom: 2 },
-    statLabel: { fontSize: 10, color: '#9CA3AF', textAlign: 'center' },
+    statItem: { width: '50%', alignItems: 'flex-start', paddingLeft: 20 },
+    statDivider: { width: 0, height: 0 },
+    statIconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 4,
+    },
+    happinessIconBox: { backgroundColor: '#FFEBCB' },
+    hoursIconBox: { backgroundColor: '#DDEBFF' },
+    heartIconBox: { backgroundColor: '#FFD9EC' },
+    bpIconBox: { backgroundColor: '#FFD9D9' },
+    statEmoji: { fontSize: 22 },
+    statValue: { fontSize: 21, fontWeight: '800', color: '#111111', marginBottom: 0 },
+    statLabel: { fontSize: 15, color: '#333333' },
+    conditionsSection: {
+        width: '100%',
+        marginTop: 26,
+        paddingLeft: 20,
+    },
+    conditionsTitle: { fontSize: 15, color: '#4B5563', marginBottom: 9 },
+    conditionsTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+    conditionTag: {
+        backgroundColor: '#FFE2E2',
+        borderRadius: 14,
+        paddingHorizontal: 13,
+        paddingVertical: 6,
+    },
+    conditionTagText: { fontSize: 14, color: '#DC2626', fontWeight: '500' },
 
     /* Tab Bar */
     tabBar: {
-        flexDirection: 'row', backgroundColor: '#FFFFFF', marginHorizontal: 20, borderRadius: 12, padding: 4, marginBottom: 20,
+        flexDirection: 'row',
+        backgroundColor: '#FFFFFF',
+        marginHorizontal: 14,
+        borderTopLeftRadius: 15,
+        borderTopRightRadius: 15,
+        paddingHorizontal: 0,
+        paddingTop: 0,
+        marginTop: 20,
+        marginBottom: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6 },
+            ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 6 },
             android: { elevation: 2 },
         }),
     },
-    tabItem: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
-    tabItemActive: { backgroundColor: '#FFF5ED' },
-    tabText: { fontSize: 13, fontWeight: '500', color: '#9CA3AF' },
-    tabTextActive: { color: '#F97316' },
+    tabItem: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 15 },
+    tabItemActive: { borderBottomWidth: 2, borderBottomColor: '#FF5B0A' },
+    tabText: { fontSize: 17, fontWeight: '500', color: '#333333' },
+    tabTextActive: { color: '#FF5B0A' },
 
     /* Assistance Card */
     assistanceCard: {
-        backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 20,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 15,
+        paddingHorizontal: 25,
+        paddingTop: 26,
+        paddingBottom: 29,
+        marginHorizontal: 14,
+        marginTop: 20,
+        marginBottom: 20,
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+            ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8 },
             android: { elevation: 2 },
         }),
     },
-    assistanceHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    assistanceIllustration: { width: 60, height: 60, justifyContent: 'center', alignItems: 'center' },
-    assistanceTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
-    assistanceSub: { fontSize: 14, color: '#4B5563', lineHeight: 20 },
+    assistanceHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24 },
+    assistanceIllustration: { width: 94, height: 94, justifyContent: 'center', alignItems: 'center' },
+    assistanceTitle: { fontSize: 25, fontWeight: '800', color: '#111111', marginBottom: 12 },
+    assistanceSub: { fontSize: 20, color: '#111111', lineHeight: 29 },
     assistanceActions: { flexDirection: 'row', alignItems: 'center' },
     callbackBtn: {
-        flex: 1, flexDirection: 'row', borderWidth: 1, borderColor: '#F97316', borderRadius: 12,
-        height: 50, alignItems: 'center', justifyContent: 'center', marginRight: 15
+        flex: 1, flexDirection: 'row', borderWidth: 1, borderColor: '#FF5B0A', borderRadius: 8,
+        height: 48, alignItems: 'center', justifyContent: 'center', marginRight: 31
     },
-    callbackText: { color: '#F97316', fontWeight: '600', fontSize: 15 },
+    callbackText: { color: '#FF5B0A', fontWeight: '700', fontSize: 16 },
     whatsappBtn: {
-        width: 50, height: 50, borderRadius: 12, backgroundColor: '#FFF5ED',
+        width: 52, height: 52, borderRadius: 12, backgroundColor: '#FFF5ED',
         justifyContent: 'center', alignItems: 'center',
     },
 
