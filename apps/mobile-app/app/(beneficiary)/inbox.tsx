@@ -1,9 +1,3 @@
-<<<<<<< Updated upstream
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Platform } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-=======
 import React, { useState } from 'react';
 import {
     View,
@@ -17,6 +11,8 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+
 
 // --- PIXEL PERFECT CUSTOM SVG ICONS ---
 const CustomMailOpenIcon = ({ size = 20, color = '#9CA3AF' }) => (
@@ -70,7 +66,6 @@ const messages: Message[] = [
         active: true, // Unread (Closed Orange Envelope)
     },
 ];
->>>>>>> Stashed changes
 
 export default function InboxScreen() {
     // State to hold the currently selected message for the popup
@@ -81,25 +76,13 @@ export default function InboxScreen() {
             <LinearGradient colors={['#FDE6D2', '#FFDDC2']} style={styles.header}>
                 <Text style={styles.headerTitle}>Inbox</Text>
                 <Text style={styles.headerSub}>Messages & notifications</Text>
-            </LinearGradient>
 
-<<<<<<< Updated upstream
-            <ScrollView contentContainerStyle={styles.content}>
-                {/* Empty state */}
-                <View style={styles.emptyState}>
-                    <Feather name="inbox" size={52} color="#E5E7EB" />
-                    <Text style={styles.emptyTitle}>All caught up!</Text>
-                    <Text style={styles.emptySubtitle}>
-                        You have no new messages or notifications.
-                    </Text>
-                </View>
-=======
                 {/* Compose button preserved but commented out as requested */}
                 {/* <TouchableOpacity style={styles.composeButton} activeOpacity={0.85}>
                     <Feather name="send" size={20} color="#FFFFFF" />
                 </TouchableOpacity> 
                 */}
-            </View>
+            </LinearGradient>
 
             <ScrollView
                 style={styles.scroll}
@@ -141,7 +124,6 @@ export default function InboxScreen() {
                         </View>
                     </TouchableOpacity>
                 ))}
->>>>>>> Stashed changes
             </ScrollView>
 
             {/* MESSAGE POPUP MODAL */}
@@ -192,46 +174,13 @@ export default function InboxScreen() {
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FAF5ED' },
     header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 28 },
-    headerTitle: { fontSize: 28, fontWeight: '700', color: '#111827', fontFamily: 'Outfit-Bold' },
-    headerSub: { fontSize: 15, color: '#374151', marginTop: 4, fontFamily: 'Outfit-Regular' },
+    headerTitle: { fontSize: 28, fontWeight: '700', color: '#111827', fontFamily: 'Poppins-Bold' },
+    headerSub: { fontSize: 15, color: '#374151', marginTop: 4, fontFamily: 'Poppins-Regular' },
     content: { 
         flex: 1, 
         padding: 20,
         paddingBottom: Platform.OS === 'ios' ? 120 : 100,
     },
-    emptyState: {
-        flex: 1,
-<<<<<<< Updated upstream
-=======
-        backgroundColor: '#FFF0E6',
-    },
-    header: {
-        height: 60, // Adjusted to match standard header heights
-        backgroundColor: '#FFFFFF',
-        justifyContent: 'center',
->>>>>>> Stashed changes
-        alignItems: 'center',
-        paddingTop: 100,
-        gap: 12,
-    },
-<<<<<<< Updated upstream
-    emptyTitle: { fontSize: 20, fontWeight: '700', color: '#374151', fontFamily: 'Outfit-Bold' },
-    emptySubtitle: {
-        fontSize: 15,
-        color: '#9CA3AF',
-=======
-    headerTitle: {
-        fontFamily: 'Poppins-Medium', // Updated to Poppins-Medium for consistency
-        fontSize: 18,
-        color: '#111827',
->>>>>>> Stashed changes
-        textAlign: 'center',
-        fontFamily: 'Outfit-Regular',
-        maxWidth: 260,
-    },
-<<<<<<< Updated upstream
-});
-=======
     composeButton: {
         position: 'absolute',
         right: 16,
@@ -246,11 +195,6 @@ const styles = StyleSheet.create({
     scroll: {
         flex: 1,
         backgroundColor: '#FFF0E6',
-    },
-    content: {
-        paddingHorizontal: 16,
-        paddingTop: 24,
-        paddingBottom: Platform.OS === 'ios' ? 112 : 96,
     },
 
     // --- Message Card Styling ---
@@ -399,4 +343,3 @@ const styles = StyleSheet.create({
         color: '#374151',
     },
 });
->>>>>>> Stashed changes

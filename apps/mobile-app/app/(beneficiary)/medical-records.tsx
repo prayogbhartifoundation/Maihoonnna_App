@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-<<<<<<< Updated upstream
-    SafeAreaView, ActivityIndicator, Platform, Dimensions
-} from 'react-native';
-=======
     SafeAreaView, ActivityIndicator, Platform, Modal, TextInput
 } from 'react-native';
 import Svg, { Line, Circle, Text as SvgText, Path, Rect } from 'react-native-svg';
->>>>>>> Stashed changes
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -66,6 +61,12 @@ interface HistoryItem {
     weight: string;
 }
 
+const calculateDotBottom = (val: number) => {
+    // Scaled to match the SVG line heights (y = 170 at 0, y = 20 at 140)
+    // SVG is 200px tall. bottom = 200 - y
+    return 30 + (val / 140) * 150 - 5;
+};
+
 export default function MedicalRecordsScreen() {
     const router = useRouter();
     const [latest, setLatest] = useState<LatestReadings>({
@@ -84,6 +85,7 @@ export default function MedicalRecordsScreen() {
     });
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showAddVital, setShowAddVital] = useState(false);
 
     useEffect(() => {
         fetchMedicalRecords();
@@ -174,73 +176,37 @@ export default function MedicalRecordsScreen() {
 
                     {/* Latest Readings 2x2 Grid */}
                     <View style={styles.latestGrid}>
-<<<<<<< Updated upstream
-                        {/* Blood Pressure */}
-                        <View style={styles.latestCard}>
-                            <View style={styles.cardIconRow}>
-                                <View style={[styles.cardIconWrap, { backgroundColor: '#FEF2F2' }]}>
-                                    <MaterialCommunityIcons name="heart-pulse" size={22} color="#EF4444" />
-                                </View>
-=======
                         {/* Blood Pressure (Custom SVG Pulse) */}
                         <View style={styles.latestCard}>
                             <View style={[styles.cardIconWrap, { backgroundColor: '#FEF2F2' }]}>
                                 <CustomPulseIcon />
->>>>>>> Stashed changes
                             </View>
                             <Text style={styles.cardLabel}>Blood Pressure</Text>
                             <Text style={styles.cardValue}>{latest.bp}</Text>
                         </View>
 
-<<<<<<< Updated upstream
-                        {/* Heart Rate */}
-                        <View style={styles.latestCard}>
-                            <View style={styles.cardIconRow}>
-                                <View style={[styles.cardIconWrap, { backgroundColor: '#FDF2F8' }]}>
-                                    <Ionicons name="heart-outline" size={22} color="#EC4899" />
-                                </View>
-=======
                         {/* Heart Rate (Custom SVG Heart) */}
                         <View style={styles.latestCard}>
                             <View style={[styles.cardIconWrap, { backgroundColor: '#FDF2F8' }]}>
                                 <CustomHeartIcon />
->>>>>>> Stashed changes
                             </View>
                             <Text style={styles.cardLabel}>Heart Rate</Text>
                             <Text style={styles.cardValue}>{latest.heartRate}</Text>
                         </View>
 
-<<<<<<< Updated upstream
-                        {/* Temperature */}
-                        <View style={styles.latestCard}>
-                            <View style={styles.cardIconRow}>
-                                <View style={[styles.cardIconWrap, { backgroundColor: '#FFF7ED' }]}>
-                                    <FontAwesome5 name="thermometer-half" size={18} color="#F97316" />
-                                </View>
-=======
                         {/* Temperature (Custom SVG Thermometer) */}
                         <View style={styles.latestCard}>
                             <View style={[styles.cardIconWrap, { backgroundColor: '#FFF7ED' }]}>
                                 <CustomThermometerIcon />
->>>>>>> Stashed changes
                             </View>
                             <Text style={styles.cardLabel}>Temperature</Text>
                             <Text style={styles.cardValue}>{latest.temperature}</Text>
                         </View>
 
-<<<<<<< Updated upstream
-                        {/* Weight */}
-                        <View style={styles.latestCard}>
-                            <View style={styles.cardIconRow}>
-                                <View style={[styles.cardIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                                    <MaterialCommunityIcons name="scale-bathroom" size={22} color="#3B82F6" />
-                                </View>
-=======
                         {/* Weight (Custom SVG Scale) */}
                         <View style={styles.latestCard}>
                             <View style={[styles.cardIconWrap, { backgroundColor: '#EFF6FF' }]}>
                                 <CustomScaleIcon />
->>>>>>> Stashed changes
                             </View>
                             <Text style={styles.cardLabel}>Weight</Text>
                             <Text style={styles.cardValue}>{latest.weight}</Text>
@@ -250,50 +216,31 @@ export default function MedicalRecordsScreen() {
                     {/* Trends Section */}
                     <Text style={[styles.sectionTitle, { marginTop: 28, marginBottom: 16 }]}>Trends (Last 5 readings)</Text>
                     <View style={styles.trendsCard}>
-<<<<<<< Updated upstream
-                        {/* Y-Axis Labels & Chart Container */}
-                        <View style={styles.chartOuterRow}>
-                            {/* Y Axis Labels */}
-                            <View style={styles.yAxis}>
-                                <Text style={styles.yAxisText}>140</Text>
-                                <Text style={styles.yAxisText}>105</Text>
-                                <Text style={styles.yAxisText}>70</Text>
-                                <Text style={styles.yAxisText}>35</Text>
-                                <Text style={styles.yAxisText}>0</Text>
-                            </View>
-=======
-                        <Svg width="100%" height={200} viewBox="0 0 360 200">
-                            {[0, 35, 70, 105, 140].map((value) => {
-                                const y = 170 - (value / 140) * 150;
-                                return (
-                                    <React.Fragment key={value}>
-                                        <SvgText x="20" y={y + 4} fontSize="11" fill="#6B7280">
-                                            {value}
-                                        </SvgText>
-                                        <Line
-                                            x1="55"
-                                            y1={y}
-                                            x2="340"
-                                            y2={y}
-                                            stroke="#D1D5DB"
-                                            strokeWidth="1"
-                                            strokeDasharray="4 4"
-                                        />
-                                    </React.Fragment>
-                                );
-                            })}
->>>>>>> Stashed changes
+                        <View style={{ position: 'relative', height: 200 }}>
+                            <Svg width="100%" height={200} viewBox="0 0 360 200">
+                                {[0, 35, 70, 105, 140].map((value) => {
+                                    const y = 170 - (value / 140) * 150;
+                                    return (
+                                        <React.Fragment key={value}>
+                                            <SvgText x="20" y={y + 4} fontSize="11" fill="#6B7280">
+                                                {value}
+                                            </SvgText>
+                                            <Line
+                                                x1="55"
+                                                y1={y}
+                                                x2="340"
+                                                y2={y}
+                                                stroke="#D1D5DB"
+                                                strokeWidth="1"
+                                                strokeDasharray="4 4"
+                                            />
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </Svg>
 
-                            {/* Main Grid Area */}
-                            <View style={styles.gridContainer}>
-                                {/* Grid Lines */}
-                                <View style={[styles.gridLine, { top: '0%' }]} />
-                                <View style={[styles.gridLine, { top: '25%' }]} />
-                                <View style={[styles.gridLine, { top: '50%' }]} />
-                                <View style={[styles.gridLine, { top: '75%' }]} />
-                                <View style={[styles.gridLine, { top: '100%', height: 2, backgroundColor: '#E5E7EB' }]} />
-
-                                {/* Trend Plots (5 Column Slots) */}
+                            {/* Main Grid Area Overlay */}
+                            <View style={[StyleSheet.absoluteFillObject, { left: 55, right: 20 }]}>
                                 <View style={styles.plotArea}>
                                     {trends.labels.map((lbl, idx) => {
                                         const sysVal = trends.systolic[idx] || 120;
@@ -305,7 +252,7 @@ export default function MedicalRecordsScreen() {
                                                 <View
                                                     style={[
                                                         styles.chartDot,
-                                                        { bottom: calculateDotBottom(sysVal) as any, backgroundColor: '#EF4444' }
+                                                        { bottom: calculateDotBottom(sysVal), backgroundColor: '#EF4444' }
                                                     ]}
                                                 >
                                                     <Text style={styles.dotValue}>{sysVal}</Text>
@@ -315,7 +262,7 @@ export default function MedicalRecordsScreen() {
                                                 <View
                                                     style={[
                                                         styles.chartDot,
-                                                        { bottom: calculateDotBottom(diaVal) as any, backgroundColor: '#EC4899' }
+                                                        { bottom: calculateDotBottom(diaVal), backgroundColor: '#EC4899' }
                                                     ]}
                                                 >
                                                     <Text style={styles.dotValue}>{diaVal}</Text>
@@ -368,8 +315,6 @@ export default function MedicalRecordsScreen() {
                     <View style={{ height: Platform.OS === 'ios' ? 100 : 80 }} />
                 </ScrollView>
             )}
-<<<<<<< Updated upstream
-=======
             <Modal
                 visible={showAddVital}
                 transparent
@@ -402,7 +347,6 @@ export default function MedicalRecordsScreen() {
                     </View>
                 </View>
             </Modal>
->>>>>>> Stashed changes
         </SafeAreaView>
     );
 }
@@ -415,13 +359,6 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-<<<<<<< Updated upstream
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
-        backgroundColor: '#FDF8F3',
-=======
         justifyContent: 'space-between',
     },
     modalOverlay: {
@@ -490,7 +427,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         lineHeight: 24,
         color: '#374151',
->>>>>>> Stashed changes
     },
     backBtn: {
         marginRight: 16,
@@ -500,25 +436,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerTitle: {
-<<<<<<< Updated upstream
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#6B7280',
-        fontFamily: 'Outfit-Medium',
-        marginBottom: 24,
-        paddingHorizontal: 4,
-=======
         fontFamily: 'Poppins-Medium',
         fontSize: 16,
         lineHeight: 24,
         color: '#111827',
         textAlign: 'center',
->>>>>>> Stashed changes
     },
     content: {
         padding: 20,
@@ -531,11 +453,6 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginTop: 12,
-<<<<<<< Updated upstream
-        color: '#4B5563',
-        fontFamily: 'Outfit-Medium',
-        fontSize: 15,
-=======
         color: '#374151',
         fontFamily: 'Poppins-Medium',
         fontSize: 14,
@@ -546,7 +463,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         color: '#111827',
         marginBottom: 16,
->>>>>>> Stashed changes
     },
     sectionHeaderRow: {
         flexDirection: 'row',
@@ -555,18 +471,6 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     sectionTitle: {
-<<<<<<< Updated upstream
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
-    },
-    addBtn: {
-        backgroundColor: '#FF6F00',
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-=======
         fontFamily: 'Poppins-SemiBold',
         fontSize: 18,
         lineHeight: 28,
@@ -577,7 +481,6 @@ const styles = StyleSheet.create({
         height: 36,
         borderRadius: 18,
         backgroundColor: '#FE6700',
->>>>>>> Stashed changes
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#FF6F00',
@@ -592,28 +495,15 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     latestCard: {
-<<<<<<< Updated upstream
-=======
         width: '48%',
         height: 124,
         borderRadius: 16,
->>>>>>> Stashed changes
         backgroundColor: '#FFFFFF',
-        width: '48%',
-        borderRadius: 20,
         padding: 16,
-<<<<<<< Updated upstream
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 8,
-=======
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.03,
         shadowRadius: 4,
->>>>>>> Stashed changes
         elevation: 2,
         borderWidth: 1,
         borderColor: '#F3F4F6',
@@ -622,120 +512,13 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     cardIconWrap: {
-<<<<<<< Updated upstream
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-=======
         width: 40,
         height: 40,
         borderRadius: 12,
->>>>>>> Stashed changes
         justifyContent: 'center',
         alignItems: 'center',
     },
     cardLabel: {
-<<<<<<< Updated upstream
-        fontSize: 13,
-        color: '#6B7280',
-        fontFamily: 'Outfit-Medium',
-        marginBottom: 4,
-    },
-    cardValue: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
-    },
-    trendsCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03,
-        shadowRadius: 10,
-        elevation: 3,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
-    },
-    chartOuterRow: {
-        flexDirection: 'row',
-        height: 180,
-    },
-    yAxis: {
-        justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        paddingRight: 10,
-        width: 32,
-        height: '100%',
-    },
-    yAxisText: {
-        fontSize: 11,
-        color: '#9CA3AF',
-        fontFamily: 'Outfit-Medium',
-    },
-    gridContainer: {
-        flex: 1,
-        position: 'relative',
-        height: '100%',
-    },
-    gridLine: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        height: 1,
-        backgroundColor: '#F3F4F6',
-    },
-    plotArea: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-    },
-    plotColumn: {
-        width: '18%',
-        height: '100%',
-        alignItems: 'center',
-        position: 'relative',
-    },
-    chartDot: {
-        position: 'absolute',
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    dotValue: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: '#111827',
-        position: 'absolute',
-        top: -16,
-        fontFamily: 'Outfit-Bold',
-        width: 30,
-        textAlign: 'center',
-    },
-    xAxisRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginLeft: 32,
-        marginTop: 12,
-    },
-    xAxisText: {
-        fontSize: 11,
-        color: '#9CA3AF',
-        fontFamily: 'Outfit-Medium',
-        width: '18%',
-        textAlign: 'center',
-    },
-    historyList: {
-        marginTop: 4,
-=======
         fontFamily: 'Poppins-Regular',
         fontSize: 13,
         lineHeight: 16,
@@ -776,37 +559,6 @@ const styles = StyleSheet.create({
     },
     historyList: {
         gap: 12,
-    },
-    historyCard: {
-        minHeight: 112,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 16,
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    historyDateText: {
-        fontFamily: 'Poppins-Medium',
-        fontSize: 15,
-        lineHeight: 20,
-        color: '#111827',
-        marginBottom: 10,
-    },
-    historyVitalsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        rowGap: 8,
-    },
-    historyVitalLabel: {
-        width: '50%',
-        fontFamily: 'Poppins-Regular',
-        fontSize: 14,
-        lineHeight: 20,
-        color: '#4B5563',
->>>>>>> Stashed changes
     },
     emptyHistory: {
         alignItems: 'center',
@@ -856,5 +608,51 @@ const styles = StyleSheet.create({
         color: '#4B5563',
         fontFamily: 'Outfit-Medium',
         width: '48%',
+    },
+    plotArea: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+    },
+    plotColumn: {
+        width: '18%',
+        height: '100%',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    chartDot: {
+        position: 'absolute',
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    dotValue: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: '#111827',
+        position: 'absolute',
+        top: -16,
+        fontFamily: 'Outfit-Bold',
+        width: 30,
+        textAlign: 'center',
+    },
+    xAxisRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginLeft: 32,
+        marginTop: 12,
+    },
+    xAxisText: {
+        fontSize: 11,
+        color: '#9CA3AF',
+        fontFamily: 'Outfit-Medium',
+        width: '18%',
+        textAlign: 'center',
     },
 });

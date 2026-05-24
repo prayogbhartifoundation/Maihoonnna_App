@@ -138,19 +138,6 @@ export default function CareTeamScreen() {
                 {team.map((member) => {
                     const isPrimary = member.level === 'Primary';
 
-<<<<<<< Updated upstream
-                        <View style={styles.profileRow}>
-                            <View style={styles.avatar}>
-                                {member.photo ? (
-                                    <Image source={{ uri: member.photo }} style={styles.avatarImage} />
-                                ) : (
-                                    <Ionicons name="person" size={32} color="#9CA3AF" />
-                                )}
-                            </View>
-                            <View style={styles.profileInfo}>
-                                <Text style={styles.memberName}>{member.name}</Text>
-                                <Text style={styles.memberRole}>{member.role}</Text>
-=======
                     return (
                         <View key={member.id} style={styles.card}>
 
@@ -180,7 +167,6 @@ export default function CareTeamScreen() {
                                     <Text style={styles.memberName}>{member.name}</Text>
                                     <Text style={styles.memberRole}>{member.role}</Text>
                                 </View>
->>>>>>> Stashed changes
                             </View>
 
                             <Text style={styles.memberBio}>{member.bio}</Text>
@@ -204,35 +190,8 @@ export default function CareTeamScreen() {
                             </View>
 
                         </View>
-<<<<<<< Updated upstream
-
-                        <Text style={styles.memberBio}>{member.bio}</Text>
-
-                        <View style={styles.actionRow}>
-                            <ConnectContactButton
-                                name={member.name}
-                                role={member.role}
-                                phone={member.phone}
-                                photo={member.photo}
-                                trigger={
-                                    <View style={[styles.actionButton, styles.callButton]}>
-                                        <Ionicons name="call-outline" size={18} color="#FFFFFF" />
-                                        <Text style={styles.callButtonText}>Call</Text>
-                                    </View>
-                                }
-                            />
-
-                            <TouchableOpacity style={[styles.actionButton, styles.emailButton]}>
-                                <Ionicons name="mail-outline" size={18} color="#4B5563" />
-                                <Text style={styles.emailButtonText}>Email</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ))}
-=======
                     );
                 })}
->>>>>>> Stashed changes
             </ScrollView>
         </View>
     );
@@ -284,20 +243,13 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
 
-    // --- Badge Styles ---
     badgeContainer: {
-<<<<<<< Updated upstream
-        backgroundColor: '#FFEED9',
-=======
         alignSelf: 'flex-start',
         height: 24,
         borderRadius: 999,
         justifyContent: 'center',
->>>>>>> Stashed changes
         paddingHorizontal: 12,
         paddingVertical: 4,
-        borderRadius: 12,
-        alignSelf: 'flex-start',
         marginBottom: 16,
     },
     badgeOrange: {
@@ -309,14 +261,10 @@ const styles = StyleSheet.create({
     badgeText: {
         color: '#F97316',
         fontSize: 12,
-<<<<<<< Updated upstream
-        fontWeight: '500',
-=======
         lineHeight: 16,
     },
     badgeTextOrange: {
         color: '#FE6700',
->>>>>>> Stashed changes
     },
     badgeTextGrey: {
         color: '#4B5563',
@@ -360,40 +308,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         marginBottom: 20,
     },
-<<<<<<< Updated upstream
-    actionRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 12,
-    },
-    actionButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 12,
-        gap: 8,
-    },
-    callButton: {
-        backgroundColor: '#F97316',
-    },
-    callButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    emailButton: {
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-    },
-    emailButtonText: {
-        color: '#4B5563',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-=======
 
     // --- FIX: Action Button Styles ---
     actionArea: {
@@ -420,7 +334,6 @@ const styles = StyleSheet.create({
     },
 
     // --- Error & Empty States ---
->>>>>>> Stashed changes
     errorCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 16,

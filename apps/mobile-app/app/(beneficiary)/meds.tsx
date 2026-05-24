@@ -1,9 +1,3 @@
-<<<<<<< Updated upstream
-import React from 'react';
-import { StyleSheet, SafeAreaView, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import MedsTracker from '@/components/shared/MedsTracker';
-=======
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
@@ -281,19 +275,14 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
             </SafeAreaView>
         );
     }
->>>>>>> Stashed changes
 
     return (
         <SafeAreaView style={styles.safeArea}>
-<<<<<<< Updated upstream
-            <LinearGradient colors={['#FDE6D2', '#FFDDC2']} style={styles.header}>
-=======
             {/* --- NEW WHITE TOP BANNER --- */}
             <View style={styles.header}>
->>>>>>> Stashed changes
                 <Text style={styles.headerTitle}>Medications</Text>
                 <Text style={styles.headerSub}>Today's medication schedule</Text>
-            </LinearGradient>
+            </View>
 
             <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
@@ -442,37 +431,32 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
 }
 
 const styles = StyleSheet.create({
-<<<<<<< Updated upstream
-    safeArea: { flex: 1, backgroundColor: '#FAF5ED' },
-    header: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 20 },
-    headerTitle: { fontSize: 28, fontWeight: '700', color: '#111827' },
-    headerSub: { fontSize: 15, color: '#374151', marginTop: 4 },
-=======
     safeArea: {
         flex: 1,
         backgroundColor: '#FFFFFF', // Ensures the notch area remains white
     },
-    // --- NEW HEADER STYLES ---
     header: {
-        height: 60,
         backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
+        paddingVertical: 12,
     },
     headerTitle: {
         fontFamily: 'Poppins-Medium',
         fontSize: 18,
         color: '#111827',
     },
+    headerSub: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: '#6B7280',
+        marginTop: 2,
+    },
     // -------------------------
->>>>>>> Stashed changes
     container: {
         flex: 1,
         backgroundColor: '#FCFAF7',
     },
-<<<<<<< Updated upstream
-});
-=======
     content: {
         paddingHorizontal: 16,
         paddingTop: 16,
@@ -755,4 +739,3 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
 });
->>>>>>> Stashed changes
