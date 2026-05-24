@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { EditBeneficiaryDialog } from '../components/forms/EditBeneficiaryDialog';
 import { AddMedicineDialog } from '../components/forms/AddMedicineDialog';
 import { AddConditionDialog } from '../components/forms/AddConditionDialog';
+import { PackageUtilizationPanel } from '../components/PackageUtilizationPanel';
 
 interface StaffPool {
   careCompanions: { id: string; userId: string; name: string; zone: string; isAvailable: boolean }[];
@@ -278,9 +279,10 @@ export default function BeneficiaryProfilePage() {
 
           <div className="lg:col-span-2">
             <Tabs defaultValue="profile" className="space-y-8">
-              <TabsList className="bg-white/50 p-1.5 rounded-3xl h-auto flex gap-1 border border-[#E7DED6] backdrop-blur-sm">
+              <TabsList className="bg-white/50 p-1.5 rounded-3xl h-auto flex gap-1 border border-[#E7DED6] backdrop-blur-sm flex-wrap">
                 <TabsTrigger value="profile" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Health Profile</TabsTrigger>
                 <TabsTrigger value="membership" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Membership</TabsTrigger>
+                <TabsTrigger value="usage" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Package Usage</TabsTrigger>
                 <TabsTrigger value="assign" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Staff Assignment</TabsTrigger>
                 <TabsTrigger value="clinical" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Clinical Config</TabsTrigger>
               </TabsList>
@@ -443,6 +445,14 @@ export default function BeneficiaryProfilePage() {
                      </div>
                    )}
                 </div>
+              </TabsContent>
+
+              {/* ──────────────── PACKAGE USAGE TAB ──────────────── */}
+              <TabsContent value="usage" className="mt-0 outline-none">
+                <PackageUtilizationPanel
+                  beneficiaryId={details.id}
+                  beneficiaryName={details.name}
+                />
               </TabsContent>
 
               <TabsContent value="assign" className="space-y-6 mt-0 outline-none">

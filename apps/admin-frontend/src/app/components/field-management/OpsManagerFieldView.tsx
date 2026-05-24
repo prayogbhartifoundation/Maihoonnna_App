@@ -200,10 +200,10 @@ export default function OpsManagerFieldView() {
             </button>
           </div>
 
-          {/* Two-column layout: Team | Beneficiaries */}
-          <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
-            {/* Team Panel — narrower */}
-            <div className="xl:col-span-2">
+          {/* Stacked layout: Team then Beneficiaries */}
+          <div className="flex flex-col gap-5">
+            {/* Team Panel */}
+            <div>
               <TeamPanel
                 team={team}
                 loading={teamLoading}
@@ -211,8 +211,8 @@ export default function OpsManagerFieldView() {
               />
             </div>
 
-            {/* Beneficiary List — wider */}
-            <div className="xl:col-span-3">
+            {/* Beneficiary List */}
+            <div>
               <BeneficiaryList
                 beneficiaries={beneficiaries}
                 team={team}

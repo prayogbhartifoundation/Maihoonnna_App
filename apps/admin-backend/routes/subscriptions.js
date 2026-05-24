@@ -623,4 +623,131 @@ router.post('/:id/consume', async (req, res) => {
   }
 });
 
+// ── GET /api/subscriptions/beneficiary/:id/utilization ────────────────────────
+// Returns active subscription + benefit balances + recent hours log for a beneficiary
+router.get('/beneficiary/:id/utilization', async (req, res) => {
+  try {
+    const { id: beneficiaryId } = req.params;
+
+    // Get active subscription with package + benefit balances
+    const subscription = await prisma.subscription.findFirst({
+      where: { beneficiaryId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        package: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            basePrice: true,
+          },
+        },
+        benefitBalances: {
+          include: {
+            benefit: {
+              select: {
+                id: true,
+                name: true,
+                unitLabel: true,
+                description: true,
+                benefitType: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!subscription) {
+      return res.json({
+        success: true,
+        data: { subscription: null, benefits: [], recentLogs: [] },
+      });
+    }
+
+    // Get recent package hours logs (last 30 entries)
+    const recentLogs = await prisma.packageHoursLog.findMany({
+      where: { subscriptionId: subscription.id },
+      orderBy: { loggedAt: 'desc' },
+      take: 30,
+      include: {
+        visit: {
+          select: {
+            encounterId: true,
+            status: true,
+            scheduledTime: true,
+            checkInTime: true,
+            checkOutTime: true,
+            durationMinutes: true,
+            careCompanion: { select: { name: true, ccType: true } },
+          },
+        },
+      },
+    });
+
+    const benefits = subscription.benefitBalances.map((b) => {
+      const remainingUnits = Math.max(0, b.totalUnits - b.usedUnits);
+      const usagePercent = b.totalUnits > 0 ? Math.round((b.usedUnits / b.totalUnits) * 100) : 0;
+      const isLowBalance = b.totalUnits > 0 && remainingUnits / b.totalUnits < 0.2;
+      const isExhausted = b.totalUnits > 0 && remainingUnits === 0;
+
+      return {
+        benefitId: b.benefitId,
+        benefitName: b.benefit?.name,
+        unitLabel: b.benefit?.unitLabel || 'units',
+        benefitTypeName: b.benefit?.benefitType?.name || null,
+        description: b.benefit?.description || null,
+        totalUnits: b.totalUnits,
+        usedUnits: b.usedUnits,
+        remainingUnits,
+        usagePercent,
+        isLowBalance,
+        isExhausted,
+      };
+    });
+
+    const logs = recentLogs.map((l) => ({
+      id: l.id,
+      visitId: l.visitId || null,
+      encounterId: l.visit?.encounterId || null,
+      hoursConsumed: l.hoursConsumed,
+      balanceBefore: l.balanceBefore,
+      balanceAfter: l.balanceAfter,
+      description: l.description,
+      loggedAt: l.loggedAt,
+      careCompanionName: l.visit?.careCompanion?.name || 'System',
+      ccType: l.visit?.careCompanion?.ccType || null,
+      visitStatus: l.visit?.status || null,
+      scheduledTime: l.visit?.scheduledTime || null,
+      actualMinutes: l.visit?.durationMinutes || null,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        subscription: {
+          id: subscription.id,
+          packageId: subscription.package?.id,
+          packageName: subscription.package?.name,
+          packageType: subscription.packageType,
+          startDate: subscription.startDate,
+          endDate: subscription.endDate,
+          isActive: subscription.isActive,
+          hoursTotal: subscription.hoursTotal,
+          hoursUsed: subscription.hoursUsed,
+          hoursRemaining: Math.max(0, subscription.hoursTotal - subscription.hoursUsed),
+          visitsTotal: subscription.visitsTotal,
+          visitsCompleted: subscription.visitsCompleted,
+        },
+        benefits,
+        recentLogs: logs,
+      },
+    });
+  } catch (err) {
+    console.error('GET /subscriptions/beneficiary/:id/utilization error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
+

@@ -448,6 +448,24 @@ export const subscriberApi = {
       body: JSON.stringify(updates),
     });
   },
+
+  /** Get utilization summary for all beneficiaries under this subscriber */
+  async getUtilizationSummary(subscriberId: string): Promise<Array<{
+    beneficiaryId: string;
+    beneficiaryName: string;
+    age: number;
+    photo: string | null;
+    primaryCCName: string | null;
+    activePackage: string | null;
+    subscriptionId: string | null;
+    subscriptionEndDate: string | null;
+    benefits: any[];
+    overallUsagePercent: number;
+    hasLowBalance: boolean;
+    hasExhausted: boolean;
+  }>> {
+    return apiJson(`/subscribers/${subscriberId}/utilization-summary`);
+  },
 };
 
 // ============================================================================
@@ -823,7 +841,26 @@ export const subscriptionApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
-  }
+  },
+  /** Get rich utilization data for a beneficiary's active subscription */
+  async getBeneficiaryUtilization(beneficiaryId: string): Promise<{
+    subscription: any | null;
+    benefits: Array<{
+      benefitId: string;
+      benefitName: string;
+      unitLabel: string;
+      benefitTypeName: string | null;
+      totalUnits: number;
+      usedUnits: number;
+      remainingUnits: number;
+      usagePercent: number;
+      isLowBalance: boolean;
+      isExhausted: boolean;
+    }>;
+    recentLogs: any[];
+  }> {
+    return apiJson(`/subscriptions/beneficiary/${beneficiaryId}/utilization`);
+  },
 };
 
 export const visitApi = {
@@ -849,6 +886,13 @@ export const visitApi = {
   async checkAvailability(careCompanionId: string, scheduledTime: string, durationMinutes: number): Promise<{ isAvailable: boolean; reason: string | null }> {
     const query = new URLSearchParams({ careCompanionId, scheduledTime, durationMinutes: durationMinutes.toString() }).toString();
     return apiJson(`/visits/check-availability?${query}`);
+  },
+  /** Mark a visit as completed, triggers hours deduction for hour-based benefits */
+  async complete(id: string, data: { checkInTime: string; checkOutTime: string; benefitId?: string; notes?: string; visitSummary?: string }): Promise<any> {
+    return apiJson(`/visits/${id}/complete`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
   },
 };
 

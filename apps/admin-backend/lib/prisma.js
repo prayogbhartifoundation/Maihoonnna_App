@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
 const { Pool } = require('pg');
 
 /**
@@ -29,9 +30,12 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Initialize or reuse singleton Prisma client
+const adapter = new PrismaPg(pool);
+
 const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
+    adapter,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 

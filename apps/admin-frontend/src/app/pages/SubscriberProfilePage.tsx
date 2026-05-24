@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { 
   X, User, Phone, Mail, MapPin, Package, Calendar, Loader2, Users, 
-  UserCheck, ChevronRight, ArrowLeft, Edit2
+  UserCheck, ChevronRight, ArrowLeft, Edit2, TrendingUp, AlertTriangle, PackageCheck, CheckCircle2
 } from 'lucide-react';
 import { subscriberApi } from '../../services/api';
 import { StatusChip } from '../components/common/StatusChip';
@@ -16,6 +16,8 @@ export default function SubscriberProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [utilization, setUtilization] = useState<any[]>([]);
+  const [utilLoading, setUtilLoading] = useState(false);
 
   const fetchDetails = async () => {
     if (!id) return;
@@ -24,10 +26,24 @@ export default function SubscriberProfilePage() {
     try {
       const data = await subscriberApi.getById(id);
       setDetails(data);
+      // Also load utilization
+      loadUtilization(id);
     } catch (err: any) {
       setError(err.message || 'Failed to load subscriber details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUtilization = async (subscriberId: string) => {
+    setUtilLoading(true);
+    try {
+      const data = await subscriberApi.getUtilizationSummary(subscriberId);
+      setUtilization(data);
+    } catch (e) {
+      // Silently fail
+    } finally {
+      setUtilLoading(false);
     }
   };
 
@@ -230,6 +246,96 @@ export default function SubscriberProfilePage() {
               )}
             </div>
           </div>
+
+          {/* ─────────── PACKAGE UTILIZATION SUMMARY ─────────── */}
+          {(utilization.length > 0 || utilLoading) && (
+            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <TrendingUp size={18} className="text-[#FF7A00]" />
+                  <h3 className="text-lg font-black text-gray-800">Package Utilization</h3>
+                </div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Across all beneficiaries</span>
+              </div>
+
+              {utilLoading ? (
+                <div className="flex items-center justify-center py-10 gap-3">
+                  <Loader2 className="animate-spin text-[#FF7A00]" size={20} />
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading utilization...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {utilization.map((u) => (
+                    <div
+                      key={u.beneficiaryId}
+                      className="p-5 rounded-2xl border border-gray-100 bg-[#FDFBF9] hover:border-orange-100 hover:bg-orange-50/20 transition-all cursor-pointer group"
+                      onClick={() => navigate(`/beneficiaries/${u.beneficiaryId}`)}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center text-[#FF7A00]">
+                            <User size={16} />
+                          </div>
+                          <div>
+                            <p className="font-black text-gray-800 text-sm group-hover:text-[#FF7A00] transition-colors">{u.beneficiaryName}</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase">
+                              {u.age} yrs · {u.activePackage || 'No Package'}
+                              {u.subscriptionEndDate && (
+                                <span className="ml-1 opacity-70">· expires {new Date(u.subscriptionEndDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {u.hasExhausted && (
+                            <span className="flex items-center gap-1 text-[9px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-full uppercase">
+                              <AlertTriangle size={9} /> Exhausted
+                            </span>
+                          )}
+                          {!u.hasExhausted && u.hasLowBalance && (
+                            <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full uppercase">
+                              <AlertTriangle size={9} /> Low
+                            </span>
+                          )}
+                          {!u.hasExhausted && !u.hasLowBalance && u.benefits.length > 0 && (
+                            <span className="flex items-center gap-1 text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase">
+                              <CheckCircle2 size={9} /> OK
+                            </span>
+                          )}
+                          <ChevronRight size={14} className="text-gray-300 group-hover:text-[#FF7A00] group-hover:translate-x-0.5 transition-all" />
+                        </div>
+                      </div>
+                      {/* Mini benefit bars */}
+                      {u.benefits.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          {u.benefits.map((b: any) => (
+                            <div key={b.benefitId}>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[9px] font-black text-gray-500 uppercase truncate">{b.benefitName}</span>
+                                <span className="text-[9px] font-black text-gray-400">{b.remainingUnits}/{b.totalUnits}</span>
+                              </div>
+                              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${b.usagePercent}%`,
+                                    backgroundColor: b.isExhausted ? '#EF4444' : b.isLowBalance ? '#F59E0B' : '#FF7A00',
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {u.benefits.length === 0 && (
+                        <p className="text-[10px] text-gray-300 italic">No benefit balances configured</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

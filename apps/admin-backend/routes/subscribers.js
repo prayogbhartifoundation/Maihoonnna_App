@@ -204,4 +204,82 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ── GET /api/subscribers/:id/utilization-summary ─────────────────────────────
+// Returns all beneficiaries under a subscriber with their package utilization summary
+router.get('/:id/utilization-summary', async (req, res) => {
+  try {
+    const { id: subscriberId } = req.params;
+
+    // Get all active beneficiaries for this subscriber
+    const beneficiaries = await prisma.beneficiary.findMany({
+      where: { subscriberId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        age: true,
+        gender: true,
+        photo: true,
+        primaryCC: { select: { id: true, name: true, ccType: true } },
+        subscriptions: {
+          where: { isActive: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: {
+            package: { select: { id: true, name: true, type: true } },
+            benefitBalances: {
+              include: {
+                benefit: { select: { id: true, name: true, unitLabel: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const summary = beneficiaries.map((b) => {
+      const activeSub = b.subscriptions?.[0] || null;
+      const benefits = (activeSub?.benefitBalances || []).map((bal) => {
+        const remaining = Math.max(0, bal.totalUnits - bal.usedUnits);
+        const usagePercent = bal.totalUnits > 0 ? Math.round((bal.usedUnits / bal.totalUnits) * 100) : 0;
+        return {
+          benefitId: bal.benefitId,
+          benefitName: bal.benefit?.name,
+          unitLabel: bal.benefit?.unitLabel || 'units',
+          totalUnits: bal.totalUnits,
+          usedUnits: bal.usedUnits,
+          remainingUnits: remaining,
+          usagePercent,
+          isLowBalance: bal.totalUnits > 0 && remaining / bal.totalUnits < 0.2,
+          isExhausted: bal.totalUnits > 0 && remaining === 0,
+        };
+      });
+
+      return {
+        beneficiaryId: b.id,
+        beneficiaryName: b.name,
+        age: b.age,
+        gender: b.gender,
+        photo: b.photo || null,
+        primaryCCName: b.primaryCC?.name || null,
+        activePackage: activeSub?.package?.name || null,
+        subscriptionId: activeSub?.id || null,
+        subscriptionEndDate: activeSub?.endDate || null,
+        benefits,
+        overallUsagePercent:
+          benefits.length > 0
+            ? Math.round(benefits.reduce((sum, x) => sum + x.usagePercent, 0) / benefits.length)
+            : 0,
+        hasLowBalance: benefits.some((x) => x.isLowBalance),
+        hasExhausted: benefits.some((x) => x.isExhausted),
+      };
+    });
+
+    res.json({ success: true, data: summary });
+  } catch (err) {
+    console.error('GET /subscribers/:id/utilization-summary error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
+

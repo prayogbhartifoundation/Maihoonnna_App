@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { visitApi } from '../../../services/api';
 import { LoadingState, EmptyState, Avatar, SectionHeader } from './SharedComponents';
+import { PackageUtilizationPanel } from '../PackageUtilizationPanel';
 import type { CCMember } from './TeamPanel';
 
 export interface BeneficiaryItem {
@@ -228,11 +229,13 @@ export default function BeneficiaryList({
 
                 {/* Expanded: Schedule Panel */}
                 {isExpanded && (
-                  <div className="px-5 pb-5 pt-2 bg-[#FFF5EE]/30 border-t border-[#F4EAE3]">
-                    <div className="max-w-lg">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                        <Calendar size={12} /> Schedule a Visit
-                      </p>
+                  <div className="px-5 pb-5 pt-4 bg-[#FFF5EE]/30 border-t border-[#F4EAE3]">
+                    <div className="flex flex-col lg:flex-row gap-8">
+                      {/* Left: Schedule Form */}
+                      <div className="flex-1 max-w-lg">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                          <Calendar size={12} /> Schedule a Visit
+                        </p>
 
                       <div className="space-y-3">
                         {/* Care Companion Select */}
@@ -342,11 +345,16 @@ export default function BeneficiaryList({
                             </p>
                           </div>
                         )}
+                      </div> 
+                    </div> 
 
-                      </div>
+                    {/* Right: Package Utilization */}
+                    <div className="flex-1 lg:border-l lg:border-[#F4EAE3] lg:pl-8">
+                      <PackageUtilizationPanel beneficiaryId={ben.id} beneficiaryName={ben.name} />
                     </div>
-                  </div>
-                )}
+                  </div> 
+                </div> 
+              )}
               </div>
             );
           })}

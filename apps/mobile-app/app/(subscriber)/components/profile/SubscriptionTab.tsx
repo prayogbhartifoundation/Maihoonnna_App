@@ -31,6 +31,7 @@ const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Current Plan Card */}
             {plan ? (
+                <TouchableOpacity onPress={() => router.push('/package-utilization')} activeOpacity={0.9}>
                 <LinearGradient colors={['#F97316', '#EA580C']} style={styles.planCard}>
                     <View style={styles.planHeader}>
                         <View>
@@ -57,6 +58,7 @@ const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
                         <Text style={styles.footerValue}>{formatDate(plan.nextBillingDate)}</Text>
                     </View>
                 </LinearGradient>
+                </TouchableOpacity>
             ) : (
                 <View style={[styles.planEmptyCard]}>
                     <Ionicons name="ribbon-outline" size={40} color="#D1D5DB" />
