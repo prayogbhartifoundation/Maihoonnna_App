@@ -9,6 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import GlobalHeader from './components/shared/GlobalHeader';
+import GlobalDrawer from './components/shared/GlobalDrawer';
+import { Animated, Dimensions } from 'react-native';
 import AddMedicineModal, { type Medication } from './components/shared/AddMedicineModal';
 import { AddressInputField } from '../../components/ui/AddressInputField';
 
@@ -18,7 +20,22 @@ export default function EditBeneficiaryScreen() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    
+    const [userData, setUserData] = useState<any>(null);
+
+    // Drawer state
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const { width } = Dimensions.get('window');
+    const DRAWER_WIDTH = width * 0.75;
+    const drawerAnim = React.useRef(new Animated.Value(DRAWER_WIDTH)).current;
+
+    const openDrawer = () => {
+        setDrawerOpen(true);
+        Animated.timing(drawerAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start();
+    };
+    const closeDrawer = () => {
+        Animated.timing(drawerAnim, { toValue: DRAWER_WIDTH, duration: 240, useNativeDriver: true }).start(() => setDrawerOpen(false));
+    };
+
     // Form States
     const [name, setName] = useState('');
     const [age, setAge] = useState('');
@@ -49,8 +66,8 @@ export default function EditBeneficiaryScreen() {
     const [showRelationshipModal, setShowRelationshipModal] = useState(false);
     const relationships = ['Self', 'Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Sibling', 'Guardian', 'Friend', 'Other'];
     const availableHobbies = [
-        'Reading', 'Gardening', 'Traveling', 'Music', 'Cooking', 
-        'Photography', 'Yoga/Exercise', 'Painting/Sketching', 
+        'Reading', 'Gardening', 'Traveling', 'Music', 'Cooking',
+        'Photography', 'Yoga/Exercise', 'Painting/Sketching',
         'Socializing', 'Movies/TV', 'Playing Cards/Board Games', 'Other'
     ];
 
@@ -60,7 +77,9 @@ export default function EditBeneficiaryScreen() {
         const init = async () => {
             try {
                 const token = await AsyncStorage.getItem('userToken');
-                
+                const userStr = await AsyncStorage.getItem('userData');
+                if (userStr) setUserData(JSON.parse(userStr));
+
                 // 1. Fetch vitals config
                 const vRes = await fetch(`${API_URL}/public/vitals?activeOnly=true`);
                 const vData = await vRes.json();
@@ -71,7 +90,7 @@ export default function EditBeneficiaryScreen() {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const bData = await bRes.json();
-                
+
                 if (bData.success) {
                     const beneficiary = bData.data;
                     setName(beneficiary.name || '');
@@ -101,7 +120,7 @@ export default function EditBeneficiaryScreen() {
                     setPincode(beneficiary.pincode || '');
                     setLatitude(beneficiary.latitude || 0);
                     setLongitude(beneficiary.longitude || 0);
-                    
+
                     const vFlags: Record<string, boolean> = {};
                     // Initialize from relational configs
                     if (beneficiary.vitalConfigs) {
@@ -144,7 +163,7 @@ export default function EditBeneficiaryScreen() {
                 latitude,
                 longitude,
                 medicalConditions: conditions,
-                medications, 
+                medications,
                 primaryPhysicianName: physicianName,
                 primaryPhysicianPhone: physicianPhone,
                 primaryPhysicianSpec: physicianSpec,
@@ -195,16 +214,16 @@ export default function EditBeneficiaryScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <GlobalHeader title="Edit Profile" showBack={true} onMenuPress={() => {}} />
+            <GlobalHeader title="Edit Profile" showBack={true} onMenuPress={openDrawer} />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    
+
                     {/* Basic Info */}
                     <View style={styles.card}>
                         <Text style={styles.sectionTitle}>Basic Information</Text>
                         <Text style={styles.inputLabel}>Full Name</Text>
                         <TextInput style={styles.input} value={name} onChangeText={setName} />
-                        
+
                         <View style={styles.row}>
                             <View style={{ flex: 1, marginRight: 10 }}>
                                 <Text style={styles.inputLabel}>Age</Text>
@@ -212,7 +231,7 @@ export default function EditBeneficiaryScreen() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.inputLabel}>Relationship</Text>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }]}
                                     onPress={() => setShowRelationshipModal(true)}
                                 >
@@ -241,8 +260,8 @@ export default function EditBeneficiaryScreen() {
                         <Text style={styles.inputLabel}>Gender</Text>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                             {['male', 'female', 'other', 'prefer_not_to_say'].map((g) => (
-                                <TouchableOpacity 
-                                    key={g} 
+                                <TouchableOpacity
+                                    key={g}
                                     onPress={() => setGender(g)}
                                     style={{
                                         paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
@@ -256,7 +275,7 @@ export default function EditBeneficiaryScreen() {
                                 </TouchableOpacity>
                             ))}
                         </View>
-                        
+
                         <Text style={styles.inputLabel}>Address</Text>
                         <AddressInputField
                             label=""
@@ -403,11 +422,11 @@ export default function EditBeneficiaryScreen() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Add Condition</Text>
-                        <TextInput 
-                            style={styles.modalInput} 
-                            placeholder="e.g. Diabetes" 
-                            value={newCondition} 
-                            onChangeText={setNewCondition} 
+                        <TextInput
+                            style={styles.modalInput}
+                            placeholder="e.g. Diabetes"
+                            value={newCondition}
+                            onChangeText={setNewCondition}
                             autoFocus
                         />
                         <TouchableOpacity style={styles.modalBtn} onPress={() => {
@@ -441,8 +460,8 @@ export default function EditBeneficiaryScreen() {
                         </View>
                         <ScrollView showsVerticalScrollIndicator={false}>
                             {relationships.map((rel) => (
-                                <TouchableOpacity 
-                                    key={rel} 
+                                <TouchableOpacity
+                                    key={rel}
                                     style={[
                                         styles.optionBtn,
                                         relationship === rel && styles.optionBtnActive
@@ -490,6 +509,13 @@ export default function EditBeneficiaryScreen() {
                     </View>
                 </View>
             </Modal>
+
+            <GlobalDrawer
+                isOpen={drawerOpen}
+                onClose={closeDrawer}
+                drawerAnim={drawerAnim}
+                userData={userData}
+            />
 
         </SafeAreaView>
     );

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Feather, AntDesign, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQuery } from '@tanstack/react-query';
 import { API_URL } from '@/constants/api';
 import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 
@@ -43,68 +44,41 @@ interface DashboardData {
 }
 
 export default function BeneficiaryDashboard() {
-    const [data, setData] = useState<DashboardData | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetchDashboardData();
-    }, []);
-
-    const fetchDashboardData = async () => {
-        try {
+    const { 
+        data: data, 
+        isLoading: loading,
+        isError 
+    } = useQuery({
+        queryKey: ['beneficiaryDashboardInfo', MOCK_BENEFICIARY_ID], // TODO: use actual ID from auth
+        queryFn: async () => {
             const [storedUser, storedToken] = await Promise.all([
                 AsyncStorage.getItem('userData'),
                 AsyncStorage.getItem('userToken')
             ]);
 
-            if (!storedUser) {
+            if (!storedUser || !storedToken) {
                 router.replace('/(auth)');
-                return;
+                throw new Error("Auth missing");
             }
 
             const response = await fetch(`${API_URL}/beneficiary/dashboard/dashboard/me`, {
                 headers: {
-                    'Authorization': storedToken ? `Bearer ${storedToken}` : '',
+                    'Authorization': `Bearer ${storedToken}`,
                     'Content-Type': 'application/json'
                 }
             });
 
-            if (!response.ok) throw new Error("Backend error");
+            if (!response.ok) {
+                throw new Error("Backend error");
+            }
+            
             const res = await response.json();
             if (res.success) {
-                setData(res.data);
+                return res.data;
             }
-        } catch (error) {
-            console.log("Fetch error. Using fallback data.", error);
-            // Fallback for demo
-            setData({
-                greeting: "Good Morning",
-                firstName: "Beneficiary",
-                emotionalScore: 8,
-                nextVisit: "2026-03-25T10:00:00Z",
-                adherence: "95%",
-                subscription: {
-                    packageName: "Silver Plan",
-                    hoursTotal: 20,
-                    hoursUsed: 5,
-                    remainingHours: 15
-                },
-                careCoordinator: {
-                    id: "1",
-                    name: "Dr. Sarah Johnson",
-                    role: "Primary Care Coordinator",
-                    bio: "Board-certified nurse practitioner with 15+ years of experience in geriatric care.",
-                    photo: "https://i.pravatar.cc/150?img=32",
-                    phone: "+91 98765 43210"
-                },
-                todaysMedications: [
-                    { id: '1', name: 'Lisinopril', dosage: '10mg', condition: 'Blood Pressure', time: '08:00 AM', completed: true, adherenceScore: 95 },
-                ]
-            });
-        } finally {
-            setLoading(false);
+            throw new Error("API returned false success");
         }
-    };
+    });
 
     if (loading) {
         return (
@@ -236,7 +210,7 @@ export default function BeneficiaryDashboard() {
                     </TouchableOpacity>
                 </View>
 
-                {displayData.todaysMedications.map(med => (
+                {displayData.todaysMedications.map((med: any) => (
                     <View key={med.id} style={styles.medCard}>
                         <View style={styles.medIconBadge}>
                             <MaterialCommunityIcons name="pill" size={24} color="#4A90E2" />

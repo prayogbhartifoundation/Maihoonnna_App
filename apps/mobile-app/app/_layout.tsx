@@ -5,6 +5,31 @@ import { useEffect, useRef } from 'react';
 import 'react-native-reanimated';
 import type { Subscription } from 'expo-notifications';
 import * as Notifications from 'expo-notifications';
+import { AppState, Platform } from 'react-native';
+import type { AppStateStatus } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { QueryClient, focusManager } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 24 * 60 * 60 * 1000, // Keep cache for 24 hours
+    },
+  },
+});
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+});
+
+function onAppStateChange(status: AppStateStatus) {
+  if (Platform.OS !== 'web') {
+    focusManager.setFocused(status === 'active');
+  }
+}
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -41,16 +66,24 @@ export default function RootLayout() {
     };
   }, []);
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(subscriber)" />
-        <Stack.Screen name="(beneficiary)" />
-        <Stack.Screen name="(care-companion)" />
-      </Stack>
+  // React Query AppState Listener
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', onAppStateChange);
+    return () => subscription.remove();
+  }, []);
 
-      <StatusBar style="auto" />
-    </ThemeProvider>
+  return (
+    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(subscriber)" />
+          <Stack.Screen name="(beneficiary)" />
+          <Stack.Screen name="(care-companion)" />
+        </Stack>
+
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </PersistQueryClientProvider>
   );
 }

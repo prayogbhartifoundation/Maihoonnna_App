@@ -32,20 +32,25 @@ export default function AuthScreen() {
     setIsLoading(true);
 
     try {
-      // 2. Call the Real Backend API to trigger the Twilio/Dev OTP
-
-      // const data = await response.json();
-
-      // if (data.success) {
-      // 3. Navigate ONLY if the backend confirms OTP was sent
-      // We pass the phone number forward so the verify screen knows what to verify against
-      router.push({
-        pathname: "/(auth)/verify-otp",
-        params: { phone: `+91${phone}` },
+      // 2. Call the Real Backend API to trigger the Twilio/Dev/MSG91 OTP
+      const response = await fetch(`${API_URL}/auth/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: `91${phone}` }),
       });
-      // } else {
-      //   Alert.alert("Error", data.message || "Failed to send OTP.");
-      // }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // 3. Navigate ONLY if the backend confirms OTP was sent
+        // We pass the phone number forward so the verify screen knows what to verify against
+        router.push({
+          pathname: "/(auth)/verify-otp",
+          params: { phone: `+91${phone}` },
+        });
+      } else {
+        Alert.alert("Error", data.message || "Failed to send OTP.");
+      }
     } catch (error) {
       console.error("Login API Error:", error);
       Alert.alert("Network Error", "Could not connect to the backend server. Is it running?");

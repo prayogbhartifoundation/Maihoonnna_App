@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '@/components/CallbackButton';
@@ -27,8 +28,7 @@ export default function BeneficiaryProfileScreen() {
     const params = useLocalSearchParams();
     const { id } = params;
 
-    const [beneficiary, setBeneficiary] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+
     const [activeTab, setActiveTab] = useState<TabType>('Timeline');
     const [userData, setUserData] = useState<any>(null);
 
@@ -46,8 +46,14 @@ export default function BeneficiaryProfileScreen() {
         Animated.timing(drawerAnim, { toValue: DRAWER_WIDTH, duration: 240, useNativeDriver: true }).start(() => setDrawerOpen(false));
     };
 
-    const fetchBeneficiary = async () => {
-        try {
+    /* ─── API (React Query) ─────────────────────────────────────────────── */
+    const { 
+        data: beneficiary, 
+        isLoading: loading,
+        refetch 
+    } = useQuery({
+        queryKey: ['beneficiary', id],
+        queryFn: async () => {
             const [storedUser, storedToken] = await Promise.all([
                 AsyncStorage.getItem('userData'),
                 AsyncStorage.getItem('userToken')
@@ -57,7 +63,7 @@ export default function BeneficiaryProfileScreen() {
             
             if (!storedUser || !storedToken) { 
                 router.replace('/(auth)'); 
-                return; 
+                throw new Error("Auth missing");
             }
 
             const res = await fetch(`${API_URL}/subscriber/beneficiaries/${id}/profile`, {
@@ -70,25 +76,17 @@ export default function BeneficiaryProfileScreen() {
             if (res.status === 401) {
                 console.error('Unauthorized access - redirecting to login');
                 router.replace('/(auth)');
-                return;
+                throw new Error("Unauthorized");
             }
 
             const data = await res.json();
             if (data.success) {
-                setBeneficiary(data.data);
+                return data.data;
             }
-        } catch (e) {
-            console.error('Beneficiary fetch error:', e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useFocusEffect(
-        useCallback(() => {
-            if (id) fetchBeneficiary();
-        }, [id])
-    );
+            throw new Error("Failed to fetch beneficiary");
+        },
+        enabled: !!id,
+    });
 
     if (loading) {
         return (
@@ -149,7 +147,7 @@ export default function BeneficiaryProfileScreen() {
                                 editable: true,
                                 initials: (beneficiary.name || 'B').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
                                 accentColor: '#F97316',
-                                onSuccess: (url) => setBeneficiary((prev: any) => ({ ...prev, photo: url })),
+                                onSuccess: (url) => refetch(), // Instead of modifying local state, trigger refetch to update cache
                             }}
                             style={{ marginBottom: 12 }}
                         />

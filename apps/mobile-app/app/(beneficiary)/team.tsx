@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 
 import { API_URL } from '@/constants/api';
@@ -20,24 +21,21 @@ type TeamMember = {
 
 export default function CareTeamScreen() {
     const router = useRouter();
-    const [team, setTeam] = useState<TeamMember[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [loggingCall, setLoggingCall] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchTeam();
-    }, []);
-
-    const fetchTeam = async () => {
-        try {
+    const { 
+        data: team = [], 
+        isLoading: loading, 
+        isError, 
+        error 
+    } = useQuery({
+        queryKey: ['beneficiaryTeam'],
+        queryFn: async () => {
             const token = await AsyncStorage.getItem('userToken');
             const userStr = await AsyncStorage.getItem('userData');
 
             if (!token || !userStr) {
-                setError('Session expired or unauthorized. Please sign in again.');
-                setLoading(false);
-                return;
+                throw new Error('Session expired or unauthorized. Please sign in again.');
             }
 
             const user = JSON.parse(userStr);
@@ -51,18 +49,12 @@ export default function CareTeamScreen() {
 
             const data = await response.json();
             if (data.success) {
-                setTeam(data.data);
-                setError(null);
+                return data.data as TeamMember[];
             } else {
-                setError(data.message || 'Failed to fetch team details');
+                throw new Error(data.message || 'Failed to fetch team details');
             }
-        } catch (e: any) {
-            console.error('Fetch Team Error:', e);
-            setError('Unable to load care team details. Please check your network connection.');
-        } finally {
-            setLoading(false);
         }
-    };
+    });
 
     const handleCall = async (member: TeamMember) => {
         try {
@@ -118,17 +110,20 @@ export default function CareTeamScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                {error && team.length === 0 && (
-                    <View style={styles.errorCard}>
-                        <Ionicons name="alert-circle-outline" size={48} color="#EF4444" style={{ marginBottom: 12 }} />
-                        <Text style={styles.errorText}>{error}</Text>
-                        <TouchableOpacity style={styles.retryBtn} onPress={fetchTeam}>
-                            <Text style={styles.retryBtnText}>Retry Fetch</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                {/* Error State */}
+            {isError && (
+                <View style={styles.emptyCard}>
+                    <Ionicons name="alert-circle-outline" size={48} color="#EF4444" style={{ marginBottom: 16 }} />
+                    <Text style={styles.errorText}>
+                        {error instanceof Error ? error.message : 'Unable to load care team details. Please check your network connection.'}
+                    </Text>
+                    <TouchableOpacity style={styles.retryBtn} onPress={() => router.replace('/(beneficiary)' as any)}>
+                        <Text style={styles.retryBtnText}>Return to Dashboard</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
-                {!error && team.length === 0 && (
+                {!isError && team.length === 0 && (
                     <View style={styles.emptyCard}>
                         <Ionicons name="people-outline" size={48} color="#9CA3AF" style={{ marginBottom: 12 }} />
                         <Text style={styles.emptyText}>No care team members assigned to this beneficiary yet.</Text>

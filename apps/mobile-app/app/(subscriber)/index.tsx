@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '@/components/CallbackButton';
@@ -21,32 +22,34 @@ const DRAWER_WIDTH = width * 0.75;
 export default function SubscriberDashboardScreen() {
     const router = useRouter();
     const [userData, setUserData] = useState<any>(null);
-    const [dashboard, setDashboard] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
 
-    /* ─── API ─────────────────────────────────────────────── */
-    const fetchDashboard = async () => {
-        try {
+    /* ─── API (React Query) ─────────────────────────────────────────────── */
+    const { 
+        data: dashboard, 
+        isLoading: loading, 
+        refetch, 
+        isRefetching: refreshing 
+    } = useQuery({
+        queryKey: ['subscriberDashboard'],
+        queryFn: async () => {
             const [storedUser, storedToken] = await Promise.all([
                 AsyncStorage.getItem('userData'),
                 AsyncStorage.getItem('userToken')
             ]);
             
-            if (!storedUser) { router.replace('/(auth)'); return; }
+            if (!storedUser || !storedToken) { 
+                router.replace('/(auth)'); 
+                throw new Error("Auth missing"); 
+            }
             const user = JSON.parse(storedUser);
-            setUserData(user);
-
-            console.log(`[Dashboard] User: ${user.name} (${user.phone}) | Role: ${user.role} | ID: ${user.id}`);
-            console.log(`[Dashboard] Token length: ${storedToken?.length || 0}`);
+            setUserData(user); // Set local state for UI
 
             console.log(`[Dashboard] Fetching from /subscriber/dashboard/me`);
-
             const res = await fetch(`${API_URL}/subscriber/dashboard/me`, {
                 headers: {
-                    'Authorization': storedToken ? `Bearer ${storedToken}` : '',
+                    'Authorization': `Bearer ${storedToken}`,
                     'Content-Type': 'application/json'
                 }
             });
@@ -54,26 +57,20 @@ export default function SubscriberDashboardScreen() {
             if (!res.ok) {
                 const errorData = await res.json();
                 console.error('[Dashboard] API Error:', errorData);
-                return;
+                throw new Error("Failed to fetch");
             }
 
             const data = await res.json();
             if (data.success) {
-                setDashboard(data);
+                return data;
             } else {
                 console.warn('[Dashboard] Data returned success:false', data);
+                throw new Error("Failed to fetch data");
             }
-        } catch (e) {
-            console.error('Dashboard fetch error:', e);
-        } finally { setLoading(false); setRefreshing(false); }
-    };
+        }
+    });
 
-    useFocusEffect(
-        useCallback(() => {
-            fetchDashboard();
-        }, [])
-    );
-    const onRefresh = () => { setRefreshing(true); fetchDashboard(); };
+    const onRefresh = () => refetch();
 
     /* ─── Drawer helpers ─────────────────────────────────── */
     const openDrawer = () => {
