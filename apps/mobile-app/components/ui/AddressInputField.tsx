@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Platform, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getAccurateLocation } from '../../services/location';
+import { AddressPicker, SelectedAddress } from './AddressPicker';
+import { Modal } from 'react-native';
 
 export interface LocationDetails {
     latitude: number;
@@ -27,46 +29,25 @@ export const AddressInputField: React.FC<AddressInputFieldProps> = ({
     label = "Address *",
     placeholder = "Enter your complete address"
 }) => {
+    const [showPicker, setShowPicker] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
 
-    const handleDetectLocation = async () => {
-        setIsLocating(true);
-        try {
-            const locationData = await getAccurateLocation();
+    const handleDetectLocation = () => {
+        // Just show the map picker modal!
+        setShowPicker(true);
+    };
 
-            console.log('[Location] Successfully fetched accurate location:', locationData);
-
-            // Fill in the address field (editable by user)
-            onChangeText(locationData.address);
-
-            // Pass all fields back to the parent form
-            onLocationFetched({
-                latitude: locationData.latitude,
-                longitude: locationData.longitude,
-                address: locationData.address,
-                city: locationData.city,
-                state: locationData.state,
-                pincode: locationData.pincode
-            });
-        } catch (error: any) {
-            console.log('[Location] Error:', error);
-
-            if (
-                error?.message?.includes('denied') ||
-                error?.code === 1
-            ) {
-                Alert.alert(
-                    "Location Blocked",
-                    Platform.OS === 'web'
-                        ? "Please allow location access in your browser settings and try again."
-                        : "Location access was denied. Please enable it in your device settings."
-                );
-            } else {
-                Alert.alert("Location Error", "Could not fetch your location. Please enter it manually.");
-            }
-        } finally {
-            setIsLocating(false);
-        }
+    const handleAddressSelected = (selected: SelectedAddress) => {
+        setShowPicker(false);
+        onChangeText(selected.address);
+        onLocationFetched({
+            latitude: selected.latitude,
+            longitude: selected.longitude,
+            address: selected.address,
+            city: selected.city,
+            state: selected.state,
+            pincode: selected.pincode
+        });
     };
 
 
@@ -84,18 +65,23 @@ export const AddressInputField: React.FC<AddressInputFieldProps> = ({
                 </View>
                 <View style={styles.detectBtnTextContainer}>
                     <Text style={styles.detectBtnTitle}>
-                        {isLocating ? 'Detecting Location...' : 'Use Current Location'}
+                        Pick accurate location
                     </Text>
                     <Text style={styles.detectBtnSubtitle} numberOfLines={2}>
                         {value ? value : 'Tap to fetch GPS coordinates & auto-fill'}
                     </Text>
                 </View>
-                {isLocating ? (
-                    <ActivityIndicator size="small" color="#F97316" />
-                ) : (
-                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                )}
+
             </TouchableOpacity>
+
+            <Modal visible={showPicker} animationType="slide" transparent={false}>
+                <AddressPicker 
+                    onAddressSelected={handleAddressSelected}
+                    onCancel={() => setShowPicker(false)}
+                    title="Set Accurate Location"
+                    subtitle="Move the pin to your exact location"
+                />
+            </Modal>
         </View>
     );
 };

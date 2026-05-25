@@ -86,6 +86,22 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   const mapRef = useRef<MapView>(null);
   const bottomSheetAnim = useRef(new Animated.Value(0)).current;
 
+  // ── Web Fallback ───────────────────────────────────────────────────────────
+  if (Platform.OS === 'web') {
+    return (
+      <SafeAreaView style={styles.centeredFull}>
+        <Feather name="map" size={48} color="#CBD5E1" />
+        <Text style={[styles.centeredText, { fontWeight: '600', color: '#0F172A', marginTop: 12 }]}>Map picker is only available on Mobile.</Text>
+        <Text style={{ color: '#64748B', fontSize: 14, textAlign: 'center', marginHorizontal: 32, marginTop: 8 }}>
+          The interactive map requires a physical device. It will work perfectly when you test on your mobile phone.
+        </Text>
+        <TouchableOpacity style={[styles.primaryBtn, { width: 'auto', marginTop: 24, paddingHorizontal: 24 }]} onPress={onCancel}>
+          <Text style={styles.primaryBtnText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   // ── Permission & initial location ─────────────────────────────────────────
 
   useEffect(() => {
