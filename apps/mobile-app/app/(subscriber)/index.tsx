@@ -25,6 +25,18 @@ export default function SubscriberDashboardScreen() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
 
+    useEffect(() => {
+        const loadUser = async () => {
+            const storedUser = await AsyncStorage.getItem('userData');
+            if (storedUser) {
+                setUserData(JSON.parse(storedUser));
+            } else {
+                router.replace('/(auth)');
+            }
+        };
+        loadUser();
+    }, []);
+
     /* ─── API (React Query) ─────────────────────────────────────────────── */
     const { 
         data: dashboard, 
@@ -34,17 +46,12 @@ export default function SubscriberDashboardScreen() {
     } = useQuery({
         queryKey: ['subscriberDashboard'],
         queryFn: async () => {
-            const [storedUser, storedToken] = await Promise.all([
-                AsyncStorage.getItem('userData'),
-                AsyncStorage.getItem('userToken')
-            ]);
+            const storedToken = await AsyncStorage.getItem('userToken');
             
-            if (!storedUser || !storedToken) { 
+            if (!storedToken) { 
                 router.replace('/(auth)'); 
                 throw new Error("Auth missing"); 
             }
-            const user = JSON.parse(storedUser);
-            setUserData(user); // Set local state for UI
 
             console.log(`[Dashboard] Fetching from /subscriber/dashboard/me`);
             const res = await fetch(`${API_URL}/subscriber/dashboard/me`, {
