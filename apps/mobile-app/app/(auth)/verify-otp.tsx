@@ -14,6 +14,7 @@ import { useState, useRef } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 
 // API source of truth from central constants
 import { API_URL } from '@/constants/api';
@@ -47,13 +48,13 @@ export default function VerifyOtpScreen() {
     const handleVerify = async () => {
         const enteredOtp = otp.join("");
         if (enteredOtp.length !== 6) {
-          Alert.alert("Invalid OTP", "Please fill in all 6 digits.");
-          return;
+            Alert.alert("Invalid OTP", "Please fill in all 6 digits.");
+            return;
         }
 
         if (!phone) {
-          Alert.alert("Error", "Phone number is missing. Go back and try logging in again.");
-          return;
+            Alert.alert("Error", "Phone number is missing. Go back and try logging in again.");
+            return;
         }
 
         setIsLoading(true);
@@ -61,11 +62,11 @@ export default function VerifyOtpScreen() {
         try {
             // 1. Call your real backend to verify the code
             const response = await fetch(`${API_URL}/auth/verify-otp`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ phone, otp: enteredOtp }), // Pass phone & otp
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ phone, otp: enteredOtp }), // Pass phone & otp
             });
 
             const data = await response.json();
@@ -73,7 +74,7 @@ export default function VerifyOtpScreen() {
             if (data.success) {
                 // The actual payload is inside the 'data' property of ApiResponse
                 const result = data.data;
-                
+
                 if (result.isNewUser) {
                     // Navigate to registration if user profile doesn't exist yet
                     router.push({ pathname: "/(auth)/register", params: { phone } });
@@ -113,22 +114,28 @@ export default function VerifyOtpScreen() {
                 style={styles.container}
             >
                 <View>
-                    {/* Header */}
                     <View style={styles.header}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <Ionicons name="arrow-back" size={24} color="#111827" />
+                            <Ionicons name="arrow-back" size={22} color="#111827" />
                         </TouchableOpacity>
+                        <Text style={styles.headerTitle}>Verify Phone</Text>
+                        <View style={styles.headerSpacer} />
                     </View>
 
-                    {/* OTP Card */}
-                    <View style={styles.card}>
-                        <Text style={styles.title}>Verification code</Text>
-                        <Text style={styles.subtitle}>
-                            We've sent a 6-digit verification code{"\n"}to{" "}
-                            <Text style={styles.phoneText}>{phone || "your device"}</Text>
+                    <View style={styles.heroTextWrap}>
+                        <Text style={styles.title}>Enter Verification Code</Text>
+                        <Text style={styles.subtitle}>We've sent a 6-digit code to</Text>
+                        <Text style={styles.maskedPhone}>
+                            {phone ? `${phone.slice(0, 3)} ••• ••• ${phone.slice(-4)}` : "+1 ••• ••• 1234"}
                         </Text>
+                    </View>
 
-                        {/* OTP Inputs */}
+                    <LinearGradient
+                        colors={["#FFFFFF", "#FFE2CC"]}
+                        start={{ x: 0.5, y: 0 }}
+                        end={{ x: 0.5, y: 1 }}
+                        style={styles.card}
+                    >
                         <View style={styles.otpContainer}>
                             {otp.map((digit, index) => (
                                 <TextInput
@@ -145,27 +152,32 @@ export default function VerifyOtpScreen() {
                             ))}
                         </View>
 
-                        <TouchableOpacity style={[styles.verifyButton, isLoading && styles.verifyButtonDisabled]} onPress={handleVerify} disabled={isLoading}>
+                        <Text style={styles.resendTimer}>Resend code in 00:55</Text>
+
+                        <TouchableOpacity onPress={() => router.back()} disabled={isLoading}>
+                            <Text style={styles.resendLink}>Resend OTP</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.verifyButton, isLoading && styles.verifyButtonDisabled]}
+                            onPress={handleVerify}
+                            disabled={isLoading}
+                            activeOpacity={0.85}
+                        >
                             {isLoading ? (
                                 <ActivityIndicator color="#FFFFFF" />
                             ) : (
-                                <Text style={styles.verifyButtonText}>Verify</Text>
+                                <Text style={styles.verifyButtonText}>Verify & Proceed</Text>
                             )}
                         </TouchableOpacity>
-                    </View>
+                    </LinearGradient>
                 </View>
 
-                {/* Footer */}
-                <View style={styles.footer}>
-                    <Text style={styles.resendText}>Didn't receive code?</Text>
-                    <View style={styles.resendRow}>
-                        {/* You could wire this up to call API_URL/auth/send-otp again in the future */}
-                        <TouchableOpacity onPress={() => router.back()}>
-                            <Text style={styles.requestAgain}>Request again</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.timer}> in 00:30</Text>
-                    </View>
-                </View>
+                <Text style={styles.terms}>
+                    By continuing, you agree to our{" "}
+                    <Text style={styles.termsLink}>Terms of Service</Text>
+                    {"\n"}and <Text style={styles.termsLink}>Privacy Policy</Text>
+                </Text>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -178,97 +190,137 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === "ios" ? 18 : 28,
+        paddingBottom: 34,
         justifyContent: "space-between",
-        paddingTop: 10,
-        paddingBottom: 40,
     },
     header: {
-        marginBottom: 24,
-        marginTop: 10,
+        height: 32,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
     },
     backButton: {
         width: 40,
-        height: 40,
+        height: 32,
         justifyContent: "center",
+        alignItems: "flex-start",
     },
-    card: {
-        backgroundColor: "#FFF5ED",
-        padding: 24,
-        borderRadius: 16,
+    headerTitle: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#000000",
+        fontFamily: "Poppins-Regular",
+    },
+    headerSpacer: {
+        width: 40,
+        height: 32,
+    },
+    heroTextWrap: {
+        alignItems: "center",
+        marginTop: 126,
+        marginBottom: 26,
     },
     title: {
         fontSize: 24,
-        fontWeight: "700",
-        color: "#111827",
-        marginBottom: 8,
+        lineHeight: 32,
+        color: "#000000",
+        textAlign: "center",
+        fontFamily: "Poppins-SemiBold",
+        marginBottom: 10,
     },
     subtitle: {
-        fontSize: 14,
-        color: "#4B5563",
-        lineHeight: 20,
-        marginBottom: 32,
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#000000",
+        textAlign: "center",
+        fontFamily: "Poppins-Regular",
+        marginBottom: 10,
     },
-    phoneText: {
-        color: "#111827",
-        fontWeight: "600",
+    maskedPhone: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#000000",
+        textAlign: "center",
+        fontFamily: "Poppins-Regular",
+    },
+    card: {
+        width: "100%",
+        borderRadius: 10,
+        paddingHorizontal: 36,
+        paddingTop: 32,
+        paddingBottom: 43,
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
     },
     otpContainer: {
         flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 32,
+        justifyContent: "center",
+        gap: 8,
+        marginBottom: 38,
     },
     otpInput: {
-        width: 45,
-        height: 55,
-        backgroundColor: "#FFFFFF",
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
+        width: 48,
+        height: 56,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        backgroundColor: "#FFFFFF",
         textAlign: "center",
-        fontSize: 24,
-        fontWeight: "600",
-        color: "#111827",
+        fontSize: 20,
+        lineHeight: 28,
+        color: "#000000",
+        fontFamily: "Poppins-SemiBold",
     },
     otpInputFilled: {
-        borderColor: "#F97316",
-        backgroundColor: "#FFF5ED",
+        borderColor: "#FE6700",
+    },
+    resendTimer: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#000000",
+        textAlign: "center",
+        fontFamily: "Poppins-Regular",
+        marginBottom: 14,
+    },
+    resendLink: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#FE6700",
+        textAlign: "center",
+        fontFamily: "Poppins-Medium",
+        marginBottom: 38,
     },
     verifyButton: {
-        backgroundColor: "#F97316",
-        paddingVertical: 14,
-        borderRadius: 8,
-        alignItems: "center",
+        width: 282,
         height: 50,
-        justifyContent: "center"
+        borderRadius: 8,
+        backgroundColor: "#FE6700",
+        justifyContent: "center",
+        alignItems: "center",
+        alignSelf: "center",
     },
     verifyButtonDisabled: {
-        backgroundColor: "#FDBA8C",
+        opacity: 0.75,
     },
     verifyButtonText: {
-        color: "#FFFFFF",
-        fontWeight: "600",
         fontSize: 16,
+        lineHeight: 24,
+        color: "#FFFFFF",
+        fontFamily: "Poppins-SemiBold",
     },
-    footer: {
-        alignItems: "center",
-    },
-    resendText: {
+    terms: {
         fontSize: 14,
-        color: "#6B7280",
-        marginBottom: 4,
+        lineHeight: 20,
+        color: "#000000",
+        textAlign: "center",
+        fontFamily: "Poppins-Regular",
     },
-    resendRow: {
-        flexDirection: "row",
-        alignItems: "center",
-    },
-    requestAgain: {
-        color: "#111827",
-        fontWeight: "600",
-        fontSize: 14,
-    },
-    timer: {
-        color: "#9CA3AF",
-        fontSize: 14,
+    termsLink: {
+        color: "#FE6700",
     },
 });

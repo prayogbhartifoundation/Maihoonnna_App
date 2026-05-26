@@ -15,7 +15,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-
+import { LinearGradient } from "expo-linear-gradient";
 import { API_URL } from '@/constants/api';
 
 export default function RegisterScreen() {
@@ -45,7 +45,7 @@ export default function RegisterScreen() {
                 try {
                     const response = await fetch(`${API_URL}/public/zones/check-pincode?pincode=${form.pincode}`);
                     const data = await response.json();
-                    
+
                     if (data.success && data.data && data.data.available) {
                         setZoneDetails(data.data);
                     } else {
@@ -134,28 +134,41 @@ export default function RegisterScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-                
-                {/* Header Navbar */}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={styles.keyboardView}
+            >
                 <View style={styles.navHeader}>
-                    <TouchableOpacity onPress={() => step === 2 ? setStep(1) : router.back()} style={styles.backBtn}>
-                        <Ionicons name="arrow-back" size={24} color="#374151" />
+                    <TouchableOpacity
+                        onPress={() => step === 2 ? setStep(1) : router.back()}
+                        style={styles.backBtn}
+                    >
+                        <Ionicons name="arrow-back" size={22} color="#111827" />
                     </TouchableOpacity>
+
                     <Text style={styles.navTitle}>Create Account</Text>
-                    <View style={styles.backBtn} /> {/* Placeholder for center alignment */}
+                    <View style={styles.backBtn} />
                 </View>
 
-                <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-                    
-                    {/* Welcome Header */}
+                <ScrollView
+                    contentContainerStyle={styles.container}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
                     <View style={styles.welcomeHeader}>
                         <Text style={styles.title}>Welcome!</Text>
-                        <Text style={styles.subtitle}>Let's get started with your care companion journey</Text>
+                        <Text style={styles.subtitle}>
+                            Let's get started with your care companion journey
+                        </Text>
                     </View>
 
-                    {/* Step 1: Basic Info & Pincode */}
                     {step === 1 && (
-                        <View style={styles.formCard}>
+                        <LinearGradient
+                            colors={["#FFFFFF", "#FFE2CC"]}
+                            start={{ x: 0.5, y: 0 }}
+                            end={{ x: 0.5, y: 1 }}
+                            style={styles.formCard}
+                        >
                             <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Full Name *</Text>
                                 <TextInput
@@ -198,59 +211,71 @@ export default function RegisterScreen() {
                                 />
                             </View>
 
-                            {/* Pincode Validation Loading state */}
                             {isCheckingPincode && (
                                 <View style={styles.checkingBox}>
-                                    <ActivityIndicator size="small" color="#FBA56B" />
+                                    <ActivityIndicator size="small" color="#FE6700" />
                                     <Text style={styles.checkingText}>Checking availability...</Text>
                                 </View>
                             )}
 
-                            {/* Pincode Validation Success Box */}
                             {zoneDetails && zoneDetails.available === true && (
                                 <View>
                                     <View style={styles.locationPinRow}>
-                                        <Ionicons name="location" size={14} color="#EF4444" />
+                                        <Ionicons name="pin" size={14} color="#EF4444" />
                                         <Text style={styles.locationPinText}>{zoneDetails.location}</Text>
                                     </View>
-                                    
+
                                     <View style={styles.successBox}>
                                         <View style={styles.successHeader}>
-                                            <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
-                                            <Text style={styles.successMessage}>Great! We serve {zoneDetails.location}</Text>
+                                            <Ionicons name="checkmark-circle-outline" size={20} color="#16A34A" />
+                                            <Text style={styles.successMessage}>
+                                                Great! We serve {zoneDetails.location}
+                                            </Text>
                                         </View>
+
                                         <View style={styles.successStatsRow}>
-                                            <Ionicons name="checkmark" size={14} color="#10B981" />
-                                            <Text style={styles.successStatText}>{zoneDetails.stats.companions} care companions available</Text>
+                                            <Text style={styles.successCheck}>✓</Text>
+                                            <Text style={styles.successStatText}>
+                                                {zoneDetails.stats.companions} care companions available
+                                            </Text>
                                         </View>
+
                                         <View style={styles.successStatsRow}>
-                                            <Ionicons name="checkmark" size={14} color="#10B981" />
-                                            <Text style={styles.successStatText}>{zoneDetails.stats.centers} active care centers</Text>
+                                            <Text style={styles.successCheck}>✓</Text>
+                                            <Text style={styles.successStatText}>
+                                                {zoneDetails.stats.centers} active care centers
+                                            </Text>
                                         </View>
                                     </View>
                                 </View>
                             )}
 
-                            {/* Pincode Validation Failure Box */}
                             {zoneDetails === false && (
                                 <View style={styles.unavailableBox}>
                                     <Ionicons name="information-circle-outline" size={20} color="#F59E0B" />
-                                    <Text style={styles.unavailableText}>We are not serving this area yet, but we are coming soon!</Text>
+                                    <Text style={styles.unavailableText}>
+                                        We are not serving this area yet, but we are coming soon!
+                                    </Text>
                                 </View>
                             )}
 
                             <TouchableOpacity
                                 style={styles.primaryButton}
                                 onPress={handleContinueToVerification}
+                                activeOpacity={0.85}
                             >
                                 <Text style={styles.primaryButtonText}>Continue to Verification</Text>
                             </TouchableOpacity>
-                        </View>
+                        </LinearGradient>
                     )}
 
-                    {/* Step 2: Final Details (Age / Password) */}
                     {step === 2 && (
-                        <View style={styles.formCard}>
+                        <LinearGradient
+                            colors={["#FFFFFF", "#FFE2CC"]}
+                            start={{ x: 0.5, y: 0 }}
+                            end={{ x: 0.5, y: 1 }}
+                            style={styles.formCard}
+                        >
                             <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Age *</Text>
                                 <TextInput
@@ -282,6 +307,7 @@ export default function RegisterScreen() {
                                 style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}
                                 onPress={handleRegister}
                                 disabled={isLoading}
+                                activeOpacity={0.85}
                             >
                                 {isLoading ? (
                                     <ActivityIndicator color="#FFFFFF" />
@@ -289,20 +315,24 @@ export default function RegisterScreen() {
                                     <Text style={styles.primaryButtonText}>Finish Sign Up</Text>
                                 )}
                             </TouchableOpacity>
-                        </View>
+                        </LinearGradient>
                     )}
 
                     <View style={styles.bottomSection}>
-                        <TouchableOpacity style={styles.loginRow} onPress={() => router.push("/(auth)/login-password")}>
+                        <TouchableOpacity
+                            style={styles.loginRow}
+                            onPress={() => router.push("/(auth)/login-password")}
+                        >
                             <Text style={styles.loginTextNormal}>Already have an account? </Text>
                             <Text style={styles.loginTextHighlight}>Login</Text>
                         </TouchableOpacity>
 
                         <Text style={styles.footerText}>
-                            By continuing, you agree to our <Text style={styles.footerLink}>Terms of Service</Text> and <Text style={styles.footerLink}>Privacy Policy</Text>
+                            By continuing, you agree to our{" "}
+                            <Text style={styles.footerLink}>Terms of Service</Text>
+                            {"\n"}and <Text style={styles.footerLink}>Privacy Policy</Text>
                         </Text>
                     </View>
-
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -310,103 +340,255 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
-    navHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10, backgroundColor: "#FFFFFF" },
-    backBtn: { width: 40, alignItems: "flex-start", justifyContent: "center" },
-    navTitle: { fontSize: 16, fontWeight: "500", color: "#111827" },
-    
-    container: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40, paddingTop: 20, backgroundColor: "#FFFFFF" },
-    
-    welcomeHeader: { alignItems: "center", marginBottom: 32 },
-    title: { fontSize: 28, fontWeight: "700", color: "#111827", marginBottom: 8 },
-    subtitle: { fontSize: 14, color: "#6B7280", textAlign: "center", paddingHorizontal: 10 },
-    
-    formCard: { backgroundColor: "#FFF5ED", padding: 20, borderRadius: 16, marginBottom: 24 },
-    inputGroup: { marginBottom: 20 },
-    label: { fontSize: 13, color: "#374151", marginBottom: 8, fontWeight: "600" },
-    input: {
-        backgroundColor: "#FFFFFF",
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 8,
-        paddingHorizontal: 16,
-        height: 54,
-        fontSize: 15,
-        color: "#111827",
-    },
-    
-    phoneRow: { flexDirection: "row", alignItems: "center" },
-    countryCodeBox: {
-        backgroundColor: "#FFFFFF",
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 8,
-        height: 54,
-        paddingHorizontal: 16,
-        alignItems: "center",
-        justifyContent: "center",
-        marginRight: 10,
-    },
-    countryCodeText: { fontSize: 15, color: "#111827", fontWeight: "600" },
-    phoneInput: {
+    safeArea: {
         flex: 1,
         backgroundColor: "#FFFFFF",
+    },
+    keyboardView: {
+        flex: 1,
+    },
+    navHeader: {
+        height: Platform.OS === "ios" ? 54 : 64,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        backgroundColor: "#FFFFFF",
+    },
+    backBtn: {
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "flex-start",
+    },
+    navTitle: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#000000",
+        fontFamily: "Poppins-Regular",
+    },
+    container: {
+        flexGrow: 1,
+        paddingHorizontal: 20,
+        paddingTop: 42,
+        paddingBottom: 24,
+        backgroundColor: "#FFFFFF",
+    },
+    welcomeHeader: {
+        alignItems: "center",
+        marginBottom: 34,
+    },
+    title: {
+        fontSize: 24,
+        lineHeight: 32,
+        color: "#000000",
+        fontFamily: "Poppins-SemiBold",
+        marginBottom: 8,
+    },
+    subtitle: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#667085",
+        textAlign: "center",
+        fontFamily: "Poppins-Regular",
+    },
+    formCard: {
+        width: "100%",
+        borderRadius: 10,
+        paddingHorizontal: 16,
+        paddingTop: 26,
+        paddingBottom: 40,
+        shadowColor: "#000000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    inputGroup: {
+        marginBottom: 28,
+    },
+    label: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: "#344054",
+        fontFamily: "Poppins-Medium",
+        marginBottom: 9,
+    },
+    input: {
+        height: 50,
+        borderRadius: 8,
         borderWidth: 1,
-        borderColor: "#E5E7EB",
+        borderColor: "#D1D5DB",
+        backgroundColor: "#FFFFFF",
+        paddingHorizontal: 16,
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#111827",
+        fontFamily: "Poppins-Regular",
+    },
+    phoneRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+    countryCodeBox: {
+        width: 64,
+        height: 50,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    countryCodeText: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: "#000000",
+        fontFamily: "Poppins-Regular",
+    },
+    phoneInput: {
+        flex: 1,
+        height: 50,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        backgroundColor: "#FFFFFF",
+        paddingHorizontal: 16,
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#111827",
+        fontFamily: "Poppins-Regular",
+    },
+    checkingBox: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: -14,
+        marginBottom: 18,
+    },
+    checkingText: {
+        fontSize: 12,
+        color: "#667085",
+        marginLeft: 8,
+        fontFamily: "Poppins-Regular",
+    },
+    locationPinRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: -10,
+        marginBottom: 14,
+        paddingHorizontal: 2,
+    },
+    locationPinText: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: "#667085",
+        marginLeft: 6,
+        fontFamily: "Poppins-Regular",
+    },
+    successBox: {
+        backgroundColor: "#ECFDF3",
+        borderWidth: 1,
+        borderColor: "#22C55E",
         borderRadius: 8,
         paddingHorizontal: 16,
-        height: 54,
-        fontSize: 15,
-        color: "#111827"
+        paddingVertical: 15,
+        marginBottom: 18,
     },
-    
-    checkingBox: { flexDirection: 'row', alignItems: 'center', marginTop: -10, marginBottom: 15 },
-    checkingText: { fontSize: 12, color: '#6B7280', marginLeft: 8 },
-    
-    locationPinRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 },
-    locationPinText: { fontSize: 13, color: '#6B7280', marginLeft: 6, fontWeight: '500' },
-    
-    successBox: {
-        backgroundColor: "#ECFDF5",
-        borderWidth: 1,
-        borderColor: "#10B981",
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 20,
+    successHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 8,
     },
-    successHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-    successMessage: { fontSize: 14, fontWeight: "600", color: "#059669", marginLeft: 8 },
-    successStatsRow: { flexDirection: "row", alignItems: "center", marginLeft: 8, marginBottom: 4 },
-    successStatText: { fontSize: 12, color: "#059669", marginLeft: 8 },
-    
+    successMessage: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#16A34A",
+        marginLeft: 10,
+        fontFamily: "Poppins-Regular",
+    },
+    successStatsRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginLeft: 33,
+        marginBottom: 2,
+    },
+    successCheck: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: "#16A34A",
+        marginRight: 6,
+        fontFamily: "Poppins-Regular",
+    },
+    successStatText: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: "#16A34A",
+        fontFamily: "Poppins-Regular",
+    },
     unavailableBox: {
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "#FFFBEB",
         borderWidth: 1,
         borderColor: "#FDE68A",
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 20,
+        borderRadius: 8,
+        padding: 14,
+        marginBottom: 18,
     },
-    unavailableText: { flex: 1, fontSize: 13, color: "#D97706", marginLeft: 12, lineHeight: 18 },
-    
+    unavailableText: {
+        flex: 1,
+        fontSize: 13,
+        color: "#D97706",
+        marginLeft: 10,
+        lineHeight: 18,
+        fontFamily: "Poppins-Regular",
+    },
     primaryButton: {
-        backgroundColor: "#FBA56B",
-        height: 54,
-        borderRadius: 12,
+        height: 48,
+        borderRadius: 8,
+        backgroundColor: "#FFA366",
         alignItems: "center",
         justifyContent: "center",
-        marginTop: 10,
     },
-    primaryButtonDisabled: { backgroundColor: "#FDBA8C" },
-    primaryButtonText: { color: "#FFFFFF", fontWeight: "600", fontSize: 16 },
-    
-    bottomSection: { alignItems: "center", marginTop: 10 },
-    loginRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, marginBottom: 20 },
-    loginTextNormal: { fontSize: 14, color: "#6B7280" },
-    loginTextHighlight: { fontSize: 14, color: "#F97316", fontWeight: "600" },
-    
-    footerText: { fontSize: 12, color: "#9CA3AF", textAlign: "center", lineHeight: 20, paddingHorizontal: 20 },
-    footerLink: { color: "#F97316", fontWeight: "500" }
+    primaryButtonDisabled: {
+        opacity: 0.75,
+    },
+    primaryButtonText: {
+        color: "#FFFFFF",
+        fontSize: 16,
+        lineHeight: 24,
+        fontFamily: "Poppins-SemiBold",
+    },
+    bottomSection: {
+        alignItems: "center",
+        marginTop: 38,
+    },
+    loginRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 50,
+    },
+    loginTextNormal: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#6B6B6B",
+        fontFamily: "Poppins-Regular",
+    },
+    loginTextHighlight: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#FE6700",
+        fontFamily: "Poppins-Medium",
+    },
+    footerText: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: "#000000",
+        textAlign: "center",
+        fontFamily: "Poppins-Regular",
+    },
+    footerLink: {
+        color: "#FE6700",
+    },
 });

@@ -13,7 +13,7 @@ import {
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-
+import { LinearGradient } from "expo-linear-gradient";
 // API source of truth from central constants
 import { API_URL } from '@/constants/api';
 
@@ -74,7 +74,12 @@ export default function AuthScreen() {
           </Text>
         </View>
 
-        <View style={styles.card}>
+        <LinearGradient
+          colors={["#FFFFFF", "#FFE2CC"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.card}
+        >
           <Text style={styles.title}>Login with Phone</Text>
 
           <Text style={styles.label}>Phone Number</Text>
@@ -107,7 +112,7 @@ export default function AuthScreen() {
               <Text style={styles.otpButtonText}>Send OTP</Text>
             )}
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
 
         <View style={styles.dividerRow}>
           <View style={styles.line} />
@@ -199,7 +204,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 47,
     paddingTop: 38,
     paddingBottom: 50,
-    backgroundColor: "#FFF0E6",
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
