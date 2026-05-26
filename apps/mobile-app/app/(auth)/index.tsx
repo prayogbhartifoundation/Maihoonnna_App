@@ -65,22 +65,15 @@ export default function AuthScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
       >
-        {/* Header & Location */}
-        <View style={styles.header}>
-          <View style={styles.locationBadge}>
-            <View style={styles.greenDot} />
-            <Text style={styles.locationText}>Location Services: Active</Text>
+        <View style={styles.logoContainer}>
+          <View style={styles.logoCircle}>
+            <Text style={styles.logoLetter}>म</Text>
           </View>
-
-          <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoLetter}>M</Text>
-            </View>
-            <Text style={styles.logoText}>MaiHoonNa</Text>
-          </View>
+          <Text style={styles.logoText}>
+            Mai<Text style={styles.logoOrange}>Hoon</Text>Na
+          </Text>
         </View>
 
-        {/* Login Card */}
         <View style={styles.card}>
           <Text style={styles.title}>Login with Phone</Text>
 
@@ -89,6 +82,7 @@ export default function AuthScreen() {
             <View style={styles.countryCodeContainer}>
               <Text style={styles.countryCode}>+91</Text>
             </View>
+
             <TextInput
               style={styles.input}
               placeholder="Enter 10-digit number"
@@ -105,6 +99,7 @@ export default function AuthScreen() {
             style={[styles.otpButton, isLoading && styles.otpButtonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
+            activeOpacity={0.85}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -114,28 +109,18 @@ export default function AuthScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Divider */}
         <View style={styles.dividerRow}>
           <View style={styles.line} />
           <Text style={styles.dividerText}>Or continue with</Text>
           <View style={styles.line} />
         </View>
 
-        {/* Biometric Button - Position Updated */}
-        <TouchableOpacity style={styles.bioButton} disabled={isLoading}>
-          <MaterialCommunityIcons name="fingerprint" size={24} color="#FFFFFF" style={{ marginRight: 10 }} />
+        <TouchableOpacity style={styles.bioButton} disabled={isLoading} activeOpacity={0.85}>
+          <MaterialCommunityIcons name="fingerprint" size={20} color="#FFFFFF" />
           <Text style={styles.bioButtonText}>Biometric Login</Text>
         </TouchableOpacity>
 
-        {/* Password Login Button */}
-        <TouchableOpacity style={styles.passwordButton} onPress={() => router.push("/(auth)/login-password" as any)} disabled={isLoading}>
-          <MaterialCommunityIcons name="lock-outline" size={22} color="#111827" style={{ marginRight: 8 }} />
-          <Text style={styles.passwordButtonText}>Login with Password</Text>
-        </TouchableOpacity>
-
-        {/* Footer */}
         <View style={styles.footer}>
-
           <View style={styles.signUpRow}>
             <Text style={styles.footerText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
@@ -143,14 +128,23 @@ export default function AuthScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.browseButton} onPress={() => router.push("/(setup)/subscription-packages")}>
-            <MaterialCommunityIcons name="package-variant-closed" size={22} color="#F97316" style={{ marginRight: 8 }} />
+          <TouchableOpacity
+            style={styles.browseButton}
+            onPress={() => router.push("/(setup)/subscription-packages")}
+            activeOpacity={0.85}
+          >
+            <MaterialCommunityIcons
+              name="package-variant-closed"
+              size={24}
+              color="#FE6700"
+            />
             <Text style={styles.browseButtonText}>Browse Packages</Text>
           </TouchableOpacity>
 
           <Text style={styles.terms}>
-            By continuing, you agree to our <Text style={styles.orangeTextTerms}>Terms of Service</Text>{"\n"}
-            and <Text style={styles.orangeTextTerms}>Privacy Policy</Text>
+            By continuing, you agree to our{" "}
+            <Text style={styles.orangeTextTerms}>Terms of Service</Text>
+            {"\n"}and <Text style={styles.orangeTextTerms}>Privacy Policy</Text>
           </Text>
         </View>
       </KeyboardAvoidingView>
@@ -159,69 +153,208 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
-  container: { flex: 1, paddingHorizontal: 24, justifyContent: "space-between", paddingTop: 40, paddingBottom: 25 },
-  header: { alignItems: "center" },
-  locationBadge: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-  greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22C55E", marginRight: 8 },
-  locationText: { fontSize: 13, color: "#4B5563" },
-  logoContainer: { flexDirection: "row", alignItems: "center", marginBottom: 35 },
-  logoCircle: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: "#F97316", alignItems: "center", justifyContent: "center", marginRight: 10 },
-  logoLetter: { color: "#FFFFFF", fontWeight: "bold", fontSize: 20 },
-  logoText: { fontSize: 32, fontWeight: "800", color: "#111827" },
-
-  card: { backgroundColor: "#FFF5ED", padding: 24, borderRadius: 20, width: "100%", elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-  title: { fontSize: 24, fontWeight: "700", color: "#111827", marginBottom: 24, textAlign: "center" },
-  label: { fontSize: 14, fontWeight: "500", color: "#111827", marginBottom: 10 },
-
-  inputRow: { flexDirection: "row", marginBottom: 20 },
-  countryCodeContainer: { backgroundColor: "#FFFFFF", borderRadius: 12, borderWidth: 1, borderColor: "#D1D5DB", paddingHorizontal: 15, justifyContent: "center", marginRight: 10 },
-  countryCode: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  input: { flex: 1, backgroundColor: "#FFFFFF", borderRadius: 12, borderWidth: 1, borderColor: "#D1D5DB", paddingHorizontal: 15, fontSize: 16, height: 55, color: "#111827" },
-
-  otpButton: { backgroundColor: "#F3B289", height: 55, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  otpButtonDisabled: { opacity: 0.7 },
-  otpButtonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 17 },
-
-  dividerRow: { flexDirection: "row", alignItems: "center", width: "100%", marginTop: 24, marginBottom: 10 }, // Bottom margin kam kiya
-  line: { flex: 1, height: 1, backgroundColor: "#E5E7EB" },
-  dividerText: { marginHorizontal: 15, fontSize: 14, color: "#6B7280" },
-
-  bioButton: {
-    backgroundColor: "#000000",
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 78 : 88,
+    paddingBottom: 34,
+    alignItems: "center",
+  },
+  logoContainer: {
     flexDirection: "row",
-    height: 55,
-    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 42,
+  },
+  logoCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FE6700",
     alignItems: "center",
     justifyContent: "center",
-    width: "100%",
-    marginTop: 0,
-    marginBottom: 15
+    marginRight: 10,
   },
-  bioButtonText: { color: "#FFFFFF", fontWeight: "600", fontSize: 16 },
-
-  passwordButton: {
+  logoLetter: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: "Poppins-SemiBold",
+  },
+  logoText: {
+    fontSize: 28,
+    lineHeight: 36,
+    color: "#000000",
+    fontFamily: "Poppins-SemiBold",
+  },
+  logoOrange: {
+    color: "#FE6700",
+  },
+  card: {
+    width: "100%",
+    borderRadius: 10,
+    paddingHorizontal: 47,
+    paddingTop: 38,
+    paddingBottom: 50,
+    backgroundColor: "#FFF0E6",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  title: {
+    fontSize: 24,
+    lineHeight: 32,
+    color: "#000000",
+    textAlign: "center",
+    fontFamily: "Poppins-SemiBold",
+    marginBottom: 31,
+  },
+  label: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#000000",
+    fontFamily: "Poppins-Regular",
+    marginBottom: 9,
+  },
+  inputRow: {
     flexDirection: "row",
-    height: 55,
-    borderRadius: 12,
+    gap: 8,
+    marginBottom: 16,
+  },
+  countryCodeContainer: {
+    width: 64,
+    height: 50,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#D1D5DB",
     backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  countryCode: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#000000",
+    fontFamily: "Poppins-Regular",
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: "#111827",
+    fontFamily: "Poppins-Regular",
+  },
+  otpButton: {
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: "#FFA366",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  otpButtonDisabled: {
+    opacity: 0.75,
+  },
+  otpButtonText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#FFFFFF",
+    fontFamily: "Poppins-SemiBold",
+  },
+  dividerRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 48,
+    marginBottom: 48,
+    paddingHorizontal: 9,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#D1D5DB",
+  },
+  dividerText: {
+    marginHorizontal: 32,
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#000000",
+    fontFamily: "Poppins-Regular",
+  },
+  bioButton: {
+    width: 298,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: "#000000",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    width: "100%",
-    marginBottom: 35
+    gap: 8,
   },
-  passwordButtonText: { color: "#111827", fontWeight: "600", fontSize: 16 },
-
-  footer: { alignItems: "center" },
-  signUpRow: { flexDirection: "row", marginBottom: 12 },
-  footerText: { color: "#6B7280", fontSize: 15 },
-  orangeTextBold: { color: "#F97316", fontWeight: "700", fontSize: 15 },
-
-  browseButton: { flexDirection: "row", borderWidth: 1, borderColor: "#F97316", borderRadius: 12, height: 55, alignItems: "center", justifyContent: "center", width: "100%", marginBottom: 20 },
-  browseButtonText: { color: "#F97316", fontWeight: "700", fontSize: 16 },
-
-  terms: { textAlign: "center", fontSize: 13, lineHeight: 20, color: "#4B5563" },
-  orangeTextTerms: { color: "#F97316", fontWeight: "500" }
+  bioButtonText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#FFFFFF",
+    fontFamily: "Poppins-SemiBold",
+  },
+  footer: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 52,
+  },
+  signUpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  footerText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#6B6B6B",
+    fontFamily: "Poppins-Regular",
+  },
+  orangeTextBold: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#FE6700",
+    fontFamily: "Poppins-Medium",
+  },
+  browseButton: {
+    width: 268,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FE6700",
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 24,
+  },
+  browseButtonText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#FE6700",
+    fontFamily: "Poppins-Medium",
+  },
+  terms: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#000000",
+    textAlign: "center",
+    fontFamily: "Poppins-Regular",
+  },
+  orangeTextTerms: {
+    color: "#FE6700",
+  },
 });
