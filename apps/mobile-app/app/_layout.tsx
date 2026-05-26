@@ -11,6 +11,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, focusManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +44,13 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const notifListener = useRef<Subscription | null>(null);
   const responseListener = useRef<Subscription | null>(null);
+  // --- ADDED: Font loading hook ---
+  const [fontsLoaded, error] = useFonts({
+    'Poppins-Regular': require('../assets/fonts/Poppins-Regular.ttf'),
+    'Poppins-Medium': require('../assets/fonts/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('../assets/fonts/Poppins-SemiBold.ttf'), // Added for modal headers
+    'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'),
+  });
 
   useEffect(() => {
     // Register for push notifications on app start

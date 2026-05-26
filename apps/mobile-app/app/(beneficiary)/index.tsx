@@ -1,16 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
+import React from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    Image,
+    ImageBackground,
+    Platform,
+    ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialCommunityIcons, Feather, AntDesign, FontAwesome5 } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Feather, AntDesign } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import { API_URL } from '@/constants/api';
 import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 
-// Temporary Mock ID until Auth Context is provided
-const MOCK_BENEFICIARY_ID = "8340d860-2641-479c-b26a-8b9a71bcec29"; // A valid UUID format
+const MOCK_BENEFICIARY_ID = '8340d860-2641-479c-b26a-8b9a71bcec29';
+
+const headerPattern =
+    'https://www.figma.com/api/mcp/asset/f148e029-aa29-4b67-96a9-94d739e89bb9';
 
 interface DashboardData {
     greeting: string;
@@ -44,131 +55,158 @@ interface DashboardData {
 }
 
 export default function BeneficiaryDashboard() {
-    const { 
-        data: data, 
+    const {
+        data,
         isLoading: loading,
-        isError 
     } = useQuery({
-        queryKey: ['beneficiaryDashboardInfo', MOCK_BENEFICIARY_ID], // TODO: use actual ID from auth
+        queryKey: ['beneficiaryDashboardInfo', MOCK_BENEFICIARY_ID],
         queryFn: async () => {
             const [storedUser, storedToken] = await Promise.all([
                 AsyncStorage.getItem('userData'),
-                AsyncStorage.getItem('userToken')
+                AsyncStorage.getItem('userToken'),
             ]);
 
             if (!storedUser || !storedToken) {
                 router.replace('/(auth)');
-                throw new Error("Auth missing");
+                throw new Error('Auth missing');
             }
 
             const response = await fetch(`${API_URL}/beneficiary/dashboard/dashboard/me`, {
                 headers: {
-                    'Authorization': `Bearer ${storedToken}`,
-                    'Content-Type': 'application/json'
-                }
+                    Authorization: `Bearer ${storedToken}`,
+                    'Content-Type': 'application/json',
+                },
             });
 
             if (!response.ok) {
-                throw new Error("Backend error");
+                throw new Error('Backend error');
             }
-            
+
             const res = await response.json();
             if (res.success) {
                 return res.data;
             }
-            throw new Error("API returned false success");
-        }
+
+            throw new Error('API returned false success');
+        },
     });
 
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#FF6A00" />
+                <ActivityIndicator size="large" color="#FE6700" />
             </View>
         );
     }
 
-    // Handle case where API fails or ID is invalid - we still need to show the UI structure
-    const displayData = data || {
-        greeting: "Good Morning",
-        firstName: "User",
+    const displayData: DashboardData = data || {
+        greeting: 'Good Morning',
+        firstName: 'User',
         emotionalScore: 8,
-        nextVisit: "Feb 27",
-        adherence: "95%",
+        nextVisit: 'Feb 27',
+        adherence: '95%',
         careCoordinator: {
-            id: "1",
-            name: "Dr. Sarah Johnson",
-            role: "Primary Care Coordinator",
-            bio: "Board-certified nurse practitioner with 15+ years of experience in geriatric care.",
+            id: '1',
+            name: 'Dr. Sarah Johnson',
+            role: 'Primary Care Coordinator',
+            bio: 'Board-certified nurse practitioner with 15+ years of experience in geriatric care.',
             photo: null,
-            phone: "+91 98765 43210"
+            phone: '+91 98765 43210',
         },
         todaysMedications: [
-            { id: '1', name: 'Lisinopril', dosage: '10mg', condition: 'Blood Pressure', time: '08:00 AM', completed: false, adherenceScore: 95 },
-            { id: '2', name: 'Metformin', dosage: '500mg', condition: 'Diabetes', time: '08:00 AM', completed: false, adherenceScore: 92 }
-        ]
+            {
+                id: '1',
+                name: 'Lisinopril',
+                dosage: '10mg',
+                condition: 'Blood Pressure',
+                time: '08:00 AM',
+                completed: false,
+                adherenceScore: 95,
+            },
+            {
+                id: '2',
+                name: 'Metformin',
+                dosage: '500mg',
+                condition: 'Diabetes',
+                time: '08:00 AM',
+                completed: false,
+                adherenceScore: 92,
+            },
+        ],
     };
 
     const formatDate = (dateString: string | null) => {
-        if (!dateString) return "Not Scheduled";
+        if (!dateString) return 'Not Scheduled';
+
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (Number.isNaN(date.getTime())) return dateString;
+
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+        });
     };
 
     return (
-        <ScrollView style={styles.container} bounces={false}>
-            {/* Header Section */}
-            <View style={styles.headerBackground}>
-                {/* Placeholder for the geometric orange background pattern */}
-                <LinearGradient
-                    colors={['#FDE6D2', '#FFDDC2']}
-                    style={StyleSheet.absoluteFillObject}
-                />
+        <ScrollView
+            style={styles.container}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+        >
+            <ImageBackground
+                source={{ uri: headerPattern }}
+                style={styles.headerBackground}
+                resizeMode="cover"
+            >
                 <SafeAreaView edges={['top']}>
                     <View style={styles.headerContent}>
                         <View>
                             <Text style={styles.greetingTitle}>{displayData.greeting}</Text>
-                            <Text style={styles.greetingSubtitle}>How are you feeling today?</Text>
+                            <Text style={styles.greetingSubtitle}>
+                                How are you feeling today?
+                            </Text>
                         </View>
-                        <TouchableOpacity style={styles.notificationIcon}>
-                            <Feather name="bell" size={24} color="#FF6A00" />
+
+                        <TouchableOpacity style={styles.notificationIcon} activeOpacity={0.85}>
+                            <Feather name="bell" size={20} color="#FE6700" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Emergency Button */}
-                    <TouchableOpacity style={styles.emergencyBtn}>
-                        <Feather name="alert-circle" size={20} color="white" />
+                    <TouchableOpacity style={styles.emergencyBtn} activeOpacity={0.85}>
+                        <Feather name="alert-circle" size={28} color="#FFFFFF" />
                         <Text style={styles.emergencyText}>Emergency Support</Text>
                     </TouchableOpacity>
                 </SafeAreaView>
-            </View>
+            </ImageBackground>
 
-            {/* Main Content Area - overlaps header */}
             <View style={styles.mainContent}>
-                {/* Stats Row */}
                 <View style={styles.statsRow}>
                     <View style={styles.statCard}>
-                        <View style={[styles.statIconBadge, { backgroundColor: '#EBF4FF' }]}>
-                            <Feather name="calendar" size={20} color="#4A90E2" />
+                        <View style={[styles.statIconBadge, { backgroundColor: '#DBEAFE' }]}>
+                            <Feather name="calendar" size={20} color="#2563FF" />
                         </View>
+
                         <Text style={styles.statLabel}>Next Visit</Text>
-                        <Text style={styles.statValue}>{formatDate(displayData.nextVisit)}</Text>
+                        <Text style={styles.statValue}>
+                            {formatDate(displayData.nextVisit)}
+                        </Text>
                     </View>
+
                     <View style={styles.statCard}>
-                        <View style={[styles.statIconBadge, { backgroundColor: '#E6F8ED' }]}>
-                            <Feather name="trending-up" size={20} color="#2ECC71" />
+                        <View style={[styles.statIconBadge, { backgroundColor: '#DCFCE7' }]}>
+                            <Feather name="trending-up" size={20} color="#16A34A" />
                         </View>
+
                         <Text style={styles.statLabel}>Adherence</Text>
                         <Text style={styles.statValue}>{displayData.adherence}</Text>
                     </View>
                 </View>
 
-
-
-                {/* Care Coordinator Section */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Your Care Coordinator</Text>
-                    <TouchableOpacity onPress={() => router.push('/(beneficiary)/team')}><Text style={styles.linkText}>View Team</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.push('/(beneficiary)/team')}>
+                        <Text style={styles.linkText}>View Team</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {displayData.careCoordinator && (
@@ -176,17 +214,28 @@ export default function BeneficiaryDashboard() {
                         <View style={styles.ccHeader}>
                             <View style={styles.ccAvatar}>
                                 {displayData.careCoordinator.photo ? (
-                                    <Image source={{ uri: displayData.careCoordinator.photo }} style={styles.ccImage} />
+                                    <Image
+                                        source={{ uri: displayData.careCoordinator.photo }}
+                                        style={styles.ccImage}
+                                    />
                                 ) : (
-                                    <AntDesign name="user" size={32} color="#aaa" />
+                                    <AntDesign name="user" size={30} color="#AAAAAA" />
                                 )}
                             </View>
+
                             <View style={styles.ccInfo}>
-                                <Text style={styles.ccName}>{displayData.careCoordinator.name}</Text>
-                                <Text style={styles.ccRole}>{displayData.careCoordinator.role}</Text>
+                                <Text style={styles.ccName}>
+                                    {displayData.careCoordinator.name}
+                                </Text>
+                                <Text style={styles.ccRole}>
+                                    {displayData.careCoordinator.role}
+                                </Text>
                             </View>
                         </View>
-                        <Text style={styles.ccBio}>{displayData.careCoordinator.bio}</Text>
+
+                        <Text style={styles.ccBio} numberOfLines={2}>
+                            {displayData.careCoordinator.bio}
+                        </Text>
 
                         <ConnectContactButton
                             name={displayData.careCoordinator.name}
@@ -202,7 +251,6 @@ export default function BeneficiaryDashboard() {
                     </View>
                 )}
 
-                {/* Medications Section */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Today's Medications</Text>
                     <TouchableOpacity onPress={() => router.push('/(beneficiary)/meds' as any)}>
@@ -210,39 +258,49 @@ export default function BeneficiaryDashboard() {
                     </TouchableOpacity>
                 </View>
 
-                {displayData.todaysMedications.map((med: any) => (
+                {displayData.todaysMedications.slice(0, 2).map((med) => (
                     <View key={med.id} style={styles.medCard}>
                         <View style={styles.medIconBadge}>
-                            <MaterialCommunityIcons name="pill" size={24} color="#4A90E2" />
+                            <MaterialCommunityIcons name="pill" size={24} color="#2563FF" />
                         </View>
+
                         <View style={styles.medInfo}>
-                            <Text style={styles.medName}>{med.name} - {med.dosage}</Text>
+                            <Text style={styles.medName}>
+                                {med.name} - {med.dosage}
+                            </Text>
                             <Text style={styles.medCondition}>{med.condition}</Text>
-                            <Text style={styles.medTime}>{med.time}</Text>
-                        </View>
-                        <View style={styles.adherenceBadge}>
-                            <Text style={styles.adherenceBadgeText}>{med.adherenceScore}% adherence</Text>
+
+                            <View style={styles.medFooter}>
+                                <Text style={styles.medTime}>{med.time}</Text>
+                                <View style={styles.adherenceBadge}>
+                                    <Text style={styles.adherenceBadgeText}>
+                                        {med.adherenceScore}% adherence
+                                    </Text>
+                                </View>
+                            </View>
                         </View>
                     </View>
                 ))}
 
-                {/* Quick Actions */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Quick Actions</Text>
                 </View>
 
                 <View style={styles.quickActionsGrid}>
-                    <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(beneficiary)/request-service' as any)}>
+                    <TouchableOpacity
+                        style={styles.actionCard}
+                        onPress={() => router.push('/(beneficiary)/request-service' as any)}
+                    >
                         <View style={[styles.actionIconBadge, { backgroundColor: '#F3E8FF' }]}>
-                            <Feather name="calendar" size={24} color="#9B51E0" />
+                            <Feather name="calendar" size={24} color="#9810FA" />
                         </View>
                         <Text style={styles.actionTitle}>Book Appointment</Text>
                         <Text style={styles.actionSubtitle}>Schedule visit</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.actionCard}>
-                        <View style={[styles.actionIconBadge, { backgroundColor: '#FFEDD5' }]}>
-                            <MaterialCommunityIcons name="pill" size={24} color="#F59E0B" />
+                        <View style={[styles.actionIconBadge, { backgroundColor: '#FFEDD4' }]}>
+                            <MaterialCommunityIcons name="pill" size={24} color="#FF6900" />
                         </View>
                         <Text style={styles.actionTitle}>Order Meds</Text>
                         <Text style={styles.actionSubtitle}>Refill now</Text>
@@ -250,21 +308,22 @@ export default function BeneficiaryDashboard() {
 
                     <TouchableOpacity style={styles.actionCard}>
                         <View style={[styles.actionIconBadge, { backgroundColor: '#DCFCE7' }]}>
-                            <Feather name="calendar" size={24} color="#10B981" />
+                            <Feather name="calendar" size={24} color="#00A63E" />
                         </View>
                         <Text style={styles.actionTitle}>Events</Text>
-                        <Text style={styles.actionSubtitle}>Local events</Text>
+                        <Text style={styles.actionSubtitle}>Join activities</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.actionCard}>
                         <View style={[styles.actionIconBadge, { backgroundColor: '#FCE7F3' }]}>
-                            <Feather name="alert-circle" size={24} color="#EC4899" />
+                            <Feather name="alert-circle" size={24} color="#E60076" />
                         </View>
                         <Text style={styles.actionTitle}>Saathi</Text>
-                        <Text style={styles.actionSubtitle}>Companion</Text>
+                        <Text style={styles.actionSubtitle}>Find volunteers</Text>
                     </TouchableOpacity>
                 </View>
-                <View style={{ height: Platform.OS === 'ios' ? 120 : 100 }} />
+
+                <View style={{ height: Platform.OS === 'ios' ? 112 : 96 }} />
             </View>
         </ScrollView>
     );
@@ -273,342 +332,306 @@ export default function BeneficiaryDashboard() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FAF5ED', // Off-white/cream background matching the design
+        backgroundColor: '#FFF0E6',
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FAF5ED'
+        backgroundColor: '#FFF0E6',
     },
+
     headerBackground: {
-        height: 280, // Extended height for overlap
-        paddingHorizontal: 20,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
+        height: 236,
+        paddingHorizontal: 16,
+        borderBottomLeftRadius: 15,
+        borderBottomRightRadius: 15,
         overflow: 'hidden',
-        position: 'relative'
     },
     headerContent: {
+        marginTop: 34,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginTop: Platform.OS === 'android' ? 20 : 10,
     },
     greetingTitle: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: '#000',
-        fontFamily: 'Outfit-Bold'
+        fontFamily: 'Poppins-Medium',
+        fontSize: 24,
+        lineHeight: 32,
+        color: '#000000',
     },
     greetingSubtitle: {
-        fontSize: 16,
-        color: '#333',
-        fontFamily: 'Outfit-Regular',
-        marginTop: 4
+        marginTop: 0,
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#000000',
     },
     notificationIcon: {
-        width: 45,
-        height: 45,
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        borderRadius: 22.5,
+        width: 40,
+        height: 40,
+        marginTop: 0,
+        borderRadius: 999,
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
     },
     emergencyBtn: {
-        backgroundColor: '#E70000', // Bright emergency red
-        borderRadius: 12,
+        height: 60,
+        marginHorizontal: 14,
+        marginTop: 18,
+        borderRadius: 16,
+        backgroundColor: '#E7000B',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 16,
-        marginTop: 24,
-        shadowColor: '#E70000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
+        gap: 10,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 7.5,
+        elevation: 8,
     },
     emergencyText: {
-        color: '#FFF',
+        fontFamily: 'Poppins-Medium',
         fontSize: 18,
-        fontWeight: '600',
-        marginLeft: 8,
-        fontFamily: 'Outfit-SemiBold'
+        lineHeight: 28,
+        color: '#FFFFFF',
     },
+
     mainContent: {
-        paddingHorizontal: 20,
-        marginTop: -40, // Pulls content up over the header background
+        paddingHorizontal: 16,
+        marginTop: -40,
     },
+
     statsRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 24,
+        gap: 12,
+        marginBottom: 20,
     },
     statCard: {
-        backgroundColor: '#FFF',
-        borderRadius: 20,
-        padding: 20,
-        width: '48%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        flex: 1,
+        height: 124,
+        borderRadius: 16,
+        backgroundColor: '#FFFFFF',
+        padding: 16,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 4,
     },
     statIconBadge: {
         width: 40,
         height: 40,
-        borderRadius: 12,
+        borderRadius: 999,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
     },
     statLabel: {
-        fontSize: 14,
-        color: '#666',
-        fontFamily: 'Outfit-Medium',
-        marginBottom: 8,
+        marginTop: 12,
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        lineHeight: 16,
+        color: '#333333',
     },
     statValue: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#000',
-        fontFamily: 'Outfit-Bold',
+        marginTop: 4,
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#000000',
     },
-    hoursCard: {
-        backgroundColor: '#FFF',
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
-    },
-    hoursHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    hoursTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#000',
-        fontFamily: 'Outfit-SemiBold'
-    },
-    hoursSubtitle: {
-        fontSize: 13,
-        color: '#666',
-        fontFamily: 'Outfit-Regular'
-    },
-    hoursGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#FAF5ED',
-        borderRadius: 16,
-        padding: 16,
-    },
-    hourItem: {
-        alignItems: 'center',
-        flex: 1,
-    },
-    hourValue: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
-        marginBottom: 4,
-    },
-    hourLabel: {
-        fontSize: 12,
-        color: '#6B7280',
-        fontFamily: 'Outfit-Regular'
-    },
-    hourDivider: {
-        width: 1,
-        height: 30,
-        backgroundColor: '#E5E7EB',
-    },
+
     sectionHeader: {
+        height: 28,
+        marginBottom: 12,
         flexDirection: 'row',
+        alignItems: 'flex-start',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-        marginTop: 8,
     },
     sectionTitle: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: '#000',
-        fontFamily: 'Outfit-SemiBold'
+        fontFamily: 'Poppins-Medium',
+        fontSize: 18,
+        lineHeight: 28,
+        color: '#000000',
     },
     linkText: {
+        paddingTop: 4,
+        fontFamily: 'Poppins-Regular',
         fontSize: 14,
-        color: '#FF6A00',
-        fontWeight: '600',
-        fontFamily: 'Outfit-Medium'
+        lineHeight: 20,
+        color: '#FE6700',
     },
+
     card: {
-        backgroundColor: '#FFF',
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        borderRadius: 16,
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 14,
+        paddingTop: 16,
+        paddingBottom: 12,
+        marginBottom: 22,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1.5,
+        elevation: 2,
     },
     ccHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 16,
+        gap: 12,
     },
     ccAvatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#f0f0f0',
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#F0F0F0',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
-        overflow: 'hidden'
+        overflow: 'hidden',
     },
     ccImage: {
         width: '100%',
-        height: '100%'
+        height: '100%',
     },
     ccInfo: {
-        flex: 1
+        flex: 1,
     },
     ccName: {
+        fontFamily: 'Poppins-Medium',
         fontSize: 18,
-        fontWeight: '600',
-        color: '#000',
-        fontFamily: 'Outfit-SemiBold',
-        marginBottom: 4
+        lineHeight: 27,
+        color: '#000000',
     },
     ccRole: {
+        fontFamily: 'Poppins-Regular',
         fontSize: 14,
-        color: '#666',
-        fontFamily: 'Outfit-Regular'
+        lineHeight: 20,
+        color: '#4A5565',
     },
     ccBio: {
+        marginTop: 12,
+        fontFamily: 'Poppins-Regular',
         fontSize: 14,
-        color: '#444',
         lineHeight: 20,
-        marginBottom: 20,
-        fontFamily: 'Outfit-Regular'
+        color: '#333333',
     },
     primaryBtn: {
-        backgroundColor: '#FF6A00',
-        borderRadius: 12,
-        paddingVertical: 16,
+        height: 44,
+        marginTop: 10,
+        marginHorizontal: 18,
+        borderRadius: 10,
+        backgroundColor: '#FE6700',
         alignItems: 'center',
+        justifyContent: 'center',
     },
     primaryBtnText: {
-        color: '#FFF',
+        fontFamily: 'Poppins-SemiBold',
         fontSize: 16,
-        fontWeight: '600',
-        fontFamily: 'Outfit-SemiBold'
+        lineHeight: 24,
+        color: '#FFFFFF',
     },
+
     medCard: {
-        backgroundColor: '#FFF',
-        borderRadius: 20,
+        minHeight: 115,
+        borderRadius: 16,
+        backgroundColor: '#FFFFFF',
         padding: 16,
+        marginBottom: 8,
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 10,
+        gap: 12,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1.5,
         elevation: 2,
     },
     medIconBadge: {
-        width: 50,
-        height: 50,
-        borderRadius: 16,
-        backgroundColor: '#EBF4FF',
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        backgroundColor: '#DBEAFE',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
     },
     medInfo: {
-        flex: 1
+        flex: 1,
     },
     medName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#000',
-        fontFamily: 'Outfit-SemiBold',
-        marginBottom: 4
+        fontFamily: 'Poppins-Medium',
+        fontSize: 18,
+        lineHeight: 27,
+        color: '#000000',
     },
     medCondition: {
-        fontSize: 13,
-        color: '#666',
-        fontFamily: 'Outfit-Regular',
-        marginBottom: 8
+        marginTop: 4,
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#333333',
+    },
+    medFooter: {
+        marginTop: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     medTime: {
-        fontSize: 13,
-        color: '#555',
-        fontFamily: 'Outfit-Medium'
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#333333',
     },
     adherenceBadge: {
-        backgroundColor: '#E6F8ED',
+        height: 24,
+        borderRadius: 999,
+        backgroundColor: '#F0FDF4',
         paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-        position: 'absolute',
-        bottom: 16,
-        right: 16
+        justifyContent: 'center',
     },
     adherenceBadgeText: {
-        color: '#2ECC71',
-        fontSize: 11,
-        fontWeight: '600',
-        fontFamily: 'Outfit-Medium'
+        fontFamily: 'Inter-Regular',
+        fontSize: 12,
+        lineHeight: 16,
+        color: '#16A34A',
     },
+
     quickActionsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-between',
+        gap: 12,
     },
     actionCard: {
-        width: '48%',
-        backgroundColor: '#FFF',
-        borderRadius: 20,
+        width: '48.3%',
+        height: 132,
+        borderRadius: 16,
+        backgroundColor: '#FFFFFF',
         padding: 16,
-        paddingBottom: 24,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 10,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1.5,
         elevation: 2,
     },
     actionIconBadge: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
+        width: 48,
+        height: 48,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
     },
     actionTitle: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: '#000',
-        fontFamily: 'Outfit-SemiBold',
-        marginBottom: 4
+        marginTop: 12,
+        fontFamily: 'Poppins-Medium',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#000000',
     },
     actionSubtitle: {
-        fontSize: 13,
-        color: '#666',
-        fontFamily: 'Outfit-Regular'
-    }
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        lineHeight: 16,
+        color: '#333333',
+    },
 });

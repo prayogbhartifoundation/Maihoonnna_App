@@ -35,51 +35,7 @@ export default function ScheduleScreen() {
             const userStr = await AsyncStorage.getItem('userData');
 
             if (!token || !userStr) {
-                // High-fidelity fallback for offline or preview states
-                setUpcomingVisits([
-                    {
-                        id: 'mock-1',
-                        title: 'Regular Check-up',
-                        date: 'Thursday, February 26',
-                        time: '11:00 AM',
-                        duration: '2 hours',
-                        companionName: 'Dr. Sarah Johnson',
-                        type: 'Home Visit',
-                        status: 'scheduled',
-                    },
-                    {
-                        id: 'mock-2',
-                        title: 'Health Assessment',
-                        date: 'Thursday, March 5',
-                        time: '3:00 PM',
-                        duration: '1.5 hours',
-                        companionName: 'Mark Thompson',
-                        type: 'Home Visit',
-                        status: 'scheduled',
-                    }
-                ]);
-                setPastVisits([
-                    {
-                        id: 'mock-3',
-                        title: 'Regular Check-up',
-                        date: 'Feb 10',
-                        time: '10:00 AM',
-                        duration: '1 hour',
-                        companionName: 'Dr. Sarah Johnson',
-                        type: 'Home Visit',
-                        status: 'completed',
-                    },
-                    {
-                        id: 'mock-4',
-                        title: 'Medication Review',
-                        date: 'Feb 17',
-                        time: '12:30 PM',
-                        duration: '1 hour',
-                        companionName: 'Mark Thompson',
-                        type: 'Home Visit',
-                        status: 'completed',
-                    }
-                ]);
+                setError('User session not found. Please log in again.');
                 setLoading(false);
                 return;
             }
@@ -117,7 +73,7 @@ export default function ScheduleScreen() {
 
             {loading ? (
                 <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#FF6B00" />
+                    <ActivityIndicator size="large" color="#FE6700" />
                     <Text style={styles.loaderText}>Loading schedule...</Text>
                 </View>
             ) : error ? (
@@ -129,8 +85,8 @@ export default function ScheduleScreen() {
                     </TouchableOpacity>
                 </View>
             ) : (
-                <ScrollView contentContainerStyle={styles.content}>
-                    
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
                     {/* Upcoming Visits Section */}
                     <Text style={styles.sectionHeader}>Upcoming Visits</Text>
                     {upcomingVisits.length > 0 ? (
@@ -165,7 +121,7 @@ export default function ScheduleScreen() {
                                 </View>
 
                                 {/* Request Change Action Button */}
-                                <TouchableOpacity style={styles.requestButton}>
+                                <TouchableOpacity style={styles.requestButton} activeOpacity={0.7}>
                                     <Text style={styles.requestButtonText}>Request Change</Text>
                                 </TouchableOpacity>
                             </View>
@@ -181,8 +137,8 @@ export default function ScheduleScreen() {
                     <Text style={[styles.sectionHeader, { marginTop: 24 }]}>Past Visits</Text>
                     {pastVisits.length > 0 ? (
                         pastVisits.map(visit => (
-                            <TouchableOpacity 
-                                key={visit.id} 
+                            <TouchableOpacity
+                                key={visit.id}
                                 style={styles.card}
                                 activeOpacity={0.7}
                                 onPress={() => router.push({
@@ -225,102 +181,82 @@ export default function ScheduleScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FAF5ED' },
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#FFFFFF'
+    },
     navBar: {
-        height: 56,
+        height: 60,
         backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
         borderBottomWidth: 1,
         borderBottomColor: '#F3F4F6',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.05,
-                shadowRadius: 2,
-            },
-            android: { elevation: 2 },
-            web: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 }
-        })
     },
     navBarTitle: {
         fontSize: 18,
-        fontWeight: '600',
         color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Medium',
     },
     content: {
+        backgroundColor: '#FFF0E6', // <-- Corrected exactly to your hex code
+        flexGrow: 1,
         padding: 20,
         paddingBottom: Platform.OS === 'ios' ? 120 : 100,
     },
     sectionHeader: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#1F2937',
-        fontFamily: 'Outfit-Bold',
+        fontSize: 18,
+        color: '#111827',
+        fontFamily: 'Poppins-Medium',
         marginBottom: 16,
     },
     card: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
+        borderRadius: 16,
         padding: 20,
         marginBottom: 16,
         borderWidth: 1,
         borderColor: '#F3F4F6',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.04,
-                shadowRadius: 10,
-            },
-            android: { elevation: 3 },
-            web: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.04,
-                shadowRadius: 10,
-            }
-        })
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 2,
     },
     badgeUpcoming: {
         alignSelf: 'flex-start',
-        backgroundColor: '#DEF7EC',
-        borderRadius: 100,
+        backgroundColor: '#E6F7EB',
+        borderRadius: 16,
         paddingHorizontal: 12,
         paddingVertical: 4,
-        marginBottom: 12,
+        marginBottom: 16,
     },
     badgeUpcomingText: {
         fontSize: 13,
-        color: '#03543F',
-        fontWeight: '600',
-        fontFamily: 'Outfit-SemiBold',
+        color: '#10B981',
+        fontFamily: 'Poppins-Medium',
     },
     badgeCompleted: {
         alignSelf: 'flex-start',
         backgroundColor: '#F3F4F6',
-        borderRadius: 100,
+        borderRadius: 16,
         paddingHorizontal: 12,
         paddingVertical: 4,
-        marginBottom: 12,
+        marginBottom: 16,
     },
     badgeCompletedText: {
         fontSize: 13,
         color: '#4B5563',
-        fontWeight: '600',
-        fontFamily: 'Outfit-SemiBold',
+        fontFamily: 'Poppins-Medium',
     },
     visitTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: 17,
         color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Medium',
         marginBottom: 12,
     },
     detailsContainer: {
-        gap: 10,
+        gap: 8,
     },
     detailRow: {
         flexDirection: 'row',
@@ -331,45 +267,45 @@ const styles = StyleSheet.create({
         marginRight: 8,
     },
     detailText: {
-        fontSize: 15,
+        fontSize: 14,
         color: '#4B5563',
-        fontFamily: 'Outfit-Regular',
+        fontFamily: 'Poppins-Regular',
     },
     requestButton: {
-        borderWidth: 1.5,
-        borderColor: '#FF6B00',
-        borderRadius: 14,
-        paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: '#FE6700',
+        borderRadius: 12,
+        paddingVertical: 14,
         alignItems: 'center',
-        marginTop: 18,
+        marginTop: 20,
     },
     requestButtonText: {
-        color: '#FF6B00',
+        color: '#FE6700',
         fontSize: 15,
-        fontWeight: '700',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Medium',
     },
     centerContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 24,
+        backgroundColor: '#FFF0E6', // <-- Corrected here as well
     },
     loaderText: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#6B7280',
-        fontFamily: 'Outfit-Medium',
+        fontFamily: 'Poppins-Medium',
         marginTop: 12,
     },
     errorText: {
         fontSize: 15,
         color: '#EF4444',
         textAlign: 'center',
-        fontFamily: 'Outfit-Medium',
+        fontFamily: 'Poppins-Medium',
         marginTop: 12,
     },
     retryButton: {
-        backgroundColor: '#FF6B00',
+        backgroundColor: '#FE6700',
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 12,
@@ -378,15 +314,14 @@ const styles = StyleSheet.create({
     retryText: {
         color: '#FFFFFF',
         fontSize: 14,
-        fontWeight: '600',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Medium',
     },
     emptyState: {
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 32,
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: '#F3F4F6',
         paddingHorizontal: 16,
@@ -395,7 +330,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#9CA3AF',
         textAlign: 'center',
-        fontFamily: 'Outfit-Regular',
+        fontFamily: 'Poppins-Regular',
         marginTop: 8,
     },
 });

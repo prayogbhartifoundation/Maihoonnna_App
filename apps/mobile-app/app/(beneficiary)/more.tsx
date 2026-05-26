@@ -54,7 +54,7 @@ export default function MoreOptionsScreen() {
 
     const menuItems: MenuItemProps[] = [
         {
-            icon: <FontAwesome5 name="user-friends" size={18} color="#3B82F6" />,
+            icon: <FontAwesome5 name="user-friends" size={16} color="#3B82F6" />,
             label: 'Care Team',
             iconBg: '#EFF6FF',
             onPress: () => router.push('/(beneficiary)/team'),
@@ -75,7 +75,7 @@ export default function MoreOptionsScreen() {
             icon: <FontAwesome5 name="stethoscope" size={16} color="#EF4444" />,
             label: 'Appointments',
             iconBg: '#FEF2F2',
-            onPress: () => {},
+            onPress: () => { },
         },
         {
             icon: <Feather name="package" size={18} color="#F97316" />,
@@ -87,39 +87,43 @@ export default function MoreOptionsScreen() {
             icon: <Feather name="shopping-cart" size={18} color="#F59E0B" />,
             label: 'Pharmacy',
             iconBg: '#FFFBEB',
-            onPress: () => {},
+            onPress: () => { },
         },
         {
             icon: <Feather name="calendar" size={18} color="#6366F1" />,
             label: 'Community Events',
             iconBg: '#EEF2FF',
-            onPress: () => {},
+            onPress: () => { },
         },
         {
             icon: <Ionicons name="chatbubble-outline" size={18} color="#06B6D4" />,
             label: 'Social Network',
             iconBg: '#ECFEFF',
-            onPress: () => {},
+            onPress: () => { },
         },
         {
-            icon: <AntDesign name="heart" size={18} color="#EC4899" />,
+            icon: <AntDesign name="heart" size={16} color="#EC4899" />,
             label: 'Saathi Network',
             iconBg: '#FDF2F8',
-            onPress: () => {},
+            onPress: () => { },
         },
     ];
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Header */}
+            {/* Header - Centered perfectly per Figma */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>More Options</Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                style={styles.scrollContainer}
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Orange Profile Card at the Top */}
                 <TouchableOpacity
                     style={styles.profileCard}
@@ -148,14 +152,14 @@ export default function MoreOptionsScreen() {
                     ))}
                 </View>
 
-                {/* Logout Button */}
+                {/* Developer Added Logout Button - Preserved and Styled */}
                 <TouchableOpacity
                     style={styles.logoutBtn}
                     onPress={logoutWithConfirm}
                     activeOpacity={0.75}
                 >
                     <View style={styles.logoutIconWrap}>
-                        <Feather name="log-out" size={20} color="#EF4444" />
+                        <Feather name="log-out" size={18} color="#EF4444" />
                     </View>
                     <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
@@ -169,50 +173,50 @@ export default function MoreOptionsScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FDF8F3',
+        backgroundColor: '#FFFFFF', // Clean white top notch
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        height: 60,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center', // Centers the title perfectly
         borderBottomWidth: 1,
         borderBottomColor: '#F3F4F6',
-        backgroundColor: '#FDF8F3',
     },
     backBtn: {
-        marginRight: 16,
-        width: 36,
-        height: 36,
-        justifyContent: 'center',
-        alignItems: 'center',
+        position: 'absolute',
+        left: 20,
+        zIndex: 1,
     },
     headerTitle: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: 18,
         color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Medium', // Updated from Outfit
+    },
+    scrollContainer: {
+        flex: 1,
+        backgroundColor: '#FFF0E6', // Exact peach match from previous screens
     },
     content: {
         padding: 20,
     },
     profileCard: {
-        backgroundColor: '#FF6F00',
-        borderRadius: 24,
+        backgroundColor: '#FE6700', // Exact Figma Orange
+        borderRadius: 16,
         padding: 20,
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 20,
-        shadowColor: '#FF6F00',
-        shadowOffset: { width: 0, height: 6 },
+        shadowColor: '#FE6700',
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
-        shadowRadius: 16,
+        shadowRadius: 12,
         elevation: 6,
     },
     profileAvatar: {
-        width: 54,
-        height: 54,
-        borderRadius: 27,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
         borderWidth: 2,
         borderColor: '#FFFFFF',
         marginRight: 16,
@@ -222,48 +226,47 @@ const styles = StyleSheet.create({
     },
     profileName: {
         fontSize: 18,
-        fontWeight: '700',
         color: '#FFFFFF',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Medium',
         marginBottom: 2,
     },
     profileSubtitle: {
         fontSize: 13,
         color: 'rgba(255, 255, 255, 0.9)',
-        fontFamily: 'Outfit-Regular',
+        fontFamily: 'Poppins-Regular',
     },
     card: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        paddingHorizontal: 4,
+        borderRadius: 16,
         paddingVertical: 8,
-        shadowColor: '#000',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 2,
         marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 14,
+        paddingVertical: 12, // Adjusted for cleaner spacing
     },
     iconWrap: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+        width: 36,
+        height: 36,
+        borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
     },
     menuLabel: {
         flex: 1,
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#111827',
-        fontFamily: 'Outfit-Medium',
+        fontSize: 15,
+        color: '#374151',
+        fontFamily: 'Poppins-Medium',
     },
     divider: {
         height: 1,
@@ -274,21 +277,21 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
+        borderRadius: 16,
         paddingHorizontal: 16,
-        paddingVertical: 16,
-        shadowColor: '#000',
+        paddingVertical: 12,
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 2,
         borderWidth: 1,
         borderColor: '#FEE2E2',
     },
     logoutIconWrap: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+        width: 36,
+        height: 36,
+        borderRadius: 10,
         backgroundColor: '#FEF2F2',
         justifyContent: 'center',
         alignItems: 'center',
@@ -296,9 +299,8 @@ const styles = StyleSheet.create({
     },
     logoutText: {
         flex: 1,
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 15,
         color: '#EF4444',
-        fontFamily: 'Outfit-SemiBold',
+        fontFamily: 'Poppins-Medium',
     },
 });

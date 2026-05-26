@@ -240,63 +240,69 @@ export default function EmergencyContactsScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Header with Back & Add Button */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                    <Feather name="arrow-left" size={22} color="#111827" />
+                    <Feather name="arrow-left" size={20} color="#000000" />
                 </TouchableOpacity>
+
                 <Text style={styles.headerTitle}>Emergency Contacts</Text>
+
                 <TouchableOpacity onPress={handleOpenAdd} style={styles.addCircleHeaderBtn} activeOpacity={0.8}>
-                    <Feather name="plus" size={22} color="#FFFFFF" />
+                    <Feather name="plus" size={20} color="#FFFFFF" />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+            >
                 {contacts.length === 0 ? (
                     <View style={styles.emptyBox}>
                         <MaterialCommunityIcons name="phone-off" size={48} color="#D1D5DB" />
-                        <Text style={styles.emptyText}>No emergency contacts found. Tap '+' to add one!</Text>
+                        <Text style={styles.emptyText}>No emergency contacts found. Tap + to add one.</Text>
                     </View>
                 ) : (
                     contacts.map((c, idx) => (
-                        <View key={idx} style={[styles.contactCard, c.isPrimary && styles.primaryCard]}>
-                            {/* Card Header Row with Name & Quick Edit / Trash */}
+                        <View key={idx} style={styles.contactCard}>
                             <View style={styles.cardHeader}>
                                 <View style={styles.leftLabelCol}>
                                     <View style={styles.nameRow}>
                                         <Text style={styles.contactName}>{c.name}</Text>
                                         {c.isPrimary && (
-                                            <FontAwesome name="star" size={16} color="#FFB000" style={{ marginLeft: 6, marginTop: 2 }} />
+                                            <View style={styles.primaryBadge}>
+                                                <Text style={styles.primaryBadgeText}>Primary</Text>
+                                            </View>
                                         )}
                                     </View>
                                     <Text style={styles.relationshipText}>{c.relationship}</Text>
                                 </View>
+
                                 <View style={styles.cardHeaderRight}>
-                                    <TouchableOpacity onPress={() => handleOpenEdit(idx)} style={styles.editCardBtn}>
-                                        <Feather name="edit-2" size={16} color="#6B7280" />
+                                    <TouchableOpacity onPress={() => handleOpenEdit(idx)} style={styles.iconActionBtn}>
+                                        <Feather name="edit-2" size={16} color="#333333" />
                                     </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => handleDeleteContact(idx)} style={styles.deleteCardBtn}>
+
+                                    <TouchableOpacity onPress={() => handleDeleteContact(idx)} style={styles.iconActionBtn}>
                                         <Feather name="trash-2" size={16} color="#EF4444" />
                                     </TouchableOpacity>
                                 </View>
                             </View>
 
-                            {/* Contact Details Body */}
                             <View style={styles.cardBody}>
                                 <View style={styles.infoLine}>
-                                    <Feather name="phone" size={14} color="#4B5563" style={{ marginRight: 8 }} />
+                                    <Feather name="phone" size={16} color="#333333" style={styles.infoIcon} />
                                     <Text style={styles.orangeLinkText}>{c.phone}</Text>
                                 </View>
 
                                 {c.email ? (
-                                    <View style={[styles.infoLine, { marginTop: 6 }]}>
-                                        <Feather name="mail" size={14} color="#4B5563" style={{ marginRight: 8 }} />
+                                    <View style={styles.infoLine}>
+                                        <Feather name="mail" size={16} color="#333333" style={styles.infoIcon} />
                                         <Text style={styles.orangeLinkText}>{c.email}</Text>
                                     </View>
                                 ) : null}
                             </View>
 
-                            {/* Set as Primary Button (if not already primary) */}
                             {!c.isPrimary && (
                                 <TouchableOpacity
                                     style={styles.setPrimaryBtn}
@@ -310,7 +316,6 @@ export default function EmergencyContactsScreen() {
                     ))
                 )}
 
-                {/* Info Note Card inspired by Figma */}
                 <View style={styles.infoNoteCard}>
                     <Text style={styles.infoNoteTitle}>Emergency Contact Info</Text>
                     <Text style={styles.infoNoteDesc}>
@@ -318,10 +323,9 @@ export default function EmergencyContactsScreen() {
                     </Text>
                 </View>
 
-                <View style={{ height: Platform.OS === 'ios' ? 120 : 100 }} />
+                <View style={{ height: Platform.OS === 'ios' ? 112 : 96 }} />
             </ScrollView>
 
-            {/* Form Editor Modal */}
             <Modal visible={modalVisible} animationType="slide" transparent={true}>
                 <View style={styles.backdrop}>
                     <View style={styles.modalCard}>
@@ -339,6 +343,7 @@ export default function EmergencyContactsScreen() {
                             <TextInput
                                 style={styles.textInput}
                                 placeholder="e.g. Mayur Jain"
+                                placeholderTextColor="#6B7280"
                                 value={contactName}
                                 onChangeText={setContactName}
                             />
@@ -347,6 +352,7 @@ export default function EmergencyContactsScreen() {
                             <TextInput
                                 style={styles.textInput}
                                 placeholder="e.g. Son, Daughter, Doctor"
+                                placeholderTextColor="#6B7280"
                                 value={contactRelation}
                                 onChangeText={setContactRelation}
                             />
@@ -355,6 +361,7 @@ export default function EmergencyContactsScreen() {
                             <TextInput
                                 style={styles.textInput}
                                 placeholder="e.g. +1 (555) 123-4567"
+                                placeholderTextColor="#6B7280"
                                 value={contactPhone}
                                 onChangeText={setContactPhone}
                                 keyboardType="phone-pad"
@@ -364,23 +371,26 @@ export default function EmergencyContactsScreen() {
                             <TextInput
                                 style={styles.textInput}
                                 placeholder="e.g. robert.williams@email.com"
+                                placeholderTextColor="#6B7280"
                                 value={contactEmail}
                                 onChangeText={setContactEmail}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                             />
 
-                            {/* Toggle Primary Checkbox */}
                             <TouchableOpacity
                                 style={styles.checkboxRow}
                                 onPress={() => setIsPrimaryContact(prev => !prev)}
                                 activeOpacity={0.8}
-                                disabled={editIndex !== null && contacts[editIndex].isPrimary} // Can't un-primary the only primary contact
+                                disabled={editIndex !== null && contacts[editIndex].isPrimary}
                             >
-                                <View style={[
-                                    styles.checkbox,
-                                    (isPrimaryContact || (editIndex !== null && contacts[editIndex].isPrimary)) && styles.checkboxActive
-                                ]}>
+                                <View
+                                    style={[
+                                        styles.checkbox,
+                                        (isPrimaryContact || (editIndex !== null && contacts[editIndex].isPrimary)) &&
+                                        styles.checkboxActive,
+                                    ]}
+                                >
                                     {(isPrimaryContact || (editIndex !== null && contacts[editIndex].isPrimary)) && (
                                         <Feather name="check" size={13} color="#FFFFFF" />
                                     )}
@@ -407,93 +417,86 @@ export default function EmergencyContactsScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FDF8F3',
+        backgroundColor: '#FFF0E6',
     },
     header: {
+        height: Platform.OS === 'ios' ? 88 : 70,
+        paddingTop: Platform.OS === 'ios' ? 18 : 0,
+        paddingHorizontal: 16,
+        backgroundColor: '#FFFFFF',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
-        backgroundColor: '#FDF8F3',
     },
     backBtn: {
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
-        textAlign: 'center',
         flex: 1,
+        textAlign: 'center',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 16,
+        lineHeight: 24,
+        color: '#000000',
     },
     addCircleHeaderBtn: {
-        backgroundColor: '#FF6F00',
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 40,
+        height: 40,
+        borderRadius: 999,
+        backgroundColor: '#FE6700',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#FF6F00',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 3,
     },
     content: {
-        padding: 20,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 96,
     },
     loadingWrap: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FDF8F3',
+        backgroundColor: '#FFF0E6',
     },
     loadingText: {
         marginTop: 12,
-        color: '#4B5563',
-        fontSize: 15,
-        fontFamily: 'Outfit-Medium',
+        color: '#333333',
+        fontSize: 14,
+        fontFamily: 'Poppins-Regular',
     },
     emptyBox: {
         alignItems: 'center',
         paddingVertical: 60,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
     },
     emptyText: {
         marginTop: 12,
         color: '#9CA3AF',
-        fontFamily: 'Outfit-Medium',
+        fontFamily: 'Poppins-Regular',
         textAlign: 'center',
         fontSize: 14,
+        lineHeight: 20,
     },
     contactCard: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.02,
-        shadowRadius: 6,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1.5,
         elevation: 2,
-    },
-    primaryCard: {
-        borderColor: '#FFD7C2',
-        backgroundColor: '#FFFBF9',
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 10,
+        marginBottom: 12,
     },
     leftLabelCol: {
         flex: 1,
@@ -501,94 +504,117 @@ const styles = StyleSheet.create({
     nameRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'wrap',
     },
     contactName: {
         fontSize: 18,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        lineHeight: 27,
+        color: '#000000',
+        fontFamily: 'Poppins-Medium',
+    },
+    primaryBadge: {
+        height: 24,
+        borderRadius: 999,
+        backgroundColor: '#DCFCE7',
+        paddingHorizontal: 10,
+        justifyContent: 'center',
+        marginLeft: 8,
+    },
+    primaryBadgeText: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        lineHeight: 16,
+        color: '#16A34A',
     },
     relationshipText: {
         fontSize: 14,
-        color: '#6B7280',
-        fontFamily: 'Outfit-Regular',
+        lineHeight: 20,
+        color: '#4A5565',
+        fontFamily: 'Poppins-Regular',
         marginTop: 2,
     },
     cardHeaderRight: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 8,
     },
-    editCardBtn: {
-        padding: 4,
-        marginRight: 12,
-    },
-    deleteCardBtn: {
-        padding: 4,
+    iconActionBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     cardBody: {
-        marginBottom: 16,
+        gap: 8,
+        marginBottom: 14,
     },
     infoLine: {
         flexDirection: 'row',
         alignItems: 'center',
     },
+    infoIcon: {
+        width: 18,
+        marginRight: 8,
+    },
     orangeLinkText: {
+        flex: 1,
         fontSize: 14,
-        color: '#FF6F00',
-        fontFamily: 'Outfit-SemiBold',
-        fontWeight: '600',
+        lineHeight: 20,
+        color: '#FE6700',
+        fontFamily: 'Poppins-Regular',
     },
     setPrimaryBtn: {
-        borderWidth: 1,
-        borderColor: '#D1D5DB',
-        borderRadius: 12,
-        paddingVertical: 10,
+        height: 46,
+        borderWidth: 1.18,
+        borderColor: '#FE6700',
+        borderRadius: 14,
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: '#FFFFFF',
     },
     setPrimaryBtnText: {
-        color: '#111827',
-        fontSize: 14,
-        fontWeight: '600',
-        fontFamily: 'Outfit-SemiBold',
+        color: '#FE6700',
+        fontSize: 16,
+        lineHeight: 24,
+        fontFamily: 'Poppins-Medium',
     },
     infoNoteCard: {
         backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 24,
-        padding: 20,
-        marginTop: 10,
+        borderRadius: 16,
+        padding: 16,
+        marginTop: 4,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1.5,
+        elevation: 2,
     },
     infoNoteTitle: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        fontSize: 16,
+        lineHeight: 24,
+        color: '#000000',
+        fontFamily: 'Poppins-Medium',
         marginBottom: 6,
     },
     infoNoteDesc: {
-        fontSize: 13,
-        color: '#4B5563',
-        fontFamily: 'Outfit-Regular',
-        lineHeight: 18,
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#333333',
+        fontFamily: 'Poppins-Regular',
     },
     backdrop: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backgroundColor: 'rgba(0, 0, 0, 0.35)',
         justifyContent: 'flex-end',
     },
     modalCard: {
         backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: 24,
         maxHeight: '85%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 10,
     },
     modalHeader: {
         flexDirection: 'row',
@@ -598,31 +624,34 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         fontSize: 18,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        lineHeight: 28,
+        color: '#000000',
+        fontFamily: 'Poppins-Medium',
     },
     closeModalBtn: {
-        padding: 6,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     label: {
-        fontSize: 13,
-        color: '#374151',
-        fontWeight: '600',
-        fontFamily: 'Outfit-SemiBold',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#333333',
+        fontFamily: 'Poppins-Medium',
         marginBottom: 6,
         marginTop: 14,
     },
     textInput: {
+        height: 50,
         borderWidth: 1,
         borderColor: '#E5E7EB',
-        borderRadius: 12,
-        paddingHorizontal: 14,
-        paddingVertical: 11,
-        fontSize: 14,
-        fontFamily: 'Outfit-Regular',
-        backgroundColor: '#F9FAFB',
-        color: '#111827',
+        borderRadius: 10,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        fontFamily: 'Poppins-Regular',
+        backgroundColor: '#FFFFFF',
+        color: '#000000',
     },
     checkboxRow: {
         flexDirection: 'row',
@@ -631,9 +660,9 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     checkbox: {
-        width: 18,
-        height: 18,
-        borderRadius: 5,
+        width: 20,
+        height: 20,
+        borderRadius: 6,
         borderWidth: 1.5,
         borderColor: '#D1D5DB',
         justifyContent: 'center',
@@ -642,31 +671,28 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     checkboxActive: {
-        backgroundColor: '#FF6F00',
-        borderColor: '#FF6F00',
+        backgroundColor: '#FE6700',
+        borderColor: '#FE6700',
     },
     checkboxLabel: {
         fontSize: 14,
-        color: '#374151',
-        fontFamily: 'Outfit-Medium',
+        lineHeight: 20,
+        color: '#333333',
+        fontFamily: 'Poppins-Regular',
     },
     saveBtn: {
-        backgroundColor: '#FF6F00',
+        height: 52,
+        backgroundColor: '#FE6700',
         borderRadius: 14,
-        paddingVertical: 13,
         alignItems: 'center',
+        justifyContent: 'center',
         marginTop: 24,
         marginBottom: 12,
-        shadowColor: '#FF6F00',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-        elevation: 3,
     },
     saveBtnText: {
         color: '#FFFFFF',
-        fontSize: 15,
-        fontWeight: '600',
-        fontFamily: 'Outfit-SemiBold',
+        fontSize: 16,
+        lineHeight: 24,
+        fontFamily: 'Poppins-Medium',
     },
 });

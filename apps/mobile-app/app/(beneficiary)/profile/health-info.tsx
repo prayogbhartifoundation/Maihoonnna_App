@@ -168,35 +168,36 @@ export default function HealthInformationScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                    <Feather name="arrow-left" size={22} color="#111827" />
+                    <Feather name="arrow-left" size={20} color="#000000" />
                 </TouchableOpacity>
+
                 <Text style={styles.headerTitle}>Health Information</Text>
+
+                <View style={styles.headerSpacer} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Section 1: Blood Type selectors */}
+            <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+            >
                 <View style={styles.panel}>
                     <Text style={styles.panelLabel}>Blood Type</Text>
+
                     <View style={styles.bloodGrid}>
                         {bloodTypes.map((type) => {
                             const isSelected = selectedBlood === type;
+
                             return (
                                 <TouchableOpacity
                                     key={type}
-                                    style={[
-                                        styles.bloodBtn,
-                                        isSelected && styles.bloodBtnSelected
-                                    ]}
+                                    style={[styles.bloodBtn, isSelected && styles.bloodBtnSelected]}
                                     onPress={() => setSelectedBlood(type)}
                                     activeOpacity={0.7}
                                 >
-                                    <Text style={[
-                                        styles.bloodBtnText,
-                                        isSelected && styles.bloodBtnTextSelected
-                                    ]}>
+                                    <Text style={[styles.bloodBtnText, isSelected && styles.bloodBtnTextSelected]}>
                                         {type}
                                     </Text>
                                 </TouchableOpacity>
@@ -205,10 +206,9 @@ export default function HealthInformationScreen() {
                     </View>
                 </View>
 
-                {/* Section 2: Allergies */}
                 <View style={styles.panel}>
                     <View style={styles.panelHeaderRow}>
-                        <Text style={styles.panelLabel}>Allergies</Text>
+                        <Text style={styles.panelLabelNoMargin}>Allergies</Text>
                         <TouchableOpacity style={styles.addIconBtn} onPress={() => handleOpenAddModal('allergy')}>
                             <Feather name="plus" size={16} color="#FFFFFF" />
                         </TouchableOpacity>
@@ -220,6 +220,7 @@ export default function HealthInformationScreen() {
                         allergies.map((allergy, idx) => (
                             <View key={idx} style={styles.itemRow}>
                                 <Text style={styles.itemText}>{allergy}</Text>
+
                                 <TouchableOpacity
                                     style={styles.removeBtn}
                                     onPress={() => removeAllergy(idx)}
@@ -232,12 +233,9 @@ export default function HealthInformationScreen() {
                     )}
                 </View>
 
-                {/* Section 3: Chronic Conditions 
-                     NOTE: This section maps directly to the "Medical Information / Medical History" of the Beneficiary.
-                     Any entries saved here are synced to the DB's BeneficiaryCondition relations. */}
                 <View style={styles.panel}>
                     <View style={styles.panelHeaderRow}>
-                        <Text style={styles.panelLabel}>Chronic Conditions</Text>
+                        <Text style={styles.panelLabelNoMargin}>Chronic Conditions</Text>
                         <TouchableOpacity style={styles.addIconBtn} onPress={() => handleOpenAddModal('condition')}>
                             <Feather name="plus" size={16} color="#FFFFFF" />
                         </TouchableOpacity>
@@ -247,10 +245,11 @@ export default function HealthInformationScreen() {
                         <Text style={styles.emptyLabel}>No chronic conditions recorded.</Text>
                     ) : (
                         conditions.map((condition, idx) => (
-                            <View key={idx} style={[styles.itemRow, { backgroundColor: '#F5F3FF' }]}>
-                                <Text style={[styles.itemText, { color: '#6D28D9' }]}>{condition}</Text>
+                            <View key={idx} style={styles.conditionRow}>
+                                <Text style={styles.conditionText}>{condition}</Text>
+
                                 <TouchableOpacity
-                                    style={[styles.removeBtn, { backgroundColor: '#EDE9FE' }]}
+                                    style={styles.conditionRemoveBtn}
                                     onPress={() => removeCondition(idx)}
                                     activeOpacity={0.6}
                                 >
@@ -261,7 +260,6 @@ export default function HealthInformationScreen() {
                     )}
                 </View>
 
-                {/* Important alert note block */}
                 <View style={styles.alertCard}>
                     <Ionicons name="information-circle-outline" size={20} color="#B45309" style={styles.alertIcon} />
                     <View style={styles.alertTextWrap}>
@@ -272,7 +270,6 @@ export default function HealthInformationScreen() {
                     </View>
                 </View>
 
-                {/* Bottom Trigger Save changes */}
                 <TouchableOpacity
                     style={[styles.saveBtn, saving && { opacity: 0.8 }]}
                     onPress={handleSave}
@@ -282,32 +279,38 @@ export default function HealthInformationScreen() {
                     <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
                 </TouchableOpacity>
 
-                <View style={{ height: Platform.OS === 'ios' ? 120 : 100 }} />
+                <View style={{ height: Platform.OS === 'ios' ? 112 : 96 }} />
             </ScrollView>
 
-            {/* Item Adding Modal */}
             <Modal visible={addModalType !== null} animationType="fade" transparent={true}>
                 <View style={styles.backdrop}>
                     <View style={styles.modalCard}>
                         <Text style={styles.modalTitle}>
-                            Add New {addModalType === 'allergy' ? 'Allergy' : 'Condition'}
+                            {addModalType === 'allergy' ? 'Add Allergy' : 'Add Chronic Condition'}
                         </Text>
 
                         <TextInput
                             style={styles.textInput}
-                            placeholder={addModalType === 'allergy' ? 'e.g. Shellfish, Penicillin' : 'e.g. Asthma, Thyroid'}
+                            placeholder={
+                                addModalType === 'allergy'
+                                    ? 'e.g., Shellfish, Penicillin'
+                                    : 'e.g., Hypertension, Diabetes'
+                            }
+                            placeholderTextColor="#6B7280"
                             value={newItemName}
                             onChangeText={setNewItemName}
                             autoFocus={true}
                         />
 
                         <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setAddModalType(null)}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+                            <TouchableOpacity style={styles.confirmBtn} onPress={handleAddItem}>
+                                <Text style={styles.confirmText}>
+                                    {addModalType === 'allergy' ? 'Add Allergy' : 'Add Condition'}
+                                </Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.confirmBtn} onPress={handleAddItem}>
-                                <Text style={styles.confirmText}>Add</Text>
+                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setAddModalType(null)}>
+                                <Text style={styles.cancelText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -320,150 +323,186 @@ export default function HealthInformationScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FDF8F3',
+        backgroundColor: '#FFF0E6',
     },
     header: {
+        height: Platform.OS === 'ios' ? 88 : 70,
+        paddingTop: Platform.OS === 'ios' ? 18 : 0,
+        paddingHorizontal: 16,
+        backgroundColor: '#FFFFFF',
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
-        backgroundColor: '#FDF8F3',
+        justifyContent: 'space-between',
     },
     backBtn: {
-        marginRight: 16,
-        width: 36,
-        height: 36,
-        justifyContent: 'center',
+        width: 40,
+        height: 40,
         alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerSpacer: {
+        width: 40,
+        height: 40,
     },
     headerTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 16,
+        lineHeight: 24,
+        color: '#000000',
+        textAlign: 'center',
     },
     content: {
-        padding: 20,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 96,
     },
     loadingWrap: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FDF8F3',
+        backgroundColor: '#FFF0E6',
     },
     loadingText: {
         marginTop: 12,
-        color: '#4B5563',
-        fontSize: 15,
-        fontFamily: 'Outfit-Medium',
+        color: '#333333',
+        fontSize: 14,
+        fontFamily: 'Poppins-Regular',
     },
     panel: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 8,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1.5,
         elevation: 2,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
     },
     panelHeaderRow: {
+        height: 32,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
     },
     panelLabel: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
-        marginBottom: 8,
+        fontFamily: 'Poppins-Medium',
+        fontSize: 18,
+        lineHeight: 28,
+        color: '#000000',
+        marginBottom: 12,
+    },
+    panelLabelNoMargin: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 18,
+        lineHeight: 28,
+        color: '#000000',
     },
     bloodGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-between',
+        gap: 10,
     },
     bloodBtn: {
-        width: '23%',
-        aspectRatio: 1.5,
+        width: '22.9%',
+        height: 48,
         borderRadius: 14,
         borderWidth: 1,
         borderColor: '#E5E7EB',
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        marginBottom: 12,
     },
     bloodBtnSelected: {
-        borderColor: '#FF6F00',
-        backgroundColor: '#FFF2EB',
-        borderWidth: 2,
+        borderColor: '#FE6700',
+        backgroundColor: '#FFF0E6',
+        borderWidth: 1.5,
     },
     bloodBtnText: {
+        fontFamily: 'Poppins-Medium',
         fontSize: 14,
-        fontWeight: '600',
-        color: '#4B5563',
-        fontFamily: 'Outfit-SemiBold',
+        lineHeight: 20,
+        color: '#333333',
     },
     bloodBtnTextSelected: {
-        color: '#FF6F00',
-        fontSize: 15,
-        fontWeight: '700',
-        fontFamily: 'Outfit-Bold',
+        color: '#FE6700',
     },
     addIconBtn: {
-        backgroundColor: '#FF6F00',
-        width: 30,
-        height: 30,
-        borderRadius: 15,
+        backgroundColor: '#FE6700',
+        width: 32,
+        height: 32,
+        borderRadius: 999,
         justifyContent: 'center',
         alignItems: 'center',
     },
     emptyLabel: {
+        fontFamily: 'Poppins-Regular',
         fontSize: 14,
+        lineHeight: 20,
         color: '#9CA3AF',
-        fontFamily: 'Outfit-Regular',
         fontStyle: 'italic',
     },
     itemRow: {
+        minHeight: 48,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: '#FEF2F2',
         borderRadius: 14,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 14,
         marginBottom: 10,
     },
     itemText: {
+        flex: 1,
+        fontFamily: 'Poppins-Medium',
         fontSize: 14,
-        fontWeight: '600',
+        lineHeight: 20,
         color: '#991B1B',
-        fontFamily: 'Outfit-SemiBold',
     },
     removeBtn: {
         backgroundColor: '#FEE2E2',
-        width: 26,
-        height: 26,
-        borderRadius: 13,
+        width: 28,
+        height: 28,
+        borderRadius: 999,
         justifyContent: 'center',
         alignItems: 'center',
+        marginLeft: 12,
+    },
+    conditionRow: {
+        minHeight: 48,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#F5F3FF',
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        marginBottom: 10,
+    },
+    conditionText: {
+        flex: 1,
+        fontFamily: 'Poppins-Medium',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#6D28D9',
+    },
+    conditionRemoveBtn: {
+        backgroundColor: '#EDE9FE',
+        width: 28,
+        height: 28,
+        borderRadius: 999,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 12,
     },
     alertCard: {
         backgroundColor: '#FFFBEB',
         borderColor: '#FCD34D',
         borderWidth: 1,
-        borderRadius: 20,
+        borderRadius: 16,
         padding: 16,
         flexDirection: 'row',
-        marginBottom: 24,
+        marginBottom: 16,
     },
     alertIcon: {
         marginRight: 12,
@@ -473,96 +512,91 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     alertTitle: {
+        fontFamily: 'Poppins-Medium',
         fontSize: 14,
-        fontWeight: '600',
+        lineHeight: 20,
         color: '#92400E',
-        fontFamily: 'Outfit-SemiBold',
         marginBottom: 4,
     },
     alertDesc: {
+        fontFamily: 'Poppins-Regular',
         fontSize: 12,
-        color: '#B45309',
-        fontFamily: 'Outfit-Regular',
         lineHeight: 18,
+        color: '#B45309',
     },
     saveBtn: {
-        backgroundColor: '#FF6F00',
-        borderRadius: 16,
-        paddingVertical: 14,
+        height: 52,
+        backgroundColor: '#FE6700',
+        borderRadius: 14,
         alignItems: 'center',
-        shadowColor: '#FF6F00',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
+        justifyContent: 'center',
     },
     saveBtnText: {
         color: '#FFFFFF',
         fontSize: 16,
-        fontWeight: '600',
-        fontFamily: 'Outfit-SemiBold',
+        lineHeight: 24,
+        fontFamily: 'Poppins-Medium',
     },
     backdrop: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backgroundColor: 'rgba(0, 0, 0, 0.35)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 24,
+        paddingHorizontal: 16,
     },
     modalCard: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 24,
+        borderRadius: 16,
         padding: 24,
         width: '100%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 6,
+        maxWidth: 440,
     },
     modalTitle: {
+        fontFamily: 'Poppins-Medium',
         fontSize: 18,
-        fontWeight: '700',
-        color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        lineHeight: 28,
+        color: '#000000',
         marginBottom: 16,
     },
     textInput: {
+        height: 50,
         borderWidth: 1,
         borderColor: '#E5E7EB',
-        borderRadius: 12,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        fontSize: 14,
-        fontFamily: 'Outfit-Regular',
-        backgroundColor: '#F9FAFB',
-        marginBottom: 20,
+        borderRadius: 10,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        fontFamily: 'Poppins-Regular',
+        backgroundColor: '#FFFFFF',
+        color: '#000000',
+        marginBottom: 24,
     },
     modalActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-    },
-    cancelBtn: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        marginRight: 12,
-    },
-    cancelText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#4B5563',
-        fontFamily: 'Outfit-SemiBold',
+        gap: 12,
     },
     confirmBtn: {
-        backgroundColor: '#FF6F00',
-        borderRadius: 10,
-        paddingHorizontal: 18,
-        paddingVertical: 10,
+        height: 52,
+        borderRadius: 14,
+        backgroundColor: '#FE6700',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     confirmText: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontFamily: 'Poppins-Medium',
+        fontSize: 16,
+        lineHeight: 24,
         color: '#FFFFFF',
-        fontFamily: 'Outfit-SemiBold',
+    },
+    cancelBtn: {
+        height: 54,
+        borderRadius: 14,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    cancelText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 16,
+        lineHeight: 24,
+        color: '#333333',
     },
 });

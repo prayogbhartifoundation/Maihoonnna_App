@@ -134,7 +134,7 @@ export default function InteractionsScreen() {
                     key={i}
                     name={i <= rating ? 'star' : 'star-outline'}
                     size={16}
-                    color="#FBBF24"
+                    color="#FBBF24" // Figma exact yellow
                     style={{ marginRight: 2 }}
                 />
             );
@@ -144,9 +144,9 @@ export default function InteractionsScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Header */}
+            {/* Header - Centered Perfectly */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Interactions</Text>
@@ -154,11 +154,15 @@ export default function InteractionsScreen() {
 
             {loading ? (
                 <View style={styles.loadingWrap}>
-                    <ActivityIndicator size="large" color="#FF6F00" />
+                    <ActivityIndicator size="large" color="#FE6700" />
                     <Text style={styles.loadingText}>Retrieving interaction history...</Text>
                 </View>
             ) : (
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                    style={styles.scrollContainer}
+                    contentContainerStyle={styles.content}
+                    showsVerticalScrollIndicator={false}
+                >
                     <Text style={styles.subtitle}>Your care history</Text>
 
                     {interactions.length === 0 ? (
@@ -181,15 +185,15 @@ export default function InteractionsScreen() {
                                     {/* Quick Details */}
                                     <View style={styles.detailsGrid}>
                                         <View style={styles.detailRow}>
-                                            <Feather name="calendar" size={14} color="#6B7280" style={styles.detailIcon} />
+                                            <Feather name="calendar" size={16} color="#6B7280" style={styles.detailIcon} />
                                             <Text style={styles.detailText}>{v.date}</Text>
                                         </View>
                                         <View style={styles.detailRow}>
-                                            <Feather name="clock" size={14} color="#6B7280" style={styles.detailIcon} />
+                                            <Feather name="clock" size={16} color="#6B7280" style={styles.detailIcon} />
                                             <Text style={styles.detailText}>{v.time}</Text>
                                         </View>
                                         <View style={styles.detailRow}>
-                                            <Feather name="user" size={14} color="#6B7280" style={styles.detailIcon} />
+                                            <Feather name="user" size={16} color="#6B7280" style={styles.detailIcon} />
                                             <Text style={styles.detailText}>{v.companionName}</Text>
                                         </View>
                                     </View>
@@ -206,7 +210,7 @@ export default function InteractionsScreen() {
                                         <Feather
                                             name={isExpanded ? 'chevron-up' : 'chevron-down'}
                                             size={16}
-                                            color="#1F2937"
+                                            color="#111827"
                                             style={{ marginLeft: 6 }}
                                         />
                                     </TouchableOpacity>
@@ -270,7 +274,6 @@ export default function InteractionsScreen() {
                             );
                         })
                     )}
-                    <View style={{ height: Platform.OS === 'ios' ? 100 : 80 }} />
                 </ScrollView>
             )}
         </SafeAreaView>
@@ -280,109 +283,115 @@ export default function InteractionsScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FDF8F3',
+        backgroundColor: '#FFFFFF', // Clean white notch to match header
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        height: 60,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center', // Perfect centering
         borderBottomWidth: 1,
         borderBottomColor: '#F3F4F6',
-        backgroundColor: '#FDF8F3',
     },
     backBtn: {
-        marginRight: 16,
-        width: 36,
-        height: 36,
-        justifyContent: 'center',
-        alignItems: 'center',
+        position: 'absolute',
+        left: 20,
+        zIndex: 1,
     },
     headerTitle: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: 18,
         color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Medium', // Match globally
     },
-    subtitle: {
-        fontSize: 16,
-        color: '#6B7280',
-        fontFamily: 'Outfit-Medium',
-        marginBottom: 20,
-        paddingHorizontal: 4,
+    scrollContainer: {
+        flex: 1,
+        backgroundColor: '#FFF0E6', // Strict Figma peach match
     },
     content: {
         padding: 20,
+        paddingBottom: Platform.OS === 'ios' ? 120 : 100,
+    },
+    subtitle: {
+        fontSize: 15,
+        color: '#4B5563',
+        fontFamily: 'Poppins-Regular',
+        marginBottom: 16,
+        paddingHorizontal: 4,
     },
     loadingWrap: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingTop: 80,
+        backgroundColor: '#FFF0E6',
     },
     loadingText: {
         marginTop: 12,
         color: '#4B5563',
-        fontFamily: 'Outfit-Medium',
+        fontFamily: 'Poppins-Medium',
         fontSize: 15,
     },
     emptyWrap: {
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 60,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
     },
     emptyText: {
         marginTop: 12,
         color: '#9CA3AF',
-        fontFamily: 'Outfit-Medium',
-        fontSize: 16,
+        fontFamily: 'Poppins-Medium',
+        fontSize: 15,
     },
     card: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.04,
-        shadowRadius: 12,
-        elevation: 3,
+        borderRadius: 16, // Softer radius from Figma
+        padding: 20, // Breathing room
+        marginBottom: 16,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 2,
         borderWidth: 1,
         borderColor: '#F3F4F6',
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 14,
+        alignItems: 'flex-start',
+        marginBottom: 16,
     },
     cardTitle: {
         fontSize: 18,
-        fontWeight: '700',
         color: '#111827',
-        fontFamily: 'Outfit-Bold',
+        fontFamily: 'Poppins-Medium',
         flex: 1,
+        marginRight: 10,
     },
     starsContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 4,
     },
     detailsGrid: {
-        marginBottom: 16,
+        marginBottom: 20,
+        gap: 10, // Spacing between rows
     },
     detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
     },
     detailIcon: {
-        marginRight: 8,
-        width: 16,
+        marginRight: 10,
+        width: 18,
     },
     detailText: {
         fontSize: 14,
         color: '#4B5563',
-        fontFamily: 'Outfit-Regular',
+        fontFamily: 'Poppins-Regular',
     },
     toggleBtn: {
         flexDirection: 'row',
@@ -390,15 +399,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: '#E5E7EB',
-        borderRadius: 14,
-        paddingVertical: 10,
+        borderRadius: 12, // More pill-like
+        paddingVertical: 12,
         backgroundColor: '#FFFFFF',
     },
     toggleBtnText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#1F2937',
-        fontFamily: 'Outfit-SemiBold',
+        fontSize: 15,
+        color: '#111827',
+        fontFamily: 'Poppins-Medium',
     },
     expandedSection: {
         marginTop: 16,
@@ -406,13 +414,12 @@ const styles = StyleSheet.create({
     divider: {
         height: 1,
         backgroundColor: '#F3F4F6',
-        marginBottom: 16,
+        marginBottom: 20,
     },
     sectionHeading: {
         fontSize: 15,
-        fontWeight: '600',
         color: '#111827',
-        fontFamily: 'Outfit-SemiBold',
+        fontFamily: 'Poppins-Medium',
         marginBottom: 12,
     },
     vitalsGrid: {
@@ -420,57 +427,50 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         justifyContent: 'space-between',
         marginBottom: 20,
+        gap: 12, // Modern spacing
     },
     vitalCard: {
         width: '48%',
-        borderRadius: 16,
-        padding: 12,
-        marginBottom: 12,
+        borderRadius: 12, // Match design
+        padding: 16,
     },
     vitalHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 8,
     },
     vitalLabel: {
-        fontSize: 12,
-        color: '#6B7280',
-        fontFamily: 'Outfit-Medium',
-        marginLeft: 6,
+        fontSize: 13,
+        color: '#374151',
+        fontFamily: 'Poppins-Regular',
+        marginLeft: 8,
     },
     vitalValue: {
-        fontSize: 16,
-        fontWeight: '700',
+        fontSize: 18,
         color: '#111827',
-        fontFamily: 'Outfit-Bold',
-        marginTop: 2,
+        fontFamily: 'Poppins-Medium',
     },
     notesBox: {
         backgroundColor: '#F9FAFB',
-        borderRadius: 16,
+        borderRadius: 12,
         padding: 16,
         marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
     },
     notesText: {
         fontSize: 14,
         color: '#4B5563',
-        fontFamily: 'Outfit-Regular',
-        lineHeight: 20,
+        fontFamily: 'Poppins-Regular',
+        lineHeight: 22,
     },
     feedbackBox: {
         backgroundColor: '#EFF6FF',
-        borderRadius: 16,
+        borderRadius: 12,
         padding: 16,
-        borderWidth: 1,
-        borderColor: '#DBEAFE',
     },
     feedbackText: {
         fontSize: 14,
-        color: '#1E40AF',
-        fontStyle: 'italic',
-        fontFamily: 'Outfit-Medium',
-        lineHeight: 20,
+        color: '#374151',
+        fontFamily: 'Poppins-Regular',
+        lineHeight: 22,
     },
 });

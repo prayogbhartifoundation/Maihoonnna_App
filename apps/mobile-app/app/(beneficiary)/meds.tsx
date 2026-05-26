@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-    ScrollView, Platform, Animated, TouchableWithoutFeedback, Alert,
+    ScrollView, Platform, Animated, TouchableWithoutFeedback, Alert, Image,
     SafeAreaView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { API_URL } from '@/constants/api';
+const bellIcon = require('../../assets/icons/bell.png');
+const calendarIcon = require('../../assets/icons/calendar.png');
 
 // --- PIXEL PERFECT CUSTOM SVG ICONS ---
 const CustomPillIcon = ({ size = 24, color = '#FE6700' }) => (
@@ -16,14 +18,6 @@ const CustomPillIcon = ({ size = 24, color = '#FE6700' }) => (
     </Svg>
 );
 
-const CustomCalendarBadgeIcon = ({ size = 32, color = '#FFFFFF' }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-        <Circle cx="17.5" cy="17.5" r="4.5" fill="#FE6700" stroke={color} strokeWidth="1.5" />
-        <Path d="M15.5 17.5l1.5 1.5 2.5-2.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
 
 const CustomCheckIcon = ({ size = 18, color = '#16A34A' }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -34,13 +28,6 @@ const CustomCheckIcon = ({ size = 18, color = '#16A34A' }) => (
 const CustomCrossIcon = ({ size = 18, color = '#E7000B' }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
         <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const CustomBellOutlineIcon = ({ size = 26, color = '#FE6700' }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
 
@@ -289,7 +276,6 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
                 {/* Top Row inside Peach Area */}
                 <View style={styles.topRow}>
                     <Text style={styles.topTitle}>Medications</Text>
-
                     <View style={styles.toggleContainer}>
                         <Text style={styles.toggleLabel}>Reminders</Text>
                         <CustomSwitch value={remindersActive} onValueChange={setRemindersActive} />
@@ -299,7 +285,7 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
                 {/* Overall Adherence Card */}
                 <View style={styles.statsCard}>
                     <View style={styles.statsHeader}>
-                        <CustomCalendarBadgeIcon size={32} color="#FFFFFF" />
+                        <Image source={calendarIcon} style={styles.statsIconImage} resizeMode="contain" />
                         <View style={styles.statsTitleBlock}>
                             <Text style={styles.statsTitle}>Overall Adherence</Text>
                             <Text style={styles.statsSubtitle}>Last 30 days</Text>
@@ -414,7 +400,7 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
                 {/* Bottom Reminder Active Card */}
                 <View style={styles.bannerCard}>
                     <View style={styles.bannerIconContainer}>
-                        <CustomBellOutlineIcon size={26} color="#FE6700" />
+                        <Image source={bellIcon} style={styles.bannerIconImage} resizeMode="contain" />
                     </View>
                     <View style={styles.bannerCopy}>
                         <Text style={styles.bannerTitle}>Medication Reminders Active</Text>
@@ -508,6 +494,14 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Medium',
         fontSize: 16,
         color: '#111827',
+    },
+    statsIconImage: {
+        width: 32,
+        height: 32,
+    },
+    bannerIconImage: {
+        width: 26,
+        height: 26,
     },
     toggleContainer: {
         flexDirection: 'row',

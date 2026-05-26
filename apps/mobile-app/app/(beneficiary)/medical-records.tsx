@@ -3,9 +3,9 @@ import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     SafeAreaView, ActivityIndicator, Platform, Modal, TextInput
 } from 'react-native';
-import Svg, { Line, Circle, Text as SvgText, Path, Rect } from 'react-native-svg';
+import Svg, { Line, Circle, Text as SvgText, Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 
@@ -28,11 +28,11 @@ const CustomThermometerIcon = ({ size = 20, color = '#F97316' }) => (
     </Svg>
 );
 
-const CustomScaleIcon = ({ size = 22, color = '#3B82F6' }) => (
+const CustomBagIcon = ({ size = 22, color = '#3B82F6' }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <Rect x="3" y="4" width="18" height="16" rx="3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-        <Path d="M8 9h8" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <Path d="M12 9v4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M3 6h18" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M16 10a4 4 0 0 1-8 0" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
 // -------------------------------------------
@@ -61,30 +61,17 @@ interface HistoryItem {
     weight: string;
 }
 
-const calculateDotBottom = (val: number) => {
-    // Scaled to match the SVG line heights (y = 170 at 0, y = 20 at 140)
-    // SVG is 200px tall. bottom = 200 - y
-    return 30 + (val / 140) * 150 - 5;
-};
-
 export default function MedicalRecordsScreen() {
     const router = useRouter();
-    const [latest, setLatest] = useState<LatestReadings>({
-        bp: '120/80',
-        heartRate: '72 bpm',
-        temperature: '98.6°F',
-        weight: '165 lbs'
-    });
-    const [trends, setTrends] = useState<TrendData>({
-        labels: ['Jan 20', 'Jan 27', 'Feb 3', 'Feb 10', 'Feb 17'],
-        systolic: [121, 119, 122, 118, 120],
-        diastolic: [81, 79, 82, 78, 80],
-        heartRate: [73, 71, 74, 70, 72],
-        temperature: [98.5, 98.6, 98.5, 98.4, 98.6],
-        weight: [164, 165, 166, 164, 165]
-    });
+
+    // Production state setup (Empty by default)
+    const [latest, setLatest] = useState<LatestReadings | null>(null);
+    const [trends, setTrends] = useState<TrendData | null>(null);
     const [history, setHistory] = useState<HistoryItem[]>([]);
+
+    // UI states
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [showAddVital, setShowAddVital] = useState(false);
 
     useEffect(() => {
@@ -94,10 +81,12 @@ export default function MedicalRecordsScreen() {
     const fetchMedicalRecords = async () => {
         try {
             setLoading(true);
+            setError(null); // Clear any previous errors
             const token = await AsyncStorage.getItem('userToken');
 
             if (!token) {
-                useFallbackData();
+                setError('Session expired or unauthorized. Please sign in again.');
+                setLoading(false);
                 return;
             }
 
@@ -108,205 +97,174 @@ export default function MedicalRecordsScreen() {
             });
 
             const data = await response.json();
+
             if (data.success && data.data) {
-                setLatest(data.data.latestReadings);
-                setTrends(data.data.trends);
-                setHistory(data.data.history);
+                setLatest(data.data.latestReadings || null);
+                setTrends(data.data.trends || null);
+                setHistory(data.data.history || []);
             } else {
-                useFallbackData();
+                setError(data.message || 'Failed to fetch medical records.');
             }
         } catch (e) {
             console.error('Fetch Medical Records Error:', e);
-            useFallbackData();
+            setError('Unable to connect to the server. Please check your network connection.');
         } finally {
             setLoading(false);
         }
     };
 
-    const useFallbackData = () => {
-        setLatest({
-            bp: '120/80',
-            heartRate: '72 bpm',
-            temperature: '98.6°F',
-            weight: '165 lbs'
-        });
-        setTrends({
-            labels: ['Jan 20', 'Jan 27', 'Feb 3', 'Feb 10', 'Feb 17'],
-            systolic: [121, 119, 122, 118, 120],
-            diastolic: [81, 79, 82, 78, 80],
-            heartRate: [73, 71, 74, 70, 72],
-            temperature: [98.5, 98.6, 98.5, 98.4, 98.6],
-            weight: [164, 165, 166, 164, 165]
-        });
-        setHistory([
-            { date: 'Feb 17', bp: '120/80', hr: '72 bpm', temp: '98.6°F', weight: '165 lbs' },
-            { date: 'Feb 10', bp: '118/78', hr: '70 bpm', temp: '98.4°F', weight: '164 lbs' },
-            { date: 'Feb 3',  bp: '122/82', hr: '74 bpm', temp: '98.5°F', weight: '166 lbs' },
-            { date: 'Jan 27', bp: '119/79', hr: '71 bpm', temp: '98.6°F', weight: '165 lbs' },
-            { date: 'Jan 20', bp: '121/81', hr: '73 bpm', temp: '98.5°F', weight: '164 lbs' }
-        ]);
-    };
-
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Medical Records</Text>
+                <View style={styles.headerSpacer} />
             </View>
 
             {loading ? (
-                <View style={styles.loadingWrap}>
-                    <ActivityIndicator size="large" color="#FF6F00" />
+                <View style={styles.centerWrap}>
+                    <ActivityIndicator size="large" color="#FE6700" />
                     <Text style={styles.loadingText}>Loading health vitals & records...</Text>
+                </View>
+            ) : error ? (
+                <View style={styles.centerWrap}>
+                    <Ionicons name="alert-circle-outline" size={48} color="#EF4444" style={{ marginBottom: 12 }} />
+                    <Text style={styles.errorText}>{error}</Text>
+                    <TouchableOpacity style={styles.retryBtn} onPress={fetchMedicalRecords}>
+                        <Text style={styles.retryBtnText}>Retry Fetch</Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     <Text style={styles.subtitle}>Track your vitals</Text>
 
-                    {/* Latest Readings Header with Add Action */}
                     <View style={styles.sectionHeaderRow}>
                         <Text style={styles.sectionTitle}>Latest Readings</Text>
-                        <TouchableOpacity style={styles.addBtn} activeOpacity={0.75}>
+                        <TouchableOpacity style={styles.addBtn} activeOpacity={0.75} onPress={() => setShowAddVital(true)}>
                             <Feather name="plus" size={18} color="#FFFFFF" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Latest Readings 2x2 Grid */}
                     <View style={styles.latestGrid}>
-                        {/* Blood Pressure (Custom SVG Pulse) */}
                         <View style={styles.latestCard}>
                             <View style={[styles.cardIconWrap, { backgroundColor: '#FEF2F2' }]}>
                                 <CustomPulseIcon />
                             </View>
                             <Text style={styles.cardLabel}>Blood Pressure</Text>
-                            <Text style={styles.cardValue}>{latest.bp}</Text>
+                            <Text style={styles.cardValue}>{latest?.bp || '--'}</Text>
                         </View>
 
-                        {/* Heart Rate (Custom SVG Heart) */}
                         <View style={styles.latestCard}>
                             <View style={[styles.cardIconWrap, { backgroundColor: '#FDF2F8' }]}>
                                 <CustomHeartIcon />
                             </View>
                             <Text style={styles.cardLabel}>Heart Rate</Text>
-                            <Text style={styles.cardValue}>{latest.heartRate}</Text>
+                            <Text style={styles.cardValue}>{latest?.heartRate || '--'}</Text>
                         </View>
 
-                        {/* Temperature (Custom SVG Thermometer) */}
                         <View style={styles.latestCard}>
                             <View style={[styles.cardIconWrap, { backgroundColor: '#FFF7ED' }]}>
                                 <CustomThermometerIcon />
                             </View>
                             <Text style={styles.cardLabel}>Temperature</Text>
-                            <Text style={styles.cardValue}>{latest.temperature}</Text>
+                            <Text style={styles.cardValue}>{latest?.temperature || '--'}</Text>
                         </View>
 
-                        {/* Weight (Custom SVG Scale) */}
                         <View style={styles.latestCard}>
                             <View style={[styles.cardIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                                <CustomScaleIcon />
+                                <CustomBagIcon />
                             </View>
                             <Text style={styles.cardLabel}>Weight</Text>
-                            <Text style={styles.cardValue}>{latest.weight}</Text>
+                            <Text style={styles.cardValue}>{latest?.weight || '--'}</Text>
                         </View>
                     </View>
 
-                    {/* Trends Section */}
-                    <Text style={[styles.sectionTitle, { marginTop: 28, marginBottom: 16 }]}>Trends (Last 5 readings)</Text>
-                    <View style={styles.trendsCard}>
-                        <View style={{ position: 'relative', height: 200 }}>
+                    <Text style={styles.trendsTitle}>Trends (Last 5 readings)</Text>
+
+                    {/* Conditional rendering for trends graph */}
+                    {!trends || !trends.labels || trends.labels.length === 0 ? (
+                        <View style={styles.emptyCard}>
+                            <Text style={styles.emptyCardText}>Not enough data to display trends.</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.trendsCard}>
                             <Svg width="100%" height={200} viewBox="0 0 360 200">
                                 {[0, 35, 70, 105, 140].map((value) => {
                                     const y = 170 - (value / 140) * 150;
                                     return (
-                                        <React.Fragment key={value}>
+                                        <React.Fragment key={`grid-y-${value}`}>
                                             <SvgText x="20" y={y + 4} fontSize="11" fill="#6B7280">
                                                 {value}
                                             </SvgText>
-                                            <Line
-                                                x1="55"
-                                                y1={y}
-                                                x2="340"
-                                                y2={y}
-                                                stroke="#D1D5DB"
-                                                strokeWidth="1"
-                                                strokeDasharray="4 4"
-                                            />
+                                            <Line x1="50" y1={y} x2="340" y2={y} stroke="#D1D5DB" strokeWidth="1" strokeDasharray="4 4" />
                                         </React.Fragment>
                                     );
                                 })}
+
+                                {trends.labels.map((label, index) => {
+                                    const x = 50 + index * 72.5;
+                                    return (
+                                        <React.Fragment key={`grid-x-${label}`}>
+                                            <Line x1={x} y1="20" x2={x} y2="170" stroke="#D1D5DB" strokeWidth="1" strokeDasharray="4 4" />
+                                            <SvgText x={x - 15} y="190" fontSize="10" fill="#6B7280">
+                                                {label}
+                                            </SvgText>
+                                        </React.Fragment>
+                                    );
+                                })}
+
+                                {trends.systolic && trends.systolic.map((value, index) => {
+                                    if (index === trends.systolic.length - 1) return null;
+                                    const x1 = 50 + index * 72.5;
+                                    const y1 = 170 - (value / 140) * 150;
+                                    const x2 = 50 + (index + 1) * 72.5;
+                                    const y2 = 170 - (trends.systolic[index + 1] / 140) * 150;
+                                    return <Line key={`sys-line-${index}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#EF4444" strokeWidth="2" />;
+                                })}
+
+                                {trends.diastolic && trends.diastolic.map((value, index) => {
+                                    if (index === trends.diastolic.length - 1) return null;
+                                    const x1 = 50 + index * 72.5;
+                                    const y1 = 170 - (value / 140) * 150;
+                                    const x2 = 50 + (index + 1) * 72.5;
+                                    const y2 = 170 - (trends.diastolic[index + 1] / 140) * 150;
+                                    return <Line key={`dia-line-${index}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#EC4899" strokeWidth="2" />;
+                                })}
+
+                                {trends.systolic && trends.systolic.map((value, index) => {
+                                    const x = 50 + index * 72.5;
+                                    const y = 170 - (value / 140) * 150;
+                                    return <Circle key={`sys-dot-${index}`} cx={x} cy={y} r="4" fill="#FFFFFF" stroke="#EF4444" strokeWidth="2" />;
+                                })}
+
+                                {trends.diastolic && trends.diastolic.map((value, index) => {
+                                    const x = 50 + index * 72.5;
+                                    const y = 170 - (value / 140) * 150;
+                                    return <Circle key={`dia-dot-${index}`} cx={x} cy={y} r="4" fill="#FFFFFF" stroke="#EC4899" strokeWidth="2" />;
+                                })}
                             </Svg>
-
-                            {/* Main Grid Area Overlay */}
-                            <View style={[StyleSheet.absoluteFillObject, { left: 55, right: 20 }]}>
-                                <View style={styles.plotArea}>
-                                    {trends.labels.map((lbl, idx) => {
-                                        const sysVal = trends.systolic[idx] || 120;
-                                        const diaVal = trends.diastolic[idx] || 80;
-
-                                        return (
-                                            <View key={idx} style={styles.plotColumn}>
-                                                {/* Systolic Dot */}
-                                                <View
-                                                    style={[
-                                                        styles.chartDot,
-                                                        { bottom: calculateDotBottom(sysVal), backgroundColor: '#EF4444' }
-                                                    ]}
-                                                >
-                                                    <Text style={styles.dotValue}>{sysVal}</Text>
-                                                </View>
-
-                                                {/* Diastolic Dot */}
-                                                <View
-                                                    style={[
-                                                        styles.chartDot,
-                                                        { bottom: calculateDotBottom(diaVal), backgroundColor: '#EC4899' }
-                                                    ]}
-                                                >
-                                                    <Text style={styles.dotValue}>{diaVal}</Text>
-                                                </View>
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                            </View>
                         </View>
+                    )}
 
-                        {/* X-Axis Labels */}
-                        <View style={styles.xAxisRow}>
-                            {trends.labels.map((lbl, idx) => (
-                                <Text key={idx} style={styles.xAxisText}>{lbl}</Text>
-                            ))}
-                        </View>
-                    </View>
+                    <Text style={styles.historyTitle}>History</Text>
 
-                    {/* History Section */}
-                    <Text style={[styles.sectionTitle, { marginTop: 32, marginBottom: 16 }]}>History</Text>
                     <View style={styles.historyList}>
                         {history.length === 0 ? (
-                            <View style={styles.emptyHistory}>
-                                <Text style={styles.emptyHistoryText}>No vitals history records found.</Text>
+                            <View style={styles.emptyCard}>
+                                <Text style={styles.emptyCardText}>No vitals history records found.</Text>
                             </View>
                         ) : (
                             history.map((item, idx) => (
                                 <View key={idx} style={styles.historyCard}>
-                                    {/* Date Left Column */}
-                                    <View style={styles.historyDateCol}>
-                                        <Text style={styles.historyDateText}>{item.date}</Text>
-                                    </View>
+                                    <Text style={styles.historyDateText}>{item.date}</Text>
 
-                                    {/* Vitals Right Grid Column */}
-                                    <View style={styles.historyVitalsCol}>
-                                        <View style={styles.historyVitalRow}>
-                                            <Text style={styles.historyVitalLabel}>BP: {item.bp}</Text>
-                                            <Text style={styles.historyVitalLabel}>HR: {item.hr}</Text>
-                                        </View>
-                                        <View style={[styles.historyVitalRow, { marginTop: 6 }]}>
-                                            <Text style={styles.historyVitalLabel}>Temp: {item.temp}</Text>
-                                            <Text style={styles.historyVitalLabel}>Weight: {item.weight}</Text>
-                                        </View>
+                                    <View style={styles.historyVitalsGrid}>
+                                        <Text style={styles.historyVitalLabel}>BP: {item.bp}</Text>
+                                        <Text style={styles.historyVitalLabel}>HR: {item.hr}</Text>
+                                        <Text style={styles.historyVitalLabel}>Temp: {item.temp}</Text>
+                                        <Text style={styles.historyVitalLabel}>Weight: {item.weight}</Text>
                                     </View>
                                 </View>
                             ))
@@ -315,12 +273,8 @@ export default function MedicalRecordsScreen() {
                     <View style={{ height: Platform.OS === 'ios' ? 100 : 80 }} />
                 </ScrollView>
             )}
-            <Modal
-                visible={showAddVital}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowAddVital(false)}
-            >
+
+            <Modal visible={showAddVital} transparent animationType="fade" onRequestClose={() => setShowAddVital(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.addVitalModal}>
                         <Text style={styles.modalTitle}>Add Vital Reading</Text>
@@ -337,11 +291,11 @@ export default function MedicalRecordsScreen() {
                         <Text style={styles.inputLabel}>Weight (lbs)</Text>
                         <TextInput style={styles.input} placeholder="165" placeholderTextColor="#9CA3AF" keyboardType="numeric" />
 
-                        <TouchableOpacity style={styles.saveReadingBtn}>
+                        <TouchableOpacity style={styles.saveReadingBtn} activeOpacity={0.8}>
                             <Text style={styles.saveReadingText}>Save Reading</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddVital(false)}>
+                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddVital(false)} activeOpacity={0.6}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
@@ -354,107 +308,67 @@ export default function MedicalRecordsScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FDF8F3',
+        backgroundColor: '#FFF0E6',
     },
     header: {
+        height: Platform.OS === 'ios' ? 88 : 70,
+        paddingTop: Platform.OS === 'ios' ? 18 : 0,
+        paddingHorizontal: 16,
+        backgroundColor: '#FFFFFF',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
     },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-    },
-    addVitalModal: {
-        width: '100%',
-        maxWidth: 428,
-        borderRadius: 16,
-        backgroundColor: '#FFFFFF',
-        padding: 24,
-    },
-    modalTitle: {
-        fontFamily: 'Poppins-SemiBold',
-        fontSize: 18,
-        lineHeight: 28,
-        color: '#111827',
-        marginBottom: 16,
-    },
-    inputLabel: {
-        fontFamily: 'Poppins-Medium',
-        fontSize: 13,
-        lineHeight: 20,
-        color: '#374151',
-        marginBottom: 8,
-    },
-    input: {
-        height: 50,
-        borderWidth: 1,
-        borderColor: '#D1D5DB',
-        borderRadius: 10,
-        paddingHorizontal: 16,
-        fontFamily: 'Poppins-Regular',
-        fontSize: 15,
-        color: '#111827',
-        marginBottom: 16,
-    },
-    saveReadingBtn: {
-        height: 52,
-        borderRadius: 14,
-        backgroundColor: '#FE6700',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    saveReadingText: {
-        fontFamily: 'Poppins-SemiBold',
-        fontSize: 16,
-        lineHeight: 24,
-        color: '#FFFFFF',
-    },
-    cancelBtn: {
-        height: 54,
-        borderRadius: 14,
-        backgroundColor: '#F3F4F6',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 12,
-    },
-    cancelText: {
-        fontFamily: 'Poppins-SemiBold',
-        fontSize: 16,
-        lineHeight: 24,
-        color: '#374151',
-    },
     backBtn: {
-        marginRight: 16,
-        width: 36,
-        height: 36,
-        justifyContent: 'center',
+        width: 40,
+        height: 40,
         alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerSpacer: {
+        width: 40,
+        height: 40,
     },
     headerTitle: {
         fontFamily: 'Poppins-Medium',
         fontSize: 16,
-        lineHeight: 24,
         color: '#111827',
         textAlign: 'center',
     },
     content: {
-        padding: 20,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 96,
     },
-    loadingWrap: {
+    centerWrap: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingTop: 80,
+        paddingHorizontal: 24,
     },
     loadingText: {
         marginTop: 12,
         color: '#374151',
         fontFamily: 'Poppins-Medium',
+        fontSize: 14,
+    },
+    errorText: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        color: '#DC2626',
+        textAlign: 'center',
+        marginBottom: 16,
+        lineHeight: 20,
+    },
+    retryBtn: {
+        backgroundColor: '#FE6700',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    retryBtnText: {
+        fontFamily: 'Poppins-Medium',
+        color: '#FFFFFF',
         fontSize: 14,
     },
     subtitle: {
@@ -468,7 +382,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
     },
     sectionTitle: {
         fontFamily: 'Poppins-SemiBold',
@@ -483,7 +397,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FE6700',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#FF6F00',
+        shadowColor: '#FE6700',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
@@ -493,23 +407,18 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
+        gap: 12,
     },
     latestCard: {
-        width: '48%',
-        height: 124,
-        borderRadius: 16,
         backgroundColor: '#FFFFFF',
+        width: '48%',
+        borderRadius: 16,
         padding: 16,
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.03,
         shadowRadius: 4,
         elevation: 2,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
-    },
-    cardIconRow: {
-        marginBottom: 12,
     },
     cardIconWrap: {
         width: 40,
@@ -517,6 +426,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 12,
     },
     cardLabel: {
         fontFamily: 'Poppins-Regular',
@@ -560,99 +470,117 @@ const styles = StyleSheet.create({
     historyList: {
         gap: 12,
     },
-    emptyHistory: {
-        alignItems: 'center',
-        paddingVertical: 20,
-    },
-    emptyHistoryText: {
-        color: '#9CA3AF',
-        fontFamily: 'Outfit-Medium',
-    },
     historyCard: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
+        borderRadius: 16,
         padding: 16,
-        marginBottom: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        shadowColor: '#000',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.02,
-        shadowRadius: 8,
+        shadowOpacity: 0.03,
+        shadowRadius: 4,
         elevation: 2,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
-    },
-    historyDateCol: {
-        width: '25%',
-        borderRightWidth: 1,
-        borderRightColor: '#F3F4F6',
-        paddingRight: 8,
     },
     historyDateText: {
+        fontFamily: 'Poppins-Medium',
         fontSize: 15,
-        fontWeight: '600',
+        lineHeight: 20,
         color: '#111827',
-        fontFamily: 'Outfit-SemiBold',
+        marginBottom: 10,
     },
-    historyVitalsCol: {
-        flex: 1,
-        paddingLeft: 16,
-    },
-    historyVitalRow: {
+    historyVitalsGrid: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        rowGap: 8,
     },
     historyVitalLabel: {
-        fontSize: 13,
+        width: '50%',
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        lineHeight: 20,
         color: '#4B5563',
-        fontFamily: 'Outfit-Medium',
-        width: '48%',
     },
-    plotArea: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-    },
-    plotColumn: {
-        width: '18%',
-        height: '100%',
-        alignItems: 'center',
-        position: 'relative',
-    },
-    chartDot: {
-        position: 'absolute',
-        width: 10,
-        height: 10,
-        borderRadius: 5,
+    emptyCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 24,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    dotValue: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: '#111827',
-        position: 'absolute',
-        top: -16,
-        fontFamily: 'Outfit-Bold',
-        width: 30,
-        textAlign: 'center',
+    emptyCardText: {
+        color: '#9CA3AF',
+        fontFamily: 'Poppins-Medium',
+        fontSize: 14,
     },
-    xAxisRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginLeft: 32,
+
+    // --- Modal Styles ---
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+    },
+    addVitalModal: {
+        width: '100%',
+        maxWidth: 400,
+        borderRadius: 16,
+        backgroundColor: '#FFFFFF',
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 20,
+        color: '#111827',
+        marginBottom: 20,
+    },
+    inputLabel: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 14,
+        color: '#374151',
+        marginBottom: 8,
+    },
+    input: {
+        height: 48,
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+        borderRadius: 10,
+        paddingHorizontal: 16,
+        fontFamily: 'Poppins-Regular',
+        fontSize: 15,
+        color: '#111827',
+        marginBottom: 16,
+    },
+    saveReadingBtn: {
+        height: 50,
+        borderRadius: 12,
+        backgroundColor: '#FE6700',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    saveReadingText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 16,
+        color: '#FFFFFF',
+    },
+    cancelBtn: {
+        height: 50,
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#6B7280',
+        justifyContent: 'center',
+        alignItems: 'center',
         marginTop: 12,
     },
-    xAxisText: {
-        fontSize: 11,
-        color: '#9CA3AF',
-        fontFamily: 'Outfit-Medium',
-        width: '18%',
-        textAlign: 'center',
+    cancelText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 16,
+        color: '#374151',
     },
 });

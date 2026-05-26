@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -6,12 +6,94 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     ScrollView,
-    Switch,
-    Alert
+    Animated,
+    TouchableWithoutFeedback,
+    Alert,
+    Platform
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { API_URL } from '@/constants/api';
+
+// --- PIXEL PERFECT CUSTOM SVG ICONS ---
+const CustomPillIcon = ({ size = 24, color = '#FE6700' }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M4.5 12.5l8-8a4.95 4.95 0 017 7l-8 8a4.95 4.95 0 01-7-7z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M8.5 8.5l7 7" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+);
+
+const CustomCalendarBadgeIcon = ({ size = 32, color = '#FFFFFF' }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+        <Circle cx="17.5" cy="17.5" r="4.5" fill="#FE6700" stroke={color} strokeWidth="1.5" />
+        <Path d="M15.5 17.5l1.5 1.5 2.5-2.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const CustomCheckIcon = ({ size = 18, color = '#16A34A' }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const CustomCrossIcon = ({ size = 18, color = '#E7000B' }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const CustomBellOutlineIcon = ({ size = 26, color = '#FE6700' }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const CustomShieldIcon = ({ size = 42, color = '#9CA3AF' }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+// --- PIXEL PERFECT CUSTOM OUTLINE SWITCH ---
+const CustomSwitch = ({ value, onValueChange }: { value: boolean, onValueChange: (v: boolean) => void }) => {
+    const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
+
+    useEffect(() => {
+        Animated.timing(animatedValue, {
+            toValue: value ? 1 : 0,
+            duration: 250,
+            useNativeDriver: false,
+        }).start();
+    }, [value]);
+
+    const translateX = animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [2, 22],
+    });
+
+    const borderColor = animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['#D1D5DB', '#FE6700'],
+    });
+
+    const thumbColor = animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['#D1D5DB', '#FE6700'],
+    });
+
+    return (
+        <TouchableWithoutFeedback onPress={() => onValueChange(!value)}>
+            <Animated.View style={[styles.switchTrack, { borderColor }]}>
+                <Animated.View style={[styles.switchThumb, { transform: [{ translateX }], backgroundColor: thumbColor }]} />
+            </Animated.View>
+        </TouchableWithoutFeedback>
+    );
+};
+// ------------------------------------------------
 
 type MedScheduleItem = {
     id: string;
@@ -210,116 +292,116 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
     if (loading) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator size="large" color="#FF6B00" />
+                <ActivityIndicator size="large" color="#FE6700" />
                 <Text style={styles.loadingText}>Loading Medications...</Text>
             </View>
         );
     }
 
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            {/* Header Box with Reminder Toggle */}
+        <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Header Row with Reminder Toggle */}
             <View style={styles.headerRow}>
-                <Text style={styles.sectionTitle}>Daily Overview</Text>
+                <Text style={styles.sectionTitle}>Medications</Text>
                 <View style={styles.toggleContainer}>
                     <Text style={styles.toggleLabel}>Reminders</Text>
-                    <Switch
-                        value={remindersActive}
-                        onValueChange={setRemindersActive}
-                        trackColor={{ false: '#E5E7EB', true: '#FFE6D5' }}
-                        thumbColor={remindersActive ? '#FF6B00' : '#9CA3AF'}
-                    />
+                    <CustomSwitch value={remindersActive} onValueChange={setRemindersActive} />
                 </View>
             </View>
 
-            {/* Adherence Percentage Banner Card */}
+            {/* Adherence Percentage Banner Card (Figma Match) */}
             <View style={styles.statsCard}>
-                <View style={styles.statsMainRow}>
-                    <View style={styles.percentageBox}>
-                        <Text style={styles.percentageNumber}>{metrics.average}%</Text>
-                        <Text style={styles.percentageLabel}>Average Score</Text>
+                <View style={styles.statsHeader}>
+                    <CustomCalendarBadgeIcon size={32} color="#FFFFFF" />
+                    <View style={styles.statsTitleBlock}>
+                        <Text style={styles.statsTitle}>Overall Adherence</Text>
+                        <Text style={styles.statsSubtitle}>Last 30 days</Text>
                     </View>
-                    <View style={styles.dividerVertical} />
-                    <View style={styles.countContainer}>
-                        <View style={styles.countRow}>
-                            <View style={[styles.dotCircle, { backgroundColor: '#10B981' }]} />
-                            <Text style={styles.countText}>{metrics.taken} taken</Text>
-                        </View>
-                        <View style={styles.countRow}>
-                            <View style={[styles.dotCircle, { backgroundColor: '#EF4444' }]} />
-                            <Text style={styles.countText}>{metrics.missed} missed</Text>
-                        </View>
+                </View>
+
+                <View style={styles.metricsRow}>
+                    <View style={styles.metricItem}>
+                        <Text style={styles.metricValue}>{metrics.average}%</Text>
+                        <Text style={styles.metricLabel}>Average</Text>
+                    </View>
+                    <View style={styles.metricItem}>
+                        <Text style={styles.metricValue}>{metrics.taken}</Text>
+                        <Text style={styles.metricLabel}>Taken</Text>
+                    </View>
+                    <View style={styles.metricItem}>
+                        <Text style={styles.metricValue}>{metrics.missed}</Text>
+                        <Text style={styles.metricLabel}>Missed</Text>
                     </View>
                 </View>
             </View>
 
-            {/* Daily schedule title */}
+            {/* Daily schedule title - Logic preserved, style updated */}
             <Text style={styles.groupTitle}>
                 {schedule.length > 0 && schedule[0].isFutureSchedule
                     ? `Upcoming Doses (Starting ${schedule[0].futureDateText})`
-                    : "Today's Doses"}
+                    : "Your Medications"}
             </Text>
 
             {schedule.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                    <Feather name="shield" size={42} color="#9CA3AF" />
+                    <CustomShieldIcon size={42} color="#9CA3AF" />
                     <Text style={styles.emptyText}>No medications scheduled for today.</Text>
                 </View>
             ) : (
                 schedule.map((item, index) => {
                     const isSubmitting = submittingId === `${item.id}-${item.scheduleTimeText}`;
-                    
+
                     return (
                         <View key={`${item.id}-${index}`} style={styles.medCard}>
                             <View style={styles.medMainRow}>
                                 {/* Icon with soft orange backdrop */}
                                 <View style={styles.iconCircle}>
-                                    <Feather name="layers" size={20} color="#FF6B00" />
+                                    <CustomPillIcon size={24} color="#FE6700" />
                                 </View>
 
                                 {/* Title & subtitiles */}
                                 <View style={styles.medDetails}>
                                     <Text style={styles.medName}>{item.name}</Text>
                                     <Text style={styles.medSub}>
-                                        {item.dosage} • {item.frequency}
+                                        {item.dosage} - {item.frequency}
                                     </Text>
                                     <Text style={styles.medInstructions}>
-                                        Note: {item.instructions}
+                                        For: {item.instructions}
                                     </Text>
                                 </View>
 
                                 {/* Action buttons */}
                                 <View style={styles.actionColumn}>
                                     {isSubmitting ? (
-                                        <ActivityIndicator size="small" color="#FF6B00" />
+                                        <ActivityIndicator size="small" color="#FE6700" />
                                     ) : (
                                         <View style={styles.btnRow}>
                                             <TouchableOpacity
                                                 onPress={() => handleLogAdherence(item, true)}
+                                                activeOpacity={0.7}
                                                 style={[
                                                     styles.actionBtn,
                                                     styles.checkBtn,
                                                     item.status === 'taken' && styles.activeCheck
                                                 ]}
                                             >
-                                                <Feather
-                                                    name="check"
-                                                    size={16}
-                                                    color={item.status === 'taken' ? '#FFFFFF' : '#10B981'}
+                                                <CustomCheckIcon
+                                                    size={18}
+                                                    color={item.status === 'taken' ? '#FFFFFF' : '#16A34A'}
                                                 />
                                             </TouchableOpacity>
 
                                             <TouchableOpacity
                                                 onPress={() => handleLogAdherence(item, false)}
+                                                activeOpacity={0.7}
                                                 style={[
                                                     styles.actionBtn,
                                                     styles.crossBtn,
                                                     item.status === 'missed' && styles.activeCross
                                                 ]}
                                             >
-                                                <Feather
-                                                    name="x"
-                                                    size={16}
+                                                <CustomCrossIcon
+                                                    size={18}
                                                     color={item.status === 'missed' ? '#FFFFFF' : '#EF4444'}
                                                 />
                                             </TouchableOpacity>
@@ -333,21 +415,20 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
 
                             {/* Lower metadata + individual progress bars */}
                             <View style={styles.medFooter}>
-                                <Text style={styles.scheduleTime}>
-                                    Schedule: <Text style={styles.boldTime}>{item.scheduleTimeText}</Text>
-                                </Text>
-                                <View style={styles.progressContainer}>
-                                    <View style={styles.trackBackground}>
-                                        <View
-                                            style={[
-                                                styles.trackFill,
-                                                { width: `${item.adherencePercentage}%` }
-                                            ]}
-                                        />
-                                    </View>
-                                    <Text style={styles.progressLabel}>
-                                        {item.adherencePercentage}% adherence
+                                <View style={styles.scheduleRow}>
+                                    <Text style={styles.scheduleTime}>
+                                        Schedule: {item.scheduleTimeText}
                                     </Text>
+                                    <Text style={styles.percentText}>{item.adherencePercentage}%</Text>
+                                </View>
+
+                                <View style={styles.trackBackground}>
+                                    <View
+                                        style={[
+                                            styles.trackFill,
+                                            { width: `${item.adherencePercentage}%` }
+                                        ]}
+                                    />
                                 </View>
                             </View>
                         </View>
@@ -355,14 +436,19 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
                 })
             )}
 
-            {/* Reminder bottom banner card */}
+            {/* Reminder bottom banner card - Logic preserved, style updated */}
             <View style={styles.bannerCard}>
-                <Feather name="bell" size={18} color="#FF6B00" style={{ marginRight: 10 }} />
-                <Text style={styles.bannerText}>
-                    Medication Reminders Active. You'll receive system alerts for your scheduled medication timings.
-                </Text>
+                <View style={styles.bannerIconContainer}>
+                    <CustomBellOutlineIcon size={26} color="#FE6700" />
+                </View>
+                <View style={styles.bannerCopy}>
+                    <Text style={styles.bannerTitle}>Medication Reminders Active</Text>
+                    <Text style={styles.bannerText}>
+                        Medication Reminders Active. You'll receive system alerts for your scheduled medication timings.
+                    </Text>
+                </View>
             </View>
-            
+
             <View style={{ height: 40 }} />
         </ScrollView>
     );
@@ -371,31 +457,53 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FCFAF7',
-        paddingHorizontal: 16,
+        backgroundColor: '#FFF0E6', // Strict Figma match
+    },
+    content: {
+        paddingHorizontal: 20,
         paddingTop: 16,
+        paddingBottom: Platform.OS === 'ios' ? 120 : 100,
     },
     center: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FCFAF7',
+        backgroundColor: '#FFF0E6',
     },
     loadingText: {
         marginTop: 12,
+        fontFamily: 'Poppins-Medium',
         fontSize: 14,
-        color: '#6B7280',
-        fontWeight: '500'
+        color: '#374151',
     },
+
+    // --- Outline Style Toggle Switch ---
+    switchTrack: {
+        width: 44,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+    },
+    switchThumb: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        position: 'absolute',
+        left: 0,
+    },
+
+    // --- Top Row ---
     headerRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        justifyContent: 'space-between',
+        marginBottom: 20,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'Poppins-Medium',
+        fontSize: 16,
         color: '#111827',
     },
     toggleContainer: {
@@ -403,213 +511,230 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     toggleLabel: {
-        fontSize: 13,
-        color: '#6B7280',
-        marginRight: 8,
-        fontWeight: '500'
-    },
-    statsCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 18,
-        borderWidth: 1,
-        borderColor: '#F1EBE3',
-        marginBottom: 20,
-    },
-    statsMainRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    percentageBox: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    percentageNumber: {
-        fontSize: 32,
-        fontWeight: '800',
-        color: '#FF6B00',
-    },
-    percentageLabel: {
-        fontSize: 12,
-        color: '#6B7280',
-        marginTop: 2,
-        fontWeight: '500'
-    },
-    dividerVertical: {
-        width: 1,
-        height: 50,
-        backgroundColor: '#ECE5DC',
-        marginHorizontal: 16,
-    },
-    countContainer: {
-        flex: 1.2,
-        justifyContent: 'center',
-        gap: 8,
-    },
-    countRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    dotCircle: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginRight: 10,
-    },
-    countText: {
+        fontFamily: 'Poppins-Regular',
         fontSize: 14,
         color: '#374151',
-        fontWeight: '500',
+        marginRight: 10,
     },
+
+    // --- Stats Card (Figma Match) ---
+    statsCard: {
+        backgroundColor: '#FE6700',
+        borderRadius: 16,
+        padding: 24,
+        marginBottom: 24,
+        shadowColor: '#FE6700',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    statsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    statsTitleBlock: {
+        marginLeft: 12,
+    },
+    statsTitle: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 18,
+        color: '#FFFFFF',
+    },
+    statsSubtitle: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.85)',
+        marginTop: -2,
+    },
+    metricsRow: {
+        marginTop: 20,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    metricItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    metricValue: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 32,
+        color: '#FFFFFF',
+    },
+    metricLabel: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: '#FFFFFF',
+        marginTop: 4,
+    },
+
     groupTitle: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#374151',
-        marginBottom: 12,
+        fontFamily: 'Poppins-Medium',
+        fontSize: 18,
+        color: '#111827',
+        marginBottom: 16,
     },
+
+    // --- Medication List Cards ---
+    medCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    medMainRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    iconCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        backgroundColor: '#FFF0E6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    medDetails: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    medName: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 17,
+        color: '#111827',
+        marginBottom: 2,
+    },
+    medSub: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: '#4B5563',
+    },
+    medInstructions: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: '#4B5563',
+        marginTop: 2,
+    },
+
+    // --- Action Buttons ---
+    actionColumn: {
+        marginLeft: 12,
+        justifyContent: 'center',
+    },
+    btnRow: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    actionBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    checkBtn: {
+        backgroundColor: '#DCFCE7',
+    },
+    crossBtn: {
+        backgroundColor: '#FCE7F3',
+    },
+    activeCheck: {
+        backgroundColor: '#16A34A',
+    },
+    activeCross: {
+        backgroundColor: '#EF4444',
+    },
+
+    innerDivider: {
+        height: 1,
+        backgroundColor: '#F3F4F6',
+        marginVertical: 16,
+    },
+    medFooter: {
+        marginTop: 0,
+    },
+    scheduleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    scheduleTime: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: '#374151',
+    },
+    percentText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 13,
+        color: '#111827',
+    },
+    trackBackground: {
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#E5E7EB',
+        overflow: 'hidden',
+    },
+    trackFill: {
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#16A34A',
+    },
+
+    // --- Bottom Bell Banner ---
+    bannerCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginTop: 8,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+    },
+    bannerIconContainer: {
+        marginTop: 2,
+        marginRight: 16,
+    },
+    bannerCopy: {
+        flex: 1,
+    },
+    bannerTitle: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 15,
+        color: '#111827',
+        marginBottom: 6,
+    },
+    bannerText: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 14,
+        color: '#4B5563',
+        lineHeight: 22,
+    },
+
     emptyContainer: {
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 40,
         alignItems: 'center',
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: '#F1EBE3',
+        borderColor: '#F3F4F6',
     },
     emptyText: {
-        marginTop: 12,
-        fontSize: 14,
+        marginTop: 16,
+        fontFamily: 'Poppins-Regular',
+        fontSize: 15,
         color: '#6B7280',
         textAlign: 'center',
-    },
-    medCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: '#F1EBE3',
-        marginBottom: 14,
-    },
-    medMainRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-    },
-    iconCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#FFF0E6',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    medDetails: {
-        flex: 1,
-    },
-    medName: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#111827',
-    },
-    medSub: {
-        fontSize: 13,
-        color: '#4B5563',
-        marginTop: 2,
-        fontWeight: '500',
-    },
-    medInstructions: {
-        fontSize: 12,
-        color: '#9CA3AF',
-        marginTop: 4,
-    },
-    actionColumn: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 8,
-    },
-    btnRow: {
-        flexDirection: 'row',
-        gap: 6,
-    },
-    actionBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-    },
-    checkBtn: {
-        borderColor: '#D1FAE5',
-        backgroundColor: '#ECFDF5',
-    },
-    crossBtn: {
-        borderColor: '#FEE2E2',
-        backgroundColor: '#FEF2F2',
-    },
-    activeCheck: {
-        backgroundColor: '#10B981',
-        borderColor: '#10B981',
-    },
-    activeCross: {
-        backgroundColor: '#EF4444',
-        borderColor: '#EF4444',
-    },
-    innerDivider: {
-        height: 1,
-        backgroundColor: '#F3EDE6',
-        marginVertical: 12,
-    },
-    medFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    scheduleTime: {
-        fontSize: 12,
-        color: '#6B7280',
-    },
-    boldTime: {
-        fontWeight: '700',
-        color: '#374151',
-    },
-    progressContainer: {
-        alignItems: 'flex-end',
-        flex: 1,
-        marginLeft: 16,
-    },
-    trackBackground: {
-        width: '80%',
-        height: 4,
-        backgroundColor: '#E5E7EB',
-        borderRadius: 2,
-        overflow: 'hidden',
-        marginBottom: 4,
-    },
-    trackFill: {
-        height: '100%',
-        backgroundColor: '#FF6B00',
-    },
-    progressLabel: {
-        fontSize: 10,
-        color: '#9CA3AF',
-        fontWeight: '500'
-    },
-    bannerCard: {
-        flexDirection: 'row',
-        backgroundColor: '#FFF8F4',
-        borderWidth: 1,
-        borderColor: '#FFE6D5',
-        padding: 14,
-        borderRadius: 12,
-        marginTop: 10,
-        alignItems: 'flex-start',
-    },
-    bannerText: {
-        fontSize: 12,
-        color: '#D25F15',
-        flex: 1,
-        lineHeight: 16,
-        fontWeight: '500'
     },
 });
