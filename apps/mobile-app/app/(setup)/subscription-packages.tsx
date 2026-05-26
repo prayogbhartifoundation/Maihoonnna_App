@@ -9,9 +9,11 @@ type PlanDuration = 'basic' | '6months' | 'annual';
 
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '../../components/CallbackButton';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function SubscriptionPackagesScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const [packages, setPackages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -62,7 +64,7 @@ export default function SubscriptionPackagesScreen() {
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.headerWrapper}>
                 <View style={styles.headerContainer}>
-                    <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+                    <TouchableOpacity style={styles.backBtn} onPress={() => safeBack()}>
                         <Ionicons name="arrow-back" size={24} color="#111827" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Subscription Packages</Text>

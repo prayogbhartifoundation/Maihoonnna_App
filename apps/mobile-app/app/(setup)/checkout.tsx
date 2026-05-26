@@ -67,13 +67,13 @@ export default function CheckoutScreen() {
                         const taxInc = price * 0.18;
                         setTaxes(taxInc);
                         setTotalAmount((price + taxInc).toFixed(2));
-                        
+
                         // Re-calculate if a coupon is already applied
                         if (appliedCoupon) {
-                             const discountedBase = price - appliedCoupon.discountApplied;
-                             const newTax = discountedBase * 0.18;
-                             setTaxes(newTax);
-                             setTotalAmount((discountedBase + newTax).toFixed(2));
+                            const discountedBase = price - appliedCoupon.discountApplied;
+                            const newTax = discountedBase * 0.18;
+                            setTaxes(newTax);
+                            setTotalAmount((discountedBase + newTax).toFixed(2));
                         }
                     }
                 }
@@ -148,11 +148,11 @@ export default function CheckoutScreen() {
             const preferencesDataRaw = params.preferencesData as string;
 
             let subscriberData = {};
-            let beneficiaryData: any = { 
-                name: "Beneficiary", 
-                age: 65, 
-                gender: "Not specified", 
-                address: "Not provided", 
+            let beneficiaryData: any = {
+                name: "Beneficiary",
+                age: 65,
+                gender: "Not specified",
+                address: "Not provided",
                 flatPlot: "",
                 streetArea: "",
                 landmark: "",
@@ -161,33 +161,33 @@ export default function CheckoutScreen() {
                 pincode: "",
                 latitude: 0,
                 longitude: 0,
-                relationship: "Relative", 
-                phone: "9876543210" 
+                relationship: "Relative",
+                phone: "9876543210"
             };
             let medicalData = {};
             let emergencyContacts = {};
             let preferencesData = {};
 
-            try { if (subscriberDataRaw) subscriberData = JSON.parse(subscriberDataRaw); } catch(e) {}
-            try { 
+            try { if (subscriberDataRaw) subscriberData = JSON.parse(subscriberDataRaw); } catch (e) { }
+            try {
                 if (beneficiaryDataRaw) {
                     const parsed = JSON.parse(beneficiaryDataRaw);
                     beneficiaryData = { ...beneficiaryData, ...parsed };
                     if (parsed.fullName) beneficiaryData.name = parsed.fullName;
-                    
+
                     if (parsed.dob) {
                         try {
                             const [day, month, year] = parsed.dob.split('-');
                             if (year && year.length === 4) {
                                 beneficiaryData.age = new Date().getFullYear() - parseInt(year, 10);
                             }
-                        } catch (err) {}
+                        } catch (err) { }
                     }
-                } 
-            } catch(e) {}
-            try { if (medicalDataRaw) medicalData = JSON.parse(medicalDataRaw); } catch(e) {}
-            try { if (emergencyContactsRaw) emergencyContacts = JSON.parse(emergencyContactsRaw); } catch(e) {}
-            try { if (preferencesDataRaw) preferencesData = JSON.parse(preferencesDataRaw); } catch(e) {}
+                }
+            } catch (e) { }
+            try { if (medicalDataRaw) medicalData = JSON.parse(medicalDataRaw); } catch (e) { }
+            try { if (emergencyContactsRaw) emergencyContacts = JSON.parse(emergencyContactsRaw); } catch (e) { }
+            try { if (preferencesDataRaw) preferencesData = JSON.parse(preferencesDataRaw); } catch (e) { }
 
             // Call the real backend to create beneficiary + subscription
             const payload = {
@@ -203,7 +203,7 @@ export default function CheckoutScreen() {
 
             const response = await fetch(`${API_URL}/subscriber/subscriptions/purchase`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': storedToken ? `Bearer ${storedToken}` : ''
                 },
@@ -238,7 +238,13 @@ export default function CheckoutScreen() {
             {/* HEADER (White Background) */}
             <SafeAreaView style={styles.safeAreaWhite}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                    <TouchableOpacity onPress={() => {
+                        if (router.canGoBack()) {
+                            router.back();
+                        } else {
+                            router.replace('/(setup)/subscription-packages');
+                        }
+                    }} style={styles.backBtn}>
                         <Feather name="arrow-left" size={24} color="#111827" />
                     </TouchableOpacity>
                     <View style={styles.headerTitles}>
@@ -259,7 +265,7 @@ export default function CheckoutScreen() {
                     {/* SECURITY BADGE */}
                     <View style={styles.securityBadge}>
                         <Ionicons name="shield-checkmark-outline" size={20} color="#059669" style={styles.securityIcon} />
-                        <View>
+                        <View style={styles.securityTextWrap}>
                             <Text style={styles.securityTextBold}>100% Secure Payment</Text>
                             <Text style={styles.securityText}>Your payment information is encrypted and secure</Text>
                         </View>
@@ -479,9 +485,10 @@ const styles = StyleSheet.create({
     sectionTitle: { fontFamily: 'Poppins_400Regular', fontSize: fs(38), lineHeight: fs(50), color: '#000000' },
     sectionSubtitle: { fontFamily: 'Poppins_400Regular', fontSize: fs(26), lineHeight: fs(36), color: '#000000', marginTop: fs(6), marginBottom: fs(29) },
     securityBadge: { flexDirection: 'row', backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#0BB85F', borderRadius: fs(13), paddingHorizontal: fs(29), paddingVertical: fs(27), marginBottom: fs(41), alignItems: 'center' },
-    securityIcon: { marginRight: fs(25) },
-    securityTextBold: { color: '#07A640', fontFamily: 'Poppins_400Regular', fontSize: fs(23), lineHeight: fs(30) },
-    securityText: { color: '#07A640', fontFamily: 'Poppins_400Regular', fontSize: fs(23), lineHeight: fs(30), marginTop: 1, paddingRight: fs(20) },
+    securityIcon: { marginRight: fs(25), flexShrink: 0 },
+    securityTextWrap: { flex: 1, minWidth: 0 },
+    securityTextBold: { color: '#07A640', fontFamily: 'Poppins_400Regular', fontSize: fs(23), lineHeight: fs(30), flexShrink: 1 },
+    securityText: { color: '#07A640', fontFamily: 'Poppins_400Regular', fontSize: fs(23), lineHeight: fs(30), marginTop: 1, flexShrink: 1 },
 
     // TABS WRAPPER
     tabsWrapper: {

@@ -22,9 +22,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function EmergencyContactsScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const params = useLocalSearchParams();
     const [fontsLoaded] = useFonts({
         Poppins_400Regular,
@@ -72,7 +74,7 @@ export default function EmergencyContactsScreen() {
     };
 
     const handleBack = () => {
-        router.back();
+        safeBack();
     };
 
     if (!fontsLoaded) {

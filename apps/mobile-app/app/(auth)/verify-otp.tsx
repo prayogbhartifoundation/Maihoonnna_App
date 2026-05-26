@@ -115,7 +115,13 @@ export default function VerifyOtpScreen() {
             >
                 <View>
                     <View style={styles.header}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <TouchableOpacity onPress={() => {
+                            if (router.canGoBack()) {
+                                router.back();
+                            } else {
+                                router.replace('/(auth)');
+                            }
+                        }} style={styles.backButton}>
                             <Ionicons name="arrow-back" size={22} color="#111827" />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Verify Phone</Text>
@@ -154,7 +160,13 @@ export default function VerifyOtpScreen() {
 
                         <Text style={styles.resendTimer}>Resend code in 00:55</Text>
 
-                        <TouchableOpacity onPress={() => router.back()} disabled={isLoading}>
+                        <TouchableOpacity onPress={() => {
+                            if (router.canGoBack()) {
+                                router.back();
+                            } else {
+                                router.replace('/(auth)');
+                            }
+                        }} disabled={isLoading}>
                             <Text style={styles.resendLink}>Resend OTP</Text>
                         </TouchableOpacity>
 

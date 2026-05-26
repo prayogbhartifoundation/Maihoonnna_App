@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 // --- PIXEL PERFECT CUSTOM SVGS ---
 const CustomPulseIcon = ({ size = 22, color = '#EF4444' }) => (
@@ -63,6 +64,7 @@ interface HistoryItem {
 
 export default function MedicalRecordsScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
 
     // Production state setup (Empty by default)
     const [latest, setLatest] = useState<LatestReadings | null>(null);
@@ -116,7 +118,7 @@ export default function MedicalRecordsScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Medical Records</Text>

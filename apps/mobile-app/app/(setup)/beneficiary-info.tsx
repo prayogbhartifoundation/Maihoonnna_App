@@ -13,9 +13,11 @@ import { AddressPicker, SelectedAddress } from '../../components/ui/AddressPicke
 import { useLocationPermission } from '../../hooks/useLocationPermission';
 import { PhotoPickerInput } from '../../components/ui/PhotoPickerInput';
 import { AddressInputField } from '../../components/ui/AddressInputField';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const params = useLocalSearchParams();
     const [fontsLoaded] = useFonts({
         Poppins_400Regular,
@@ -78,7 +80,7 @@ export default function BeneficiaryInfoScreen() {
     };
 
     const handleBack = () => {
-        router.back();
+        safeBack();
     };
 
     const SegmentedButton = ({ label, active, onPress }: { label: string, active: boolean, onPress: () => void }) => (

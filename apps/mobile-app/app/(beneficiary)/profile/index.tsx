@@ -8,6 +8,7 @@ import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { logoutWithConfirm } from '@/utils/logout';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 interface ContactInfo {
     phone: string;
@@ -27,6 +28,7 @@ interface ProfileData {
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<ProfileData>({
         name: 'Margaret Williams',
@@ -183,7 +185,7 @@ export default function ProfileScreen() {
                 <View style={styles.gradientHeader}>
                     {/* Top Action Row */}
                     <View style={styles.topRow}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <TouchableOpacity onPress={() => safeBack()} style={styles.headerBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                             <Feather name="arrow-left" size={22} color="#FFFFFF" />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Profile</Text>

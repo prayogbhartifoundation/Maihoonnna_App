@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logoutWithConfirm } from '@/utils/logout';
 import { API_URL } from '@/constants/api';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 interface MenuItemProps {
     icon: React.ReactNode;
@@ -113,7 +114,7 @@ export default function MoreOptionsScreen() {
         <SafeAreaView style={styles.safeArea}>
             {/* Header - Centered perfectly per Figma */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>More Options</Text>

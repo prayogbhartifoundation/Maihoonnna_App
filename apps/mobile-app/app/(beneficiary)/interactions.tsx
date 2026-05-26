@@ -7,6 +7,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 interface VitalData {
     bp: string;
@@ -29,6 +30,7 @@ interface Interaction {
 
 export default function InteractionsScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const { visitId } = useLocalSearchParams();
     const [interactions, setInteractions] = useState<Interaction[]>([]);
     const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -146,7 +148,7 @@ export default function InteractionsScreen() {
         <SafeAreaView style={styles.safeArea}>
             {/* Header - Centered Perfectly */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Interactions</Text>

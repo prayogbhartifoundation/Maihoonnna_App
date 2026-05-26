@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 const BLOOD_GROUPS_ENUM_MAP: Record<string, string> = {
     'A+': 'A_positive', 'A-': 'A_negative',
@@ -26,6 +27,7 @@ const ENUM_BLOOD_GROUPS_MAP: Record<string, string> = {
 
 export default function HealthInformationScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -106,14 +108,14 @@ export default function HealthInformationScreen() {
                 const result = await response.json();
                 if (result.success) {
                     Alert.alert('Success', 'Health information updated successfully!');
-                    router.back();
+                    safeBack();
                 } else {
                     Alert.alert('Error', result.message || 'Failed to update health info');
                 }
             } else {
                 // Mock Success
                 Alert.alert('Success (Offline Demo)', 'Health information updated successfully!');
-                router.back();
+                safeBack();
             }
         } catch (e) {
             console.error('Error saving health info:', e);
@@ -169,7 +171,7 @@ export default function HealthInformationScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
                     <Feather name="arrow-left" size={20} color="#000000" />
                 </TouchableOpacity>
 

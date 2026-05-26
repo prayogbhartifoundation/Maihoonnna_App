@@ -25,6 +25,7 @@ const DRAWER_WIDTH = width * 0.75;
 
 import GlobalDrawer from '../(subscriber)/components/shared/GlobalDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 type Medication = {
     name: string;
@@ -37,6 +38,7 @@ type Medication = {
 
 export default function MedicalInfoScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const params = useLocalSearchParams();
 
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -131,7 +133,7 @@ export default function MedicalInfoScreen() {
     };
 
     const handleBack = () => {
-        router.back();
+        safeBack();
     };
 
     const addCondition = () => {

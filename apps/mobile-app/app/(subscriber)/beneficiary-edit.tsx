@@ -13,9 +13,11 @@ import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
 import AddMedicineModal, { type Medication } from './components/shared/AddMedicineModal';
 import { AddressInputField } from '../../components/ui/AddressInputField';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function EditBeneficiaryScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const { id } = useLocalSearchParams<{ id: string }>();
 
     const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ export default function EditBeneficiaryScreen() {
             const result = await res.json();
             if (result.success) {
                 Alert.alert('Success', 'Profile updated successfully!');
-                router.back();
+                safeBack();
             } else if (result.errors) {
                 // Specific validation errors from Joi
                 Alert.alert('Validation Error', result.errors.join('\n'));

@@ -8,9 +8,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { API_URL } from '@/constants/api';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function PackageDetailScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const { type } = useLocalSearchParams<{ type: string }>();
     const [pkg, setPkg] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export default function PackageDetailScreen() {
         return (
             <SafeAreaView style={styles.centerContainer}>
                 <Text style={styles.errorText}>Package not found.</Text>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
                     <Text style={styles.backBtnText}>Go Back</Text>
                 </TouchableOpacity>
             </SafeAreaView>
@@ -56,7 +58,7 @@ export default function PackageDetailScreen() {
         <SafeAreaView style={styles.container}>
             {/* Transparent Header Over Gradient */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.headerBtn}>
                     <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Plan Details</Text>

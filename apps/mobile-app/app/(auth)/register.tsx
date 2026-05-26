@@ -17,9 +17,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { API_URL } from '@/constants/api';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function RegisterScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
 
     // Form State
     const [step, setStep] = useState(1);
@@ -140,7 +142,7 @@ export default function RegisterScreen() {
             >
                 <View style={styles.navHeader}>
                     <TouchableOpacity
-                        onPress={() => step === 2 ? setStep(1) : router.back()}
+                        onPress={() => step === 2 ? setStep(1) : safeBack()}
                         style={styles.backBtn}
                     >
                         <Ionicons name="arrow-back" size={22} color="#111827" />

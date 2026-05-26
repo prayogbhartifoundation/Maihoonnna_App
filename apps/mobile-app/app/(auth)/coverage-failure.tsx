@@ -11,10 +11,12 @@ import {
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function CoverageFailureScreen() {
     const [contactInfo, setContactInfo] = useState("");
     const router = useRouter();
+    const safeBack = useSafeBack();
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -24,7 +26,7 @@ export default function CoverageFailureScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <TouchableOpacity onPress={() => safeBack()} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color="#111827" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Service Status</Text>
@@ -69,7 +71,7 @@ export default function CoverageFailureScreen() {
 
                         <TouchableOpacity
                             style={styles.retryButton}
-                            onPress={() => router.back()}
+                            onPress={() => safeBack()}
                         >
                             <Ionicons name="location-outline" size={20} color="#F97316" style={styles.btnIcon} />
                             <Text style={styles.retryButtonText}>Try Another Location</Text>

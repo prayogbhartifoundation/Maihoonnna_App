@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import PackageUtilizationPanel, { DetailedUtilization } from '@/components/shared/PackageUtilizationPanel';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 type SummaryData = {
   type: 'summary';
@@ -18,6 +19,7 @@ type SummaryData = {
 
 export default function PackageUtilizationScreen() {
   const router = useRouter();
+    const safeBack = useSafeBack();
   const { beneficiaryId } = useLocalSearchParams();
   
   const [loading, setLoading] = useState(true);
@@ -66,7 +68,7 @@ export default function PackageUtilizationScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => safeBack()}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Package Utilization</Text>

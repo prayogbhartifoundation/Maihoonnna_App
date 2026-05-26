@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 interface EmergencyContact {
     name: string;
@@ -18,6 +19,7 @@ interface EmergencyContact {
 
 export default function EmergencyContactsScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [contacts, setContacts] = useState<EmergencyContact[]>([]);
@@ -241,7 +243,7 @@ export default function EmergencyContactsScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
                     <Feather name="arrow-left" size={20} color="#000000" />
                 </TouchableOpacity>
 

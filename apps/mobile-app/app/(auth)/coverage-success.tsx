@@ -8,9 +8,11 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function CoverageSuccessScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
 
     const handleProceed = () => {
         // Navigate to the Subscription Setup flow instead of tabs immediately
@@ -20,7 +22,7 @@ export default function CoverageSuccessScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Verification Successful</Text>

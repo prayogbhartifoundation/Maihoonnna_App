@@ -5,9 +5,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function NotificationsScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
 
     const [medPush, setMedPush] = useState(true);
     const [medSms, setMedSms] = useState(true);
@@ -21,7 +23,7 @@ export default function NotificationsScreen() {
 
     const handleSaveChanges = () => {
         Alert.alert('Success', 'Notification preferences saved successfully!');
-        router.back();
+        safeBack();
     };
 
     const FigmaToggle = ({
@@ -51,7 +53,7 @@ export default function NotificationsScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
                     <Feather name="arrow-left" size={20} color="#000000" />
                 </TouchableOpacity>
 

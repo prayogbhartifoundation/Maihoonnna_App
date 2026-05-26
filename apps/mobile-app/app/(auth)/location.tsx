@@ -11,10 +11,12 @@ import {
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function LocationScreen() {
     const [location, setLocation] = useState("");
     const router = useRouter();
+    const safeBack = useSafeBack();
 
     const handleCheckAvailability = () => {
         // Basic mock: if location ends with '0', we "fail"
@@ -33,7 +35,7 @@ export default function LocationScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <TouchableOpacity onPress={() => safeBack()} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color="#111827" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Location</Text>

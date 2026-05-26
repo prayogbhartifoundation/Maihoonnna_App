@@ -7,6 +7,7 @@ import { AddressPicker, SelectedAddress } from '../../components/ui/AddressPicke
 import { API_URL } from '@/constants/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocationPermission } from '../../hooks/useLocationPermission';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function RequestServiceScreen() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -66,7 +67,7 @@ export default function RequestServiceScreen() {
         setTimeout(() => {
           setLoading(false);
           Alert.alert('Success (Demo Mode)', 'Your care service request has been submitted.', [
-            { text: 'OK', onPress: () => router.back() }
+            { text: 'OK', onPress: () => safeBack() }
           ]);
         }, 1000);
         return;
@@ -116,7 +117,7 @@ export default function RequestServiceScreen() {
       
       if (reqData.success) {
         Alert.alert('Success', 'Your care service request has been submitted.', [
-          { text: 'OK', onPress: () => router.back() }
+          { text: 'OK', onPress: () => safeBack() }
         ]);
       } else {
         throw new Error(reqData.message || 'Failed to submit request');
@@ -131,7 +132,7 @@ export default function RequestServiceScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
           <Feather name="arrow-left" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Request Service</Text>

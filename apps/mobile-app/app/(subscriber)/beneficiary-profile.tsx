@@ -20,11 +20,13 @@ import { NextVisitCard } from './components/beneficiary/NextVisitCard';
 import GlobalHeader from './components/shared/GlobalHeader';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 type TabType = 'Timeline' | 'Vitals' | 'Medical';
 
 export default function BeneficiaryProfileScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const params = useLocalSearchParams();
     const { id } = params;
 
@@ -101,7 +103,7 @@ export default function BeneficiaryProfileScreen() {
             <SafeAreaView style={styles.centerContainer}>
                 <Ionicons name="warning-outline" size={48} color="#9CA3AF" style={{ marginBottom: 12 }} />
                 <Text style={styles.notFoundText}>Beneficiary not found.</Text>
-                <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => safeBack()}>
                     <Text style={styles.backBtnText}>← Go Back</Text>
                 </TouchableOpacity>
             </SafeAreaView>

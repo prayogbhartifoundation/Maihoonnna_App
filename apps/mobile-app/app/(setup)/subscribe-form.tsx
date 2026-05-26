@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AddressInputField } from '../../components/ui/AddressInputField';
 
 import { API_URL } from '@/constants/api';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 type PackageDetails = {
     id: string;
@@ -35,6 +36,7 @@ type PackageDetails = {
 
 export default function SubscribeFormScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
     const params = useLocalSearchParams();
 
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -142,7 +144,7 @@ export default function SubscribeFormScreen() {
     };
 
     const handleBack = () => {
-        router.back();
+        safeBack();
     };
 
     if (isCheckingAuth) {

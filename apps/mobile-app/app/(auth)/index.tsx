@@ -125,6 +125,12 @@ export default function AuthScreen() {
           <Text style={styles.bioButtonText}>Biometric Login</Text>
         </TouchableOpacity>
 
+        {/* Password Login Button */}
+        <TouchableOpacity style={styles.passwordButton} onPress={() => router.push("/(auth)/login-password" as any)} disabled={isLoading} activeOpacity={0.85}>
+          <MaterialCommunityIcons name="lock-outline" size={22} color="#111827" style={{ marginRight: 8 }} />
+          <Text style={styles.passwordButtonText}>Login with Password</Text>
+        </TouchableOpacity>
+
         <View style={styles.footer}>
           <View style={styles.signUpRow}>
             <Text style={styles.footerText}>Don't have an account? </Text>
@@ -308,6 +314,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: "#FFFFFF",
+    fontFamily: "Poppins-SemiBold",
+  },
+  passwordButton: {
+    width: 298,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+  passwordButtonText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#111827",
     fontFamily: "Poppins-SemiBold",
   },
   footer: {

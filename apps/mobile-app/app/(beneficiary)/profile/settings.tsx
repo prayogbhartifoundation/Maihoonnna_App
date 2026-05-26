@@ -9,15 +9,17 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function SettingsScreen() {
     const router = useRouter();
+    const safeBack = useSafeBack();
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
                 <TouchableOpacity
-                    onPress={() => router.back()}
+                    onPress={() => safeBack()}
                     style={styles.backBtn}
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
