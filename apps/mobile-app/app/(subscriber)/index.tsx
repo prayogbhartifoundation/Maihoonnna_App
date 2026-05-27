@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView,
     TouchableOpacity, RefreshControl, Image, Platform,
-    Animated, Dimensions, Modal, ActivityIndicator
+    Animated, Dimensions, Modal, ActivityIndicator, ImageBackground
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,19 +38,19 @@ export default function SubscriberDashboardScreen() {
     }, []);
 
     /* ─── API (React Query) ─────────────────────────────────────────────── */
-    const { 
-        data: dashboard, 
-        isLoading: loading, 
-        refetch, 
-        isRefetching: refreshing 
+    const {
+        data: dashboard,
+        isLoading: loading,
+        refetch,
+        isRefetching: refreshing
     } = useQuery({
         queryKey: ['subscriberDashboard'],
         queryFn: async () => {
             const storedToken = await AsyncStorage.getItem('userToken');
-            
-            if (!storedToken) { 
-                router.replace('/(auth)'); 
-                throw new Error("Auth missing"); 
+
+            if (!storedToken) {
+                router.replace('/(auth)');
+                throw new Error("Auth missing");
             }
 
             console.log(`[Dashboard] Fetching from /subscriber/dashboard/me`);
@@ -60,7 +60,7 @@ export default function SubscriberDashboardScreen() {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (!res.ok) {
                 const errorData = await res.json();
                 console.error('[Dashboard] API Error:', errorData);
@@ -92,7 +92,7 @@ export default function SubscriberDashboardScreen() {
     if (loading || !userData) {
         return (
             <SafeAreaView style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#F97316" />
+                <ActivityIndicator size="large" color="#FE6700" />
             </SafeAreaView>
         );
     }
@@ -117,56 +117,78 @@ export default function SubscriberDashboardScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <GlobalHeader 
-                title="Dashboard" 
-                onMenuPress={openDrawer} 
+            <GlobalHeader
+                title="Dashboard"
+                onMenuPress={openDrawer}
             />
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316']} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FE6700']} />}
             >
                 {/* ── Hero Banner ── */}
-                <LinearGradient colors={['#F97316', '#FDBA74']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBanner}>
+                <ImageBackground
+                    source={require("../../assets/images/bg02.png")}
+                    resizeMode="cover"
+                    style={styles.heroBanner}
+                    imageStyle={styles.heroBannerImage}
+                >
+                    <View pointerEvents="none" style={styles.heroCurve} />
                     <Text style={styles.heroGreeting}>Hi {firstName}!</Text>
-                    <Text style={styles.heroSubtitle}>Here's your care summary</Text>
+                    <Text style={styles.heroSubtitle}>{"Here's your care summary"}</Text>
 
                     <View style={styles.statsGrid}>
                         {/* Happiness Score */}
                         <View style={styles.statCard}>
-                            <Text style={styles.statEmoji}>😊</Text>
-                            <Text style={styles.statValue}>{happinessScore}%</Text>
+                            <View style={styles.statTopRow}>
+                                <View style={styles.statEmojiCircle}>
+                                    <Text style={styles.statEmoji}>😊</Text>
+                                </View>
+                                <Text style={styles.statValue}>{happinessScore}%</Text>
+                            </View>
                             <Text style={styles.statLabel}>Happiness Score</Text>
                         </View>
 
                         {/* Visits This Week */}
                         <View style={styles.statCard}>
-                            <MaterialCommunityIcons name="account-heart" size={24} color="#F97316" style={styles.statIcon} />
-                            <Text style={styles.statValue}>{visitsTotal}</Text>
+                            <View style={styles.statTopRow}>
+                                <View style={styles.statIconCirclePink}>
+                                    <MaterialCommunityIcons name="account-heart" size={24} color="#FE6700" />
+                                </View>
+                                <Text style={styles.statValue}>{visitsTotal}</Text>
+                            </View>
                             <Text style={styles.statLabel}>Visits This Week</Text>
                             <Text style={styles.statSub}>{visitsCompleted} completed</Text>
                         </View>
 
                         {/* Active Hours */}
                         <View style={styles.statCard}>
-                            <Ionicons name="hourglass-outline" size={22} color="#F97316" style={styles.statIcon} />
-                            <Text style={styles.statValue}>{activeHours}h</Text>
+                            <View style={styles.statTopRow}>
+                                <View style={styles.statIconCircleBlue}>
+                                    <Ionicons name="hourglass-outline" size={24} color="#2563FF" />
+                                </View>
+                                <Text style={styles.statValue}>{activeHours}h</Text>
+                            </View>
                             <Text style={styles.statLabel}>Active Hours</Text>
-                            <Text style={[styles.statSub, { color: '#F97316' }]}>⏰ {remainingHours}h remaining</Text>
+                            <Text style={[styles.statSub, { color: '#A855F7' }]}>⏰ {remainingHours}h remaining</Text>
                         </View>
 
                         {/* Total Care Plans */}
-                        <LinearGradient colors={['#F97316', '#EA580C']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.statCard, { overflow: 'hidden' }]}>
-                            <Ionicons name="person-outline" size={22} color="#FFF" style={styles.statIcon} />
-                            <Text style={[styles.statValue, { color: '#FFF' }]}>{totalCarePlans}</Text>
+                        <LinearGradient colors={['#FE6700', '#E95200']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.statCard, { overflow: 'hidden' }]}>
+                            <View style={styles.statTopRow}>
+                                <View style={styles.planIconCircle}>
+                                    <Ionicons name="ribbon-outline" size={23} color="#333333" />
+                                </View>
+                                <Text style={[styles.statValue, { color: '#FFF' }]}>{totalCarePlans}</Text>
+                            </View>
                             <Text style={[styles.statLabel, { color: '#FFE4CC' }]}>Total Care Plans</Text>
                             <TouchableOpacity onPress={() => router.push('/(setup)/subscription-packages')}>
                                 <Text style={styles.addMoreText}>＋ Add more →</Text>
                             </TouchableOpacity>
                         </LinearGradient>
                     </View>
-                </LinearGradient>
+                </ImageBackground>
 
                 {/* ── Beneficiaries Section ── */}
                 <View style={styles.sectionHeaderRow}>
@@ -179,7 +201,7 @@ export default function SubscriberDashboardScreen() {
 
                 {beneficiaries.length === 0 ? (
                     <View style={styles.emptyBenCard}>
-                        <Ionicons name="person-add-outline" size={40} color="#F97316" style={{ marginBottom: 12 }} />
+                        <Ionicons name="person-add-outline" size={40} color="#FE6700" style={{ marginBottom: 12 }} />
                         <Text style={styles.emptyTitle}>No Beneficiaries Yet</Text>
                         <Text style={styles.emptySubtitle}>Subscribe to a care plan to add your first beneficiary</Text>
                         <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(setup)/subscription-packages')}>
@@ -256,18 +278,18 @@ export default function SubscriberDashboardScreen() {
                             notes="Requested assistance from Subscriber Dashboard"
                         />
                         <TouchableOpacity style={styles.whatsappBtn}>
-                            <MaterialCommunityIcons name="whatsapp" size={28} color="#F97316" />
+                            <MaterialCommunityIcons name="whatsapp" size={28} color="#FE6700" />
                         </TouchableOpacity>
                     </View>
                 </View>
 
             </ScrollView>
 
-            <GlobalDrawer 
-                isOpen={drawerOpen} 
-                onClose={closeDrawer} 
-                drawerAnim={drawerAnim} 
-                userData={userData} 
+            <GlobalDrawer
+                isOpen={drawerOpen}
+                onClose={closeDrawer}
+                drawerAnim={drawerAnim}
+                userData={userData}
             />
 
         </SafeAreaView>
@@ -282,30 +304,68 @@ const styles = StyleSheet.create({
 
     /* Hero Banner */
     heroBanner: {
-        paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24,
-        marginBottom: 24,
+        paddingHorizontal: 20, paddingTop: 17, paddingBottom: 0,
+        marginBottom: 40,
+        overflow: 'visible',
     },
-    heroGreeting: { fontSize: 24, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
-    heroSubtitle: { fontSize: 14, color: '#FFE4CC', marginBottom: 20 },
+    heroBannerImage: {
+        width: '100%',
+        height: 168,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30
+    },
+    heroCurve: {
+        position: 'absolute',
+        left: -34,
+        right: -34,
+        bottom: -30,
+        height: 94,
+        backgroundColor: '#FAF5F0',
+        borderTopLeftRadius: 160,
+        borderTopRightRadius: 160,
+        zIndex: 0
+    },
+    heroGreeting: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 0, zIndex: 1 },
+    heroSubtitle: { display: 'none' },
 
     statsGrid: {
-        flexDirection: 'row', flexWrap: 'wrap', gap: 12,
+        flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 14,
+        marginTop: 31,
+        zIndex: 1,
     },
     statCard: {
-        width: (width - 40 - 12) / 2,
+        width: (width - 40 - 14) / 2,
+        height: 128,
         backgroundColor: '#FFFFFF',
-        borderRadius: 14, padding: 14,
+        borderRadius: 12, paddingHorizontal: 18, paddingTop: 20,
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
-            android: { elevation: 3 },
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.16, shadowRadius: 10 },
+            android: { elevation: 5 },
         }),
     },
-    statEmoji: { fontSize: 24, marginBottom: 6 },
-    statIcon: { marginBottom: 6 },
-    statValue: { fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 2 },
-    statLabel: { fontSize: 12, color: '#6B7280', marginBottom: 2 },
-    statSub: { fontSize: 11, color: '#9CA3AF' },
-    addMoreText: { fontSize: 11, color: '#FFE4CC', marginTop: 4 },
+    statTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    statEmojiCircle: {
+        width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFE8CE',
+        alignItems: 'center', justifyContent: 'center', marginRight: 10
+    },
+    statEmoji: { fontSize: 24 },
+    statIconCirclePink: {
+        width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFE1E6',
+        alignItems: 'center', justifyContent: 'center', marginRight: 10
+    },
+    statIconCircleBlue: {
+        width: 40, height: 40, borderRadius: 12, backgroundColor: '#DDEBFF',
+        alignItems: 'center', justifyContent: 'center', marginRight: 10
+    },
+    planIconCircle: {
+        width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF',
+        alignItems: 'center', justifyContent: 'center', marginRight: 12
+    },
+    statIcon: { marginBottom: 0 },
+    statValue: { fontSize: 24, fontWeight: '700', color: '#111111', marginBottom: 0 },
+    statLabel: { fontSize: 14, color: '#4B5563', marginBottom: 3 },
+    statSub: { fontSize: 13, color: '#A3A3A3' },
+    addMoreText: { fontSize: 13, color: '#FFFFFF', marginTop: 5 },
 
     /* Sections */
     sectionHeaderRow: {
@@ -314,11 +374,11 @@ const styles = StyleSheet.create({
     },
     sectionTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
     addBtn: {
-        backgroundColor: '#F97316', flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#FE6700', flexDirection: 'row', alignItems: 'center',
         paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20
     },
     addBtnText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-    viewAllText: { fontSize: 13, fontWeight: '500', color: '#F97316' },
+    viewAllText: { fontSize: 13, fontWeight: '500', color: '#FE6700' },
 
     /* Empty state */
     emptyBenCard: {
@@ -331,7 +391,7 @@ const styles = StyleSheet.create({
     },
     emptyTitle: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 6 },
     emptySubtitle: { fontSize: 13, color: '#6B7280', textAlign: 'center', marginBottom: 18, lineHeight: 20 },
-    emptyBtn: { backgroundColor: '#F97316', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+    emptyBtn: { backgroundColor: '#FE6700', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
     emptyBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
 
     /* Beneficiary Card */
@@ -365,7 +425,7 @@ const styles = StyleSheet.create({
     updateTitle: { fontSize: 14, fontWeight: '600', color: '#111827', flex: 1 },
     updateDate: { fontSize: 11, color: '#9CA3AF', marginBottom: 6 },
     updateBody: { fontSize: 13, color: '#4B5563', lineHeight: 18 },
-    newBadge: { backgroundColor: '#F97316', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+    newBadge: { backgroundColor: '#FE6700', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
     newBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
 
     /* Assistance Card */
@@ -382,10 +442,10 @@ const styles = StyleSheet.create({
     assistanceSub: { fontSize: 14, color: '#4B5563', lineHeight: 20 },
     assistanceActions: { flexDirection: 'row', alignItems: 'center' },
     callbackBtn: {
-        flex: 1, flexDirection: 'row', borderWidth: 1, borderColor: '#F97316', borderRadius: 12,
+        flex: 1, flexDirection: 'row', borderWidth: 1, borderColor: '#FE6700', borderRadius: 12,
         height: 50, alignItems: 'center', justifyContent: 'center', marginRight: 15
     },
-    callbackText: { color: '#F97316', fontWeight: '600', fontSize: 15 },
+    callbackText: { color: '#FE6700', fontWeight: '600', fontSize: 15 },
     whatsappBtn: {
         width: 50, height: 50, borderRadius: 12, backgroundColor: '#FFF5ED',
         justifyContent: 'center', alignItems: 'center'

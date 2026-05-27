@@ -5,10 +5,12 @@ import {
     StyleSheet,
     SafeAreaView,
     ScrollView,
-    TouchableOpacity
+    TouchableOpacity,
+    Image
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { CallbackButton } from '../../components/CallbackButton';
 
 export default function PaymentSuccessScreen() {
     const router = useRouter();
@@ -45,7 +47,7 @@ export default function PaymentSuccessScreen() {
                 {/* Top Success Area */}
                 <View style={styles.successArea}>
                     <View style={styles.checkmarkCircle}>
-                        <Ionicons name="checkmark" size={32} color="#10B981" />
+                        <Ionicons name="checkmark-circle-outline" size={48} color="#00A651" />
                     </View>
                     <Text style={styles.successTitle}>Payment Successful!</Text>
                     <Text style={styles.successSubtitle}>
@@ -56,7 +58,7 @@ export default function PaymentSuccessScreen() {
                 {/* Order Details Ribbon */}
                 <View style={styles.orderRibbon}>
                     <Ionicons name="cube-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                    <View>
+                    <View style={{ flex: 1 }}>
                         <Text style={styles.ribbonTitle}>Order Details</Text>
                         <Text style={styles.ribbonId}>Order ID: {orderId}</Text>
                     </View>
@@ -80,7 +82,7 @@ export default function PaymentSuccessScreen() {
                         <Text style={styles.includesTitle}>Package Includes:</Text>
                         {getPackageIncludes().map((item, index) => (
                             <View key={index} style={styles.bulletRow}>
-                                <Ionicons name="checkmark-circle-outline" size={14} color="#F97316" style={{ marginRight: 6 }} />
+                                <Ionicons name="checkmark-circle" size={18} color="#FE6700" style={{ marginRight: 12 }} />
                                 <Text style={styles.bulletText}>{item}</Text>
                             </View>
                         ))}
@@ -91,7 +93,7 @@ export default function PaymentSuccessScreen() {
                     {/* Dates & Payment */}
                     <View style={styles.detailRow}>
                         <View style={styles.iconBoxBlue}>
-                            <Ionicons name="calendar-outline" size={16} color="#3B82F6" />
+                            <Ionicons name="calendar-outline" size={21} color="#FE6700" />
                         </View>
                         <View>
                             <Text style={styles.detailLabel}>Purchase Date</Text>
@@ -101,7 +103,7 @@ export default function PaymentSuccessScreen() {
 
                     <View style={styles.detailRow}>
                         <View style={styles.iconBoxGreen}>
-                            <Ionicons name="calendar" size={16} color="#10B981" />
+                            <Ionicons name="calendar" size={21} color="#FE6700" />
                         </View>
                         <View>
                             <Text style={styles.detailLabel}>Service Activation</Text>
@@ -111,7 +113,7 @@ export default function PaymentSuccessScreen() {
 
                     <View style={styles.detailRow}>
                         <View style={styles.iconBoxPurple}>
-                            <Ionicons name="card-outline" size={16} color="#8B5CF6" />
+                            <Ionicons name="card-outline" size={21} color="#FE6700" />
                         </View>
                         <View>
                             <Text style={styles.detailLabel}>Payment Method</Text>
@@ -123,7 +125,7 @@ export default function PaymentSuccessScreen() {
 
                 {/* What's Next Card */}
                 <View style={styles.whatsNextCard}>
-                    <Text style={styles.whatsNextTitle}>What's Next?</Text>
+                    <Text style={styles.whatsNextTitle}>{"What's Next?"}</Text>
                     <Text style={styles.whatsNextSub}>Follow these steps to get started</Text>
 
                     {/* Steps */}
@@ -131,7 +133,7 @@ export default function PaymentSuccessScreen() {
                         <View style={styles.stepNumberCircle}><Text style={styles.stepNumber}>1</Text></View>
                         <View style={styles.stepContent}>
                             <Text style={styles.stepTitle}>Check Your Email</Text>
-                            <Text style={styles.stepDesc}>We've sent a confirmation email with your subscription details and invoice</Text>
+                            <Text style={styles.stepDesc}>{"We've sent a confirmation email with your subscription details and invoice"}</Text>
                         </View>
                     </View>
 
@@ -150,38 +152,54 @@ export default function PaymentSuccessScreen() {
                             <Text style={styles.stepDesc}>Our team will assign a dedicated care companion within 24 hours</Text>
                         </View>
                     </View>
+                </View>
 
-                    {/* Actions */}
-                    <TouchableOpacity style={styles.enrollBtn} onPress={() => router.replace('/(subscriber)')}>
-                        <Text style={styles.enrollBtnText}>Enroll Beneficiary</Text>
-                        <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                    </TouchableOpacity>
+                {/* Actions */}
+                <TouchableOpacity style={styles.enrollBtn} onPress={() => router.replace('/(subscriber)')}>
+                    <Text style={styles.enrollBtnText}>Enroll Beneficiary</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.outlineBtn} onPress={() => router.replace('/(subscriber)')}>
-                        <Ionicons name="home-outline" size={16} color="#374151" style={{ marginRight: 8 }} />
-                        <Text style={styles.outlineBtnText}>Go to Dashboard</Text>
-                    </TouchableOpacity>
+                <TouchableOpacity style={styles.outlineBtn} onPress={() => router.replace('/(subscriber)')}>
+                    <Ionicons name="home-outline" size={19} color="#FE6700" style={{ marginRight: 8 }} />
+                    <Text style={styles.outlineBtnText}>Go to Dashboard</Text>
+                </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.linkBtn}>
-                        <Ionicons name="download-outline" size={14} color="#4B5563" style={{ marginRight: 6 }} />
-                        <Text style={styles.linkBtnText}>Download Invoice</Text>
-                    </TouchableOpacity>
+                <TouchableOpacity style={styles.linkBtn}>
+                    <Ionicons name="download-outline" size={16} color="#050505" style={{ marginRight: 6 }} />
+                    <Text style={styles.linkBtnText}>Download Invoice</Text>
+                </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.linkBtn}>
+                {/*<TouchableOpacity style={styles.linkBtn}>
                         <Ionicons name="chatbubble-outline" size={14} color="#4B5563" style={{ marginRight: 6 }} />
                         <Text style={styles.linkBtnText}>Contact Support</Text>
-                    </TouchableOpacity>
-                </View>
+                    </TouchableOpacity>*/}
 
                 {/* Support Card */}
                 <View style={styles.supportCard}>
-                    <Text style={styles.supportTitle}>Need help getting started?</Text>
-                    <Text style={styles.supportDesc}>Our support team is available 24/7 to assist you</Text>
-                    <View style={styles.supportBox}>
-                        <Text style={styles.supportBoxText}>Call: 1800-XXX-XXXX</Text>
+                    <View style={styles.supportHeader}>
+                        <Image
+                            source={require('../../assets/images/assistance.png')}
+                            style={styles.supportImage}
+                            resizeMode="contain"
+                        />
+                        <View style={styles.supportTextContainer}>
+                            <Text style={styles.supportTitle}>Need assistance?</Text>
+                            <Text style={styles.supportDesc}>
+                                Our experts are here to help you choose the right plan via Phone or WhatsApp.
+                            </Text>
+                        </View>
                     </View>
-                    <View style={styles.supportBox}>
-                        <Text style={styles.supportBoxText}>Email: support@eldercare.com</Text>
+                    <View style={styles.supportButtonsRow}>
+                        <CallbackButton
+                            style={styles.callbackBtn}
+                            textStyle={styles.callbackBtnText}
+                            label="Request Callback"
+                            notes="Requested from payment success screen"
+                        />
+                        <TouchableOpacity style={styles.chatBtn}>
+                            <Ionicons name="chatbubbles" size={34} color="#FE6700" />
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -191,89 +209,103 @@ export default function PaymentSuccessScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FFF5ED' },
-    scrollContent: { padding: 20, paddingBottom: 40 },
+    safeArea: { flex: 1, backgroundColor: '#FDEFE5' },
+    scrollContent: { paddingHorizontal: 18, paddingTop: 36, paddingBottom: 32, maxWidth: 430, width: '100%', alignSelf: 'center' },
 
-    successArea: { alignItems: 'center', marginTop: 20, marginBottom: 30 },
+    successArea: { alignItems: 'center', marginBottom: 34 },
     checkmarkCircle: {
-        width: 64, height: 64, borderRadius: 32, backgroundColor: '#D1FAE5',
-        alignItems: 'center', justifyContent: 'center', marginBottom: 16
+        width: 80, height: 80, borderRadius: 40, backgroundColor: '#D5FBDD',
+        alignItems: 'center', justifyContent: 'center', marginBottom: 20
     },
-    successTitle: { fontSize: 24, fontWeight: '700', color: '#111827', marginBottom: 8 },
-    successSubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+    successTitle: { fontSize: 29, fontWeight: '500', color: '#050505', marginBottom: 8 },
+    successSubtitle: { fontSize: 18, color: '#111111', textAlign: 'center', lineHeight: 27, fontWeight: '400' },
 
     orderRibbon: {
-        backgroundColor: '#F97316', padding: 16, flexDirection: 'row', alignItems: 'center',
-        borderTopLeftRadius: 12, borderTopRightRadius: 12, marginTop: 10
+        backgroundColor: '#FE6700', paddingVertical: 14, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center',
+        borderTopLeftRadius: 6, borderTopRightRadius: 6
     },
-    ribbonTitle: { color: '#FFEBE0', fontSize: 12, fontWeight: '500' },
-    ribbonId: { color: '#FFFFFF', fontSize: 14, fontWeight: '600', marginTop: 2 },
+    ribbonTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+    ribbonId: { color: '#FFFFFF', fontSize: 15, fontWeight: '400', marginTop: 1 },
 
     invoiceCard: {
-        backgroundColor: '#FFFFFF', padding: 24,
-        borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+        backgroundColor: '#FFFFFF', paddingHorizontal: 24, paddingTop: 28, paddingBottom: 30,
+        borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
+        shadowColor: '#7A4A28', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.18, shadowRadius: 22, elevation: 5,
         marginBottom: 24
     },
-    invoiceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-    packageName: { fontSize: 18, fontWeight: '700', color: '#111827' },
-    packageDuration: { fontSize: 12, color: '#6B7280', marginTop: 4 },
-    packagePrice: { fontSize: 20, fontWeight: '700', color: '#F97316' },
-    perMonth: { fontSize: 10, color: '#9CA3AF', marginTop: 2 },
+    invoiceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+    packageName: { fontSize: 20, fontWeight: '400', color: '#050505' },
+    packageDuration: { fontSize: 14, color: '#3B3B3B', marginTop: 0 },
+    packagePrice: { fontSize: 25, fontWeight: '700', color: '#FE6700' },
+    perMonth: { fontSize: 15, color: '#3B3B3B', marginTop: 0, textAlign: 'right' },
 
-    includesBox: { backgroundColor: '#F9FAFB', borderRadius: 8, padding: 16, marginBottom: 20 },
-    includesTitle: { fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 10 },
-    bulletRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-    bulletText: { fontSize: 12, color: '#4B5563' },
+    includesBox: { backgroundColor: '#F7F7F7', borderRadius: 9, paddingHorizontal: 16, paddingVertical: 18, marginBottom: 16 },
+    includesTitle: { fontSize: 13, fontWeight: '400', color: '#3A3A3A', marginBottom: 14 },
+    bulletRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 13 },
+    bulletText: { fontSize: 14, color: '#181818', fontWeight: '400' },
 
-    separator: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 20 },
+    separator: { height: 1, backgroundColor: '#E5E2DE', marginBottom: 20 },
 
     detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    iconBoxBlue: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-    iconBoxGreen: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-    iconBoxPurple: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#F5F3FF', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-    detailLabel: { fontSize: 11, color: '#6B7280', marginBottom: 2 },
-    detailValue: { fontSize: 14, fontWeight: '600', color: '#111827' },
-    detailSub: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+    iconBoxBlue: { width: 40, height: 40, borderRadius: 9, backgroundColor: '#FFE2CB', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    iconBoxGreen: { width: 40, height: 40, borderRadius: 9, backgroundColor: '#FFE2CB', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    iconBoxPurple: { width: 40, height: 40, borderRadius: 9, backgroundColor: '#FFE2CB', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    detailLabel: { fontSize: 13, color: '#3B3B3B', marginBottom: 1, fontWeight: '400' },
+    detailValue: { fontSize: 16, fontWeight: '400', color: '#050505' },
+    detailSub: { fontSize: 13, color: '#3B3B3B', marginTop: 4 },
 
     whatsNextCard: {
-        backgroundColor: '#FFFFFF', padding: 24, borderRadius: 12,
-        borderWidth: 1, borderColor: '#F3F4F6', marginBottom: 24
+        backgroundColor: '#FFFFFF', paddingHorizontal: 24, paddingTop: 22, paddingBottom: 20, borderRadius: 16,
+        shadowColor: '#7A4A28', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 4,
+        marginBottom: 24
     },
-    whatsNextTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 4 },
-    whatsNextSub: { fontSize: 13, color: '#6B7280', marginBottom: 24 },
+    whatsNextTitle: { fontSize: 16, fontWeight: '400', color: '#050505', marginBottom: 4 },
+    whatsNextSub: { fontSize: 15, color: '#3B3B3B', marginBottom: 28 },
 
     stepRow: { flexDirection: 'row', marginBottom: 20 },
     stepNumberCircle: {
-        width: 24, height: 24, borderRadius: 12, backgroundColor: '#F97316',
-        alignItems: 'center', justifyContent: 'center', marginRight: 16
+        width: 32, height: 32, borderRadius: 16, backgroundColor: '#FE6700',
+        alignItems: 'center', justifyContent: 'center', marginRight: 16, marginTop: 1
     },
-    stepNumber: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+    stepNumber: { color: '#FFFFFF', fontSize: 15, fontWeight: '500' },
     stepContent: { flex: 1 },
-    stepTitle: { fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 4 },
-    stepDesc: { fontSize: 12, color: '#6B7280', lineHeight: 18 },
+    stepTitle: { fontSize: 16, fontWeight: '400', color: '#050505', marginBottom: 4 },
+    stepDesc: { fontSize: 14, color: '#3B3B3B', lineHeight: 20 },
 
     enrollBtn: {
-        backgroundColor: '#F97316', paddingVertical: 14, borderRadius: 8,
-        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10, marginBottom: 16
+        backgroundColor: '#FE6700', height: 49, borderRadius: 7,
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 18
     },
-    enrollBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600', marginRight: 8 },
+    enrollBtnText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginRight: 10 },
 
     outlineBtn: {
-        borderWidth: 1, borderColor: '#E5E7EB', paddingVertical: 14, borderRadius: 8,
-        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24
+        borderWidth: 1, borderColor: '#FE6700', height: 48, borderRadius: 7,
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 22,
+        backgroundColor: '#FFFFFF'
     },
-    outlineBtnText: { color: '#374151', fontSize: 14, fontWeight: '600' },
+    outlineBtnText: { color: '#FE6700', fontSize: 14, fontWeight: '600' },
 
-    linkBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8 },
-    linkBtnText: { color: '#4B5563', fontSize: 12, fontWeight: '500' },
+    linkBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, marginBottom: 22 },
+    linkBtnText: { color: '#050505', fontSize: 15, fontWeight: '400' },
 
     supportCard: {
-        backgroundColor: '#FFFFFF', padding: 24, borderRadius: 12,
-        alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6'
+        backgroundColor: '#FFFFFF', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 28, borderRadius: 16,
+        shadowColor: '#7A4A28', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 4
     },
-    supportTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 4 },
-    supportDesc: { fontSize: 12, color: '#6B7280', textAlign: 'center', marginBottom: 16 },
-    supportBox: { borderWidth: 1, borderColor: '#E5E7EB', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, marginBottom: 10, width: '100%', alignItems: 'center' },
-    supportBoxText: { fontSize: 12, color: '#374151', fontWeight: '500' }
+    supportHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 22 },
+    supportImage: { width: 88, height: 88, marginRight: 14 },
+    supportTextContainer: { flex: 1 },
+    supportTitle: { fontSize: 23, fontWeight: '700', color: '#111111', marginBottom: 12 },
+    supportDesc: { fontSize: 18, color: '#111111', lineHeight: 28, fontWeight: '400' },
+    supportButtonsRow: { flexDirection: 'row', alignItems: 'center' },
+    callbackBtn: {
+        flex: 1, borderWidth: 1, borderColor: '#FE6700', height: 48, borderRadius: 9,
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginRight: 12,
+        backgroundColor: '#FFFFFF'
+    },
+    callbackBtnText: { color: '#FE6700', fontSize: 15, fontWeight: '700' },
+    chatBtn: {
+        width: 48, height: 48, borderRadius: 9, backgroundColor: '#FFFFFF',
+        alignItems: 'center', justifyContent: 'center'
+    }
 });

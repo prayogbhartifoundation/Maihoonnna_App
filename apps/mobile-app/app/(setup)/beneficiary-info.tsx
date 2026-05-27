@@ -14,6 +14,7 @@ import { useLocationPermission } from '../../hooks/useLocationPermission';
 import { PhotoPickerInput } from '../../components/ui/PhotoPickerInput';
 import { AddressInputField } from '../../components/ui/AddressInputField';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
@@ -67,6 +68,31 @@ export default function BeneficiaryInfoScreen() {
         latitude: 0,
         longitude: 0,
     });
+
+    const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+
+    const handleDobChange = (text: string) => {
+        let cleaned = text.replace(/\D/g, '');
+        let formatted = cleaned;
+        if (cleaned.length > 2) {
+            formatted = cleaned.substring(0, 2) + '/' + cleaned.substring(2);
+        }
+        if (cleaned.length > 4) {
+            formatted = formatted.substring(0, 5) + '/' + cleaned.substring(4);
+        }
+        if (formatted.length > 10) {
+            formatted = formatted.substring(0, 10);
+        }
+        setBeneficiaryForm({ ...beneficiaryForm, dob: formatted });
+    };
+
+    const handleConfirmDate = (date: Date) => {
+        setDatePickerVisibility(false);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        setBeneficiaryForm({ ...beneficiaryForm, dob: `${day}/${month}/${year}` });
+    };
 
     const handleNext = () => {
         router.push({
@@ -144,9 +170,12 @@ export default function BeneficiaryInfoScreen() {
                                 currentUri={pickedPhotoUri}
                                 onPhotoSelected={(uri) => setPickedPhotoUri(uri)}
                                 onPhotoClear={() => setPickedPhotoUri(null)}
-                                size={120}
+                                size={108}
+                                width={190}
+                                height={119}
                                 shape="square"
-                                accentColor="#F97316"
+                                accentColor="#FE6700"
+                                emptyImageSource={require("../../assets/images/camera.png")}
                                 label="Upload Photo"
                                 hint="Add a clear photo for identification"
                             />
@@ -170,12 +199,21 @@ export default function BeneficiaryInfoScreen() {
                             <View style={styles.inputWithIcon}>
                                 <TextInput
                                     style={styles.flexInput}
-                                    placeholder="dd-mm-yyyy"
+                                    placeholder="dd/mm/yyyy"
                                     placeholderTextColor="#9CA3AF"
+                                    keyboardType="numeric"
                                     value={beneficiaryForm.dob}
-                                    onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, dob: t })}
+                                    onChangeText={handleDobChange}
                                 />
-                                <Ionicons name="calendar-outline" size={20} color="#4B5563" />
+                                <TouchableOpacity onPress={() => {
+                                    if (Platform.OS === 'web') {
+                                        alert("Please type the date directly (dd/mm/yyyy). The calendar picker will work natively on the mobile app.");
+                                    } else {
+                                        setDatePickerVisibility(true);
+                                    }
+                                }}>
+                                    <Ionicons name="calendar-outline" size={20} color="#4B5563" />
+                                </TouchableOpacity>
                             </View>
                         </View>
 
@@ -214,7 +252,7 @@ export default function BeneficiaryInfoScreen() {
                         {/* Relationship Dropdown */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Relationship to Subscriber *</Text>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.inputWithIcon}
                                 onPress={() => setShowRelationshipModal(true)}
                             >
@@ -359,52 +397,59 @@ export default function BeneficiaryInfoScreen() {
 
                 </ScrollView>
 
-            {/* Relationship Selection Modal */}
-            <Modal visible={showRelationshipModal} transparent animationType="slide">
-                <Pressable style={styles.modalOverlay} onPress={() => setShowRelationshipModal(false)}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Select Relationship</Text>
-                            <TouchableOpacity onPress={() => setShowRelationshipModal(false)}>
-                                <Ionicons name="close" size={24} color="#111827" />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView>
-                            {relationships.map((rel) => (
-                                <TouchableOpacity 
-                                    key={rel} 
-                                    style={[
-                                        styles.optionBtn,
-                                        beneficiaryForm.relationship === rel && styles.optionBtnActive
-                                    ]}
-                                    onPress={() => {
-                                        setBeneficiaryForm({ ...beneficiaryForm, relationship: rel });
-                                        setShowRelationshipModal(false);
-                                    }}
-                                >
-                                    <Text style={[
-                                        styles.optionText,
-                                        beneficiaryForm.relationship === rel && styles.optionTextActive
-                                    ]}>{rel}</Text>
-                                    {beneficiaryForm.relationship === rel && (
-                                        <Ionicons name="checkmark-circle" size={20} color="#F97316" />
-                                    )}
+                {/* Relationship Selection Modal */}
+                <Modal visible={showRelationshipModal} transparent animationType="slide">
+                    <Pressable style={styles.modalOverlay} onPress={() => setShowRelationshipModal(false)}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Select Relationship</Text>
+                                <TouchableOpacity onPress={() => setShowRelationshipModal(false)}>
+                                    <Ionicons name="close" size={24} color="#111827" />
                                 </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                </Pressable>
-            </Modal>
+                            </View>
+                            <ScrollView>
+                                {relationships.map((rel) => (
+                                    <TouchableOpacity
+                                        key={rel}
+                                        style={[
+                                            styles.optionBtn,
+                                            beneficiaryForm.relationship === rel && styles.optionBtnActive
+                                        ]}
+                                        onPress={() => {
+                                            setBeneficiaryForm({ ...beneficiaryForm, relationship: rel });
+                                            setShowRelationshipModal(false);
+                                        }}
+                                    >
+                                        <Text style={[
+                                            styles.optionText,
+                                            beneficiaryForm.relationship === rel && styles.optionTextActive
+                                        ]}>{rel}</Text>
+                                        {beneficiaryForm.relationship === rel && (
+                                            <Ionicons name="checkmark-circle" size={20} color="#F97316" />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </Pressable>
+                </Modal>
 
-            {/* Address Picker Modal handled internally by AddressInputField */}
+                {/* Address Picker Modal handled internally by AddressInputField */}
+
+                <DateTimePickerModal
+                    isVisible={isDatePickerVisible}
+                    mode="date"
+                    onConfirm={handleConfirmDate}
+                    onCancel={() => setDatePickerVisibility(false)}
+                />
 
             </KeyboardAvoidingView>
 
-            <GlobalDrawer 
-                isOpen={drawerOpen} 
-                onClose={closeDrawer} 
-                drawerAnim={drawerAnim} 
-                userData={userData} 
+            <GlobalDrawer
+                isOpen={drawerOpen}
+                onClose={closeDrawer}
+                drawerAnim={drawerAnim}
+                userData={userData}
             />
         </SafeAreaView>
     );

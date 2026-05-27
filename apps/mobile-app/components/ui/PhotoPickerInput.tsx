@@ -36,6 +36,7 @@ import {
   ActionSheetIOS,
   ActivityIndicator,
 } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -51,6 +52,9 @@ interface PhotoPickerInputProps {
   label?: string;
   hint?: string;
   editable?: boolean;
+  width?: number;
+  height?: number;
+  emptyImageSource?: ImageSourcePropType;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -65,12 +69,18 @@ export function PhotoPickerInput({
   label = 'Upload Photo',
   hint,
   editable = true,
+  width,
+  height,
+  emptyImageSource,
 }: PhotoPickerInputProps) {
   const [showSheet, setShowSheet] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const borderRadius = shape === 'circle' ? size / 2 : 14;
-  const badgeSize = Math.max(26, Math.round(size * 0.25));
+  const boxWidth = width ?? size;
+  const boxHeight = height ?? size;
+  const minBoxSize = Math.min(boxWidth, boxHeight);
+  const borderRadius = shape === 'circle' ? minBoxSize / 2 : 14;
+  const badgeSize = Math.max(26, Math.round(minBoxSize * 0.25));
 
   // ── Permission + picker logic ──────────────────────────────────────────────
 
@@ -98,17 +108,17 @@ export function PhotoPickerInput({
       const result =
         source === 'camera'
           ? await ImagePicker.launchCameraAsync({
-              mediaTypes: ['images'],
-              quality: 0.85,
-              allowsEditing: true,
-              aspect: [1, 1],
-            })
+            mediaTypes: ['images'],
+            quality: 0.85,
+            allowsEditing: true,
+            aspect: [1, 1],
+          })
           : await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              quality: 0.85,
-              allowsEditing: true,
-              aspect: [1, 1],
-            });
+            mediaTypes: ['images'],
+            quality: 0.85,
+            allowsEditing: true,
+            aspect: [1, 1],
+          });
 
       if (!result.canceled && result.assets.length > 0) {
         onPhotoSelected(result.assets[0].uri);
@@ -153,12 +163,13 @@ export function PhotoPickerInput({
         style={[
           styles.box,
           {
-            width: size,
-            height: size,
+            width: boxWidth,
+            height: boxHeight,
             borderRadius,
-            borderColor: hasPhoto ? accentColor : '#D1D5DB',
-            borderWidth: hasPhoto ? 2 : 1.5,
-            borderStyle: hasPhoto ? 'solid' : 'dashed',
+            borderColor: hasPhoto ? accentColor : emptyImageSource ? 'transparent' : '#D1D5DB',
+            borderWidth: hasPhoto ? 2 : emptyImageSource ? 0 : 1.5,
+            borderStyle: hasPhoto ? 'solid' : emptyImageSource ? 'solid' : 'dashed',
+            backgroundColor: emptyImageSource && !hasPhoto ? 'transparent' : '#F9FAFB',
           },
         ]}
         onPress={handlePress}
@@ -170,8 +181,14 @@ export function PhotoPickerInput({
         ) : hasPhoto ? (
           <Image
             source={{ uri: currentUri! }}
-            style={{ width: size, height: size, borderRadius }}
+            style={{ width: boxWidth, height: boxHeight, borderRadius }}
             resizeMode="cover"
+          />
+        ) : emptyImageSource ? (
+          <Image
+            source={emptyImageSource}
+            style={[StyleSheet.absoluteFillObject, { width: boxWidth, height: boxHeight }]}
+            resizeMode="stretch"
           />
         ) : (
           <>
@@ -181,7 +198,7 @@ export function PhotoPickerInput({
         )}
 
         {/* Badge */}
-        {editable && !loading && (
+        {editable && !loading && (hasPhoto || !emptyImageSource) && (
           <View
             style={[
               styles.badge,
@@ -274,7 +291,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
-    overflow: 'hidden',
+    overflow: 'visible',
     position: 'relative',
   },
   label: {

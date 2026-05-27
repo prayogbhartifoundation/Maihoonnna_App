@@ -49,10 +49,10 @@ export default function BeneficiaryProfileScreen() {
     };
 
     /* ─── API (React Query) ─────────────────────────────────────────────── */
-    const { 
-        data: beneficiary, 
+    const {
+        data: beneficiary,
         isLoading: loading,
-        refetch 
+        refetch
     } = useQuery({
         queryKey: ['beneficiary', id],
         queryFn: async () => {
@@ -60,16 +60,16 @@ export default function BeneficiaryProfileScreen() {
                 AsyncStorage.getItem('userData'),
                 AsyncStorage.getItem('userToken')
             ]);
-            
+
             if (storedUser) setUserData(JSON.parse(storedUser));
-            
-            if (!storedUser || !storedToken) { 
-                router.replace('/(auth)'); 
+
+            if (!storedUser || !storedToken) {
+                router.replace('/(auth)');
                 throw new Error("Auth missing");
             }
 
             const res = await fetch(`${API_URL}/subscriber/beneficiaries/${id}/profile`, {
-                headers: { 
+                headers: {
                     'Authorization': `Bearer ${storedToken}`,
                     'Content-Type': 'application/json'
                 }
@@ -115,10 +115,10 @@ export default function BeneficiaryProfileScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <GlobalHeader 
-                title="Beneficiary Details" 
-                onMenuPress={openDrawer} 
-                showBack={true} 
+            <GlobalHeader
+                title="Beneficiary Details"
+                onMenuPress={openDrawer}
+                showBack={true}
                 rightIcon="pencil"
                 onRightIconPress={() => router.push({
                     pathname: '/(subscriber)/beneficiary-edit',
@@ -134,7 +134,7 @@ export default function BeneficiaryProfileScreen() {
                         source={require("../../assets/images/bg01.png")}
                         style={styles.heroGradient}
                         imageStyle={styles.heroImage}
-                        resizeMode="cover"
+                        resizeMode="stretch"
                     >
                         <LinearGradient colors={['rgba(249,115,22,0.38)', 'rgba(253,186,116,0.24)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroOverlay} />
                     </ImageBackground>
@@ -259,11 +259,11 @@ export default function BeneficiaryProfileScreen() {
 
             </ScrollView>
 
-            <GlobalDrawer 
-                isOpen={drawerOpen} 
-                onClose={closeDrawer} 
-                drawerAnim={drawerAnim} 
-                userData={userData} 
+            <GlobalDrawer
+                isOpen={drawerOpen}
+                onClose={closeDrawer}
+                drawerAnim={drawerAnim}
+                userData={userData}
             />
         </SafeAreaView>
     );
@@ -284,12 +284,15 @@ const styles = StyleSheet.create({
         paddingBottom: 0,
     },
     heroGradient: {
+        width: '100%',
         height: 151,
         overflow: 'hidden',
         borderBottomLeftRadius: 23,
         borderBottomRightRadius: 23,
     },
     heroImage: {
+        width: '100%',
+        height: '100%',
         borderBottomLeftRadius: 23,
         borderBottomRightRadius: 23,
     },
