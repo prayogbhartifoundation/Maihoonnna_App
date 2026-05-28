@@ -307,6 +307,10 @@ export const checkOut = async (data: {
       const recordedBy = careCompanion?.userId || existingVisit.careCompanionId;
 
       for (const item of (data as any).medicationsList) {
+        // Skip fake medication IDs sent by frontend fallbacks
+        const validUUIDRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!validUUIDRegex.test(item.medicationId)) continue;
+
         await tx.medicationAdherence.deleteMany({
           where: {
             visitId: visit.id,

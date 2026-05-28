@@ -33,11 +33,11 @@ export const checkOutSchema = Joi.object({
       valueText: Joi.string().allow('', null).optional(),
     })
   ).optional(),
-  mood: Joi.string().valid('happy', 'neutral', 'sad', 'depressed').optional(),
+  mood: Joi.string().valid('happy', 'neutral', 'sad', 'anxious', 'depressed').optional(),
   medicationAdherence: Joi.boolean().default(false),
   medicationsList: Joi.array().items(
     Joi.object({
-      medicationId: Joi.string().uuid().required(),
+      medicationId: Joi.string().required(),
       taken: Joi.boolean().required(),
     })
   ).optional(),

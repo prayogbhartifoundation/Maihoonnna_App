@@ -11,6 +11,25 @@ import LocationPickerModal from '../components/common/LocationPickerModal';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001/api';
 
+const authFetch = (url: string, options: RequestInit = {}) => {
+  let token = '';
+  try {
+    const saved = localStorage.getItem('maihonna_user');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      token = parsed.accessToken || parsed.token;
+    }
+  } catch (e) {}
+  
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  });
+};
+
 interface Zone {
   id: string;
   name: string;
@@ -82,9 +101,9 @@ const ZonesPage = () => {
       });
 
       const [zonesRes, fmsRes, omsRes] = await Promise.all([
-        fetch(`${API_BASE}/zones?${params.toString()}`),
-        fetch(`${API_BASE}/users/field-managers`),
-        fetch(`${API_BASE}/users/operations-managers`)
+        authFetch(`${API_BASE}/zones?${params.toString()}`),
+        authFetch(`${API_BASE}/users/field-managers`),
+        authFetch(`${API_BASE}/users/operations-managers`)
       ]);
 
       const zonesJson = await zonesRes.json();
@@ -197,7 +216,7 @@ const ZonesPage = () => {
         : `${API_BASE}/zones`;
       const method = editingZone ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -221,7 +240,7 @@ const ZonesPage = () => {
     try {
       const payload = { operationsManagerId: staffId === 'none' ? null : staffId };
 
-      const res = await fetch(`${API_BASE}/zones/${assigningZone.id}`, {
+      const res = await authFetch(`${API_BASE}/zones/${assigningZone.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -241,7 +260,7 @@ const ZonesPage = () => {
   // ─── Toggle active ───────────────────────────────────────────────────────────
   const handleToggle = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/zones/${id}/toggle`, { method: 'PATCH' });
+      const res = await authFetch(`${API_BASE}/zones/${id}/toggle`, { method: 'PATCH' });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       setZones(prev => prev.map(z => z.id === id ? json.data : z));
@@ -255,7 +274,7 @@ const ZonesPage = () => {
     if (!confirm('Are you sure you want to delete this zone?')) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`${API_BASE}/zones/${id}`, { method: 'DELETE' });
+      const res = await authFetch(`${API_BASE}/zones/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       setZones(prev => prev.filter(z => z.id !== id));
