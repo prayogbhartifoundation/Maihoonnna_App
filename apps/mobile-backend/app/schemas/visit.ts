@@ -19,6 +19,7 @@ export const checkInSchema = Joi.object({
   visitId: Joi.string().uuid().required(),
   latitude: Joi.number().required(),
   longitude: Joi.number().required(),
+  manualCheckInReason: Joi.string().allow('', null).optional(),
 });
 
 export const checkOutSchema = Joi.object({

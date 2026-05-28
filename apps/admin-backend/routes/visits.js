@@ -365,7 +365,7 @@ router.get('/', async (req, res) => {
     const visits = await prisma.visit.findMany({
       where,
       include: {
-        beneficiary: { select: { id: true, name: true } },
+        beneficiary: { select: { id: true, name: true, latitude: true, longitude: true } },
         careCompanion: {
           select: {
             id: true,
@@ -382,7 +382,17 @@ router.get('/', async (req, res) => {
       orderBy: { scheduledTime: 'asc' },
     });
 
-    res.json({ success: true, data: visits });
+    // Attach geo-fencing fields to each visit for the admin UI
+    const visitsWithGeo = visits.map((v) => ({
+      ...v,
+      isGeoVerified: v.isGeoVerified,
+      geoDistanceMeters: v.geoDistanceMeters,
+      manualCheckInReason: v.manualCheckInReason,
+      checkInLat: v.checkInLat,
+      checkInLng: v.checkInLng,
+    }));
+
+    res.json({ success: true, data: visitsWithGeo });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

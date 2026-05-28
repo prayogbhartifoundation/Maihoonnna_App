@@ -113,6 +113,8 @@ export default function DashboardScreen() {
         );
     }
 
+    const isVisitInProgress = dashboardData?.nextVisit?.status === 'in_progress';
+
     return (
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
             <Stack.Screen options={{ headerShown: false }} />
@@ -143,13 +145,22 @@ export default function DashboardScreen() {
                         <View style={styles.checkInLeft}>
                             <Ionicons name="location-outline" size={24} color="#FFFFFF" />
                             <View style={{ marginLeft: 12 }}>
-                                <Text style={styles.checkInTitle}>Not Checked In</Text>
-                                <Text style={styles.checkInSub}>Ready to start</Text>
+                                <Text style={styles.checkInTitle}>
+                                    {isVisitInProgress ? "Visit In Progress" : "Not Checked In"}
+                                </Text>
+                                <Text style={styles.checkInSub}>
+                                    {isVisitInProgress ? `Active: ${dashboardData.nextVisit.patientName}` : "Ready to start"}
+                                </Text>
                             </View>
                         </View>
-                        <TouchableOpacity style={styles.checkInBtn}>
-                            <Ionicons name="log-in-outline" size={20} color="#111827" />
-                            <Text style={styles.checkInBtnText}>Check In</Text>
+                        <TouchableOpacity 
+                            style={styles.checkInBtn}
+                            onPress={handleStartVisit}
+                        >
+                            <Ionicons name={isVisitInProgress ? "arrow-forward-outline" : "log-in-outline"} size={20} color="#111827" />
+                            <Text style={styles.checkInBtnText}>
+                                {isVisitInProgress ? "Resume" : "Check In"}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -209,7 +220,9 @@ export default function DashboardScreen() {
                             </View>
 
                             <TouchableOpacity style={styles.primaryActionBtn} onPress={handleStartVisit}>
-                                <Text style={styles.primaryActionBtnText}>Start Visit</Text>
+                                <Text style={styles.primaryActionBtnText}>
+                                    {isVisitInProgress ? "Continue Visit" : "Start Visit"}
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     ) : (

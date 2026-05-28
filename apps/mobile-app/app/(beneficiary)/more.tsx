@@ -34,6 +34,7 @@ function MenuItem({ icon, label, iconBg, onPress }: MenuItemProps) {
 
 export default function MoreOptionsScreen() {
     const [profileName, setProfileName] = useState('Margaret Williams');
+    const safeBack = useSafeBack();
 
     useEffect(() => {
         loadProfileName();

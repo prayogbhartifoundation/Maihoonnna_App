@@ -119,7 +119,17 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
 router.post('/check-in', authenticate, validate(checkInSchema), async (req: Request, res: Response) => {
   try {
     const visit = await visitService.checkIn(req.body);
-    res.json({ success: true, data: visit });
+    res.json({
+      success: true,
+      data: {
+        id: visit.id,
+        status: visit.status,
+        checkInTime: visit.checkInTime,
+        isGeoVerified: visit.isGeoVerified,
+        geoDistanceMeters: visit.geoDistanceMeters,
+        manualCheckInReason: visit.manualCheckInReason,
+      }
+    });
   } catch (e: unknown) {
     res.status(404).json({ success: false, message: (e as Error).message });
   }
@@ -226,6 +236,10 @@ router.get('/:visitId/details', authenticate, async (req: Request, res: Response
           checkOutTime: visit.checkOutTime,
           status: visit.status,
           notes: visit.notes,
+          manualCheckInReason: visit.manualCheckInReason,
+          // Geo-fencing fields for the mobile app
+          isGeoVerified: visit.isGeoVerified,
+          geoDistanceMeters: visit.geoDistanceMeters,
         },
         beneficiary: {
           id: visit.beneficiary.id,
@@ -238,6 +252,9 @@ router.get('/:visitId/details', authenticate, async (req: Request, res: Response
           city: visit.beneficiary.city,
           pincode: visit.beneficiary.pincode,
           photo: visit.beneficiary.photo || null,
+          // GPS coordinates for client-side geo-fencing preview
+          latitude: visit.beneficiary.latitude || null,
+          longitude: visit.beneficiary.longitude || null,
         },
         requiredVitals,
         activeMedications: medications.map(m => ({

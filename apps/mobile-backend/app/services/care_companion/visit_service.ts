@@ -3,6 +3,31 @@ import { generateUUID, generateEncounterId } from '../../utils/helpers';
 import { Prisma } from '@prisma/client';
 import { Vitals } from '../../models/visit';
 
+// ─── Geo-fencing Helper ────────────────────────────────────────────────────────
+
+/**
+ * Calculates the straight-line distance between two GPS coordinates using
+ * the Haversine formula. Returns distance in meters.
+ */
+function haversineDistance(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number
+): number {
+  const R = 6371000; // Earth's radius in meters
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Configurable from .env — defaults to 50m (industry standard)
+const GEOFENCE_RADIUS_METERS = parseFloat(process.env.GEOFENCE_RADIUS_METERS || '50');
+
 export const createVisit = async (data: {
   beneficiaryId: string;
   careCompanionId: string;
@@ -38,7 +63,44 @@ export const getCareCompanionVisits = async (ccId: string, date?: string) => {
   return prisma.visit.findMany({ where, orderBy: { scheduledTime: 'asc' } });
 };
 
-export const checkIn = async (data: { visitId: string; latitude: number; longitude: number }) => {
+export const checkIn = async (data: {
+  visitId: string;
+  latitude: number;
+  longitude: number;
+  manualCheckInReason?: string | null;
+}) => {
+  // 1. Fetch the visit to get beneficiaryId
+  const visit = await prisma.visit.findUnique({
+    where: { id: data.visitId },
+    select: { beneficiaryId: true },
+  });
+  if (!visit) throw new Error('Visit not found');
+
+  // 2. Fetch the beneficiary's stored GPS coordinates
+  const beneficiary = await prisma.beneficiary.findUnique({
+    where: { id: visit.beneficiaryId },
+    select: { latitude: true, longitude: true },
+  });
+
+  // 3. Compute geo-distance and determine verification status
+  let isGeoVerified = false;
+  let geoDistanceMeters: number | null = null;
+
+  const isManualCheckIn = !!(data.manualCheckInReason && data.manualCheckInReason.trim());
+
+  if (beneficiary?.latitude && beneficiary?.longitude) {
+    geoDistanceMeters = haversineDistance(
+      data.latitude, data.longitude,
+      beneficiary.latitude, beneficiary.longitude
+    );
+    // Only auto-verify if NOT a manual override and within radius
+    if (!isManualCheckIn && geoDistanceMeters <= GEOFENCE_RADIUS_METERS) {
+      isGeoVerified = true;
+    }
+  }
+  // If beneficiary has no GPS stored, isGeoVerified stays false
+
+  // 4. Update the visit record with all geo fields
   return prisma.visit.update({
     where: { id: data.visitId },
     data: {
@@ -46,6 +108,11 @@ export const checkIn = async (data: { visitId: string; latitude: number; longitu
       status: 'in_progress',
       locationLat: data.latitude,
       locationLng: data.longitude,
+      checkInLat: data.latitude,
+      checkInLng: data.longitude,
+      isGeoVerified,
+      geoDistanceMeters: geoDistanceMeters !== null ? Math.round(geoDistanceMeters) : null,
+      manualCheckInReason: data.manualCheckInReason || null,
     },
   });
 };

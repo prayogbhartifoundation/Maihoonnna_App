@@ -84,6 +84,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         address: fullAddress,
         time: formattedTime,
         distance: '1.8 km', // Realistic mock distance
+        status: upcomingVisit.status,
       };
     }
 

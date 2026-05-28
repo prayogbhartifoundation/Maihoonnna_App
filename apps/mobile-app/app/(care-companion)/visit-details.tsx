@@ -5,6 +5,7 @@ import { useRouter, Stack, useLocalSearchParams, useFocusEffect } from 'expo-rou
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { API_URL } from '@/constants/api';
@@ -37,6 +38,12 @@ export default function VisitDetailsScreen() {
     const [medNotes, setMedNotes] = useState('');
     const [visitNotes, setVisitNotes] = useState('');
     const [mood, setMood] = useState('Neutral');
+
+    // Geo-fencing state
+    const [currentLat, setCurrentLat] = useState<number | null>(null);
+    const [currentLng, setCurrentLng] = useState<number | null>(null);
+    const [proximityMeters, setProximityMeters] = useState<number | null>(null);
+    const [locationLoading, setLocationLoading] = useState(false);
 
     // Static list of generic medications as fallback or standard selection
     const [meds, setMeds] = useState([
@@ -135,16 +142,56 @@ export default function VisitDetailsScreen() {
         }, [visitId])
     );
 
-    const handleCheckIn = async () => {
+    // ── Geo helpers ───────────────────────────────────────────────────────────
+    const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+        const R = 6371000;
+        const toRad = (d: number) => (d * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const getMyLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
+        setLocationLoading(true);
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission Denied', 'Location access is required for geo-verified check-in.');
+                return null;
+            }
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+            const { latitude, longitude } = loc.coords;
+            setCurrentLat(latitude);
+            setCurrentLng(longitude);
+            // Compute proximity if beneficiary GPS is available
+            const ben = visitDetail?.beneficiary;
+            if (ben?.latitude && ben?.longitude) {
+                const dist = haversineDistance(latitude, longitude, ben.latitude, ben.longitude);
+                setProximityMeters(Math.round(dist));
+            }
+            return { latitude, longitude };
+        } catch {
+            Alert.alert('Location Error', 'Could not get your current GPS location.');
+            return null;
+        } finally {
+            setLocationLoading(false);
+        }
+    };
+
+    const handleAutoCheckIn = async () => {
         if (!visitId) return;
         setActionLoading(true);
         try {
+            const location = await getMyLocation();
+            if (!location) {
+                setActionLoading(false);
+                return;
+            }
             const token = await AsyncStorage.getItem('userToken');
-            
-            // Get location fallback / mock coordinates
-            let latitude = 28.6139;
-            let longitude = 77.2090;
-
             const response = await fetch(`${API_URL}/care-companion/visits/check-in`, {
                 method: 'POST',
                 headers: {
@@ -153,21 +200,73 @@ export default function VisitDetailsScreen() {
                 },
                 body: JSON.stringify({
                     visitId,
-                    latitude,
-                    longitude
+                    latitude: location.latitude,
+                    longitude: location.longitude,
                 })
             });
-
             const json = await response.json();
             if (json.success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert("Success", "Successfully checked-in to beneficiary home location.");
+                const geoVerified = json.data?.isGeoVerified;
+                const dist = json.data?.geoDistanceMeters;
+                if (geoVerified) {
+                    Alert.alert('✅ Checked In', `Location verified! You are ${dist ?? '—'}m from the beneficiary's home.`);
+                } else if (dist !== null && dist !== undefined) {
+                    Alert.alert('⚠️ Checked In', `You are ${dist}m away — outside the geo-fence. This check-in is flagged.`);
+                } else {
+                    Alert.alert('ℹ️ Checked In', 'Check-in recorded. No beneficiary GPS on file for verification.');
+                }
                 fetchVisitDetails();
             } else {
-                Alert.alert("Error", json.message || "Failed to check-in.");
+                Alert.alert('Error', json.message || 'Failed to check-in.');
             }
-        } catch (error) {
-            Alert.alert("Check-in Error", "Unable to communicate with host machine check-in endpoint.");
+        } catch {
+            Alert.alert('Check-in Error', 'Unable to complete auto geo-fence check-in.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleCheckIn = async () => {
+        if (!visitId) return;
+        if (!manualRemarks.trim()) {
+            Alert.alert('Remarks Required', 'Please enter a reason for manual check-in.');
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            let lat = currentLat;
+            let lng = currentLng;
+            // Attempt to get location even for manual check-in so we can still log distance
+            if (!lat || !lng) {
+                const loc = await getMyLocation();
+                lat = loc?.latitude ?? null;
+                lng = loc?.longitude ?? null;
+            }
+            const response = await fetch(`${API_URL}/care-companion/visits/check-in`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    visitId,
+                    latitude: lat ?? 0,
+                    longitude: lng ?? 0,
+                    manualCheckInReason: manualRemarks,
+                })
+            });
+            const json = await response.json();
+            if (json.success) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Manual Check-in Recorded', 'Your check-in has been flagged as manual. The field manager will be notified.');
+                fetchVisitDetails();
+            } else {
+                Alert.alert('Error', json.message || 'Failed to check-in.');
+            }
+        } catch {
+            Alert.alert('Check-in Error', 'Unable to communicate with check-in endpoint.');
         } finally {
             setActionLoading(false);
         }
@@ -263,6 +362,13 @@ export default function VisitDetailsScreen() {
     const isCheckedIn = visit?.status === 'in_progress' || visit?.status === 'completed';
     const isCompleted = visit?.status === 'completed';
 
+    // Geo-fencing display helpers
+    const GEOFENCE_RADIUS = 50; // Must match backend .env GEOFENCE_RADIUS_METERS
+    const beneficiaryHasGps = !!(beneficiary?.latitude && beneficiary?.longitude);
+    const isInRange = proximityMeters !== null && proximityMeters <= GEOFENCE_RADIUS;
+    const isGeoVerified = visit?.isGeoVerified === true;
+    const isManualCheckIn = isCheckedIn && visit?.manualCheckInReason;
+
     return (
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
             {/* FORCE hide the header */}
@@ -299,40 +405,99 @@ export default function VisitDetailsScreen() {
                                 <Text style={styles.cardTitle}>Encounter Verification</Text>
                             </View>
 
-                            <View style={styles.statusRow}>
-                                <View style={styles.statusLeft}>
-                                    <Ionicons 
-                                        name={isCheckedIn ? "checkmark-circle" : "alert-circle"} 
-                                        size={20} 
-                                        color={isCheckedIn ? "#059669" : "#EA580C"} 
-                                    />
-                                    <Text style={[styles.statusText, { color: isCheckedIn ? '#059669' : '#EA580C', fontWeight: '600' }]}>
-                                        {isCheckedIn ? "Checked-in Successfully" : "Awaiting Site Arrival"}
-                                    </Text>
+                            {/* Post-check-in status */}
+                            {isCheckedIn ? (
+                                <View style={[
+                                    styles.statusRow,
+                                    { backgroundColor: isGeoVerified ? '#F0FDF4' : '#FFFBEB' }
+                                ]}>
+                                    <View style={styles.statusLeft}>
+                                        <Ionicons
+                                            name={isGeoVerified ? 'checkmark-circle' : 'warning'}
+                                            size={20}
+                                            color={isGeoVerified ? '#059669' : '#D97706'}
+                                        />
+                                        <Text style={[styles.statusText, { color: isGeoVerified ? '#059669' : '#D97706', fontWeight: '600' }]}>
+                                            {isGeoVerified
+                                                ? 'Location Verified ✓'
+                                                : isManualCheckIn
+                                                    ? 'Manual Check-in (Flagged)'
+                                                    : 'Checked In — Out of Range'}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.outOfRangeBadge, { backgroundColor: isGeoVerified ? '#D1FAE5' : '#FEF3C7' }]}>
+                                        <Text style={[styles.outOfRangeText, { color: isGeoVerified ? '#065F46' : '#92400E' }]}>
+                                            {visit?.geoDistanceMeters != null ? `${visit.geoDistanceMeters}m` : 'Verified'}
+                                        </Text>
+                                    </View>
                                 </View>
-                                <View style={[styles.outOfRangeBadge, { backgroundColor: isCheckedIn ? '#DEF7EC' : '#FDF2F8' }]}>
-                                    <Text style={[styles.outOfRangeText, { color: isCheckedIn ? '#03543F' : '#9D174D' }]}>
-                                        {isCheckedIn ? "Verified" : "Sync Pending"}
-                                    </Text>
+                            ) : (
+                                <View style={styles.statusRow}>
+                                    <View style={styles.statusLeft}>
+                                        <Ionicons name="alert-circle" size={20} color="#EA580C" />
+                                        <Text style={[styles.statusText, { color: '#EA580C', fontWeight: '600' }]}>Awaiting Site Arrival</Text>
+                                    </View>
+                                    <View style={[styles.outOfRangeBadge, { backgroundColor: '#FDF2F8' }]}>
+                                        <Text style={[styles.outOfRangeText, { color: '#9D174D' }]}>Sync Pending</Text>
+                                    </View>
                                 </View>
-                            </View>
+                            )}
 
                             {!isCheckedIn && (
                                 <>
-                                    <TouchableOpacity style={styles.autoCheckInBtn} disabled>
-                                        <Text style={styles.autoCheckInText}>Auto Geofence Sync (80m Range)</Text>
+                                    {/* Proximity indicator */}
+                                    {beneficiaryHasGps && (
+                                        <TouchableOpacity
+                                            style={[styles.proximityRow, {
+                                                backgroundColor: proximityMeters === null ? '#EFF6FF' :
+                                                    isInRange ? '#F0FDF4' : '#FEF2F2'
+                                            }]}
+                                            onPress={getMyLocation}
+                                            disabled={locationLoading}
+                                        >
+                                            {locationLoading ? (
+                                                <ActivityIndicator size="small" color="#3B82F6" />
+                                            ) : (
+                                                <Ionicons
+                                                    name={proximityMeters === null ? 'locate-outline' : isInRange ? 'checkmark-circle' : 'close-circle'}
+                                                    size={18}
+                                                    color={proximityMeters === null ? '#3B82F6' : isInRange ? '#059669' : '#DC2626'}
+                                                />
+                                            )}
+                                            <Text style={[styles.proximityText, {
+                                                color: proximityMeters === null ? '#1D4ED8' : isInRange ? '#065F46' : '#B91C1C'
+                                            }]}>
+                                                {locationLoading ? 'Getting location...'
+                                                    : proximityMeters === null ? 'Tap to check your distance'
+                                                    : isInRange ? `✓ You are ${proximityMeters}m away — in range`
+                                                    : `✗ You are ${proximityMeters}m away — out of range (50m limit)`}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {/* Auto Geofence Button */}
+                                    <TouchableOpacity
+                                        style={[styles.autoCheckInBtn, actionLoading && { opacity: 0.7 }]}
+                                        onPress={handleAutoCheckIn}
+                                        disabled={actionLoading}
+                                    >
+                                        {actionLoading ? (
+                                            <ActivityIndicator size="small" color="#FFFFFF" />
+                                        ) : (
+                                            <Text style={styles.autoCheckInText}>Auto Geofence Check-in (50m Range)</Text>
+                                        )}
                                     </TouchableOpacity>
 
-                                    <Text style={styles.inputLabel}>Remarks (Reason for Override if required)</Text>
+                                    <Text style={styles.inputLabel}>Manual Override — Reason Required</Text>
                                     <TextInput
                                         style={styles.remarksInput}
-                                        placeholder="Explain site delay or manual entry reason..."
+                                        placeholder="Explain why you cannot auto check-in..."
                                         placeholderTextColor="#9CA3AF"
                                         value={manualRemarks}
                                         onChangeText={setManualRemarks}
                                     />
-                                    <TouchableOpacity 
-                                        style={[styles.manualCheckInBtn, actionLoading && { opacity: 0.7 }]} 
+                                    <TouchableOpacity
+                                        style={[styles.manualCheckInBtn, actionLoading && { opacity: 0.7 }]}
                                         onPress={handleCheckIn}
                                         disabled={actionLoading}
                                     >
@@ -343,6 +508,16 @@ export default function VisitDetailsScreen() {
                                         )}
                                     </TouchableOpacity>
                                 </>
+                            )}
+
+                            {/* Show manual check-in reason after check-in */}
+                            {isCheckedIn && isManualCheckIn && (
+                                <View style={styles.manualReasonBox}>
+                                    <Ionicons name="information-circle-outline" size={14} color="#92400E" />
+                                    <Text style={styles.manualReasonText}>
+                                        Manual reason: {visit?.manualCheckInReason}
+                                    </Text>
+                                </View>
                             )}
                         </View>
 
@@ -637,13 +812,23 @@ const styles = StyleSheet.create({
     cardTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: '#111827', marginLeft: 8 },
 
     statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#F3F4F6' },
-    statusLeft: { flexDirection: 'row', alignItems: 'center' },
-    statusText: { fontFamily: 'Poppins_500Medium', fontSize: 14, marginLeft: 8 },
+    statusLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    statusText: { fontFamily: 'Poppins_500Medium', fontSize: 14, marginLeft: 8, flexShrink: 1 },
     outOfRangeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
     outOfRangeText: { fontFamily: 'Poppins_600SemiBold', fontSize: 11 },
 
-    autoCheckInBtn: { backgroundColor: '#FDBA74', borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginBottom: 16 },
+    proximityRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 12,
+        borderWidth: 1, borderColor: '#DBEAFE',
+    },
+    proximityText: { fontFamily: 'Poppins_500Medium', fontSize: 13, flex: 1 },
+
+    autoCheckInBtn: { backgroundColor: '#3B82F6', borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginBottom: 16 },
     autoCheckInText: { color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold', fontSize: 14 },
+
+    manualReasonBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFBEB', borderRadius: 8, padding: 10, marginTop: 8, borderWidth: 1, borderColor: '#FDE68A' },
+    manualReasonText: { fontFamily: 'Poppins_400Regular', fontSize: 12, color: '#92400E', flex: 1 },
 
     inputLabel: { fontFamily: 'Poppins_500Medium', fontSize: 13, color: '#111827', marginBottom: 8 },
     subInputLabel: { fontFamily: 'Poppins_400Regular', fontSize: 11, color: '#4B5563', marginBottom: 4 },

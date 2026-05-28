@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { CalendarClock, User, UserCheck, AlertCircle, RefreshCw, Trash2, Edit3, ChevronDown, X, Clock, Loader2 } from 'lucide-react';
+import { CalendarClock, User, UserCheck, AlertCircle, RefreshCw, Trash2, Edit3, ChevronDown, X, Clock, Loader2, MapPin, ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { visitApi, fieldManagerApi } from '../../../services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -413,6 +413,50 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
                       )}
                     </div>
                   </div>
+
+                  {/* Geo-fencing flag — shown for in_progress and completed visits */}
+                  {(visit.status === 'in_progress' || visit.status === 'completed') && (() => {
+                    const isGeoVerified = visit.isGeoVerified === true;
+                    const isManual = !!(visit.manualCheckInReason);
+                    const distMeters = visit.geoDistanceMeters;
+                    const hasBeneficiaryGps = !!(visit.beneficiary?.latitude);
+
+                    if (isGeoVerified) {
+                      return (
+                        <div className="flex items-center gap-1.5 mt-3 px-3 py-2 rounded-lg bg-green-50 border border-green-200">
+                          <ShieldCheck size={13} className="text-green-600 flex-shrink-0" />
+                          <span className="text-[10px] font-black text-green-700 uppercase tracking-widest">
+                            Location Verified {distMeters != null ? `· ${distMeters}m` : ''}
+                          </span>
+                        </div>
+                      );
+                    } else if (isManual) {
+                      return (
+                        <div className="flex items-center gap-1.5 mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200" title={visit.manualCheckInReason}>
+                          <AlertTriangle size={13} className="text-amber-600 flex-shrink-0" />
+                          <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest truncate">
+                            Manual Check-in — {visit.manualCheckInReason}
+                          </span>
+                        </div>
+                      );
+                    } else if (!hasBeneficiaryGps) {
+                      return (
+                        <div className="flex items-center gap-1.5 mt-3 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                          <MapPin size={13} className="text-gray-400 flex-shrink-0" />
+                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">No Beneficiary GPS</span>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="flex items-center gap-1.5 mt-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+                          <ShieldAlert size={13} className="text-red-500 flex-shrink-0" />
+                          <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">
+                            Out of Range {distMeters != null ? `· ${distMeters}m` : ''}
+                          </span>
+                        </div>
+                      );
+                    }
+                  })()}
                 </div>
               );
             })}
