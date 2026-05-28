@@ -28,6 +28,7 @@ model User {
   fcmToken                       String?
   isActive                       Boolean                  @default(true)
   isVerified                     Boolean                  @default(false)
+  refreshToken                   String?
   lastLoginAt                    DateTime?
   createdAt                      DateTime                 @default(now())
   updatedAt                      DateTime                 @updatedAt

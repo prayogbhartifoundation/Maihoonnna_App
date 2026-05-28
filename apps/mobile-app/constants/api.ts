@@ -1,35 +1,41 @@
 import { Platform } from 'react-native';
 
 // ─── Environment Switch ────────────────────────────────────────────────────
-// Reads from your .env file: EXPO_PUBLIC_ENV=local or EXPO_PUBLIC_ENV=production
-const USE_LOCAL = process.env.EXPO_PUBLIC_ENV === 'local';
+// If EXPO_PUBLIC_ENV is explicitly set, use it. Otherwise, auto-detect!
+// Built APKs will automatically be 'production', Expo Go will automatically be 'local'
+const AUTO_ENV = __DEV__ ? 'local' : 'production';
+const ENV = process.env.EXPO_PUBLIC_ENV || AUTO_ENV;
+const USE_LOCAL = ENV === 'local';
 
 const PRODUCTION_URL = process.env.EXPO_PUBLIC_PRODUCTION_API_URL ?? 'https://api.maihoonna.com/app-api';
 
-// For physical device testing, set your PC's local IP in .env:
-// EXPO_PUBLIC_LOCAL_IP=192.168.x.x
 const LOCAL_IP = process.env.EXPO_PUBLIC_LOCAL_IP ?? 'localhost';
+const PORT = process.env.EXPO_PUBLIC_API_PORT ?? '8001';
 
 // ─── Local URL (auto-handles emulator vs web vs physical device) ─────────────
 const getLocalUrl = () => {
-    // Graceful handling if you accidentally include 'http://' in your .env IP
-    if (LOCAL_IP.startsWith('http')) {
-        // if it already has the port, just append /api, otherwise assume 8001
-        return LOCAL_IP.includes(':8001') ? `${LOCAL_IP}/api` : `${LOCAL_IP}:8001/api`;
+    // 1. If we are testing on Local Web, we can safely use localhost!
+    if (Platform.OS === 'web') {
+        return `http://localhost:${PORT}/api`;
     }
 
-    if (Platform.OS === 'android') {
-        // Android emulator uses 10.0.2.2 to reach host machine's localhost
-        // But if LOCAL_IP is set to a real IP, use it (for physical device)
-        const host = LOCAL_IP === 'localhost' ? '10.0.2.2' : LOCAL_IP;
-        return `http://${host}:8001/api`;
+    // 2. Graceful handling if you accidentally include 'http://' in your .env IP
+    if (LOCAL_IP.startsWith('http')) {
+        return LOCAL_IP.includes(`:${PORT}`) ? `${LOCAL_IP}/api` : `${LOCAL_IP}:${PORT}/api`;
     }
-    // iOS simulator, web, and physical iOS can use localhost or the real IP
-    return `http://${LOCAL_IP}:8001/api`;
+
+    // 3. Android emulators / physical devices
+    if (Platform.OS === 'android') {
+        const host = LOCAL_IP === 'localhost' ? '10.0.2.2' : LOCAL_IP;
+        return `http://${host}:${PORT}/api`;
+    }
+    
+    // 4. iOS simulator / physical iOS
+    return `http://${LOCAL_IP}:${PORT}/api`;
 };
 
 // ─── Export final URL ─────────────────────────────────────────────────────────
 export const API_URL = USE_LOCAL ? getLocalUrl() : PRODUCTION_URL;
 
 // Handy for debugging — shows in Metro console on startup
-console.log(`[API] Environment: ${USE_LOCAL ? 'LOCAL' : 'PRODUCTION'} → ${API_URL}`);
+console.log(`[API] Platform: ${Platform.OS} | Environment: ${USE_LOCAL ? 'LOCAL' : 'PRODUCTION'} → ${API_URL}`);

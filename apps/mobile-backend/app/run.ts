@@ -7,8 +7,8 @@ const start = async () => {
     await prisma.$connect();
     console.log('✅  Database connected');
 
-    app.listen(config.port, () => {
-      console.log(`🚀  Server running on http://localhost:${config.port}/api`);
+    app.listen(Number(config.port), '0.0.0.0', () => {
+      console.log(`🚀  Server running on http://0.0.0.0:${config.port}/api`);
       console.log(`📦  Environment: ${config.nodeEnv}`);
     });
   } catch (err) {
