@@ -913,16 +913,14 @@ router.post('/staff/onboard', async (req, res) => {
           },
         });
 
-        await Promise.all(
-          zoneIds.map((zoneId) =>
-            tx.zone.update({
-              where: { id: zoneId },
-              data: {
-                operationsManagerId: user.id,
-              },
-            })
-          )
-        );
+        for (const zoneId of zoneIds) {
+          await tx.zone.update({
+            where: { id: zoneId },
+            data: {
+              operationsManagerId: user.id,
+            },
+          });
+        }
       }
 
       if (role === 'customer_service') {
@@ -1498,14 +1496,12 @@ router.put('/staff/:userId', async (req, res) => {
 
         // Assign to new ones
         if (newZoneIds.length > 0) {
-          await Promise.all(
-            newZoneIds.map((zoneId) =>
-              tx.zone.update({
-                where: { id: zoneId },
-                data: { operationsManagerId: userId },
-              })
-            )
-          );
+          for (const zoneId of newZoneIds) {
+            await tx.zone.update({
+              where: { id: zoneId },
+              data: { operationsManagerId: userId },
+            });
+          }
         }
       } else if (role === 'customer_service') {
         await tx.customerServiceAgent.update({

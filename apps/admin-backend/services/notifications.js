@@ -120,7 +120,9 @@ async function notifyUser(tx, { userId, type = 'system', title, body, data = {} 
  * @param {Array<{userId, type, title, body, data}>} notifications
  */
 async function notifyMany(tx, notifications) {
-  await Promise.all(notifications.map(n => notifyUser(tx, n)));
+  for (const n of notifications) {
+    await notifyUser(tx, n);
+  }
 }
 
 module.exports = { notifyUser, notifyMany, sendExpoPush };
