@@ -1,2 +1,4 @@
 .claude
 apps/admin-backend/prisma/seed-beneficiary-subscriber.js
+apps/admin-backend/prisma/seed.js
+apps/admin-backend/prisma/seedTestSub.js
