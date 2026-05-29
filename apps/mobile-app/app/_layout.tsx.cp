@@ -1,4 +1,3 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
@@ -51,8 +50,8 @@ export default function RootLayout() {
     'Poppins-SemiBold': require('../assets/fonts/Poppins-SemiBold.ttf'), // Added for modal headers
     'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'),
   });
-/*
- useEffect(() => {
+
+  useEffect(() => {
     // Register for push notifications on app start
     registerForPushNotifications();
 
@@ -73,7 +72,7 @@ export default function RootLayout() {
       notifListener.current?.remove();
       responseListener.current?.remove();
     };
-  }, []); */
+  }, []);
 
   // React Query AppState Listener
   useEffect(() => {
