@@ -3,7 +3,7 @@
  *
  * Flow:
  *  1. Mounts → immediately requests foreground location permission
- *  2. Permission granted → shows full-screen map with draggable pin + bottom sheet
+ *  2. Permission granted → shows full-screen map with FIXED pin + bottom sheet
  *  3. Permission denied → shows permission info screen with option to open settings
  *  4. User can always fall back to manual text entry
  *
@@ -30,7 +30,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
 } from 'react-native';
-import MapView, { Marker, Region, MapPressEvent } from 'react-native-maps';
+import MapView, { Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -74,7 +74,6 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
 }) => {
   const [permStatus, setPermStatus] = useState<PermissionStatus>('checking');
   const [region, setRegion] = useState<Region>(INDIA_CENTER);
-  const [pinCoords, setPinCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [addressText, setAddressText] = useState('Detecting address...');
   const [addressDetails, setAddressDetails] = useState<Partial<SelectedAddress>>({});
   const [loadingAddress, setLoadingAddress] = useState(false);
@@ -82,9 +81,12 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   const [mode, setMode] = useState<'map' | 'manual'>('map');
   const [manualAddress, setManualAddress] = useState('');
   const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const mapRef = useRef<MapView>(null);
   const bottomSheetAnim = useRef(new Animated.Value(0)).current;
+  const geocodeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isComponentMounted = useRef(true);
 
   // ── Web Fallback ───────────────────────────────────────────────────────────
   if (Platform.OS === 'web') {
@@ -105,7 +107,12 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   // ── Permission & initial location ─────────────────────────────────────────
 
   useEffect(() => {
+    isComponentMounted.current = true;
     requestPermissionAndLocate();
+    return () => {
+      isComponentMounted.current = false;
+      if (geocodeTimeout.current) clearTimeout(geocodeTimeout.current);
+    };
   }, []);
 
   const requestPermissionAndLocate = async () => {
@@ -126,21 +133,21 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
     setLocatingUser(true);
     try {
       const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = loc.coords;
       const newRegion = { latitude, longitude, latitudeDelta: 0.006, longitudeDelta: 0.006 };
       setRegion(newRegion);
-      setPinCoords({ latitude, longitude });
       mapRef.current?.animateToRegion(newRegion, 800);
       await reverseGeocode(latitude, longitude);
       revealBottomSheet();
     } catch {
       // Fallback to India center if GPS fails
       setRegion(INDIA_CENTER);
-      setAddressText('Could not detect location. Tap on the map to pin your address.');
+      setAddressText('Could not detect location. Drag map to pin your address.');
+      revealBottomSheet();
     } finally {
-      setLocatingUser(false);
+      if (isComponentMounted.current) setLocatingUser(false);
     }
   };
 
@@ -163,6 +170,8 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
     setAddressText('Fetching address...');
     try {
       const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (!isComponentMounted.current) return;
+      
       if (results.length > 0) {
         const p = results[0];
         const parts = [
@@ -184,24 +193,32 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
         setAddressText(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
       }
     } catch {
+      if (!isComponentMounted.current) return;
       setAddressText('Could not fetch address');
     } finally {
-      setLoadingAddress(false);
+      if (isComponentMounted.current) setLoadingAddress(false);
     }
   };
 
   // ── Map interactions ───────────────────────────────────────────────────────
 
-  const handleMapPress = async (e: MapPressEvent) => {
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    setPinCoords({ latitude, longitude });
-    if (!showBottomSheet) revealBottomSheet();
-    await reverseGeocode(latitude, longitude);
+  const onRegionChange = () => {
+    if (!isDragging) setIsDragging(true);
+    if (geocodeTimeout.current) clearTimeout(geocodeTimeout.current);
   };
 
-  const handleRegionChangeComplete = async (newRegion: Region) => {
-    // "Move pin to pan" style — pin follows center of map
-    setPinCoords({ latitude: newRegion.latitude, longitude: newRegion.longitude });
+  const handleRegionChangeComplete = (newRegion: Region) => {
+    setRegion(newRegion);
+    setIsDragging(false);
+    
+    if (geocodeTimeout.current) clearTimeout(geocodeTimeout.current);
+    
+    // Debounce geocoding for 300ms
+    geocodeTimeout.current = setTimeout(() => {
+      if (isComponentMounted.current) {
+        reverseGeocode(newRegion.latitude, newRegion.longitude);
+      }
+    }, 300);
   };
 
   // ── Confirm ────────────────────────────────────────────────────────────────
@@ -218,10 +235,9 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
       return;
     }
 
-    if (!pinCoords) return;
     onAddressSelected({
-      latitude: pinCoords.latitude,
-      longitude: pinCoords.longitude,
+      latitude: region.latitude,
+      longitude: region.longitude,
       address: addressText,
       ...addressDetails,
     });
@@ -359,23 +375,22 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         initialRegion={region}
-        onPress={handleMapPress}
+        onRegionChange={onRegionChange}
         onRegionChangeComplete={handleRegionChangeComplete}
         showsUserLocation
         showsMyLocationButton={false}
         mapType="standard"
-      >
-        {pinCoords && (
-          <Marker coordinate={pinCoords} anchor={{ x: 0.5, y: 1 }}>
-            <View style={styles.pin}>
-              <View style={styles.pinHead}>
-                <Feather name="map-pin" size={28} color="#fff" />
-              </View>
-              <View style={styles.pinTail} />
-            </View>
-          </Marker>
-        )}
-      </MapView>
+      />
+      
+      {/* Fixed Center Crosshair Pin */}
+      <View style={styles.fixedPinContainer} pointerEvents="none">
+        <View style={styles.pin}>
+          <View style={styles.pinHead}>
+            <Feather name="map-pin" size={28} color="#fff" />
+          </View>
+          <View style={styles.pinTail} />
+        </View>
+      </View>
 
       {/* Header overlay */}
       <SafeAreaView pointerEvents="box-none" style={StyleSheet.absoluteFill}>
@@ -440,10 +455,12 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
               <Feather name="map-pin" size={20} color="#FF6A00" />
             </View>
             <View style={{ flex: 1 }}>
-              {loadingAddress ? (
+              {loadingAddress || isDragging ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <ActivityIndicator size="small" color="#FF6A00" />
-                  <Text style={styles.addressLoading}>Fetching address...</Text>
+                  <Text style={styles.addressLoading}>
+                    {isDragging ? 'Move pin to select...' : 'Fetching address...'}
+                  </Text>
                 </View>
               ) : (
                 <>
@@ -467,9 +484,9 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
 
           {/* Confirm button */}
           <TouchableOpacity
-            style={[styles.confirmBtn, (!pinCoords || loadingAddress) && styles.disabledBtn]}
+            style={[styles.confirmBtn, (loadingAddress || isDragging) && styles.disabledBtn]}
             onPress={handleConfirm}
-            disabled={!pinCoords || loadingAddress}
+            disabled={loadingAddress || isDragging}
           >
             <Feather name="check-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.confirmBtnText}>Confirm Location</Text>
@@ -482,7 +499,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
         <View style={styles.tapHintContainer}>
           <View style={styles.tapHint}>
             <Feather name="navigation" size={16} color="#fff" />
-            <Text style={styles.tapHintText}>Tap on the map to set your address</Text>
+            <Text style={styles.tapHintText}>Drag map to set your address</Text>
           </View>
         </View>
       )}
@@ -663,7 +680,14 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 
-  // Pin marker
+  // Fixed Center Pin marker
+  fixedPinContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // offset so the tip of the pin hits the exact center
+    marginTop: -28, 
+  },
   pin: { alignItems: 'center' },
   pinHead: {
     backgroundColor: '#FF6A00',
@@ -680,7 +704,7 @@ const styles = StyleSheet.create({
   },
   pinTail: {
     width: 4,
-    height: 12,
+    height: 14,
     backgroundColor: '#FF6A00',
     borderRadius: 2,
     marginTop: -1,

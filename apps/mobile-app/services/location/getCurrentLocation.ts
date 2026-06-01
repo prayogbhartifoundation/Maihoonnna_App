@@ -14,7 +14,7 @@ export const getCurrentLocation = async (): Promise<{
       
       // Use high accuracy for real production coordinates
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation,
+        accuracy: Location.Accuracy.Balanced,
       });
 
       return {

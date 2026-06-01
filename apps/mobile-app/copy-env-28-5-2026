@@ -1,0 +1,14 @@
+# ─── LOCAL DEVELOPMENT ────────────────────────────────────────────────────────
+# This file is for LOCAL development only.
+# For production, copy .env.production values here or set them in your CI/CD.
+#
+# HOW TO SWITCH ENVIRONMENTS:
+#   LOCAL:      Set EXPO_PUBLIC_ENV=local  (uses localhost:8000)
+#   PRODUCTION: Set EXPO_PUBLIC_ENV=production  (uses https://maihoonna.in/api)
+#
+# ⚠️  For physical device testing on the same Wi-Fi, set your PC's local IP:
+#   EXPO_PUBLIC_LOCAL_IP=192.168.x.x  (find with ipconfig on Windows)
+
+EXPO_PUBLIC_ENV=production
+EXPO_PUBLIC_LOCAL_IP=localhost
+EXPO_PUBLIC_PRODUCTION_API_URL=https://api.maihoonna.com/app-api/

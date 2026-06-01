@@ -5,6 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
 
+    "updates": {
+      "enabled": false
+    },
+
     "icon": "./assets/images/group1.png",
 
     "scheme": "maihoonna",
@@ -13,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "config": {
-        "googleMapsApiKey": ""
+        "googleMapsApiKey": "AIzaSyDPrFpN29FZ786mTWjIbeQvW3y6ztjx3xU"
       }
     },
 
@@ -23,11 +27,10 @@
         "foregroundImage": "./assets/images/group2.png",
         "backgroundColor": "#E6F4FE"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "config": {
         "googleMaps": {
-          "apiKey": ""
+          "apiKey": "AIzaSyDPrFpN29FZ786mTWjIbeQvW3y6ztjx3xU"
         }
       }
     },
@@ -38,6 +41,7 @@
 
     "plugins": [
       "expo-router",
+
       [
         "expo-splash-screen",
         {
@@ -46,6 +50,7 @@
           "backgroundColor": "#ffffff"
         }
       ],
+
       [
         "expo-location",
         {
@@ -53,8 +58,10 @@
           "locationWhenInUsePermission": "MaiHoonNa needs your location to pin your address and find nearby Care Companions."
         }
       ],
+
       "expo-image",
       "expo-web-browser",
+
       [
         "expo-notifications",
         {
