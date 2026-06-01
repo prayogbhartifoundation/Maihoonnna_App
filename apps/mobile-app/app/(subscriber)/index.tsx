@@ -1,9 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView,
-    TouchableOpacity, RefreshControl, Image, Platform,
-    Animated, Dimensions, Modal, ActivityIndicator, ImageBackground
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Platform, Animated, Dimensions, Modal, ActivityIndicator, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +11,7 @@ import { CallbackButton } from '@/components/CallbackButton';
 import { logoutWithConfirm } from '@/utils/logout';
 import GlobalHeader from './components/shared/GlobalHeader';
 import GlobalDrawer from './components/shared/GlobalDrawer';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -297,7 +294,7 @@ export default function SubscriberDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#FAF5F0' },
+    safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF5F0' },
 
     scrollContent: { paddingBottom: 40 },

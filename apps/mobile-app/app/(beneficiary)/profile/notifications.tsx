@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import {
-    View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    SafeAreaView, Alert, Platform
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function NotificationsScreen() {
     const router = useRouter();

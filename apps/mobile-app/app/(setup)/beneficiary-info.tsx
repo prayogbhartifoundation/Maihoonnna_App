@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Modal, Pressable, Animated, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Modal, Pressable, Animated, Dimensions, ActivityIndicator } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -15,6 +15,8 @@ import { PhotoPickerInput } from '../../components/ui/PhotoPickerInput';
 import { AddressInputField } from '../../components/ui/AddressInputField';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import HeaderSpacer from '@/components/HeaderSpacer';
 
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
@@ -127,7 +129,8 @@ export default function BeneficiaryInfoScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
+            <HeaderSpacer backgroundColor="#FFFFFF" />
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -451,7 +454,7 @@ export default function BeneficiaryInfoScreen() {
                 drawerAnim={drawerAnim}
                 userData={userData}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 

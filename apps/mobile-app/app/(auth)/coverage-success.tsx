@@ -1,14 +1,8 @@
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CoverageSuccessScreen() {
     const router = useRouter();

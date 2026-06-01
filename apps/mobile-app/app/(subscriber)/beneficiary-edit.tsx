@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, TextInput, TouchableOpacity, StyleSheet,
-    SafeAreaView, ScrollView, Switch, KeyboardAvoidingView, Platform,
-    ActivityIndicator, Modal, Alert, Pressable
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Alert, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,6 +10,7 @@ import { Animated, Dimensions } from 'react-native';
 import AddMedicineModal, { type Medication } from './components/shared/AddMedicineModal';
 import { AddressInputField } from '../../components/ui/AddressInputField';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function EditBeneficiaryScreen() {
     const router = useRouter();

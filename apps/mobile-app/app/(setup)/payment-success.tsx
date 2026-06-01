@@ -1,16 +1,9 @@
 import React from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    TouchableOpacity,
-    Image
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CallbackButton } from '../../components/CallbackButton';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PaymentSuccessScreen() {
     const router = useRouter();

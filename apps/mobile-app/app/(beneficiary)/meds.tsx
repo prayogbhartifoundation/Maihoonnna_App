@@ -1,12 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-    ScrollView, Platform, Animated, TouchableWithoutFeedback, Alert, Image,
-    SafeAreaView
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Platform, Animated, TouchableWithoutFeedback, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path } from 'react-native-svg';
 import { API_URL } from '@/constants/api';
+import { SafeAreaView } from 'react-native-safe-area-context';
 const bellIcon = require('../../assets/icons/bell.png');
 const calendarIcon = require('../../assets/icons/calendar.png');
 

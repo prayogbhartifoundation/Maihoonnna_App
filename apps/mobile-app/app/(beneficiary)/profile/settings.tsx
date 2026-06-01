@@ -1,15 +1,9 @@
 import React from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    TouchableOpacity,
-    Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
     const router = useRouter();

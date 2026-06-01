@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import PackageUtilizationPanel, { DetailedUtilization } from '@/components/shared/PackageUtilizationPanel';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type SummaryData = {
   type: 'summary';

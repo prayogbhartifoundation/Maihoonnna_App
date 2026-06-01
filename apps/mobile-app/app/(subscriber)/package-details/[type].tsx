@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, Text, StyleSheet, SafeAreaView, TouchableOpacity, 
-    ScrollView, ActivityIndicator, Platform, Image 
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PackageDetailScreen() {
     const router = useRouter();

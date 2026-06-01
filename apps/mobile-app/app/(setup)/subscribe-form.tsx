@@ -1,18 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    KeyboardAvoidingView,
-    Platform,
-    ActivityIndicator,
-    Animated,
-    Dimensions
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -25,6 +12,7 @@ import { AddressInputField } from '../../components/ui/AddressInputField';
 
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type PackageDetails = {
     id: string;

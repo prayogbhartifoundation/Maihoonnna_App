@@ -1,17 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    KeyboardAvoidingView,
-    Platform,
-    ActivityIndicator,
-    Animated,
-    Dimensions
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -22,6 +10,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import HeaderSpacer from '../../components/HeaderSpacer';
 
 export default function SchedulePreferencesScreen() {
     const router = useRouter();
@@ -94,7 +84,8 @@ export default function SchedulePreferencesScreen() {
     );
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
+            <HeaderSpacer backgroundColor="#FFFFFF" />
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -186,7 +177,7 @@ export default function SchedulePreferencesScreen() {
                 drawerAnim={drawerAnim}
                 userData={userData}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 

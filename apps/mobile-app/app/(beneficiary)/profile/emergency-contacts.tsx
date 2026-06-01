@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    SafeAreaView, ActivityIndicator, TextInput, Modal, Alert, Platform
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Modal, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface EmergencyContact {
     name: string;

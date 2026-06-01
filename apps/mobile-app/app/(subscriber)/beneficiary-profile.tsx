@@ -1,8 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-    View, Text, StyleSheet, SafeAreaView, ScrollView,
-    TouchableOpacity, Image, Platform, ActivityIndicator, ImageBackground
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +18,7 @@ import GlobalHeader from './components/shared/GlobalHeader';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TabType = 'Timeline' | 'Vitals' | 'Medical';
 

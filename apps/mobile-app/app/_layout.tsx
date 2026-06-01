@@ -13,6 +13,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,14 +85,16 @@ export default function RootLayout() {
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
+        <SafeAreaProvider>
+          <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(subscriber)" />
           <Stack.Screen name="(beneficiary)" />
           <Stack.Screen name="(care-companion)" />
         </Stack>
 
-        <StatusBar style="auto" />
+          <StatusBar style="auto" />
+        </SafeAreaProvider>
       </ThemeProvider>
     </PersistQueryClientProvider>
   );

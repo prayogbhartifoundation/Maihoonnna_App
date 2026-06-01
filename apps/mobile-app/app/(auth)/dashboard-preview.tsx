@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { logoutWithConfirm } from '../../utils/logout';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardPreviewScreen() {
     const router = useRouter();

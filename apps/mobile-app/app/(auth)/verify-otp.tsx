@@ -1,15 +1,4 @@
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    KeyboardAvoidingView,
-    Platform,
-    Alert,
-    ActivityIndicator
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useState, useRef } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 // API source of truth from central constants
 import { API_URL } from '@/constants/api';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VerifyOtpScreen() {
     const router = useRouter();

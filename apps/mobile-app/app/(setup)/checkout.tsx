@@ -1,18 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    TextInput,
-    SafeAreaView,
-    Platform,
-    KeyboardAvoidingView,
-    Alert,
-    ActivityIndicator,
-    Dimensions
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +7,7 @@ import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, P
 
 // 🛑 BACKEND SETUP
 import { API_URL } from '@/constants/api';
+import HeaderSpacer from '@/components/HeaderSpacer';
 const UPI_APPS = ['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'Amazon Pay'];
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FIGMA_WIDTH = 716;
@@ -236,7 +224,8 @@ export default function CheckoutScreen() {
         <View style={styles.mainBackground}>
 
             {/* HEADER (White Background) */}
-            <SafeAreaView style={styles.safeAreaWhite}>
+            <View style={styles.safeAreaWhite}>
+                <HeaderSpacer backgroundColor="#FFFFFF" />
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => {
                         if (router.canGoBack()) {
@@ -253,7 +242,7 @@ export default function CheckoutScreen() {
                     </View>
                     <View style={styles.headerSpacer} />
                 </View>
-            </SafeAreaView>
+            </View>
 
             {/* MAIN BODY (Beige Background) */}
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

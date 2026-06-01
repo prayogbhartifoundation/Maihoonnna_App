@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    SafeAreaView, ActivityIndicator, Platform, Modal, TextInput
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, TextInput } from 'react-native';
 import Svg, { Line, Circle, Text as SvgText, Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- PIXEL PERFECT CUSTOM SVGS ---
 const CustomPulseIcon = ({ size = 22, color = '#EF4444' }) => (

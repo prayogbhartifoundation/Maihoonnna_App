@@ -1,21 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    KeyboardAvoidingView,
-    Platform,
-    ActivityIndicator,
-    Animated,
-    Dimensions,
-    Modal,
-    Switch,
-    Pressable
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Dimensions, Modal, Switch, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '@/constants/api';
@@ -26,6 +10,8 @@ const DRAWER_WIDTH = width * 0.75;
 import GlobalDrawer from '../(subscriber)/components/shared/GlobalDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import HeaderSpacer from '@/components/HeaderSpacer';
 
 type Medication = {
     name: string;
@@ -199,7 +185,8 @@ export default function MedicalInfoScreen() {
     );
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
+            <HeaderSpacer backgroundColor="#FFFFFF" />
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 
                 {/* Fixed Header aligned to design */}
@@ -552,7 +539,7 @@ export default function MedicalInfoScreen() {
                 drawerAnim={drawerAnim} 
                 userData={userData} 
             />
-        </SafeAreaView>
+        </View>
     );
 }
 

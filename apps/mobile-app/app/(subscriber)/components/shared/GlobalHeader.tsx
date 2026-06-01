@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import HeaderSpacer from '@/components/HeaderSpacer';
 
 interface GlobalHeaderProps {
     title: string;
@@ -17,7 +18,9 @@ const GlobalHeader = ({ title, onMenuPress, showBack = false, rightIcon, onRight
     const safeBack = useSafeBack();
 
     return (
-        <View style={styles.header}>
+        <>
+            <HeaderSpacer backgroundColor="#FFFFFF" />
+            <View style={styles.header}>
             <View style={styles.leftSection}>
                 {showBack ? (
                     <TouchableOpacity onPress={() => safeBack()} style={styles.iconBtn}>
@@ -46,6 +49,7 @@ const GlobalHeader = ({ title, onMenuPress, showBack = false, rightIcon, onRight
                 </TouchableOpacity>
             </View>
         </View>
+        </>
     );
 };
 

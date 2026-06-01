@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { GlobalHeader } from '../../components/GlobalHeader';
@@ -10,6 +10,7 @@ type PlanDuration = 'basic' | '6months' | 'annual';
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '../../components/CallbackButton';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SubscriptionPackagesScreen() {
     const router = useRouter();

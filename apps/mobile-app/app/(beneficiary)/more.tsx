@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, ScrollView,
-    TouchableOpacity, SafeAreaView, Platform, Image
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
 import { router } from 'expo-router';
 import {
     Feather, MaterialCommunityIcons,
@@ -12,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logoutWithConfirm } from '@/utils/logout';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface MenuItemProps {
     icon: React.ReactNode;

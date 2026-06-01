@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    TouchableOpacity,
-    Platform,
-    Modal,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Modal } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- PIXEL PERFECT CUSTOM SVG ICONS ---
 const CustomMailOpenIcon = ({ size = 22, color = '#9CA3AF' }) => (

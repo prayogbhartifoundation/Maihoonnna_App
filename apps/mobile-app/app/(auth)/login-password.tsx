@@ -1,20 +1,10 @@
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    SafeAreaView,
-    KeyboardAvoidingView,
-    Platform,
-    Alert,
-    ActivityIndicator
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { API_URL } from '@/constants/api';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginPasswordScreen() {
     const [form, setForm] = useState({
