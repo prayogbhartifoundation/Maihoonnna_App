@@ -3,15 +3,16 @@ export default ({ config }) => {
     ...config,
 
     plugins: [
+      ...(config.plugins || []),
       "@react-native-community/datetimepicker",
       "expo-font",
-          ],
+    ],
 
     ios: {
       ...config.ios,
       config: {
         ...config.ios?.config,
-        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || config.ios?.config?.googleMapsApiKey,
       },
     },
 
@@ -21,7 +22,7 @@ export default ({ config }) => {
         ...config.android?.config,
         googleMaps: {
           ...config.android?.config?.googleMaps,
-          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || config.android?.config?.googleMaps?.apiKey,
         },
       },
     },
