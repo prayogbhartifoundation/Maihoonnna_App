@@ -97,19 +97,19 @@ export default function PackageDetailScreen() {
                     <View style={styles.quickStats}>
                         <View style={styles.statItem}>
                             <Ionicons name="time-outline" size={24} color="#F97316" />
-                            <Text style={styles.statValue}>{pkg.hoursPerMonth}h</Text>
+                            <Text style={styles.statValue}>{pkg.totalHours || pkg.hoursPerMonth || 0}h</Text>
                             <Text style={styles.statLabel}>Care Hours</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
                             <Ionicons name="calendar-outline" size={24} color="#F97316" />
-                            <Text style={styles.statValue}>{pkg.visitsPerWeek}</Text>
+                            <Text style={styles.statValue}>{pkg.visitsPerWeek || 0}</Text>
                             <Text style={styles.statLabel}>Visits / week</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
                             <Ionicons name="people-outline" size={24} color="#F97316" />
-                            <Text style={styles.statValue}>{pkg.maxBeneficiaries}</Text>
+                            <Text style={styles.statValue}>{pkg.maxBeneficiaries || 1}</Text>
                             <Text style={styles.statLabel}>Beneficiaries</Text>
                         </View>
                     </View>
@@ -124,14 +124,38 @@ export default function PackageDetailScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Plan Inclusions</Text>
                         <View style={styles.benefitList}>
-                            {pkg.features.map((feature: string, i: number) => (
-                                <View key={i} style={styles.benefitItem}>
-                                    <View style={styles.checkIcon}>
-                                        <Ionicons name="checkmark" size={16} color="#059669" />
+                            {pkg.packageBenefits && pkg.packageBenefits.length > 0 ? (
+                                pkg.packageBenefits.map((pb: any, i: number) => {
+                                    const label = (pb.benefit?.unitLabel || '').replace(/^per\s+/i, '');
+                                    return (
+                                        <View key={i} style={styles.benefitItem}>
+                                            <View style={styles.checkIcon}>
+                                                <Ionicons name="checkmark" size={16} color="#059669" />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.benefitText}>
+                                                    <Text style={{ fontWeight: '700' }}>{pb.unitsIncluded} {label}</Text>
+                                                    {' '}• {pb.benefit?.name}
+                                                </Text>
+                                                {pb.benefit?.description ? (
+                                                    <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>
+                                                        {pb.benefit.description}
+                                                    </Text>
+                                                ) : null}
+                                            </View>
+                                        </View>
+                                    );
+                                })
+                            ) : (
+                                (pkg.features || []).map((feature: string, i: number) => (
+                                    <View key={i} style={styles.benefitItem}>
+                                        <View style={styles.checkIcon}>
+                                            <Ionicons name="checkmark" size={16} color="#059669" />
+                                        </View>
+                                        <Text style={styles.benefitText}>{feature}</Text>
                                     </View>
-                                    <Text style={styles.benefitText}>{feature}</Text>
-                                </View>
-                            ))}
+                                ))
+                            )}
                         </View>
                     </View>
 

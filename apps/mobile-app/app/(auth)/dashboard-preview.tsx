@@ -1,11 +1,12 @@
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { logoutWithConfirm } from '../../utils/logout';
+import { useLogoutWithConfirm } from '../../utils/logout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardPreviewScreen() {
     const router = useRouter();
+    const logoutWithConfirm = useLogoutWithConfirm();
     const params = useLocalSearchParams();
 
     // Parse the user object returned directly from the PostgreSQL Database!

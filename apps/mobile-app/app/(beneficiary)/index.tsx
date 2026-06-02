@@ -67,7 +67,7 @@ export default function BeneficiaryDashboard() {
             ]);
 
             if (!storedUser || !storedToken) {
-                router.replace('/(auth)');
+                // Auth missing — root layout will redirect automatically.
                 throw new Error('Auth missing');
             }
 

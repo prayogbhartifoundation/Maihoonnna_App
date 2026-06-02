@@ -1,7 +1,7 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useState } from "react";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/contexts/AuthContext";
 
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ export default function LoginPasswordScreen() {
     });
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const { login } = useAuth();
 
     const handleLogin = async () => {
         if (form.phone.length !== 10) {
@@ -31,7 +32,7 @@ export default function LoginPasswordScreen() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    phone: `+91${form.phone}`,   // match the format saved during registration
+                    phone: `+91${form.phone}`,
                     password: form.password
                 }),
             });
@@ -39,17 +40,15 @@ export default function LoginPasswordScreen() {
             const data = await response.json();
 
             if (data.success) {
-                // The actual payload is inside the 'data' property of ApiResponse
                 const result = data.data;
-
-                // Save user session!
-                await AsyncStorage.setItem('userToken', result.token);
-                await AsyncStorage.setItem('userData', JSON.stringify(result.user));
-
-                // Login successful! Drop them on the appropriate dashboard
-                if (result.user.role === 'care_companion') {
+                // Save session via AuthContext
+                await login(result.token, result.user);
+                
+                // Route explicitly to the correct dashboard to avoid layout flicker
+                const role = result.user.role;
+                if (role === "care_companion" || role === "volunteer") {
                     router.replace("/(care-companion)");
-                } else if (result.user.role === 'beneficiary') {
+                } else if (role === "beneficiary") {
                     router.replace("/(beneficiary)");
                 } else {
                     router.replace("/(subscriber)");

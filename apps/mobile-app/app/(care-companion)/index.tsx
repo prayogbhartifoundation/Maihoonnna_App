@@ -47,7 +47,7 @@ export default function DashboardScreen() {
                 try {
                     const token = await AsyncStorage.getItem('userToken');
                     if (!token) {
-                        router.replace('/(auth)');
+                        // Auth missing — root layout handles redirect automatically.
                         return;
                     }
 

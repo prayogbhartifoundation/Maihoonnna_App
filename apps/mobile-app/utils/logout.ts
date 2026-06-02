@@ -1,34 +1,60 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import { Alert, Platform } from 'react-native';
-
 /**
- * Global logout utility.
- * Clears all session data and redirects to the login screen.
+ * Logout utilities.
  *
- * Usage:
- *   import { logout } from '@/utils/logout';
+ * PRIMARY WAY (recommended for all components):
+ *   const { logout } = useAuth();
  *   await logout();
  *
- * With confirmation dialog:
- *   import { logoutWithConfirm } from '@/utils/logout';
- *   logoutWithConfirm();
+ * WITH CONFIRM DIALOG — use the useLogoutWithConfirm hook:
+ *   const logoutWithConfirm = useLogoutWithConfirm();
+ *   <TouchableOpacity onPress={logoutWithConfirm} />
+ *
+ * LEGACY (kept for compatibility): logoutWithConfirm(logoutFn)
  */
 
-export const logout = async (): Promise<void> => {
-    await AsyncStorage.multiRemove(['userToken', 'userData']);
-    router.replace('/(auth)');
-};
+import { Alert, Platform } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCallback } from 'react';
 
 /**
- * Shows an "Are you sure?" dialog before logging out.
- * Uses window.confirm on web (Alert.alert doesn't work on Expo Web).
+ * Hook that returns a confirm-then-logout function, ready to be used as onPress.
+ *
+ * Example:
+ *   const logoutWithConfirm = useLogoutWithConfirm();
+ *   <TouchableOpacity onPress={logoutWithConfirm} />
  */
-export const logoutWithConfirm = (): void => {
+export function useLogoutWithConfirm(): () => void {
+    const { logout } = useAuth();
+
+    return useCallback(() => {
+        if (Platform.OS === 'web') {
+            // eslint-disable-next-line no-alert
+            if (window.confirm('Are you sure you want to log out?')) {
+                logout();
+            }
+        } else {
+            Alert.alert(
+                'Log Out',
+                'Are you sure you want to log out?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Log Out', style: 'destructive', onPress: logout },
+                ],
+                { cancelable: true }
+            );
+        }
+    }, [logout]);
+}
+
+/**
+ * @deprecated Use `useLogoutWithConfirm()` hook instead.
+ * Shows an "Are you sure?" dialog before calling the provided logout function.
+ */
+export const logoutWithConfirm = (logoutFn: () => Promise<void>): void => {
     if (Platform.OS === 'web') {
         // eslint-disable-next-line no-alert
         if (window.confirm('Are you sure you want to log out?')) {
-            logout();
+            logoutFn();
         }
     } else {
         Alert.alert(
@@ -36,7 +62,7 @@ export const logoutWithConfirm = (): void => {
             'Are you sure you want to log out?',
             [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Log Out', style: 'destructive', onPress: logout },
+                { text: 'Log Out', style: 'destructive', onPress: logoutFn },
             ],
             { cancelable: true }
         );

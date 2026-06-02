@@ -6,7 +6,7 @@ import {
     FontAwesome5, Ionicons, AntDesign
 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logoutWithConfirm } from '@/utils/logout';
+import { useLogoutWithConfirm } from '@/utils/logout';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,6 +33,7 @@ function MenuItem({ icon, label, iconBg, onPress }: MenuItemProps) {
 export default function MoreOptionsScreen() {
     const [profileName, setProfileName] = useState('Margaret Williams');
     const safeBack = useSafeBack();
+    const logoutWithConfirm = useLogoutWithConfirm();
 
     useEffect(() => {
         loadProfileName();

@@ -1,11 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import 'react-native-reanimated';
-import type { Subscription } from 'expo-notifications';
-import * as Notifications from 'expo-notifications';
-import { AppState, Platform } from 'react-native';
+import { AppState, Platform, View, ActivityIndicator } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, focusManager } from '@tanstack/react-query';
@@ -15,11 +13,17 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+
+// Keep splash screen visible while we load fonts + session
+SplashScreen.preventAutoHideAsync();
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 24 * 60 * 60 * 1000, // Keep cache for 24 hours
+      staleTime: 5 * 60 * 1000,
+      gcTime: 24 * 60 * 60 * 1000,
     },
   },
 });
@@ -34,65 +38,95 @@ function onAppStateChange(status: AppStateStatus) {
   }
 }
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import {
-  registerForPushNotifications,
-  addNotificationReceivedListener,
-  addNotificationResponseListener,
-} from '@/services/notifications';
+// ─── Inner navigator — reads auth state to decide which screens exist ─────────
+
+/**
+ * KEY FIX: When the user is NOT logged in, only `(auth)` screens exist in
+ * the stack — so back gestures cannot reach app screens.
+ *
+ * When the user IS logged in, only app screens exist — so back gestures
+ * cannot reach the login screen. This is exactly how Swiggy/Zomato/Uber work.
+ */
+function RootNavigator() {
+  const { isLoading, isLoggedIn } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  // Route protection logic
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!isLoggedIn && !inAuthGroup) {
+      // If not logged in and trying to access an app screen, redirect to auth
+      // Note: we allow (setup) for browsing packages
+      if (segments[0] !== '(setup)') {
+        router.replace('/(auth)');
+      }
+    }
+  }, [isLoggedIn, isLoading, segments]);
+
+  // While we're checking AsyncStorage, show a native splash-compatible loader
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+        <ActivityIndicator size="large" color="#FE6700" />
+      </View>
+    );
+  }
+
+  // ── UNIFIED STACK ──
+  // Expo Router strictly recommends against conditionally hiding <Stack.Screen>.
+  // Instead, all screens are registered, and we use the effect above + gestureEnabled:false
+  // on root dashboards to prevent backing into auth.
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(subscriber)" />
+      <Stack.Screen name="(beneficiary)" />
+      <Stack.Screen name="(care-companion)" />
+      <Stack.Screen name="(setup)" />
+      <Stack.Screen name="package-utilization" />
+    </Stack>
+  );
+}
+
+// ─── Root Layout ─────────────────────────────────────────────────────────────
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const notifListener = useRef<Subscription | null>(null);
-  const responseListener = useRef<Subscription | null>(null);
-  // --- ADDED: Font loading hook ---
+
   const [fontsLoaded, error] = useFonts({
     'Poppins-Regular': require('../assets/fonts/Poppins-Regular.ttf'),
     'Poppins-Medium': require('../assets/fonts/Poppins-Medium.ttf'),
-    'Poppins-SemiBold': require('../assets/fonts/Poppins-SemiBold.ttf'), // Added for modal headers
+    'Poppins-SemiBold': require('../assets/fonts/Poppins-SemiBold.ttf'),
     'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'),
   });
-/*
- useEffect(() => {
-    // Register for push notifications on app start
-    registerForPushNotifications();
 
-    // Handle notification received while app is open (foreground)
-    notifListener.current = addNotificationReceivedListener(notification => {
-      console.log('[App] Notification received:', notification.request.content.title);
-    });
-
-    // Handle notification tap (user opens app from notification)
-    responseListener.current = addNotificationResponseListener(response => {
-      const data = response.notification.request.content.data;
-      console.log('[App] Notification tapped, data:', data);
-      // TODO: Navigate to relevant screen based on data.type
-      // e.g., if data.type === 'cc_assignment' → navigate to profile/visits
-    });
-
-    return () => {
-      notifListener.current?.remove();
-      responseListener.current?.remove();
-    };
-  }, []); */
-
-  // React Query AppState Listener
+  // React Query AppState listener
   useEffect(() => {
     const subscription = AppState.addEventListener('change', onAppStateChange);
     return () => subscription.remove();
   }, []);
 
+  // Hide splash screen once fonts have loaded
+  useEffect(() => {
+    if (fontsLoaded || error) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, error]);
+
+  if (!fontsLoaded && !error) return null;
+
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <SafeAreaProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(subscriber)" />
-          <Stack.Screen name="(beneficiary)" />
-          <Stack.Screen name="(care-companion)" />
-        </Stack>
-
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
           <StatusBar style="auto" />
         </SafeAreaProvider>
       </ThemeProvider>

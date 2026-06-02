@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { API_URL } from '@/constants/api';
-import { logoutWithConfirm } from '@/utils/logout';
+import { useLogoutWithConfirm } from '@/utils/logout';
 
 // Components
 import { ProfileHero } from './components/profile/ProfileHero';
@@ -21,6 +21,7 @@ type TabType = 'Personal' | 'Security' | 'Subscription';
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const logoutWithConfirm = useLogoutWithConfirm();
     const [loading, setLoading] = useState(true);
     const [profileData, setProfileData] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<TabType>('Personal');

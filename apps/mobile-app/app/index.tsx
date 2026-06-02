@@ -1,35 +1,15 @@
-import { useEffect, useState } from "react";
 import { Redirect } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/contexts/AuthContext";
 
+/**
+ * Root entry point — redirects based on auth state from the global context.
+ * No AsyncStorage reads here; the AuthProvider already loaded the session.
+ */
 export default function Index() {
-  const [isReady, setIsReady] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
+  const { isLoading, isLoggedIn, role } = useAuth();
 
-  useEffect(() => {
-    async function checkLoginState() {
-      try {
-        const token = await AsyncStorage.getItem("userToken");
-        if (token) {
-          setIsLoggedIn(true);
-          const userDataStr = await AsyncStorage.getItem("userData");
-          if (userDataStr) {
-            const userData = JSON.parse(userDataStr);
-            setRole(userData.role);
-          }
-        }
-      } catch (err) {
-        console.error("Error loading auth state:", err);
-      } finally {
-        setIsReady(true);
-      }
-    }
-    checkLoginState();
-  }, []);
-
-  if (!isReady) {
+  if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: '#FFFFFF' }}>
         <ActivityIndicator size="large" color="#F97316" />
@@ -41,12 +21,13 @@ export default function Index() {
     return <Redirect href="/(auth)" />;
   }
 
-  // Dynamic role-based redirection on startup
-  if (role === "care_companion") {
+  // Role-based redirection to the correct home dashboard
+  if (role === "care_companion" || role === "volunteer") {
     return <Redirect href="/(care-companion)" />;
   } else if (role === "beneficiary") {
     return <Redirect href="/(beneficiary)" />;
   } else {
+    // Default: subscriber dashboard
     return <Redirect href="/(subscriber)" />;
   }
 }

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Dimensions, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { logoutWithConfirm } from '@/utils/logout';
+import { useLogoutWithConfirm } from '@/utils/logout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
@@ -17,6 +17,7 @@ interface GlobalDrawerProps {
 
 const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerProps) => {
     const router = useRouter();
+    const logoutWithConfirm = useLogoutWithConfirm();
 
     const isLoggedIn = !!userData && !!userData.id;
 

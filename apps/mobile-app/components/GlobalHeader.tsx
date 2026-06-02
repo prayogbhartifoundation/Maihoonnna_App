@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface GlobalHeaderProps {
     title?: string;
@@ -10,24 +10,13 @@ interface GlobalHeaderProps {
 
 export function GlobalHeader({ title = "MaiHoonNa" }: GlobalHeaderProps) {
     const router = useRouter();
+    const { logout, role: userRole } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [userRole, setUserRole] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchUserData = async () => {
-            const dataStr = await AsyncStorage.getItem('userData');
-            if (dataStr) {
-                const data = JSON.parse(dataStr);
-                setUserRole(data.role);
-            }
-        };
-        fetchUserData();
-    }, []);
 
     const handleLogout = async () => {
         setIsMenuOpen(false);
-        await AsyncStorage.clear();
-        router.replace('/(auth)');
+        await logout();
+        // Root layout automatically switches to auth-only stack
     };
 
     const handleGoDashboard = () => {

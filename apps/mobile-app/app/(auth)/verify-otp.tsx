@@ -2,8 +2,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingVi
 import { useState, useRef } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuth } from "@/contexts/AuthContext";
 
 // API source of truth from central constants
 import { API_URL } from '@/constants/api';
@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VerifyOtpScreen() {
     const router = useRouter();
+    const { login } = useAuth();
     // Retrieve the phone number passed from the previous screen
     const { phone } = useLocalSearchParams<{ phone: string }>();
 
@@ -56,7 +57,7 @@ export default function VerifyOtpScreen() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ phone, otp: enteredOtp }), // Pass phone & otp
+                body: JSON.stringify({ phone, otp: enteredOtp }),
             });
 
             const data = await response.json();
@@ -69,21 +70,21 @@ export default function VerifyOtpScreen() {
                     // Navigate to registration if user profile doesn't exist yet
                     router.push({ pathname: "/(auth)/register", params: { phone } });
                 } else if (result.user) {
-                    // 3. PERSIST THE SESSION
-                    await AsyncStorage.setItem("userToken", result.token);
-                    await AsyncStorage.setItem("userData", JSON.stringify(result.user));
-
-                    // 4. ROLE-BASED REDIRECTION
-                    if (result.user.role === 'beneficiary') {
-                        router.replace('/(beneficiary)');
-                    } else if (result.user.role === 'care_companion' || result.user.role === 'volunteer') {
-                        router.replace('/(care-companion)');
+                    // PERSIST SESSION via AuthContext
+                    await login(result.token, result.user);
+                    
+                    // Route explicitly to the correct dashboard to avoid layout flicker
+                    const role = result.user.role;
+                    if (role === "care_companion" || role === "volunteer") {
+                        router.replace("/(care-companion)");
+                    } else if (role === "beneficiary") {
+                        router.replace("/(beneficiary)");
                     } else {
                         router.replace("/(subscriber)");
                     }
                 }
             } else {
-                // 3. Failed validation (Wrong OTP, Expired, etc)
+                // Failed validation (Wrong OTP, Expired, etc)
                 Alert.alert("Verification Failed", data.message || "Invalid OTP entered.");
                 // Clear all OTP input fields so they can try again quickly
                 setOtp(["", "", "", "", "", ""]);

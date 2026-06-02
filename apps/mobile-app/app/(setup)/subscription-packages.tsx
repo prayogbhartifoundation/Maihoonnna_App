@@ -81,7 +81,7 @@ export default function SubscriptionPackagesScreen() {
 
                 {/* Dynamic DB Driven Cards */}
                 {packages.map((pkg: any) => {
-                    const isPopular = pkg.type === 'gold';
+                    const isPopular = pkg.isPopular;
 
                     return (
                         <View key={pkg.id} style={[styles.card, isPopular && styles.popularCard]}>

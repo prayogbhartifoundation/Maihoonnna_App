@@ -27,9 +27,8 @@ export default function SubscriberDashboardScreen() {
             const storedUser = await AsyncStorage.getItem('userData');
             if (storedUser) {
                 setUserData(JSON.parse(storedUser));
-            } else {
-                router.replace('/(auth)');
             }
+            // No redirect to auth here — the root layout handles that.
         };
         loadUser();
     }, []);
@@ -46,7 +45,8 @@ export default function SubscriberDashboardScreen() {
             const storedToken = await AsyncStorage.getItem('userToken');
 
             if (!storedToken) {
-                router.replace('/(auth)');
+                // Token missing — this should not happen if root layout works correctly,
+                // but we throw to prevent stale data from rendering.
                 throw new Error("Auth missing");
             }
 

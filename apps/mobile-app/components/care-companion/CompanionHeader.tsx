@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CompanionHeaderProps {
     userName: string;
@@ -10,6 +10,7 @@ interface CompanionHeaderProps {
 
 export function CompanionHeader({ userName }: CompanionHeaderProps) {
     const router = useRouter();
+    const { logout } = useAuth();
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -28,8 +29,8 @@ export function CompanionHeader({ userName }: CompanionHeaderProps) {
 
     const handleLogout = async () => {
         setIsMenuOpen(false);
-        await AsyncStorage.clear();
-        router.replace('/(auth)');
+        await logout();
+        // Root layout automatically switches to auth-only stack
     };
 
     return (

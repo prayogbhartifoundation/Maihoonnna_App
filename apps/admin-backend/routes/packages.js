@@ -96,6 +96,7 @@ router.post('/', async (req, res) => {
     benefits = [],
     discounts = [],
     isGlobal,
+    isPopular,
   } = req.body;
 
   if (!name || !activeFrom) {
@@ -132,6 +133,7 @@ router.post('/', async (req, res) => {
           activeTo: activeTo ? new Date(activeTo) : null,
           sortOrder: displayOrder ?? 0,
           isGlobal: isGlobal ?? true,
+          isPopular: isPopular ?? false,
         },
       });
 
@@ -197,6 +199,7 @@ router.patch('/:id', async (req, res) => {
     displayOrder,
     isActive,
     isGlobal,
+    isPopular,
   } = req.body;
   try {
     const pkg = await prisma.subscriptionPackage.update({
@@ -220,6 +223,7 @@ router.patch('/:id', async (req, res) => {
         sortOrder: displayOrder,
         isActive,
         isGlobal,
+        isPopular,
       },
     });
     res.json({ success: true, data: pkg });
@@ -239,6 +243,9 @@ router.put('/:id', async (req, res) => {
     name,
     description,
     packageCost,
+    mrp,
+    discountPercentage,
+    miscellaneousCost,
     currency,
     billingCycle,
     isFreeTrial,
@@ -249,6 +256,7 @@ router.put('/:id', async (req, res) => {
     benefits = [],
     discounts = [],
     isGlobal,
+    isPopular,
     totalHours,
   } = req.body;
 
@@ -263,6 +271,13 @@ router.put('/:id', async (req, res) => {
           basePrice:
             packageCost ??
             (req.body.totalCost ? parseInt(req.body.totalCost) : undefined),
+          mrp: mrp ? parseFloat(mrp) : undefined,
+          discountPercentage: discountPercentage
+            ? parseFloat(discountPercentage)
+            : undefined,
+          miscellaneousCost: miscellaneousCost
+            ? parseFloat(miscellaneousCost)
+            : undefined,
           currency: currency ?? 'INR',
           billingCycle: billingCycle ?? 'monthly',
           isFreeTrial: isFreeTrial ?? false,
@@ -271,6 +286,7 @@ router.put('/:id', async (req, res) => {
           activeTo: activeTo ? new Date(activeTo) : null,
           sortOrder: displayOrder ?? undefined,
           isGlobal: isGlobal ?? true,
+          isPopular: isPopular ?? false,
           totalHours: totalHours ? parseFloat(totalHours) : undefined,
         },
       });

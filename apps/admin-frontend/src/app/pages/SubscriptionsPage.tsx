@@ -27,6 +27,7 @@ export default function SubscriptionsPage() {
   // Wizard state
   const [currentStep, setCurrentStep] = useState<WizardStep>('define');
   const [packageName, setPackageName] = useState('');
+  const [description, setDescription] = useState('');
   const [mrp, setMrp] = useState('0');
   const [discountPercentage, setDiscountPercentage] = useState('0');
   const [miscellaneousCost, setMiscellaneousCost] = useState('0');
@@ -39,6 +40,7 @@ export default function SubscriptionsPage() {
   const [totalCost, setTotalCost] = useState('0');
   const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
   const [isGlobal, setIsGlobal] = useState(true);
+  const [isPopular, setIsPopular] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -115,6 +117,7 @@ export default function SubscriptionsPage() {
 
     const payload = {
       name: packageName,
+      description,
       benefits: packageBenefits,
       packageCost: parseFloat(totalCost),
       mrp: parseFloat(mrp),
@@ -125,6 +128,7 @@ export default function SubscriptionsPage() {
       activeTo: activeTo ? new Date(activeTo).toISOString() : null,
       createdBy: 'U001',
       isGlobal,
+      isPopular,
     };
 
     if (activeFrom && activeTo) {
@@ -152,6 +156,7 @@ export default function SubscriptionsPage() {
   const handleEdit = (pkg: any) => {
     setEditingPackageId(pkg.id);
     setPackageName(pkg.name);
+    setDescription(pkg.description || '');
     setMrp(String(pkg.mrp || 0));
     setDiscountPercentage(String(pkg.discountPercentage || 0));
     setMiscellaneousCost(String(pkg.miscellaneousCost || 0));
@@ -161,11 +166,12 @@ export default function SubscriptionsPage() {
     setActiveFrom(pkg.activeFrom ? pkg.activeFrom.split('T')[0] : '');
     setActiveTo(pkg.activeTo ? pkg.activeTo.split('T')[0] : '');
     setIsGlobal(pkg.isGlobal ?? true);
+    setIsPopular(pkg.isPopular ?? false);
     
     const selected = new Set<string>();
     const units: Record<string, number> = {};
     
-    (pkg.benefits || []).forEach(b => {
+    (pkg.benefits || []).forEach((b: any) => {
       selected.add(b.benefitId);
       units[b.benefitId] = b.monthlyUnits;
     });
@@ -190,6 +196,7 @@ export default function SubscriptionsPage() {
     setShowWizard(false);
     setCurrentStep('define');
     setPackageName('');
+    setDescription('');
     setMrp('0');
     setDiscountPercentage('0');
     setMiscellaneousCost('0');
@@ -199,6 +206,7 @@ export default function SubscriptionsPage() {
     setIsManualPrice(false);
     setEditingPackageId(null);
     setIsGlobal(true);
+    setIsPopular(false);
   };
 
   const steps = [
@@ -286,6 +294,16 @@ export default function SubscriptionsPage() {
                         onChange={(e) => setPackageName(e.target.value)}
                         placeholder="e.g., Essential Care Package"
                         className="bg-input-background"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Package Overview (Bio)</Label>
+                      <textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Describe the plan benefits and target audience..."
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -463,17 +481,33 @@ export default function SubscriptionsPage() {
                     </p>
                   </div>
 
-                  <div className="flex items-center space-x-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                    <Checkbox
-                      id="isGlobal"
-                      checked={isGlobal}
-                      onCheckedChange={(val) => setIsGlobal(!!val)}
-                    />
-                    <div className="space-y-1 leading-none">
-                      <Label htmlFor="isGlobal" className="font-semibold text-orange-900 cursor-pointer text-base">Make this package Global</Label>
-                      <p className="text-sm text-orange-700">
-                        When checked, this package will be visible to all app users. When unchecked, it will be kept private.
-                      </p>
+                  <div className="flex flex-col gap-3 mb-6">
+                    <div className="flex items-center space-x-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                      <Checkbox
+                        id="isGlobal"
+                        checked={isGlobal}
+                        onCheckedChange={(val) => setIsGlobal(!!val)}
+                      />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="isGlobal" className="font-semibold text-orange-900 cursor-pointer text-base">Make this package Global</Label>
+                        <p className="text-sm text-orange-700">
+                          When checked, this package will be visible to all app users. When unchecked, it will be kept private.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                      <Checkbox
+                        id="isPopular"
+                        checked={isPopular}
+                        onCheckedChange={(val) => setIsPopular(!!val)}
+                      />
+                      <div className="space-y-1 leading-none">
+                        <Label htmlFor="isPopular" className="font-semibold text-orange-900 cursor-pointer text-base">Mark as "Most Popular"</Label>
+                        <p className="text-sm text-orange-700">
+                          When checked, this package will be highlighted with a badge in the mobile app.
+                        </p>
+                      </div>
                     </div>
                   </div>
 
