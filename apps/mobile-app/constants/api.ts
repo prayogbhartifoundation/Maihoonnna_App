@@ -26,7 +26,9 @@ const getLocalUrl = () => {
 
     // 3. Android emulators / physical devices
     if (Platform.OS === 'android') {
-        const host = LOCAL_IP === 'localhost' ? '10.0.2.2' : LOCAL_IP;
+        // 10.0.2.2 is only needed for emulators (it maps to host localhost).
+        // For physical devices using `adb reverse`, 127.0.0.1 routes through the USB tunnel.
+        const host = LOCAL_IP === 'localhost' ? '127.0.0.1' : LOCAL_IP;
         return `http://${host}:${PORT}/api`;
     }
     

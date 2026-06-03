@@ -4,7 +4,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
-import GlobalHeader from './components/shared/GlobalHeader';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
 import AddMedicineModal, { type Medication } from './components/shared/AddMedicineModal';
@@ -213,7 +212,16 @@ export default function EditBeneficiaryScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <GlobalHeader title="Edit Profile" showBack={true} onMenuPress={openDrawer} />
+            {/* Simple inline header */}
+            <View style={styles.inlineHeader}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.iconBtn}>
+                    <Ionicons name="arrow-back" size={24} color="#111827" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Edit Profile</Text>
+                <TouchableOpacity onPress={openDrawer} style={styles.iconBtn}>
+                    <Ionicons name="menu-outline" size={28} color="#111827" />
+                </TouchableOpacity>
+            </View>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
@@ -522,6 +530,12 @@ export default function EditBeneficiaryScreen() {
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FAF5F0' },
+    inlineHeader: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#FAF5F0',
+    },
+    headerTitle: { flex: 1, fontSize: 17, fontWeight: '600', color: '#111827', marginLeft: 6 },
+    iconBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     scrollContent: { padding: 20 },
     card: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 16, elevation: 2 },

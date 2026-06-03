@@ -14,7 +14,6 @@ import { VitalsTab } from './components/beneficiary/VitalsTab';
 import { MedicalTab } from './components/beneficiary/MedicalTab';
 
 import { NextVisitCard } from './components/beneficiary/NextVisitCard';
-import GlobalHeader from './components/shared/GlobalHeader';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
 import { useSafeBack } from '@/hooks/useSafeBack';
@@ -113,16 +112,19 @@ export default function BeneficiaryProfileScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <GlobalHeader
-                title="Beneficiary Details"
-                onMenuPress={openDrawer}
-                showBack={true}
-                rightIcon="pencil"
-                onRightIconPress={() => router.push({
-                    pathname: '/(subscriber)/beneficiary-edit',
-                    params: { id }
-                })}
-            />
+            {/* Simple inline header */}
+            <View style={styles.inlineHeader}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.iconBtn}>
+                    <Ionicons name="arrow-back" size={24} color="#111827" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Beneficiary Details</Text>
+                <TouchableOpacity onPress={() => router.push({ pathname: '/(subscriber)/beneficiary-edit', params: { id } })} style={styles.iconBtn}>
+                    <Ionicons name="pencil-outline" size={22} color="#FE6700" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={openDrawer} style={styles.iconBtn}>
+                    <Ionicons name="menu-outline" size={28} color="#111827" />
+                </TouchableOpacity>
+            </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
@@ -269,6 +271,12 @@ export default function BeneficiaryProfileScreen() {
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FFF2E8' },
+    inlineHeader: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#FFF2E8',
+    },
+    headerTitle: { flex: 1, fontSize: 17, fontWeight: '600', color: '#111827', marginLeft: 6 },
+    iconBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF2E8' },
     notFoundText: { fontSize: 16, color: '#6B7280', marginBottom: 16 },
     backBtn: { backgroundColor: '#F97316', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },

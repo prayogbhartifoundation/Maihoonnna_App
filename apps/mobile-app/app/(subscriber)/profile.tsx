@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,9 +12,7 @@ import { ProfileHero } from './components/profile/ProfileHero';
 import { PersonalTab } from './components/profile/PersonalTab';
 import { SecurityTab } from './components/profile/SecurityTab';
 import SubscriptionTab from './components/profile/SubscriptionTab';
-import GlobalHeader from './components/shared/GlobalHeader';
 import GlobalDrawer from './components/shared/GlobalDrawer';
-import { Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TabType = 'Personal' | 'Security' | 'Subscription';
@@ -25,7 +23,7 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [profileData, setProfileData] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<TabType>('Personal');
-    
+
     // Drawer state
     const [drawerOpen, setDrawerOpen] = useState(false);
     const { width } = Dimensions.get('window');
@@ -49,7 +47,7 @@ export default function ProfileScreen() {
             }
 
             const res = await fetch(`${API_URL}/subscriber/profile`, {
-                headers: { 
+                headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
@@ -92,14 +90,23 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <GlobalHeader 
-                title="My Profile" 
-                onMenuPress={openDrawer} 
-                showBack={true} 
-            />
+            {/* Inline header */}
+            <View style={styles.inlineHeader}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+                    <Ionicons name="arrow-back" size={24} color="#111827" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>My Profile</Text>
+                <View style={styles.iconBtn}>
+                    <Ionicons name="notifications-outline" size={24} color="#111827" />
+                    <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
+                </View>
+                <TouchableOpacity onPress={openDrawer} style={styles.iconBtn}>
+                    <Ionicons name="menu-outline" size={28} color="#111827" />
+                </TouchableOpacity>
+            </View>
 
-            <ScrollView 
-                style={styles.scrollView} 
+            <ScrollView
+                style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 36 }}
             >
@@ -119,7 +126,7 @@ export default function ProfileScreen() {
                                 style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
                                 onPress={() => setActiveTab(tab)}
                             >
-                                <Ionicons 
+                                <Ionicons
                                     name={tab === 'Personal' ? 'person-outline' : tab === 'Security' ? 'lock-closed-outline' : 'ribbon-outline'}
                                     size={17}
                                     color={activeTab === tab ? '#FFF' : '#3A3A3A'}
@@ -143,11 +150,11 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
             </ScrollView>
 
-            <GlobalDrawer 
-                isOpen={drawerOpen} 
-                onClose={closeDrawer} 
-                drawerAnim={drawerAnim} 
-                userData={profileData.user} 
+            <GlobalDrawer
+                isOpen={drawerOpen}
+                onClose={closeDrawer}
+                drawerAnim={drawerAnim}
+                userData={profileData.user}
             />
         </SafeAreaView>
     );
@@ -156,6 +163,18 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#FFF2E8' },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF2E8' },
+    inlineHeader: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF2E8',
+    },
+    headerTitle: { flex: 1, fontSize: 17, fontWeight: '600', color: '#111827', marginLeft: 6 },
+    iconBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+    badge: {
+        position: 'absolute', top: 4, right: -2, backgroundColor: '#FE6700',
+        width: 16, height: 16, borderRadius: 8, justifyContent: 'center', alignItems: 'center',
+        borderWidth: 1, borderColor: '#FFF2E8',
+    },
+    badgeText: { color: '#FFF', fontSize: 8, fontWeight: '800' },
     scrollView: { flex: 1 },
     tabsWrapper: { paddingHorizontal: 15, marginTop: 22, marginBottom: 23 },
     tabsContainer: {
@@ -192,5 +211,5 @@ const styles = StyleSheet.create({
     logoutText: { marginLeft: 10, fontSize: 17, fontWeight: '700', color: '#DC2626' },
     errorText: { fontSize: 16, color: '#6B7280', marginBottom: 20 },
     retryBtn: { backgroundColor: '#F97316', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
-    retryText: { color: '#FFFFFF', fontWeight: '700' }
+    retryText: { color: '#FFFFFF', fontWeight: '700' },
 });

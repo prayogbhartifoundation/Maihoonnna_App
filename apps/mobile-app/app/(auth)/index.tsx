@@ -1,11 +1,15 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-// API source of truth from central constants
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { width, height } = Dimensions.get('window');
+const BASE_WIDTH = 390;
+const scale = (size: number) => Math.round((width / BASE_WIDTH) * size);
+const vscale = (size: number) => Math.round((height / 844) * size);
 
 export default function AuthScreen() {
   const [phone, setPhone] = useState("");
@@ -13,7 +17,6 @@ export default function AuthScreen() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    // 1. Basic UI Validation
     if (phone.length !== 10) {
       Alert.alert("Invalid input", "Please enter a valid 10-digit phone number.");
       return;
@@ -22,7 +25,6 @@ export default function AuthScreen() {
     setIsLoading(true);
 
     try {
-      // 2. Call the Real Backend API to trigger the Twilio/Dev/MSG91 OTP
       const response = await fetch(`${API_URL}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -32,8 +34,6 @@ export default function AuthScreen() {
       const data = await response.json();
 
       if (data.success) {
-        // 3. Navigate ONLY if the backend confirms OTP was sent
-        // We pass the phone number forward so the verify screen knows what to verify against
         router.push({
           pathname: "/(auth)/verify-otp",
           params: { phone: `+91${phone}` },
@@ -53,101 +53,113 @@ export default function AuthScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
+        style={styles.keyboardView}
       >
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoLetter}>म</Text>
-          </View>
-          <Text style={styles.logoText}>
-            Mai<Text style={styles.logoOrange}>Hoon</Text>Na
-          </Text>
-        </View>
-
-        <LinearGradient
-          colors={["#FFFFFF", "#FFE2CC"]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={styles.card}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Login with Phone</Text>
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <View style={styles.logoCircle}>
+              <Text style={styles.logoLetter}>म</Text>
+            </View>
+            <Text style={styles.logoText}>
+              Mai<Text style={styles.logoOrange}>Hoon</Text>Na
+            </Text>
+          </View>
 
-          <Text style={styles.label}>Phone Number</Text>
-          <View style={styles.inputRow}>
-            <View style={styles.countryCodeContainer}>
-              <Text style={styles.countryCode}>+91</Text>
+          {/* Login Card */}
+          <LinearGradient
+            colors={["#FFFFFF", "#FFE2CC"]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.card}
+          >
+            <Text style={styles.title}>Login with Phone</Text>
+
+            <Text style={styles.label}>Phone Number</Text>
+            <View style={styles.inputRow}>
+              <View style={styles.countryCodeContainer}>
+                <Text style={styles.countryCode}>+91</Text>
+              </View>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Enter 10-digit number"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="numeric"
+                maxLength={10}
+                value={phone}
+                onChangeText={setPhone}
+                editable={!isLoading}
+              />
             </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Enter 10-digit number"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="numeric"
-              maxLength={10}
-              value={phone}
-              onChangeText={setPhone}
-              editable={!isLoading}
-            />
+            <TouchableOpacity
+              style={[styles.otpButton, isLoading && styles.otpButtonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+              activeOpacity={0.85}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.otpButtonText}>Send OTP</Text>
+              )}
+            </TouchableOpacity>
+          </LinearGradient>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.line} />
+            <Text style={styles.dividerText}>Or continue with</Text>
+            <View style={styles.line} />
           </View>
 
+          {/* Biometric Login */}
+          <TouchableOpacity style={styles.bioButton} disabled={isLoading} activeOpacity={0.85}>
+            <MaterialCommunityIcons name="fingerprint" size={scale(20)} color="#FFFFFF" />
+            <Text style={styles.bioButtonText}>Biometric Login</Text>
+          </TouchableOpacity>
+
+          {/* Password Login */}
           <TouchableOpacity
-            style={[styles.otpButton, isLoading && styles.otpButtonDisabled]}
-            onPress={handleLogin}
+            style={styles.passwordButton}
+            onPress={() => router.push("/(auth)/login-password" as any)}
             disabled={isLoading}
             activeOpacity={0.85}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.otpButtonText}>Send OTP</Text>
-            )}
+            <MaterialCommunityIcons name="lock-outline" size={scale(22)} color="#111827" style={{ marginRight: scale(8) }} />
+            <Text style={styles.passwordButtonText}>Login with Password</Text>
           </TouchableOpacity>
-        </LinearGradient>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.line} />
-          <Text style={styles.dividerText}>Or continue with</Text>
-          <View style={styles.line} />
-        </View>
+          {/* Footer */}
+          <View style={styles.footer}>
+            <View style={styles.signUpRow}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
+                <Text style={styles.orangeTextBold}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
 
-        <TouchableOpacity style={styles.bioButton} disabled={isLoading} activeOpacity={0.85}>
-          <MaterialCommunityIcons name="fingerprint" size={20} color="#FFFFFF" />
-          <Text style={styles.bioButtonText}>Biometric Login</Text>
-        </TouchableOpacity>
-
-        {/* Password Login Button */}
-        <TouchableOpacity style={styles.passwordButton} onPress={() => router.push("/(auth)/login-password" as any)} disabled={isLoading} activeOpacity={0.85}>
-          <MaterialCommunityIcons name="lock-outline" size={22} color="#111827" style={{ marginRight: 8 }} />
-          <Text style={styles.passwordButtonText}>Login with Password</Text>
-        </TouchableOpacity>
-
-        <View style={styles.footer}>
-          <View style={styles.signUpRow}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
-              <Text style={styles.orangeTextBold}>Sign Up</Text>
+            <TouchableOpacity
+              style={styles.browseButton}
+              onPress={() => router.push("/(setup)/subscription-packages")}
+              activeOpacity={0.85}
+            >
+              <MaterialCommunityIcons name="package-variant-closed" size={scale(22)} color="#FE6700" />
+              <Text style={styles.browseButtonText}>Browse Packages</Text>
             </TouchableOpacity>
+
+            <Text style={styles.terms}>
+              By continuing, you agree to our{" "}
+              <Text style={styles.orangeTextTerms}>Terms of Service</Text>
+              {"\n"}and <Text style={styles.orangeTextTerms}>Privacy Policy</Text>
+            </Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.browseButton}
-            onPress={() => router.push("/(setup)/subscription-packages")}
-            activeOpacity={0.85}
-          >
-            <MaterialCommunityIcons
-              name="package-variant-closed"
-              size={24}
-              color="#FE6700"
-            />
-            <Text style={styles.browseButtonText}>Browse Packages</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.terms}>
-            By continuing, you agree to our{" "}
-            <Text style={styles.orangeTextTerms}>Terms of Service</Text>
-            {"\n"}and <Text style={styles.orangeTextTerms}>Privacy Policy</Text>
-          </Text>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -158,78 +170,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  container: {
+  keyboardView: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 78 : 88,
-    paddingBottom: 34,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: scale(24),
+    paddingTop: vscale(32),
+    paddingBottom: scale(32),
     alignItems: "center",
   },
+
+  /* Logo */
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 42,
+    marginBottom: vscale(32),
   },
   logoCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: scale(44),
+    height: scale(44),
+    borderRadius: scale(22),
     backgroundColor: "#FE6700",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginRight: scale(10),
   },
   logoLetter: {
     color: "#FFFFFF",
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: scale(24),
+    lineHeight: scale(32),
     fontFamily: "Poppins-SemiBold",
   },
   logoText: {
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: scale(26),
+    lineHeight: scale(34),
     color: "#000000",
     fontFamily: "Poppins-SemiBold",
   },
   logoOrange: {
     color: "#FE6700",
   },
+
+  /* Card */
   card: {
     width: "100%",
-    borderRadius: 10,
-    paddingHorizontal: 47,
-    paddingTop: 38,
-    paddingBottom: 50,
+    borderRadius: scale(12),
+    paddingHorizontal: scale(28),
+    paddingTop: scale(30),
+    paddingBottom: scale(36),
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
     elevation: 4,
   },
   title: {
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: scale(22),
+    lineHeight: scale(30),
     color: "#000000",
     textAlign: "center",
     fontFamily: "Poppins-SemiBold",
-    marginBottom: 31,
+    marginBottom: scale(24),
   },
   label: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: scale(14),
+    lineHeight: scale(20),
     color: "#000000",
     fontFamily: "Poppins-Regular",
-    marginBottom: 9,
+    marginBottom: scale(8),
   },
   inputRow: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
+    gap: scale(8),
+    marginBottom: scale(14),
   },
   countryCodeContainer: {
-    width: 64,
-    height: 50,
-    borderRadius: 8,
+    width: scale(64),
+    height: scale(48),
+    borderRadius: scale(8),
     borderWidth: 1,
     borderColor: "#D1D5DB",
     backgroundColor: "#FFFFFF",
@@ -237,26 +256,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   countryCode: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: scale(14),
     color: "#000000",
     fontFamily: "Poppins-Regular",
   },
   input: {
     flex: 1,
-    height: 50,
-    borderRadius: 8,
+    height: scale(48),
+    borderRadius: scale(8),
     borderWidth: 1,
     borderColor: "#D1D5DB",
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    fontSize: 16,
+    paddingHorizontal: scale(14),
+    fontSize: scale(15),
     color: "#111827",
     fontFamily: "Poppins-Regular",
   },
   otpButton: {
-    height: 48,
-    borderRadius: 8,
+    height: scale(48),
+    borderRadius: scale(8),
     backgroundColor: "#FFA366",
     justifyContent: "center",
     alignItems: "center",
@@ -265,18 +283,19 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   otpButtonText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: scale(16),
     color: "#FFFFFF",
     fontFamily: "Poppins-SemiBold",
   },
+
+  /* Divider */
   dividerRow: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 48,
-    marginBottom: 48,
-    paddingHorizontal: 9,
+    marginTop: vscale(28),
+    marginBottom: vscale(24),
+    paddingHorizontal: scale(4),
   },
   line: {
     flex: 1,
@@ -284,90 +303,88 @@ const styles = StyleSheet.create({
     backgroundColor: "#D1D5DB",
   },
   dividerText: {
-    marginHorizontal: 32,
-    fontSize: 14,
-    lineHeight: 20,
+    marginHorizontal: scale(16),
+    fontSize: scale(13),
     color: "#000000",
     fontFamily: "Poppins-Regular",
   },
+
+  /* Buttons */
   bioButton: {
-    width: 298,
-    height: 48,
-    borderRadius: 8,
+    width: "100%",
+    height: scale(48),
+    borderRadius: scale(10),
     backgroundColor: "#000000",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: scale(8),
+    marginBottom: scale(12),
   },
   bioButtonText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: scale(15),
     color: "#FFFFFF",
     fontFamily: "Poppins-SemiBold",
   },
   passwordButton: {
-    width: 298,
-    height: 48,
-    borderRadius: 8,
+    width: "100%",
+    height: scale(48),
+    borderRadius: scale(10),
     borderWidth: 1,
     borderColor: "#D1D5DB",
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
   },
   passwordButtonText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: scale(15),
     color: "#111827",
     fontFamily: "Poppins-SemiBold",
   },
+
+  /* Footer */
   footer: {
     width: "100%",
     alignItems: "center",
-    marginTop: 52,
+    marginTop: vscale(24),
   },
   signUpRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: scale(16),
   },
   footerText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: scale(15),
     color: "#6B6B6B",
     fontFamily: "Poppins-Regular",
   },
   orangeTextBold: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: scale(15),
     color: "#FE6700",
     fontFamily: "Poppins-Medium",
   },
   browseButton: {
-    width: 268,
-    height: 48,
-    borderRadius: 8,
+    width: "100%",
+    height: scale(48),
+    borderRadius: scale(10),
     borderWidth: 1,
     borderColor: "#FE6700",
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
-    marginBottom: 24,
+    gap: scale(10),
+    marginBottom: scale(20),
   },
   browseButtonText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: scale(15),
     color: "#FE6700",
     fontFamily: "Poppins-Medium",
   },
   terms: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: scale(12),
+    lineHeight: scale(18),
     color: "#000000",
     textAlign: "center",
     fontFamily: "Poppins-Regular",

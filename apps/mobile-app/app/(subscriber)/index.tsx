@@ -9,12 +9,18 @@ import { useQuery } from '@tanstack/react-query';
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '@/components/CallbackButton';
 import { logoutWithConfirm } from '@/utils/logout';
-import GlobalHeader from './components/shared/GlobalHeader';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
+
+// Responsive scale helpers
+const BASE_WIDTH = 390; // Design base (iPhone 14 Pro)
+const scale = (size: number) => Math.round((width / BASE_WIDTH) * size);
+const vscale = (size: number) => Math.round((height / 844) * size);
+const HORIZONTAL_PADDING = scale(20);
+const CARD_GAP = scale(12);
 
 export default function SubscriberDashboardScreen() {
     const router = useRouter();
@@ -114,27 +120,35 @@ export default function SubscriberDashboardScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <GlobalHeader
-                title="Dashboard"
-                onMenuPress={openDrawer}
-            />
+            {/* ── Inline Dashboard Header (Figma) ── */}
+            <View style={styles.dashHeader}>
+                <Text style={styles.dashTitle}>Dashboard</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(16) }}>
+                    <View style={styles.headerIconBtn}>
+                        <Ionicons name="notifications-outline" size={scale(24)} color="#111827" />
+                        <View style={styles.headerBadge}><Text style={styles.headerBadgeText}>2</Text></View>
+                    </View>
+                    <TouchableOpacity onPress={openDrawer} style={styles.headerIconBtn}>
+                        <Ionicons name="menu-outline" size={scale(28)} color="#111827" />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FE6700']} />}
             >
-                {/* ── Hero Banner ── */}
+                {/* ── Hero Banner (top 2 stats only) ── */}
                 <ImageBackground
                     source={require("../../assets/images/bg02.png")}
                     resizeMode="cover"
                     style={styles.heroBanner}
                     imageStyle={styles.heroBannerImage}
                 >
-                    <View pointerEvents="none" style={styles.heroCurve} />
                     <Text style={styles.heroGreeting}>Hi {firstName}!</Text>
-                    <Text style={styles.heroSubtitle}>{"Here's your care summary"}</Text>
 
+                    {/* Row 1 — sits inside the orange image */}
                     <View style={styles.statsGrid}>
                         {/* Happiness Score */}
                         <View style={styles.statCard}>
@@ -158,34 +172,37 @@ export default function SubscriberDashboardScreen() {
                             <Text style={styles.statLabel}>Visits This Week</Text>
                             <Text style={styles.statSub}>{visitsCompleted} completed</Text>
                         </View>
-
-                        {/* Active Hours */}
-                        <View style={styles.statCard}>
-                            <View style={styles.statTopRow}>
-                                <View style={styles.statIconCircleBlue}>
-                                    <Ionicons name="hourglass-outline" size={24} color="#2563FF" />
-                                </View>
-                                <Text style={styles.statValue}>{activeHours}h</Text>
-                            </View>
-                            <Text style={styles.statLabel}>Active Hours</Text>
-                            <Text style={[styles.statSub, { color: '#A855F7' }]}>⏰ {remainingHours}h remaining</Text>
-                        </View>
-
-                        {/* Total Care Plans */}
-                        <LinearGradient colors={['#FE6700', '#E95200']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.statCard, { overflow: 'hidden' }]}>
-                            <View style={styles.statTopRow}>
-                                <View style={styles.planIconCircle}>
-                                    <Ionicons name="ribbon-outline" size={23} color="#333333" />
-                                </View>
-                                <Text style={[styles.statValue, { color: '#FFF' }]}>{totalCarePlans}</Text>
-                            </View>
-                            <Text style={[styles.statLabel, { color: '#FFE4CC' }]}>Total Care Plans</Text>
-                            <TouchableOpacity onPress={() => router.push('/(setup)/subscription-packages')}>
-                                <Text style={styles.addMoreText}>＋ Add more →</Text>
-                            </TouchableOpacity>
-                        </LinearGradient>
                     </View>
                 </ImageBackground>
+
+                {/* Row 2 — outside orange banner, on white background */}
+                <View style={styles.statsGridBottom}>
+                    {/* Active Hours */}
+                    <View style={styles.statCard}>
+                        <View style={styles.statTopRow}>
+                            <View style={styles.statIconCircleBlue}>
+                                <Ionicons name="hourglass-outline" size={24} color="#2563FF" />
+                            </View>
+                            <Text style={styles.statValue}>{activeHours}h</Text>
+                        </View>
+                        <Text style={styles.statLabel}>Active Hours</Text>
+                        <Text style={[styles.statSub, { color: '#A855F7' }]}>⏰ {remainingHours}h remaining</Text>
+                    </View>
+
+                    {/* Total Care Plans */}
+                    <LinearGradient colors={['#FE6700', '#E95200']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.statCard, { overflow: 'hidden' }]}>
+                        <View style={styles.statTopRow}>
+                            <View style={styles.planIconCircle}>
+                                <Ionicons name="ribbon-outline" size={23} color="#333333" />
+                            </View>
+                            <Text style={[styles.statValue, { color: '#FFF' }]}>{totalCarePlans}</Text>
+                        </View>
+                        <Text style={[styles.statLabel, { color: '#FFE4CC' }]}>Total Care Plans</Text>
+                        <TouchableOpacity onPress={() => router.push('/(setup)/subscription-packages')}>
+                            <Text style={styles.addMoreText}>＋ Add more →</Text>
+                        </TouchableOpacity>
+                    </LinearGradient>
+                </View>
 
                 {/* ── Beneficiaries Section ── */}
                 <View style={styles.sectionHeaderRow}>
@@ -297,154 +314,215 @@ const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAF5F0' },
 
-    scrollContent: { paddingBottom: 40 },
+    /* ── Dashboard Header ── */
+    dashHeader: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: scale(20), paddingVertical: scale(12),
+        backgroundColor: '#FFFFFF',
+    },
+    dashTitle: { fontSize: scale(17), fontWeight: '600', color: '#111827' },
+    headerIconBtn: { width: scale(36), height: scale(36), justifyContent: 'center', alignItems: 'center', position: 'relative' },
+    headerBadge: {
+        position: 'absolute', top: 2, right: -2, width: scale(18), height: scale(18),
+        borderRadius: scale(9), backgroundColor: '#FE6700',
+        justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FFF',
+    },
+    headerBadgeText: { color: '#FFF', fontSize: scale(9), fontWeight: '800' },
 
-    /* Hero Banner */
+    scrollContent: { paddingBottom: scale(40) },
+
+    /* ── Hero Banner ── */
     heroBanner: {
-        paddingHorizontal: 20, paddingTop: 17, paddingBottom: 0,
-        marginBottom: 40,
-        overflow: 'visible',
+        paddingHorizontal: HORIZONTAL_PADDING,
+        paddingTop: scale(14),
+        paddingBottom: scale(20),
+        marginBottom: 0,
+        overflow: 'hidden',
+        borderBottomLeftRadius: scale(24),
+        borderBottomRightRadius: scale(24),
     },
     heroBannerImage: {
-        width: '100%',
-        height: 168,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30
+        ...require('react-native').StyleSheet.absoluteFillObject,
+        width: undefined,
+        height: undefined,
     },
     heroCurve: {
+        // Removed — no longer needed with overflow:hidden approach
+        display: 'none',
         position: 'absolute',
-        left: -34,
-        right: -34,
-        bottom: -30,
-        height: 94,
-        backgroundColor: '#FAF5F0',
-        borderTopLeftRadius: 160,
-        borderTopRightRadius: 160,
-        zIndex: 0
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 0,
     },
-    heroGreeting: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 0, zIndex: 1 },
+    heroGreeting: {
+        fontSize: scale(18),
+        fontWeight: '700',
+        color: '#FFFFFF',
+        marginBottom: scale(12),
+        zIndex: 1,
+    },
     heroSubtitle: { display: 'none' },
 
     statsGrid: {
-        flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 14,
-        marginTop: 31,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        columnGap: CARD_GAP,
+        rowGap: CARD_GAP,
         zIndex: 1,
     },
-    statCard: {
-        width: (width - 40 - 14) / 2,
-        height: 128,
+    statsGridBottom: {
+        flexDirection: 'row',
+        columnGap: CARD_GAP,
+        paddingHorizontal: HORIZONTAL_PADDING,
+        paddingTop: scale(14),
+        paddingBottom: scale(20),
         backgroundColor: '#FFFFFF',
-        borderRadius: 12, paddingHorizontal: 18, paddingTop: 20,
+    },
+    statCard: {
+        width: (width - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2,
+        minHeight: scale(110),
+        backgroundColor: '#FFFFFF',
+        borderRadius: scale(14),
+        paddingHorizontal: scale(14),
+        paddingVertical: scale(14),
+        justifyContent: 'space-between',
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.16, shadowRadius: 10 },
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10 },
             android: { elevation: 5 },
         }),
     },
-    statTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    statTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(6) },
     statEmojiCircle: {
-        width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFE8CE',
-        alignItems: 'center', justifyContent: 'center', marginRight: 10
+        width: scale(38), height: scale(38), borderRadius: scale(10), backgroundColor: '#FFE8CE',
+        alignItems: 'center', justifyContent: 'center', marginRight: scale(10),
     },
-    statEmoji: { fontSize: 24 },
+    statEmoji: { fontSize: scale(22) },
     statIconCirclePink: {
-        width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFE1E6',
-        alignItems: 'center', justifyContent: 'center', marginRight: 10
+        width: scale(38), height: scale(38), borderRadius: scale(10), backgroundColor: '#FFE1E6',
+        alignItems: 'center', justifyContent: 'center', marginRight: scale(10),
     },
     statIconCircleBlue: {
-        width: 40, height: 40, borderRadius: 12, backgroundColor: '#DDEBFF',
-        alignItems: 'center', justifyContent: 'center', marginRight: 10
+        width: scale(38), height: scale(38), borderRadius: scale(10), backgroundColor: '#DDEBFF',
+        alignItems: 'center', justifyContent: 'center', marginRight: scale(10),
     },
     planIconCircle: {
-        width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF',
-        alignItems: 'center', justifyContent: 'center', marginRight: 12
+        width: scale(40), height: scale(40), borderRadius: scale(20), backgroundColor: '#FFFFFF',
+        alignItems: 'center', justifyContent: 'center', marginRight: scale(10),
     },
-    statIcon: { marginBottom: 0 },
-    statValue: { fontSize: 24, fontWeight: '700', color: '#111111', marginBottom: 0 },
-    statLabel: { fontSize: 14, color: '#4B5563', marginBottom: 3 },
-    statSub: { fontSize: 13, color: '#A3A3A3' },
-    addMoreText: { fontSize: 13, color: '#FFFFFF', marginTop: 5 },
+    statIcon: {},
+    statValue: { fontSize: scale(22), fontWeight: '700', color: '#111111' },
+    statLabel: { fontSize: scale(13), color: '#4B5563', marginBottom: scale(2) },
+    statSub: { fontSize: scale(11), color: '#A3A3A3' },
+    addMoreText: { fontSize: scale(12), color: '#FFFFFF', marginTop: scale(4) },
 
-    /* Sections */
+    /* ── Sections ── */
     sectionHeaderRow: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        paddingHorizontal: 20, marginBottom: 12
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: HORIZONTAL_PADDING,
+        marginBottom: scale(12),
     },
-    sectionTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
+    sectionTitle: { fontSize: scale(16), fontWeight: '600', color: '#111827' },
     addBtn: {
-        backgroundColor: '#FE6700', flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20
+        backgroundColor: '#FE6700',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: scale(14),
+        paddingVertical: scale(7),
+        borderRadius: scale(20),
     },
-    addBtnText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-    viewAllText: { fontSize: 13, fontWeight: '500', color: '#FE6700' },
+    addBtnText: { color: '#FFF', fontSize: scale(13), fontWeight: '600' },
+    viewAllText: { fontSize: scale(13), fontWeight: '500', color: '#FE6700' },
 
-    /* Empty state */
+    /* ── Empty state ── */
     emptyBenCard: {
-        backgroundColor: '#FFFFFF', borderRadius: 16, padding: 28, marginHorizontal: 20, marginBottom: 24,
+        backgroundColor: '#FFFFFF',
+        borderRadius: scale(16),
+        padding: scale(28),
+        marginHorizontal: HORIZONTAL_PADDING,
+        marginBottom: scale(24),
         alignItems: 'center',
         ...Platform.select({
             ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
             android: { elevation: 2 },
         }),
     },
-    emptyTitle: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 6 },
-    emptySubtitle: { fontSize: 13, color: '#6B7280', textAlign: 'center', marginBottom: 18, lineHeight: 20 },
-    emptyBtn: { backgroundColor: '#FE6700', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-    emptyBtnText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+    emptyTitle: { fontSize: scale(16), fontWeight: '600', color: '#111827', marginBottom: scale(6) },
+    emptySubtitle: { fontSize: scale(13), color: '#6B7280', textAlign: 'center', marginBottom: scale(18), lineHeight: scale(20) },
+    emptyBtn: { backgroundColor: '#FE6700', paddingHorizontal: scale(20), paddingVertical: scale(10), borderRadius: scale(8) },
+    emptyBtnText: { color: '#FFF', fontSize: scale(14), fontWeight: '600' },
 
-    /* Beneficiary Card */
+    /* ── Beneficiary Card ── */
     benCard: {
-        backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16, marginHorizontal: 20, marginBottom: 12,
-        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: scale(14),
+        paddingHorizontal: scale(16),
+        paddingVertical: scale(14),
+        marginHorizontal: HORIZONTAL_PADDING,
+        marginBottom: scale(10),
+        flexDirection: 'row',
+        alignItems: 'center',
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6 },
             android: { elevation: 2 },
         }),
     },
-    benPhoto: { width: 54, height: 54, borderRadius: 27, marginRight: 14, backgroundColor: '#E5E7EB' },
+    benPhoto: { width: scale(52), height: scale(52), borderRadius: scale(26), marginRight: scale(14), backgroundColor: '#E5E7EB' },
     benDetails: { flex: 1 },
-    benName: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 3 },
-    benMeta: { fontSize: 13, color: '#6B7280' },
+    benName: { fontSize: scale(15), fontWeight: '600', color: '#111827', marginBottom: scale(3) },
+    benMeta: { fontSize: scale(12), color: '#6B7280' },
 
-    /* Recent Updates */
+    /* ── Recent Updates ── */
     updateCard: {
-        backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16, marginHorizontal: 20, marginBottom: 12,
-        flexDirection: 'row', alignItems: 'flex-start',
+        backgroundColor: '#FFFFFF',
+        borderRadius: scale(14),
+        padding: scale(16),
+        marginHorizontal: HORIZONTAL_PADDING,
+        marginBottom: scale(10),
+        flexDirection: 'row',
+        alignItems: 'flex-start',
         ...Platform.select({
             ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
             android: { elevation: 2 },
         }),
     },
     updateIconBox: {
-        width: 44, height: 44, borderRadius: 10, backgroundColor: '#F3F4F6',
-        justifyContent: 'center', alignItems: 'center'
+        width: scale(42), height: scale(42), borderRadius: scale(10), backgroundColor: '#F3F4F6',
+        justifyContent: 'center', alignItems: 'center',
     },
-    updateTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-    updateTitle: { fontSize: 14, fontWeight: '600', color: '#111827', flex: 1 },
-    updateDate: { fontSize: 11, color: '#9CA3AF', marginBottom: 6 },
-    updateBody: { fontSize: 13, color: '#4B5563', lineHeight: 18 },
-    newBadge: { backgroundColor: '#FE6700', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-    newBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
+    updateTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: scale(3) },
+    updateTitle: { fontSize: scale(14), fontWeight: '600', color: '#111827', flex: 1 },
+    updateDate: { fontSize: scale(11), color: '#9CA3AF', marginBottom: scale(5) },
+    updateBody: { fontSize: scale(13), color: '#4B5563', lineHeight: scale(19) },
+    newBadge: { backgroundColor: '#FE6700', borderRadius: scale(10), paddingHorizontal: scale(8), paddingVertical: scale(2) },
+    newBadgeText: { color: '#FFF', fontSize: scale(10), fontWeight: '700' },
 
-    /* Assistance Card */
+    /* ── Assistance Card ── */
     assistanceCard: {
-        backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, marginHorizontal: 20, marginTop: 8,
+        backgroundColor: '#FFFFFF',
+        borderRadius: scale(20),
+        padding: scale(20),
+        marginHorizontal: HORIZONTAL_PADDING,
+        marginTop: scale(8),
         ...Platform.select({
             ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
             android: { elevation: 2 },
         }),
     },
-    assistanceHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    assistanceIllustration: { width: 60, height: 60, justifyContent: 'center', alignItems: 'center' },
-    assistanceTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
-    assistanceSub: { fontSize: 14, color: '#4B5563', lineHeight: 20 },
+    assistanceHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(16) },
+    assistanceIllustration: { width: scale(56), height: scale(56), justifyContent: 'center', alignItems: 'center' },
+    assistanceTitle: { fontSize: scale(17), fontWeight: '700', color: '#111827', marginBottom: scale(4) },
+    assistanceSub: { fontSize: scale(13), color: '#4B5563', lineHeight: scale(19) },
     assistanceActions: { flexDirection: 'row', alignItems: 'center' },
     callbackBtn: {
-        flex: 1, flexDirection: 'row', borderWidth: 1, borderColor: '#FE6700', borderRadius: 12,
-        height: 50, alignItems: 'center', justifyContent: 'center', marginRight: 15
+        flex: 1, flexDirection: 'row', borderWidth: 1, borderColor: '#FE6700', borderRadius: scale(12),
+        height: scale(48), alignItems: 'center', justifyContent: 'center', marginRight: scale(12),
     },
-    callbackText: { color: '#FE6700', fontWeight: '600', fontSize: 15 },
+    callbackText: { color: '#FE6700', fontWeight: '600', fontSize: scale(14) },
     whatsappBtn: {
-        width: 50, height: 50, borderRadius: 12, backgroundColor: '#FFF5ED',
-        justifyContent: 'center', alignItems: 'center'
+        width: scale(48), height: scale(48), borderRadius: scale(12), backgroundColor: '#FFF5ED',
+        justifyContent: 'center', alignItems: 'center',
     },
 });

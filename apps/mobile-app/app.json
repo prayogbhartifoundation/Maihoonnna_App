@@ -59,9 +59,6 @@
         }
       ],
 
-      "expo-image",
-      "expo-web-browser",
-
       [
         "expo-notifications",
         {
