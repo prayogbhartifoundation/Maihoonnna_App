@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, Dimensions, Image } from 'react-native';
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -62,17 +62,15 @@ export default function AuthScreen() {
         >
           {/* Logo */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoLetter}>म</Text>
-            </View>
-            <Text style={styles.logoText}>
-              Mai<Text style={styles.logoOrange}>Hoon</Text>Na
-            </Text>
+            <Image
+              source={require("../../assets/images/logo_full.png")}
+              style={styles.logoFullImage}
+            />
           </View>
 
           {/* Login Card */}
           <LinearGradient
-            colors={["#FFFFFF", "#FFE2CC"]}
+            colors={["#FFFFFF", "#FFE3D1"]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
             style={styles.card}
@@ -120,7 +118,7 @@ export default function AuthScreen() {
 
           {/* Biometric Login */}
           <TouchableOpacity style={styles.bioButton} disabled={isLoading} activeOpacity={0.85}>
-            <MaterialCommunityIcons name="fingerprint" size={scale(20)} color="#FFFFFF" />
+            <MaterialCommunityIcons name="fingerprint" size={scale(22)} color="#FFFFFF" />
             <Text style={styles.bioButtonText}>Biometric Login</Text>
           </TouchableOpacity>
 
@@ -149,7 +147,7 @@ export default function AuthScreen() {
               onPress={() => router.push("/(setup)/subscription-packages")}
               activeOpacity={0.85}
             >
-              <MaterialCommunityIcons name="package-variant-closed" size={scale(22)} color="#FE6700" />
+              <MaterialCommunityIcons name="package-variant-closed" size={scale(22)} color="#FF8E4D" />
               <Text style={styles.browseButtonText}>Browse Packages</Text>
             </TouchableOpacity>
 
@@ -176,54 +174,37 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: scale(24),
-    paddingTop: vscale(32),
+    paddingTop: vscale(40),
     paddingBottom: scale(32),
     alignItems: "center",
   },
 
   /* Logo */
   logoContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: vscale(32),
-  },
-  logoCircle: {
-    width: scale(44),
-    height: scale(44),
-    borderRadius: scale(22),
-    backgroundColor: "#FE6700",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: scale(10),
+    marginBottom: vscale(32),
   },
-  logoLetter: {
-    color: "#FFFFFF",
-    fontSize: scale(24),
-    lineHeight: scale(32),
-    fontFamily: "Poppins-SemiBold",
-  },
-  logoText: {
-    fontSize: scale(26),
-    lineHeight: scale(34),
-    color: "#000000",
-    fontFamily: "Poppins-SemiBold",
-  },
-  logoOrange: {
-    color: "#FE6700",
+  logoFullImage: {
+    width: scale(220),
+    height: scale(220 / 5.333),
+    resizeMode: 'contain',
   },
 
   /* Card */
   card: {
     width: "100%",
-    borderRadius: scale(12),
+    borderRadius: scale(16),
     paddingHorizontal: scale(28),
     paddingTop: scale(30),
     paddingBottom: scale(36),
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: "#FFE2CC",
+    shadowColor: "#FE6700",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   title: {
     fontSize: scale(22),
@@ -236,9 +217,10 @@ const styles = StyleSheet.create({
   label: {
     fontSize: scale(14),
     lineHeight: scale(20),
-    color: "#000000",
-    fontFamily: "Poppins-Regular",
+    color: "#1F2937",
+    fontFamily: "Poppins-Medium",
     marginBottom: scale(8),
+    alignSelf: 'flex-start',
   },
   inputRow: {
     flexDirection: "row",
@@ -248,24 +230,24 @@ const styles = StyleSheet.create({
   countryCodeContainer: {
     width: scale(64),
     height: scale(48),
-    borderRadius: scale(8),
+    borderRadius: scale(10),
     borderWidth: 1,
-    borderColor: "#D1D5DB",
-    backgroundColor: "#FFFFFF",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
     justifyContent: "center",
     alignItems: "center",
   },
   countryCode: {
-    fontSize: scale(14),
-    color: "#000000",
-    fontFamily: "Poppins-Regular",
+    fontSize: scale(15),
+    color: "#111827",
+    fontFamily: "Poppins-Medium",
   },
   input: {
     flex: 1,
     height: scale(48),
-    borderRadius: scale(8),
+    borderRadius: scale(10),
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
     paddingHorizontal: scale(14),
     fontSize: scale(15),
@@ -273,14 +255,20 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-Regular",
   },
   otpButton: {
-    height: scale(48),
-    borderRadius: scale(8),
-    backgroundColor: "#FFA366",
+    height: scale(50),
+    borderRadius: scale(10),
+    backgroundColor: "#FF8E4D",
     justifyContent: "center",
     alignItems: "center",
+    marginTop: scale(8),
+    shadowColor: "#FF8E4D",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
   otpButtonDisabled: {
-    opacity: 0.75,
+    backgroundColor: "#FFBFA0",
   },
   otpButtonText: {
     fontSize: scale(16),
@@ -300,45 +288,56 @@ const styles = StyleSheet.create({
   line: {
     flex: 1,
     height: 1,
-    backgroundColor: "#D1D5DB",
+    backgroundColor: "#E5E7EB",
   },
   dividerText: {
     marginHorizontal: scale(16),
-    fontSize: scale(13),
-    color: "#000000",
-    fontFamily: "Poppins-Regular",
+    fontSize: scale(14),
+    color: "#6B7280",
+    fontFamily: "Poppins-Medium",
   },
 
   /* Buttons */
   bioButton: {
     width: "100%",
-    height: scale(48),
+    height: scale(50),
     borderRadius: scale(10),
     backgroundColor: "#000000",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: scale(8),
-    marginBottom: scale(12),
+    gap: scale(10),
+    marginBottom: scale(14),
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   bioButtonText: {
-    fontSize: scale(15),
+    fontSize: scale(16),
     color: "#FFFFFF",
     fontFamily: "Poppins-SemiBold",
   },
   passwordButton: {
     width: "100%",
-    height: scale(48),
+    height: scale(50),
     borderRadius: scale(10),
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: scale(20),
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   passwordButtonText: {
-    fontSize: scale(15),
+    fontSize: scale(16),
     color: "#111827",
     fontFamily: "Poppins-SemiBold",
   },
@@ -356,40 +355,42 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: scale(15),
-    color: "#6B6B6B",
+    color: "#6B7280",
     fontFamily: "Poppins-Regular",
   },
   orangeTextBold: {
     fontSize: scale(15),
     color: "#FE6700",
-    fontFamily: "Poppins-Medium",
+    fontFamily: "Poppins-SemiBold",
   },
   browseButton: {
     width: "100%",
-    height: scale(48),
+    height: scale(50),
     borderRadius: scale(10),
     borderWidth: 1,
-    borderColor: "#FE6700",
+    borderColor: "#FF8E4D",
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: scale(10),
-    marginBottom: scale(20),
+    marginBottom: scale(24),
   },
   browseButtonText: {
-    fontSize: scale(15),
-    color: "#FE6700",
-    fontFamily: "Poppins-Medium",
+    fontSize: scale(16),
+    color: "#FF8E4D",
+    fontFamily: "Poppins-SemiBold",
   },
   terms: {
     fontSize: scale(12),
     lineHeight: scale(18),
-    color: "#000000",
+    color: "#9CA3AF",
     textAlign: "center",
     fontFamily: "Poppins-Regular",
   },
   orangeTextTerms: {
-    color: "#FE6700",
+    color: "#FF8E4D",
+    fontFamily: "Poppins-Medium",
   },
 });
+
