@@ -140,10 +140,10 @@ export default function SubscriptionPackagesScreen() {
 
                             <View style={styles.cardActions}>
                                 <TouchableOpacity
-                                    style={[styles.detailsBtn, isPopular && styles.detailsBtnPopular]}
+                                    style={styles.detailsBtn}
                                     onPress={() => router.push(`/(subscriber)/package-details/${pkg.type}`)}
                                 >
-                                    <Text style={[styles.detailsBtnText, isPopular && styles.detailsBtnTextPopular]}>View Details</Text>
+                                    <Text style={styles.detailsBtnText}>View Details</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
@@ -283,9 +283,7 @@ const styles = StyleSheet.create({
         flex: 1, borderWidth: 1, borderColor: '#F97316', 
         borderRadius: 12, justifyContent: 'center', alignItems: 'center', height: 48 
     },
-    detailsBtnPopular: { borderColor: '#FFFFFF' },
     detailsBtnText: { color: '#F97316', fontSize: 13, fontWeight: '700' },
-    detailsBtnTextPopular: { color: '#FFFFFF' },
 
     selectBtnOutline: { 
         flex: 1, borderWidth: 1, borderColor: '#F97316', height: 48, 

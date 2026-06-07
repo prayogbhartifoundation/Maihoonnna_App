@@ -178,7 +178,8 @@ export default function ProfileScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <View style={{ flex: 1, backgroundColor: '#FFF0E6' }}>
+            <SafeAreaView style={{ flex: 0, backgroundColor: '#FE6700' }} edges={['top']} />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* Gradient Header Banner (Figma Match) */}
                 <View style={styles.gradientHeader}>
@@ -425,7 +426,7 @@ export default function ProfileScreen() {
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 }
 

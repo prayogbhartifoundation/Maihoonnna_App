@@ -342,7 +342,8 @@ const styles = StyleSheet.create({
     },
 
     headerBackground: {
-        height: 236,
+        minHeight: 260,
+        paddingBottom: 40,
         paddingHorizontal: 16,
         borderBottomLeftRadius: 15,
         borderBottomRightRadius: 15,

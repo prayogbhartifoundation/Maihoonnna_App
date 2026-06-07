@@ -33,7 +33,7 @@ import {
 import MapView, { Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 
@@ -72,6 +72,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   title = 'Set Delivery Address',
   subtitle = 'Move the pin to your exact location',
 }) => {
+  const insets = useSafeAreaInsets();
   const [permStatus, setPermStatus] = useState<PermissionStatus>('checking');
   const [region, setRegion] = useState<Region>(INDIA_CENTER);
   const [addressText, setAddressText] = useState('Detecting address...');
@@ -393,7 +394,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
       </View>
 
       {/* Header overlay */}
-      <SafeAreaView pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { paddingTop: insets.top }]}>
         <View style={styles.mapHeader}>
           <TouchableOpacity onPress={onCancel} style={styles.mapHeaderBtn}>
             <Ionicons name="arrow-back" size={22} color="#0F172A" />
@@ -418,7 +419,7 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
             <Ionicons name="locate" size={22} color="#FF6A00" />
           )}
         </TouchableOpacity>
-      </SafeAreaView>
+      </View>
 
       {/* Bottom Sheet */}
       {showBottomSheet && (

@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Dimensions, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useLogoutWithConfirm } from '@/utils/logout';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -17,7 +17,9 @@ interface GlobalDrawerProps {
 
 const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerProps) => {
     const router = useRouter();
+    const pathname = usePathname();
     const logoutWithConfirm = useLogoutWithConfirm();
+    const insets = useSafeAreaInsets();
 
     const isLoggedIn = !!userData && !!userData.id;
 
@@ -42,7 +44,7 @@ const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerPro
                 onPress={onClose} 
             />
             <Animated.View style={[styles.drawer, { transform: [{ translateX: drawerAnim }] }]}>
-                <SafeAreaView style={{ flex: 1 }}>
+                <View style={{ flex: 1, paddingTop: insets.top }}>
                     {/* Header */}
                     <View style={styles.drawerHeader}>
                         <View style={styles.drawerAvatar}>
@@ -73,7 +75,16 @@ const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerPro
                                 <DrawerItem 
                                     label="My Beneficiaries" 
                                     icon="people-outline" 
-                                    onPress={() => { onClose(); /* Handle scroll or filter if needed */ }} 
+                                    onPress={() => {
+                                        onClose();
+                                        setTimeout(() => {
+                                            if (pathname === '/' || pathname === '/(subscriber)' || pathname === '/(subscriber)/') {
+                                                router.setParams({ highlightBen: Date.now().toString() });
+                                            } else {
+                                                router.push(`/(subscriber)?highlightBen=${Date.now()}`);
+                                            }
+                                        }, 300);
+                                    }} 
                                 />
                                 <DrawerItem 
                                     label="Browse Packages" 
@@ -134,7 +145,7 @@ const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerPro
                     <View style={styles.drawerFooter}>
                         <Text style={styles.versionText}>v1.0.4 Premium</Text>
                     </View>
-                </SafeAreaView>
+                </View>
             </Animated.View>
         </Modal>
     );

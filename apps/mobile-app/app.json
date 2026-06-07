@@ -4,23 +4,19 @@
     "slug": "maihoonna",
     "version": "1.0.0",
     "orientation": "portrait",
-
     "updates": {
       "enabled": false
     },
-
     "icon": "./assets/images/group1.png",
-
     "scheme": "maihoonna",
     "userInterfaceStyle": "automatic",
-
     "ios": {
       "supportsTablet": true,
       "config": {
         "googleMapsApiKey": "AIzaSyDPrFpN29FZ786mTWjIbeQvW3y6ztjx3xU"
-      }
+      },
+      "bundleIdentifier": "com.rajeev-23.maihoonna"
     },
-
     "android": {
       "package": "com.rajeev_23.maihoonna",
       "adaptiveIcon": {
@@ -34,14 +30,11 @@
         }
       }
     },
-
     "web": {
       "favicon": "./assets/images/group3.png"
     },
-
     "plugins": [
       "expo-router",
-
       [
         "expo-splash-screen",
         {
@@ -50,7 +43,6 @@
           "backgroundColor": "#ffffff"
         }
       ],
-
       [
         "expo-location",
         {
@@ -58,7 +50,6 @@
           "locationWhenInUsePermission": "MaiHoonNa needs your location to pin your address and find nearby Care Companions."
         }
       ],
-
       [
         "expo-notifications",
         {
@@ -70,7 +61,6 @@
         }
       ]
     ],
-
     "extra": {
       "eas": {
         "projectId": "5d0036fa-6e0c-47ed-9213-c8ed8ebaee75"

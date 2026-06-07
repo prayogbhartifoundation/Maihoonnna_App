@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, I
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { API_URL } from '@/constants/api';
@@ -27,6 +27,19 @@ export default function SubscriberDashboardScreen() {
     const [userData, setUserData] = useState<any>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
+    const benScaleAnim = useRef(new Animated.Value(1)).current;
+    const { highlightBen } = useLocalSearchParams();
+
+    useEffect(() => {
+        if (highlightBen) {
+            Animated.sequence([
+                Animated.timing(benScaleAnim, { toValue: 1.05, duration: 250, useNativeDriver: true }),
+                Animated.timing(benScaleAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+                Animated.timing(benScaleAnim, { toValue: 1.05, duration: 250, useNativeDriver: true }),
+                Animated.timing(benScaleAnim, { toValue: 1, duration: 250, useNativeDriver: true })
+            ]).start();
+        }
+    }, [highlightBen]);
 
     useEffect(() => {
         const loadUser = async () => {
@@ -205,6 +218,7 @@ export default function SubscriberDashboardScreen() {
                 </View>
 
                 {/* ── Beneficiaries Section ── */}
+                <Animated.View style={{ transform: [{ scale: benScaleAnim }] }}>
                 <View style={styles.sectionHeaderRow}>
                     <Text style={styles.sectionTitle}>Your Beneficiaries</Text>
                     <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/(setup)/subscribe-form')}>
@@ -242,6 +256,7 @@ export default function SubscriberDashboardScreen() {
                         </TouchableOpacity>
                     ))
                 )}
+                </Animated.View>
 
                 {/* ── Recent Updates ── */}
                 {recentUpdates.length > 0 && (
