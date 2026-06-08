@@ -13,7 +13,7 @@ interface Props {
 export const EditBeneficiaryDialog: React.FC<Props> = ({ isOpen, onClose, beneficiary, onSuccess }) => {
   const fields: FieldDefinition[] = [
     { key: 'name', label: 'Full Name', type: 'text', required: true },
-    { key: 'age', label: 'Age', type: 'number', required: true },
+    { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
     { 
       key: 'gender', 
       label: 'Gender', 

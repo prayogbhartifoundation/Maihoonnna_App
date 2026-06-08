@@ -38,6 +38,7 @@ export default function BeneficiaryProfilePage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddMedOpen, setIsAddMedOpen] = useState(false);
   const [isAddConditionOpen, setIsAddConditionOpen] = useState(false);
+  const [selectedVisitId, setSelectedVisitId] = useState<string>('');
 
   const [staffPool, setStaffPool] = useState<StaffPool>({ careCompanions: [], fieldManagers: [], zones: [] });
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -53,7 +54,7 @@ export default function BeneficiaryProfilePage() {
       const data = await beneficiaryApi.getById(id);
       setDetails(data);
       if (data.pincode) {
-        fetchStaffPool(data.pincode);
+        fetchStaffPool(data.pincode, data.fieldManagerId);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load beneficiary details');
@@ -74,10 +75,10 @@ export default function BeneficiaryProfilePage() {
     }
   };
 
-  const fetchStaffPool = async (pincode: string) => {
+  const fetchStaffPool = async (pincode: string, fieldManagerUserId?: string | null) => {
     setLoadingStaff(true);
     try {
-      const pool = await beneficiaryApi.getAvailableStaff(pincode);
+      const pool = await beneficiaryApi.getAvailableStaff(pincode, fieldManagerUserId);
       setStaffPool(pool);
     } catch (err) {
       console.error('Failed to load available staff', err);
@@ -281,8 +282,7 @@ export default function BeneficiaryProfilePage() {
             <Tabs defaultValue="profile" className="space-y-8">
               <TabsList className="bg-white/50 p-1.5 rounded-3xl h-auto flex gap-1 border border-[#E7DED6] backdrop-blur-sm flex-wrap">
                 <TabsTrigger value="profile" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Health Profile</TabsTrigger>
-                <TabsTrigger value="membership" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Membership</TabsTrigger>
-                <TabsTrigger value="usage" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Package Usage</TabsTrigger>
+                <TabsTrigger value="usage" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Membership & Package Usage</TabsTrigger>
                 <TabsTrigger value="assign" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Staff Assignment</TabsTrigger>
                 <TabsTrigger value="clinical" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Clinical Config</TabsTrigger>
               </TabsList>
@@ -368,86 +368,7 @@ export default function BeneficiaryProfilePage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="membership" className="space-y-6 mt-0 outline-none">
-                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
-                   {details.subscriptions?.[0] ? (
-                     <div className="space-y-8">
-                       <div className="flex items-center justify-between">
-                         <div>
-                            <h3 className="text-xl font-black text-gray-800">{details.subscriptions[0].package?.name || 'Active Package'}</h3>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Valid until {new Date(details.subscriptions[0].endDate).toLocaleDateString()}</p>
-                         </div>
-                         <StatusChip status="Active" />
-                       </div>
-                       <div className="pt-6 border-t border-gray-50">
-                          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Benefit Balances</h4>
-                          <div className="space-y-4">
-                             {(details.subscriptions[0].balances || []).length > 0 ? (
-                               details.subscriptions[0].balances.map((bal: any) => (
-                                 <div key={bal.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-[#FDFBF9] rounded-2xl border border-orange-50 gap-4">
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-[#FF7A00] font-bold text-lg">
-                                         {bal.benefit?.benefitType?.iconCode || '🎁'}
-                                      </div>
-                                      <div>
-                                         <p className="text-sm font-black text-gray-800">{bal.benefit?.name}</p>
-                                         <p className="text-[10px] font-bold text-gray-400 uppercase">{bal.benefit?.unitLabel || 'units'}</p>
-                                      </div>
-                                   </div>
-                                   <div className="flex items-center gap-6 justify-between sm:justify-end">
-                                      <div className="text-right">
-                                         <p className="text-sm font-black text-gray-900">{bal.totalUnits === -1 ? '∞' : (bal.totalUnits - bal.usedUnits)} / {bal.totalUnits === -1 ? '∞' : bal.totalUnits}</p>
-                                         <p className="text-[10px] font-bold text-gray-400 uppercase">Remaining</p>
-                                      </div>
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        onClick={async () => {
-                                          if (confirm(`Consume 1 unit of ${bal.benefit?.name}?`)) {
-                                            try {
-                                              await subscriptionApi.consume(details.subscriptions[0].id, {
-                                                benefitId: bal.benefitId,
-                                                units: 1,
-                                                notes: 'Manual deduction from Admin Panel'
-                                              });
-                                              toast.success('Benefit unit consumed');
-                                              fetchDetails();
-                                            } catch (e: any) {
-                                              toast.error(e.message);
-                                            }
-                                          }
-                                        }}
-                                        className="h-8 rounded-xl border-orange-200 text-[#FF7A00] hover:bg-orange-50 font-black uppercase text-[9px] tracking-widest"
-                                      >
-                                        Consume
-                                      </Button>
-                                   </div>
-                                 </div>
-                               ))
-                             ) : (
-                               <div className="py-12 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-                                  <p className="text-sm font-bold text-gray-400 uppercase">No active benefit balances found</p>
-                               </div>
-                             )}
-                          </div>
-                       </div>
-                     </div>
-                   ) : (
-                     <div className="flex flex-col items-center gap-4 py-20 text-center">
-                        <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center text-gray-300">
-                           <Activity size={32} />
-                        </div>
-                        <div>
-                           <h3 className="text-lg font-black text-gray-800">No Active Subscription</h3>
-                           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 max-w-xs mx-auto">This beneficiary is not currently enrolled in any silver, gold, or platinum packages.</p>
-                        </div>
-                        <Button className="mt-4 bg-[#FF7A00] rounded-2xl px-8 h-12 font-black uppercase tracking-widest text-[10px]">Enroll in Package</Button>
-                     </div>
-                   )}
-                </div>
-              </TabsContent>
-
-              {/* ──────────────── PACKAGE USAGE TAB ──────────────── */}
+              {/* ──────────────── MEMBERSHIP & PACKAGE USAGE TAB ──────────────── */}
               <TabsContent value="usage" className="mt-0 outline-none">
                 <PackageUtilizationPanel
                   beneficiaryId={details.id}
@@ -575,6 +496,120 @@ export default function BeneficiaryProfilePage() {
                           );
                        })}
                     </div>
+                 </div>
+
+                 {/* Historical Vitals Records */}
+                 <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                    <h3 className="text-lg font-black text-gray-800 mb-2">Historical Clinical Records</h3>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Select a past visit to view recorded vitals and remarks</p>
+                    
+                    {(!details.visits || details.visits.length === 0) ? (
+                      <div className="py-12 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                         <p className="text-sm font-bold text-gray-400 uppercase">No past visits found</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <select 
+                          className="w-full h-14 rounded-2xl border-gray-200 bg-gray-50/50 px-4 text-sm font-bold text-gray-800 focus:border-[#FF7A00] focus:ring-[#FF7A00] transition-all"
+                          value={selectedVisitId}
+                          onChange={(e) => setSelectedVisitId(e.target.value)}
+                        >
+                          <option value="" disabled>Select a visit to view records...</option>
+                          {details.visits.map((v: any) => (
+                            <option key={v.id} value={v.id}>
+                              {new Date(v.scheduledTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} - {v.status.toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
+
+                        {selectedVisitId && details.visits.find((v: any) => v.id === selectedVisitId) && (() => {
+                          const v = details.visits.find((v: any) => v.id === selectedVisitId);
+                          
+                          // 1. Map new dynamic readings
+                          const dynamicVitals = (v.readings || []).map((r: any) => {
+                             let valStr = r.valueText || '';
+                             if (r.valueNumeric !== null && r.valueNumeric2 !== null) {
+                               valStr = `${r.valueNumeric}/${r.valueNumeric2}`;
+                             } else if (r.valueNumeric !== null) {
+                               valStr = `${r.valueNumeric}`;
+                             }
+                             if (r.vitalDefinition?.unit && r.valueText === null) {
+                               valStr += ` ${r.vitalDefinition.unit}`;
+                             }
+                             
+                             let Icon = Activity;
+                             const code = r.vitalDefinition?.code || '';
+                             if (code.includes('BP') || code === 'PULSE') Icon = Heart;
+                             if (code === 'TEMP') Icon = Thermometer;
+                             if (code === 'WEIGHT') Icon = Scale;
+                             if (code.includes('GLUCOSE') || code.includes('BLOOD')) Icon = Droplet;
+
+                             return {
+                               label: r.vitalDefinition?.name || 'Unknown',
+                               value: valStr,
+                               icon: Icon
+                             };
+                          });
+
+                          // 2. Map legacy vitals if dynamic readings are missing
+                          const legacyVitals: any[] = [];
+                          const config = details.clinicalConfiguration || {};
+                          
+                          if (dynamicVitals.length === 0) {
+                            if (config['bloodPressure']?.enabled && v.bpSystolic && v.bpDiastolic) legacyVitals.push({ label: 'Blood Pressure', value: `${v.bpSystolic}/${v.bpDiastolic} mmHg`, icon: Activity });
+                            if (config['heartRate']?.enabled && v.heartRate) legacyVitals.push({ label: 'Heart Rate', value: `${v.heartRate} bpm`, icon: Heart });
+                            if (config['spO2']?.enabled && v.oxygenLevel) legacyVitals.push({ label: 'SpO2', value: `${v.oxygenLevel}%`, icon: Activity });
+                            if (config['temperature']?.enabled && v.temperature) legacyVitals.push({ label: 'Temperature', value: `${v.temperature}°F`, icon: Thermometer });
+                            if (config['bloodSugar']?.enabled && v.bloodSugarFasting) legacyVitals.push({ label: 'Blood Sugar (Fasting)', value: `${v.bloodSugarFasting} mg/dL`, icon: Droplet });
+                            if (config['bloodSugar']?.enabled && v.bloodSugarPostMeal) legacyVitals.push({ label: 'Blood Sugar (Post-meal)', value: `${v.bloodSugarPostMeal} mg/dL`, icon: Droplet });
+                            if (config['weight']?.enabled && v.weight) legacyVitals.push({ label: 'Weight', value: `${v.weight} kg`, icon: Scale });
+                            if (config['respiratoryRate']?.enabled && v.respiratoryRate) legacyVitals.push({ label: 'Resp. Rate', value: `${v.respiratoryRate} bpm`, icon: Activity });
+                          }
+
+                          const vitalsToShow = [...dynamicVitals, ...legacyVitals];
+
+                          return (
+                            <div className="mt-6 space-y-6">
+                               {/* Remarks / Status */}
+                               <div className="p-5 rounded-2xl bg-orange-50 border border-orange-100">
+                                  <div className="flex items-center gap-3 mb-2">
+                                     <StatusChip status={v.status} />
+                                  </div>
+                                  <p className="text-sm text-gray-700 font-medium">
+                                    <span className="font-bold">Remarks: </span> 
+                                    {v.visitSummary || v.notes || v.manualCheckInReason || 'No remarks recorded.'}
+                                  </p>
+                               </div>
+
+                               {/* Vitals Grid */}
+                               {vitalsToShow.length > 0 ? (
+                                 <div>
+                                   <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Recorded Vitals</h4>
+                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                     {vitalsToShow.map((vital, idx) => {
+                                       const Icon = vital.icon;
+                                       return (
+                                         <div key={idx} className="bg-[#FDFBF9] p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center text-center">
+                                           <div className="w-8 h-8 rounded-full bg-orange-100 text-[#FF7A00] flex items-center justify-center mb-2">
+                                              <Icon size={14} />
+                                           </div>
+                                           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{vital.label}</p>
+                                           <p className="text-sm font-black text-gray-800 mt-1">{vital.value}</p>
+                                         </div>
+                                       );
+                                     })}
+                                   </div>
+                                 </div>
+                               ) : (
+                                 <div className="py-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                    <p className="text-sm font-bold text-gray-400 uppercase">No active vitals recorded for this visit</p>
+                                 </div>
+                               )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                  </div>
               </TabsContent>
             </Tabs>

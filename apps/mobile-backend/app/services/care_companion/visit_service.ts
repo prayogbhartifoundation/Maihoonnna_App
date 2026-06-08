@@ -149,8 +149,17 @@ export const checkOut = async (data: {
       medicationAdherence: data.medicationAdherence,
       extraVitals: data.vitals ? (data.vitals as Prisma.InputJsonValue) : undefined,
       mood: data.mood as any,
-      notes: data.notes,
+      notes: existingVisit.notes?.startsWith('__benefitId:') ? data.notes : (data.notes || existingVisit.notes),
     };
+
+    if (data.vitals) {
+      if (data.vitals.bpSystolic !== undefined) visitUpdateData.bpSystolic = data.vitals.bpSystolic;
+      if (data.vitals.bpDiastolic !== undefined) visitUpdateData.bpDiastolic = data.vitals.bpDiastolic;
+      if (data.vitals.temperature !== undefined) visitUpdateData.temperature = data.vitals.temperature;
+      if (data.vitals.oxygenLevel !== undefined) visitUpdateData.oxygenLevel = data.vitals.oxygenLevel;
+      if (data.vitals.weight !== undefined) visitUpdateData.weight = data.vitals.weight;
+      if (data.vitals.heartRate !== undefined) visitUpdateData.heartRate = data.vitals.heartRate;
+    }
 
     if (data.vitalsList && Array.isArray(data.vitalsList)) {
       for (const reading of data.vitalsList) {
@@ -242,50 +251,92 @@ export const checkOut = async (data: {
     }
 
     // 3. Deduct from Subscription
-    if (durationMinutes > 0) {
+    if (durationMinutes >= 0) {
       const hoursConsumed = durationMinutes / 60;
       const activeSubscription = await tx.subscription.findFirst({
         where: { beneficiaryId: visit.beneficiaryId, isActive: true },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        include: { benefitBalances: { include: { benefit: true } } }
       });
 
-      if (activeSubscription && activeSubscription.hoursTotal !== null) {
-        const balanceBefore = activeSubscription.hoursTotal - activeSubscription.hoursUsed;
-        const balanceAfter = Math.max(0, balanceBefore - hoursConsumed);
-
+      if (activeSubscription) {
         await tx.subscription.update({
           where: { id: activeSubscription.id },
           data: {
-            hoursUsed: activeSubscription.hoursUsed + hoursConsumed
+            hoursUsed: activeSubscription.hoursUsed + hoursConsumed,
+            visitsCompleted: activeSubscription.visitsCompleted + 1
           }
         });
+
+        let targetBenefitId: string | null = null;
+        if (existingVisit.notes?.startsWith('__benefitId:')) {
+          targetBenefitId = existingVisit.notes.replace('__benefitId:', '').trim();
+        }
+
+        let benefitToDeduct = null;
+        if (targetBenefitId) {
+          benefitToDeduct = activeSubscription.benefitBalances.find(b => b.benefitId === targetBenefitId);
+        }
+        
+        if (!benefitToDeduct) {
+          benefitToDeduct = activeSubscription.benefitBalances.find(b => 
+            b.benefit.unitLabel && b.benefit.unitLabel.toLowerCase().includes('visit') && 
+            (b.totalUnits === -1 || b.usedUnits < b.totalUnits)
+          );
+        }
 
         const existingLog = await tx.packageHoursLog.findUnique({
           where: { visitId: visit.id }
         });
 
-        if (!existingLog) {
-          await tx.packageHoursLog.create({
-            data: {
-              subscriptionId: activeSubscription.id,
-              beneficiaryId: visit.beneficiaryId,
-              visitId: visit.id,
-              hoursConsumed,
-              balanceBefore,
-              balanceAfter,
-              description: `Visit completed by Care Companion. Duration: ${durationMinutes} mins.`
-            }
-          });
+        if (benefitToDeduct) {
+          if (!existingLog) {
+            await tx.subscriptionBenefitBalance.update({
+              where: { id: benefitToDeduct.id },
+              data: { usedUnits: benefitToDeduct.usedUnits + 1 }
+            });
+            await tx.packageHoursLog.create({
+              data: {
+                subscriptionId: activeSubscription.id,
+                beneficiaryId: visit.beneficiaryId,
+                visitId: visit.id,
+                hoursConsumed,
+                balanceBefore: benefitToDeduct.usedUnits,
+                balanceAfter: benefitToDeduct.usedUnits + 1,
+                description: `Visit completed. Duration: ${durationMinutes} mins.`
+              }
+            });
+          } else {
+            await tx.packageHoursLog.update({
+              where: { id: existingLog.id },
+              data: {
+                hoursConsumed,
+                description: `Visit completed. Duration: ${durationMinutes} mins. (Re-run)`
+              }
+            });
+          }
         } else {
-          await tx.packageHoursLog.update({
-            where: { id: existingLog.id },
-            data: {
-              hoursConsumed,
-              balanceBefore,
-              balanceAfter,
-              description: `Visit completed by Care Companion. Duration: ${durationMinutes} mins. (Re-run)`
-            }
-          });
+          if (!existingLog) {
+            await tx.packageHoursLog.create({
+              data: {
+                subscriptionId: activeSubscription.id,
+                beneficiaryId: visit.beneficiaryId,
+                visitId: visit.id,
+                hoursConsumed,
+                balanceBefore: activeSubscription.hoursTotal !== null ? (activeSubscription.hoursTotal - activeSubscription.hoursUsed) : 0,
+                balanceAfter: activeSubscription.hoursTotal !== null ? Math.max(0, (activeSubscription.hoursTotal - activeSubscription.hoursUsed) - hoursConsumed) : 0,
+                description: `Visit completed. Duration: ${durationMinutes} mins.`
+              }
+            });
+          } else {
+            await tx.packageHoursLog.update({
+              where: { id: existingLog.id },
+              data: {
+                hoursConsumed,
+                description: `Visit completed. Duration: ${durationMinutes} mins. (Re-run)`
+              }
+            });
+          }
         }
       }
     }

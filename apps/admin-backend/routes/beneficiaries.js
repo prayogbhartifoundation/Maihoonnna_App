@@ -6,6 +6,7 @@ const { prisma } = require('../lib/prisma');
 const { checkCCAvailability } = require('../services/scheduling');
 const { calculateDistance } = require('../utils/location');
 const { notifyMany } = require('../services/notifications');
+const { calculateAge } = require('../utils/age');
 
 // ── GET /api/beneficiaries ───────────────────────────────────────────────────
 router.get('/', async (req, res) => {
@@ -127,7 +128,8 @@ router.get('/', async (req, res) => {
         userId: b.userId,
         name: b.name,
         photo: b.photo,
-        age: b.age,
+        dateOfBirth: b.dateOfBirth || null,
+        age: b.dateOfBirth ? (calculateAge(b.dateOfBirth) ?? b.age) : b.age,
         gender: b.gender,
         address: b.address,
         city: b.city,
@@ -215,81 +217,98 @@ router.get('/available-staff', async (req, res) => {
       zoneIds = zoneIds.filter((id) => id === req.user.zoneId);
     }
 
-    // If no matching zones, we'll fetch all active/pending staff (zoneId filter will be undefined)
+    const zoneNames = matchingZones.map(z => z.name);
+    const { fieldManagerUserId } = req.query;
 
-    // Get CCs whose staffProfile.zoneId matches one of these zones
-    const ccProfiles = await prisma.staffProfile.findMany({
-      where: {
-        role: 'care_companion',
-        zoneId: zoneIds.length > 0 ? { in: zoneIds } : undefined,
-        employmentStatus: { in: ['active', 'bgv_pending'] },
-        user: { isActive: true },
-      },
-      include: {
-        user: {
-          include: {
-            careCompanionProfile: {
-              select: { id: true, name: true, zone: true, isAvailable: true },
-            },
-          },
-        },
-      },
-    });
+    console.log('[available-staff] pincode:', pincode, 'fieldManagerUserId:', fieldManagerUserId, 'zoneNames:', zoneNames);
 
-    // Get FMs whose staffProfile.zoneId matches
-    const fmProfiles = await prisma.staffProfile.findMany({
-      where: {
-        role: 'field_manager',
-        zoneId: zoneIds.length > 0 ? { in: zoneIds } : undefined,
-        employmentStatus: { in: ['active', 'bgv_pending'] },
-        user: { isActive: true },
-      },
-      include: {
-        user: {
-          include: {
-            fieldManagerProfile: {
-              select: { id: true, name: true, zone: true, isAvailable: true },
-            },
-          },
-        },
-      },
-    });
+    let careCompanions = [];
+    let fieldManagers = [];
 
-    const careCompanions = await Promise.all(
-      ccProfiles
-        .filter((p) => p.user?.careCompanionProfile)
-        .map(async (p) => {
-          const baseInfo = {
-            id: p.user.careCompanionProfile.id,
-            userId: p.userId,
-            name: p.user.careCompanionProfile.name || p.user?.name,
-            zone: p.user.careCompanionProfile.zone,
-            isAvailable: p.user.careCompanionProfile.isAvailable,
-          };
-
-          // If time and duration are provided, check real availability
-          if (req.query.dateTime && req.query.duration) {
-            const { isAvailable, reason } = await checkCCAvailability(
-              baseInfo.id,
-              new Date(req.query.dateTime),
-              parseInt(req.query.duration)
-            );
-            return { ...baseInfo, isAvailable, reason };
+    // PRIMARY PATH: If a specific FM is assigned to this beneficiary, use that FM's teams
+    if (fieldManagerUserId) {
+      const fm = await prisma.fieldManager.findUnique({
+        where: { userId: String(fieldManagerUserId) },
+        include: {
+          user: true,
+          teams: {
+            include: {
+              careCompanions: { include: { user: true } }
+            }
           }
+        }
+      });
 
-          return baseInfo;
-        })
-    );
+      console.log('[available-staff] FM found:', fm?.name, 'teams:', fm?.teams?.length);
 
-    const fieldManagers = fmProfiles
-      .filter((p) => p.user?.fieldManagerProfile)
-      .map((p) => ({
-        id: p.user.fieldManagerProfile.id,
-        userId: p.userId,
-        name: p.user.fieldManagerProfile.name || p.user?.name,
-        zone: p.user.fieldManagerProfile.zone,
-        isAvailable: p.user.fieldManagerProfile.isAvailable,
+      if (fm) {
+        fieldManagers = [{ id: fm.id, userId: fm.userId, name: fm.name, zone: fm.zone, isAvailable: fm.isAvailable }];
+        const ccMap = new Map();
+        for (const team of fm.teams) {
+          console.log('[available-staff] team:', team.name, 'CCs:', team.careCompanions.length);
+          for (const cc of team.careCompanions) {
+            if (!ccMap.has(cc.id) && cc.user?.isActive !== false) {
+              ccMap.set(cc.id, {
+                id: cc.id, userId: cc.userId,
+                name: cc.name || cc.user?.name,
+                zone: cc.zone, isAvailable: cc.isAvailable ?? true,
+              });
+            }
+          }
+        }
+        careCompanions = Array.from(ccMap.values());
+      }
+    }
+
+    // FALLBACK PATH: No FM assigned — find FMs in zone and show their CCs
+    if (careCompanions.length === 0) {
+      console.log('[available-staff] fallback: zone-based search, zoneNames:', zoneNames);
+      const fmsInZone = await prisma.fieldManager.findMany({
+        where: {
+          ...(zoneNames.length > 0 ? { zone: { in: zoneNames } } : {}),
+          user: { isActive: true }
+        },
+        include: {
+          user: true,
+          teams: { include: { careCompanions: { include: { user: true } } } }
+        }
+      });
+
+      fieldManagers = fmsInZone.map(fm => ({
+        id: fm.id, userId: fm.userId, name: fm.name, zone: fm.zone, isAvailable: fm.isAvailable ?? true,
       }));
+
+      const ccMap = new Map();
+      for (const fm of fmsInZone) {
+        for (const team of fm.teams) {
+          for (const cc of team.careCompanions) {
+            if (!ccMap.has(cc.id) && cc.user?.isActive !== false) {
+              ccMap.set(cc.id, {
+                id: cc.id, userId: cc.userId,
+                name: cc.name || cc.user?.name,
+                zone: cc.zone, isAvailable: cc.isAvailable ?? true,
+              });
+            }
+          }
+        }
+      }
+      careCompanions = Array.from(ccMap.values());
+      console.log('[available-staff] zone fallback CCs:', careCompanions.length);
+    }
+
+    // FINAL FALLBACK: Still empty - return all CCs in zone by zone string
+    if (careCompanions.length === 0 && zoneNames.length > 0) {
+      console.log('[available-staff] final fallback: CCs by zone string');
+      const directCCs = await prisma.careCompanion.findMany({
+        where: { zone: { in: zoneNames }, user: { isActive: true } },
+        include: { user: true }
+      });
+      careCompanions = directCCs.map(cc => ({
+        id: cc.id, userId: cc.userId, name: cc.name || cc.user?.name,
+        zone: cc.zone, isAvailable: cc.isAvailable ?? true,
+      }));
+      console.log('[available-staff] final fallback CCs:', careCompanions.length);
+    }
 
     res.json({
       success: true,
@@ -522,9 +541,10 @@ router.get('/:id', async (req, res) => {
         secondaryCC: true,
         fieldManager: true,
         emergencyContacts: true,
-        visits: { orderBy: { scheduledTime: 'desc' }, take: 5 },
+        visits: { orderBy: { scheduledTime: 'desc' } },
         medicationList: { where: { isActive: true } },
         conditions: { include: { condition: true }, where: { isActive: true } },
+        vitalReadings: { include: { vitalDefinition: true } },
       },
     });
     if (!b)
@@ -535,6 +555,12 @@ router.get('/:id', async (req, res) => {
     // Map medicationList to medications for frontend compatibility
     b.medications = b.medicationList;
 
+    // Attach dynamic vital readings to visits
+    b.visits = b.visits.map(v => ({
+      ...v,
+      readings: b.vitalReadings.filter(r => r.encounterId === v.encounterId)
+    }));
+
     const sub = await prisma.subscription.findFirst({
       where: { beneficiaryId: b.id, isActive: true },
       include: { package: true },
@@ -542,7 +568,12 @@ router.get('/:id', async (req, res) => {
 
     res.json({
       success: true,
-      data: { ...b, subscriptions: sub ? [sub] : [] },
+      data: { 
+        ...b, 
+        dateOfBirth: b.dateOfBirth || null,
+        age: b.dateOfBirth ? (calculateAge(b.dateOfBirth) ?? b.age) : b.age,
+        subscriptions: sub ? [sub] : [] 
+      },
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -561,7 +592,7 @@ router.put('/:id', async (req, res) => {
       primaryPhysicianName, primaryPhysicianPhone, primaryPhysicianSpec, 
       emotionalScore, trackBloodPressure, trackHeartRate, trackBloodSugar,
       trackTemperature, trackOxygenSaturation, trackWeight, trackPainLevel,
-      trackRespiratoryRate, medicalConditions, medications, isActive
+      trackRespiratoryRate, medicalConditions, medications, isActive, dateOfBirth
     } = req.body;
 
     const b = await prisma.beneficiary.findUnique({ where: { id } });
@@ -570,9 +601,16 @@ router.put('/:id', async (req, res) => {
     let parsedAge = age !== undefined ? Number(age) : undefined;
     if (parsedAge !== undefined && isNaN(parsedAge)) parsedAge = b.age;
 
+    // If a new dateOfBirth is provided, override age calculation
+    if (dateOfBirth !== undefined && dateOfBirth !== null && dateOfBirth !== '') {
+      const computedAge = calculateAge(dateOfBirth);
+      if (computedAge !== null) parsedAge = computedAge;
+    }
+
     const dataToUpdate = {};
     if (name !== undefined) dataToUpdate.name = name;
     if (parsedAge !== undefined) dataToUpdate.age = parsedAge;
+    if (dateOfBirth !== undefined) dataToUpdate.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
     if (gender !== undefined) dataToUpdate.gender = gender;
     if (address !== undefined) dataToUpdate.address = address;
     if (city !== undefined) dataToUpdate.city = city;

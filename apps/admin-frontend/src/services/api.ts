@@ -581,9 +581,11 @@ export const beneficiaryApi = {
     return mockBeneficiaries[index];
   },
 
-  async getAvailableStaff(pincode: string): Promise<{ careCompanions: any[]; fieldManagers: any[]; zones: any[] }> {
+  async getAvailableStaff(pincode: string, fieldManagerUserId?: string | null): Promise<{ careCompanions: any[]; fieldManagers: any[]; zones: any[] }> {
     try {
-      return await apiJson(`/beneficiaries/available-staff?pincode=${encodeURIComponent(pincode)}`);
+      let url = `/beneficiaries/available-staff?pincode=${encodeURIComponent(pincode)}`;
+      if (fieldManagerUserId) url += `&fieldManagerUserId=${encodeURIComponent(fieldManagerUserId)}`;
+      return await apiJson(url);
     } catch (err) {
       console.error('beneficiaryApi.getAvailableStaff failed:', err);
       return { careCompanions: [], fieldManagers: [], zones: [] };

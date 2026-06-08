@@ -120,17 +120,9 @@ export default function VisitDetailsScreen() {
             setVisitDetail({
                 visit: { id: visitId, status: 'scheduled', encounterId: 'ENC-284910' },
                 beneficiary: { name: 'Sameer Tandon', age: 72, flatPlot: 'C-42', streetArea: 'Sector 5', city: 'Noida' },
-                requiredVitals: [
-                    { id: 'v1', code: 'BP', name: 'Blood Pressure', dataType: 'dual_numeric', value1Label: 'Systolic', value2Label: 'Diastolic' },
-                    { id: 'v2', code: 'SPO2', name: 'Blood Oxygen Saturation', dataType: 'numeric', unit: '%' },
-                    { id: 'v3', code: 'TEMP', name: 'Body Temperature', dataType: 'numeric', unit: '°C' },
-                ]
+                requiredVitals: []
             });
-            setRequiredVitals([
-                { id: 'v1', code: 'BP', name: 'Blood Pressure', dataType: 'dual_numeric', value1Label: 'Systolic', value2Label: 'Diastolic' },
-                { id: 'v2', code: 'SPO2', name: 'Blood Oxygen Saturation', dataType: 'numeric', unit: '%' },
-                { id: 'v3', code: 'TEMP', name: 'Body Temperature', dataType: 'numeric', unit: '°C' },
-            ]);
+            setRequiredVitals([]);
         } finally {
             setLoading(false);
         }

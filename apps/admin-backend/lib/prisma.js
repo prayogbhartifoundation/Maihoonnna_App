@@ -5,31 +5,30 @@ const { Pool } = require('pg');
 /**
  * Prisma Client & Pool Singleton
  *
- * Your Prisma Client generation requires the "client" (Wasm) engine,
- * which mandates a driver adapter like @prisma/adapter-pg.
- *
- * We make BOTH the Pool and the PrismaClient singletons. This prevents:
- * 1. Port leaks across hot-reloads.
- * 2. The 'DeprecationWarning: Calling client.query() when the client is already executing a query'.
+ * Uses Supabase's transaction-mode pooler (the only option on free tier).
+ * Transaction-mode pooler does NOT support persistent connections or keepAlive.
+ * We use a small pool with short idle timeout to avoid stale connections.
  */
 
 const globalForPrisma = global;
 
-// Initialize or reuse singleton pool
 const pool =
   globalForPrisma.pool ||
   new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    max: 3,                        // small pool for transaction-mode pooler
+    idleTimeoutMillis: 10000,      // release idle connections quickly
+    connectionTimeoutMillis: 15000, // wait up to 15s for a connection
   });
+
+pool.on('error', (err) => {
+  console.error('[prisma.js] Pool client error:', err.message);
+});
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.pool = pool;
 }
 
-// Initialize or reuse singleton Prisma client
 const adapter = new PrismaPg(pool);
 
 const prisma =
@@ -44,4 +43,3 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 module.exports = { prisma, pool };
-

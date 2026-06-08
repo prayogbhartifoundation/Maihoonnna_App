@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react';
 export type FieldDefinition = {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'email' | 'boolean' | 'select' | 'textarea';
+  type: 'text' | 'number' | 'email' | 'boolean' | 'select' | 'textarea' | 'date';
   options?: { label: string; value: string }[]; // For select fields
   placeholder?: string;
   required?: boolean;
@@ -93,7 +93,40 @@ export const GenericEditDialog: React.FC<GenericEditDialogProps> = ({
                   onChange={(e) => handleChange(field.key, e.target.value)}
                   className="rounded-2xl border-gray-200 focus:border-[#FF7A00] focus:ring-[#FF7A00]"
                 />
-              ) : field.type === 'boolean' ? (
+              ) : field.type === 'date' ? (() => {
+                // Normalize ISO DateTime → YYYY-MM-DD for the date picker
+                const rawVal = formData[field.key];
+                const dateStr = rawVal
+                  ? (typeof rawVal === 'string' ? rawVal.split('T')[0] : new Date(rawVal).toISOString().split('T')[0])
+                  : '';
+                // Compute age live from the selected date
+                const computedAge = dateStr ? (() => {
+                  const d = new Date(dateStr);
+                  if (isNaN(d.getTime())) return null;
+                  const today = new Date();
+                  let a = today.getFullYear() - d.getFullYear();
+                  const m = today.getMonth() - d.getMonth();
+                  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) a--;
+                  return a;
+                })() : null;
+                return (
+                  <div className="space-y-1.5">
+                    <Input
+                      id={field.key}
+                      type="date"
+                      value={dateStr}
+                      onChange={(e) => handleChange(field.key, e.target.value)}
+                      className="rounded-2xl border-gray-200 focus:border-[#FF7A00] focus:ring-[#FF7A00]"
+                    />
+                    {computedAge !== null && (
+                      <p className="text-[11px] text-gray-500 pl-1">
+                        Age: <span className="font-bold text-[#FF7A00]">{computedAge} years</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()
+              : field.type === 'boolean' ? (
                 <div className="flex h-10 items-center">
                   <Switch
                     id={field.key}

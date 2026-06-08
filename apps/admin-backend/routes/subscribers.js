@@ -3,6 +3,7 @@ const router = express.Router();
 const path = require('path');
 
 const { prisma } = require('../lib/prisma');
+const { calculateAge } = require('../utils/age');
 
 // ── GET /api/subscribers ─────────────────────────────────────────────────────
 // Fetches all users with role = 'subscriber' and their linked beneficiaries
@@ -62,6 +63,8 @@ router.get('/', async (req, res) => {
         phone: s.phone,
         email: s.email || null,
         address: s.address || null,
+        dateOfBirth: s.dateOfBirth || null,
+        age: s.dateOfBirth ? (calculateAge(s.dateOfBirth) ?? s.age) : s.age,
         isActive: s.isActive,
         createdAt: s.createdAt,
         beneficiaryCount: s.subscriberBeneficiaries?.length || 0,
@@ -122,6 +125,8 @@ router.get('/:id', async (req, res) => {
       success: true,
       data: {
         ...s,
+        dateOfBirth: s.dateOfBirth || null,
+        age: s.dateOfBirth ? (calculateAge(s.dateOfBirth) ?? s.age) : s.age,
         beneficiaries: s.subscriberBeneficiaries,
         subscriptions: sub ? [sub] : [],
       },
@@ -138,7 +143,7 @@ router.put('/:id', async (req, res) => {
     
     const { 
       name, phone, email, age, location, latitude, longitude, 
-      profilePhoto, isActive 
+      profilePhoto, isActive, dateOfBirth 
     } = req.body;
 
     const s = await prisma.user.findUnique({ where: { id, role: 'subscriber' } });
@@ -146,6 +151,12 @@ router.put('/:id', async (req, res) => {
 
     let parsedAge = age !== undefined ? Number(age) : undefined;
     if (parsedAge !== undefined && isNaN(parsedAge)) parsedAge = s.age;
+
+    // If a new dateOfBirth is provided, recompute age from it
+    if (dateOfBirth !== undefined && dateOfBirth !== null && dateOfBirth !== '') {
+      const computedAge = calculateAge(dateOfBirth);
+      if (computedAge !== null) parsedAge = computedAge;
+    }
 
     // Build update object securely
     const dataToUpdate = {};
@@ -166,6 +177,7 @@ router.put('/:id', async (req, res) => {
       dataToUpdate.email = email === '' ? null : email;
     }
     if (parsedAge !== undefined) dataToUpdate.age = parsedAge;
+    if (dateOfBirth !== undefined) dataToUpdate.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
     if (location !== undefined) dataToUpdate.location = location;
     if (latitude !== undefined) dataToUpdate.latitude = latitude !== null ? Number(latitude) : null;
     if (longitude !== undefined) dataToUpdate.longitude = longitude !== null ? Number(longitude) : null;

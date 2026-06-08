@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { prisma } = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
+const { calculateAge } = require('../utils/age');
 
 // ── GET /api/subscriptions/check-phone ────────────────────────────────────────
 // Pre-check if a phone already has a user record + their beneficiaries
@@ -229,8 +230,8 @@ router.post('/admin-enroll', async (req, res) => {
             userId: beneficiaryUser.id,
             subscriberId: subscriberUser.id,
             name: beneficiaryName || subscriberName,
-            age: beneficiaryAge ? parseInt(beneficiaryAge) : 0,
             dateOfBirth: beneficiaryDob ? new Date(beneficiaryDob) : undefined,
+            age: beneficiaryDob ? (calculateAge(beneficiaryDob) ?? (beneficiaryAge ? parseInt(beneficiaryAge) : 0)) : (beneficiaryAge ? parseInt(beneficiaryAge) : 0),
             gender: beneficiaryGender,
             maritalStatus: maritalStatus,
             photo: profilePhoto,

@@ -15,7 +15,7 @@ export const EditSubscriberDialog: React.FC<Props> = ({ isOpen, onClose, subscri
     { key: 'name', label: 'Full Name', type: 'text', required: true },
     { key: 'phone', label: 'Phone Number', type: 'text', required: true },
     { key: 'email', label: 'Email Address', type: 'email' },
-    { key: 'age', label: 'Age', type: 'number' },
+    { key: 'dateOfBirth', label: 'Date of Birth', type: 'date' },
     { key: 'location', label: 'General Location', type: 'text' },
     { key: 'isActive', label: 'Account Active', type: 'boolean' },
   ];

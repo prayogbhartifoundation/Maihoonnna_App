@@ -1,13 +1,14 @@
 /**
  * BeneficiaryList
  * Searchable list of beneficiaries assigned to a Field Manager's zone.
- * Core feature: inline visit scheduling — select a CC from the FM's team, set date/time, and save.
+ * Core feature: inline visit scheduling — select a CC from the FM's team, set date/time,
+ * click a benefit card on the right panel, and save.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, Users, Calendar, Clock,
-  Loader2, AlertCircle, X, ChevronRight, Phone, MapPin
+  Loader2, AlertCircle, X, ChevronRight, Phone, MapPin, Sparkles, ChevronDown
 } from 'lucide-react';
 import { visitApi } from '../../../services/api';
 import { LoadingState, EmptyState, Avatar, SectionHeader } from './SharedComponents';
@@ -35,7 +36,7 @@ interface Props {
   team: CCMember[];
   loading: boolean;
   submittingId: string | null;
-  onScheduleVisit: (beneficiaryId: string, ccId: string, scheduledTime: string, durationMinutes: number) => Promise<void>;
+  onScheduleVisit: (beneficiaryId: string, ccId: string, scheduledTime: string, durationMinutes: number, benefitId?: string) => Promise<void>;
 }
 
 export default function BeneficiaryList({
@@ -47,11 +48,19 @@ export default function BeneficiaryList({
 }: Props) {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  
-  const [scheduleState, setScheduleState] = useState<Record<string, { ccId: string; date: string; time: string; duration: number }>>({});
+
+  const [scheduleState, setScheduleState] = useState<Record<string, {
+    ccId: string;
+    date: string;
+    time: string;
+    duration: number;
+    benefitId: string;
+    benefitLabel: string;
+    benefitUnit: string;
+  }>>({});
 
   // Available CCs (for dropdown)
-  const availableCCs = team; 
+  const availableCCs = team;
 
   // Filtered & searched list
   const filtered = useMemo(() => {
@@ -79,7 +88,7 @@ export default function BeneficiaryList({
         const dateStr = tomorrow.toISOString().split('T')[0];
         setScheduleState(prev => ({
           ...prev,
-          [benId]: { ccId: '', date: dateStr, time: '10:00', duration: 60 }
+          [benId]: { ccId: '', date: dateStr, time: '10:00', duration: 60, benefitId: '', benefitLabel: '', benefitUnit: '' }
         }));
       }
     }
@@ -88,12 +97,18 @@ export default function BeneficiaryList({
   const handleSchedule = async (beneficiaryId: string) => {
     const state = scheduleState[beneficiaryId];
     if (!state || !state.ccId || !state.date || !state.time) return;
-    
+
     // Construct ISO string for scheduledTime
     const scheduledTime = new Date(`${state.date}T${state.time}`).toISOString();
-    
-    await onScheduleVisit(beneficiaryId, state.ccId, scheduledTime, state.duration);
-    
+
+    await onScheduleVisit(
+      beneficiaryId,
+      state.ccId,
+      scheduledTime,
+      state.duration,
+      state.benefitId || undefined,
+    );
+
     // Clear selection on success
     setScheduleState(prev => {
       const next = { ...prev };
@@ -108,6 +123,18 @@ export default function BeneficiaryList({
       const newState = { ...prev, [benId]: { ...prev[benId], [key]: value } };
       checkConflict(benId, newState[benId]);
       return newState;
+    });
+  };
+
+  /** Called when admin clicks a benefit card in the utilization panel */
+  const handleBenefitSelect = (benId: string, benefitId: string, benefitName: string, unitLabel: string) => {
+    setScheduleState(prev => {
+      const current = prev[benId] || { ccId: '', date: '', time: '', duration: 60, benefitId: '', benefitLabel: '', benefitUnit: '' };
+      // Toggle off if same benefit clicked again
+      if (current.benefitId === benefitId) {
+        return { ...prev, [benId]: { ...current, benefitId: '', benefitLabel: '', benefitUnit: '' } };
+      }
+      return { ...prev, [benId]: { ...current, benefitId, benefitLabel: benefitName, benefitUnit: unitLabel } };
     });
   };
 
@@ -126,6 +153,132 @@ export default function BeneficiaryList({
       console.error('Availability check failed', e);
     }
   };
+
+  // ── Custom CC Dropdown component ───────────────────────────────────────────
+  function CCTypeFlag({ ccType }: { ccType?: string }) {
+    const isNurse = ccType?.toLowerCase() === 'nurse';
+    return (
+      <span
+        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide ${
+          isNurse
+            ? 'bg-purple-100 text-purple-700'
+            : 'bg-teal-100 text-teal-700'
+        }`}
+      >
+        {isNurse ? '🏥 Nurse' : '🤝 Care Asst'}
+      </span>
+    );
+  }
+
+  function CCDropdown({
+    value, onChange, options, benId,
+  }: {
+    value: string;
+    onChange: (id: string) => void;
+    options: typeof availableCCs;
+    benId: string;
+  }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    const selected = options.find(cc => cc.id === value);
+
+    useEffect(() => {
+      const handler = (e: MouseEvent) => {
+        if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      };
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    return (
+      <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
+        {/* Trigger */}
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          className={`w-full px-3 py-2.5 rounded-xl border text-sm text-left transition-colors flex items-center justify-between gap-2 ${
+            open
+              ? 'border-[#FF7A00] bg-[#FFFAF7]'
+              : 'border-[#E7DED6] bg-white hover:border-[#FF7A00]/50'
+          }`}
+        >
+          {selected ? (
+            <span className="flex items-center gap-2">
+              {/* Availability dot */}
+              <span
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  selected.isAvailable ? 'bg-green-400' : 'bg-gray-300'
+                }`}
+              />
+              <span className="font-black text-gray-800">{selected.name}</span>
+              <CCTypeFlag ccType={selected.ccType} />
+              {!selected.isAvailable && (
+                <span className="text-[9px] text-gray-400 font-bold">(Offline)</span>
+              )}
+            </span>
+          ) : (
+            <span className="font-bold text-gray-400">— Select Care Companion —</span>
+          )}
+          <ChevronDown
+            size={14}
+            className={`text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        {/* Dropdown list */}
+        {open && (
+          <div className="absolute z-30 top-full mt-1.5 left-0 right-0 bg-white border border-[#E7DED6] rounded-xl shadow-xl overflow-hidden">
+            {options.length === 0 ? (
+              <div className="px-4 py-3 text-xs text-gray-400 font-bold">No CCs in this team</div>
+            ) : (
+              options.map(cc => (
+                <button
+                  key={cc.id}
+                  type="button"
+                  disabled={!cc.isAvailable}
+                  onClick={() => { onChange(cc.id); setOpen(false); }}
+                  className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors ${
+                    cc.id === value
+                      ? 'bg-[#FFF5EE] border-l-2 border-[#FF7A00]'
+                      : cc.isAvailable
+                        ? 'hover:bg-[#FFF9F5]'
+                        : 'opacity-40 cursor-not-allowed'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    {/* Availability dot */}
+                    <span
+                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        cc.isAvailable ? 'bg-green-400' : 'bg-gray-300'
+                      }`}
+                    />
+                    <span className="font-black text-gray-800 text-sm truncate">{cc.name}</span>
+                    <CCTypeFlag ccType={cc.ccType} />
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {cc.primaryBeneficiariesCount > 0 && (
+                      <span className="text-[9px] font-black text-gray-400">
+                        {cc.primaryBeneficiariesCount}P
+                      </span>
+                    )}
+                    <span
+                      className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                        cc.isAvailable
+                          ? 'bg-green-50 text-green-600'
+                          : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      {cc.isAvailable ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border border-[#E7DED6] rounded-2xl overflow-hidden">
@@ -178,7 +331,8 @@ export default function BeneficiaryList({
           {filtered.map(ben => {
             const isExpanded = expandedId === ben.id;
             const isSubmitting = submittingId === ben.id;
-            const state = scheduleState[ben.id] || { ccId: '', date: '', time: '', duration: 60 };
+            const state = scheduleState[ben.id] || { ccId: '', date: '', time: '', duration: 60, benefitId: '', benefitLabel: '', benefitUnit: '' };
+            const isHourBased = state.benefitUnit?.toLowerCase().includes('hour');
 
             return (
               <div key={ben.id} className="transition-colors">
@@ -237,124 +391,152 @@ export default function BeneficiaryList({
                           <Calendar size={12} /> Schedule a Visit
                         </p>
 
-                      <div className="space-y-3">
-                        {/* Care Companion Select */}
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Care Companion</label>
-                            <select
+                        <div className="space-y-3">
+                          {/* Care Companion Select — custom dropdown with type flags */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Care Companion</label>
+                            <CCDropdown
                               value={state.ccId}
-                              onChange={e => updateSchedule(ben.id, 'ccId', e.target.value)}
-                              onClick={e => e.stopPropagation()}
-                              className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
-                            >
-                              <option value="">— Select Care Companion —</option>
-                              {availableCCs.map(cc => (
-                                <option 
-                                  key={cc.id} 
-                                  value={cc.id}
-                                  className={!cc.isAvailable ? 'text-gray-400' : ''}
-                                  disabled={!cc.isAvailable}
-                                >
-                                  {cc.name} {!cc.isAvailable ? '(Offline)' : ''}
-                                </option>
-                              ))}
-                            </select>
-                        </div>
-
-                        <div className="flex gap-3">
-                          {/* Date Input */}
-                          <div className="flex-1">
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Date</label>
-                            <input
-                              type="date"
-                              value={state.date}
-                              onChange={e => updateSchedule(ben.id, 'date', e.target.value)}
-                              onClick={e => e.stopPropagation()}
-                              className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
+                              onChange={id => updateSchedule(ben.id, 'ccId', id)}
+                              options={availableCCs}
+                              benId={ben.id}
                             />
                           </div>
 
-                          {/* Time Input */}
-                          <div className="flex-1">
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Time</label>
-                            <input
-                              type="time"
-                              value={state.time}
-                              onChange={e => updateSchedule(ben.id, 'time', e.target.value)}
-                              onClick={e => e.stopPropagation()}
-                              className={`w-full px-3 py-2.5 rounded-xl border text-sm font-bold transition-colors focus:outline-none ${
-                                conflicts[ben.id] 
-                                  ? 'bg-gray-50 text-gray-400 border-gray-200' 
-                                  : 'bg-white text-gray-700 border-[#E7DED6] focus:border-[#FF7A00]'
-                              }`}
-                            />
+                          <div className="flex gap-3">
+                            {/* Date Input */}
+                            <div className="flex-1">
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Date</label>
+                              <input
+                                type="date"
+                                value={state.date}
+                                onChange={e => updateSchedule(ben.id, 'date', e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                                className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
+                              />
+                            </div>
+
+                            {/* Time Input */}
+                            <div className="flex-1">
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Time</label>
+                              <input
+                                type="time"
+                                value={state.time}
+                                onChange={e => updateSchedule(ben.id, 'time', e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                                className={`w-full px-3 py-2.5 rounded-xl border text-sm font-bold transition-colors focus:outline-none ${
+                                  conflicts[ben.id]
+                                    ? 'bg-gray-50 text-gray-400 border-gray-200'
+                                    : 'bg-white text-gray-700 border-[#E7DED6] focus:border-[#FF7A00]'
+                                }`}
+                              />
+                            </div>
                           </div>
+
+                          {/* Selected Benefit Display */}
+                          {state.benefitId ? (
+                            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#FFF5EE] border-2 border-[#FF7A00]">
+                              <div className="flex items-center gap-2">
+                                <Sparkles size={13} className="text-[#FF7A00]" />
+                                <div>
+                                  <p className="text-[10px] font-black text-[#FF7A00] uppercase tracking-widest leading-none">
+                                    Benefit Selected
+                                  </p>
+                                  <p className="text-xs font-black text-gray-800 mt-0.5">
+                                    {state.benefitLabel}
+                                    {isHourBased && (
+                                      <span className="ml-1.5 text-[9px] text-purple-500 font-black">⏱ billed at checkout</span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={e => { e.stopPropagation(); updateSchedule(ben.id, 'benefitId', ''); updateSchedule(ben.id, 'benefitLabel', ''); updateSchedule(ben.id, 'benefitUnit', ''); }}
+                                className="text-gray-300 hover:text-gray-500 transition-colors"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-dashed border-gray-200">
+                              <Sparkles size={12} className="text-gray-300" />
+                              <p className="text-[10px] font-bold text-gray-400">
+                                No benefit selected — tap a benefit card on the right →
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex gap-3 items-start pt-2">
+                            {/* Duration Select */}
+                            <div className="flex-1">
+                              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                <Clock size={10} /> Duration
+                              </label>
+                              <select
+                                value={state.duration}
+                                onChange={e => updateSchedule(ben.id, 'duration', parseInt(e.target.value, 10))}
+                                onClick={e => e.stopPropagation()}
+                                className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
+                              >
+                                <option value={30}>30 mins</option>
+                                <option value={60}>1 hour</option>
+                                <option value={90}>1.5 hours</option>
+                                <option value={120}>2 hours</option>
+                              </select>
+                            </div>
+
+                            {/* Submit Button */}
+                            <div className="flex-1">
+                              <label className="block h-4 mb-1"></label>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleSchedule(ben.id);
+                                }}
+                                disabled={!state.ccId || !state.date || !state.time || isSubmitting || !!conflicts[ben.id]}
+                                className="w-full px-5 py-2.5 bg-[#FF7A00] text-white rounded-xl text-xs font-black uppercase tracking-wide hover:bg-[#E66E00] transition-all disabled:opacity-40 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-orange-200 h-[42px]"
+                              >
+                                {isSubmitting ? (
+                                  <>
+                                    <Loader2 size={13} className="animate-spin" />
+                                    Scheduling...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Calendar size={13} />
+                                    Schedule Visit
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Conflict Warning */}
+                          {conflicts[ben.id] && (
+                            <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-100 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                              <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                              <p className="text-[11px] font-bold text-red-600 leading-tight">
+                                {conflicts[ben.id]}
+                              </p>
+                            </div>
+                          )}
                         </div>
+                      </div>
 
-                        <div className="flex gap-3 items-start pt-2">
-                           {/* Duration Select */}
-                           <div className="flex-1">
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                              <Clock size={10} /> Duration
-                            </label>
-                            <select
-                              value={state.duration}
-                              onChange={e => updateSchedule(ben.id, 'duration', parseInt(e.target.value, 10))}
-                              onClick={e => e.stopPropagation()}
-                              className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
-                            >
-                              <option value={30}>30 mins</option>
-                              <option value={60}>1 hour</option>
-                              <option value={90}>1.5 hours</option>
-                              <option value={120}>2 hours</option>
-                            </select>
-                          </div>
-
-                          {/* Submit Button */}
-                          <div className="flex-1">
-                            <label className="block h-4 mb-1"></label>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                handleSchedule(ben.id);
-                              }}
-                              disabled={!state.ccId || !state.date || !state.time || isSubmitting || !!conflicts[ben.id]}
-                              className="w-full px-5 py-2.5 bg-[#FF7A00] text-white rounded-xl text-xs font-black uppercase tracking-wide hover:bg-[#E66E00] transition-all disabled:opacity-40 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-orange-200 h-[42px]"
-                            >
-                              {isSubmitting ? (
-                                <>
-                                  <Loader2 size={13} className="animate-spin" />
-                                  Scheduling...
-                                </>
-                              ) : (
-                                <>
-                                  <Calendar size={13} />
-                                  Schedule Visit
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Conflict Warning */}
-                        {conflicts[ben.id] && (
-                          <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-100 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
-                            <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
-                            <p className="text-[11px] font-bold text-red-600 leading-tight">
-                              {conflicts[ben.id]}
-                            </p>
-                          </div>
-                        )}
-                      </div> 
-                    </div> 
-
-                    {/* Right: Package Utilization */}
-                    <div className="flex-1 lg:border-l lg:border-[#F4EAE3] lg:pl-8">
-                      <PackageUtilizationPanel beneficiaryId={ben.id} beneficiaryName={ben.name} />
+                      {/* Right: Package Utilization — benefits are clickable to select */}
+                      <div className="flex-1 lg:border-l lg:border-[#F4EAE3] lg:pl-8">
+                        <PackageUtilizationPanel
+                          beneficiaryId={ben.id}
+                          beneficiaryName={ben.name}
+                          onBenefitSelect={(benefitId, benefitName, unitLabel) =>
+                            handleBenefitSelect(ben.id, benefitId, benefitName, unitLabel)
+                          }
+                          selectedBenefitId={state.benefitId || undefined}
+                        />
+                      </div>
                     </div>
-                  </div> 
-                </div> 
-              )}
+                  </div>
+                )}
               </div>
             );
           })}

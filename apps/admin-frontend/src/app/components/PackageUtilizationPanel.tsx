@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, TrendingUp, AlertTriangle, CheckCircle2, Loader2, RefreshCw, PackageCheck, Calendar } from 'lucide-react';
+import { Clock, TrendingUp, AlertTriangle, CheckCircle2, Loader2, RefreshCw, PackageCheck, Calendar, CheckCheck } from 'lucide-react';
 import { subscriptionApi } from '../../services/api';
 
 interface BenefitBalance {
@@ -52,6 +52,10 @@ interface UtilizationData {
 interface Props {
   beneficiaryId: string;
   beneficiaryName?: string;
+  /** When provided, renders benefit cards as selectable buttons */
+  onBenefitSelect?: (benefitId: string, benefitName: string, unitLabel: string) => void;
+  /** Currently selected benefit ID (for highlighted state) */
+  selectedBenefitId?: string;
 }
 
 /** SVG Circular progress ring */
@@ -65,6 +69,9 @@ function CircleRing({
   unit,
   isExhausted,
   isLow,
+  isSelected,
+  isSelectable,
+  onClick,
 }: {
   percent: number;
   size?: number;
@@ -75,6 +82,9 @@ function CircleRing({
   unit: string;
   isExhausted: boolean;
   isLow: boolean;
+  isSelected?: boolean;
+  isSelectable?: boolean;
+  onClick?: () => void;
 }) {
   const r = (size - strokeWidth * 2) / 2;
   const circumference = 2 * Math.PI * r;
@@ -82,19 +92,31 @@ function CircleRing({
   const cx = size / 2;
   const cy = size / 2;
 
-  const ringColor = isExhausted ? '#EF4444' : isLow ? '#F59E0B' : color;
+  const ringColor = isExhausted ? '#EF4444' : isLow ? '#F59E0B' : isSelected ? '#FF7A00' : color;
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div
+      className={`flex flex-col items-center gap-2 transition-transform ${
+        isSelectable && !isExhausted ? 'cursor-pointer hover:scale-105' : ''
+      } ${isSelected ? 'scale-105' : ''}`}
+      onClick={!isExhausted && isSelectable ? onClick : undefined}
+      title={isSelectable && !isExhausted ? `Click to select ${label}` : undefined}
+    >
       <div className="relative" style={{ width: size, height: size }}>
+        {/* Selected glow ring */}
+        {isSelected && (
+          <div
+            className="absolute inset-0 rounded-full animate-pulse"
+            style={{
+              background: 'transparent',
+              boxShadow: '0 0 0 3px rgba(255,122,0,0.4)',
+              borderRadius: '50%',
+            }}
+          />
+        )}
         <svg width={size} height={size} className="-rotate-90">
           {/* Track */}
-          <circle
-            cx={cx} cy={cy} r={r}
-            fill="none"
-            stroke="#F3F4F6"
-            strokeWidth={strokeWidth}
-          />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#F3F4F6" strokeWidth={strokeWidth} />
           {/* Progress */}
           <circle
             cx={cx} cy={cy} r={r}
@@ -109,16 +131,25 @@ function CircleRing({
         </svg>
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xs font-black text-gray-800 leading-tight">{value}</span>
-          <span className="text-[8px] font-bold text-gray-400 uppercase leading-tight">{unit}</span>
+          {isSelected ? (
+            <CheckCheck size={16} className="text-[#FF7A00]" />
+          ) : (
+            <>
+              <span className="text-xs font-black text-gray-800 leading-tight">{value}</span>
+              <span className="text-[8px] font-bold text-gray-400 uppercase leading-tight">{unit}</span>
+            </>
+          )}
         </div>
       </div>
       <div className="text-center">
         <p className="text-[10px] font-black text-gray-600 uppercase tracking-wider leading-tight max-w-[80px] text-center">{label}</p>
-        {isExhausted && (
+        {isSelected && (
+          <span className="text-[8px] font-black text-[#FF7A00] uppercase tracking-widest">Selected</span>
+        )}
+        {!isSelected && isExhausted && (
           <span className="text-[8px] font-black text-red-500 uppercase tracking-widest">Exhausted</span>
         )}
-        {!isExhausted && isLow && (
+        {!isSelected && !isExhausted && isLow && (
           <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Low</span>
         )}
       </div>
@@ -128,7 +159,7 @@ function CircleRing({
 
 const COLORS = ['#FF7A00', '#7C3AED', '#059669', '#2563EB', '#DB2777', '#D97706'];
 
-export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName }: Props) {
+export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName, onBenefitSelect, selectedBenefitId }: Props) {
   const [data, setData] = useState<UtilizationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -187,6 +218,7 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName }: Prop
   const { subscription, benefits, recentLogs } = data;
   const visibleLogs = showAllLogs ? recentLogs : recentLogs.slice(0, 8);
   const hasWarnings = benefits.some(b => b.isLowBalance || b.isExhausted);
+  const isSelectable = !!onBenefitSelect;
 
   return (
     <div className="space-y-6">
@@ -215,6 +247,20 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName }: Prop
           </button>
         </div>
 
+        {/* Selectable hint banner */}
+        {isSelectable && benefits.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-[#FFF5EE] border border-[#FFE4D3] rounded-2xl mb-4">
+            <div className="w-4 h-4 rounded-full bg-[#FF7A00] flex items-center justify-center flex-shrink-0">
+              <CheckCheck size={9} className="text-white" />
+            </div>
+            <p className="text-[10px] font-black text-[#FF7A00] uppercase tracking-widest">
+              {selectedBenefitId
+                ? `✓ Benefit selected — visit will deduct from it`
+                : 'Tap a benefit below to select it for this visit'}
+            </p>
+          </div>
+        )}
+
         {/* Warning Banner */}
         {hasWarnings && (
           <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl mb-4">
@@ -242,6 +288,9 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName }: Prop
                 unit={`/ ${b.totalUnits} ${b.unitLabel}`}
                 isExhausted={b.isExhausted}
                 isLow={b.isLowBalance}
+                isSelected={selectedBenefitId === b.benefitId}
+                isSelectable={isSelectable}
+                onClick={() => onBenefitSelect?.(b.benefitId, b.benefitName, b.unitLabel)}
               />
             ))}
           </div>
@@ -249,36 +298,64 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName }: Prop
           <p className="text-sm text-gray-400 text-center py-8 italic">No benefit balances configured for this subscription.</p>
         )}
 
-        {/* Benefit Detail Cards */}
+        {/* Benefit Detail Cards — clickable when onBenefitSelect is provided */}
         {benefits.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
             {benefits.map((b, i) => {
               const accent = COLORS[i % COLORS.length];
+              const isSelected = selectedBenefitId === b.benefitId;
+              const isHourBased = b.unitLabel?.toLowerCase().includes('hour');
+              const canSelect = isSelectable && !b.isExhausted;
+
               return (
                 <div
                   key={b.benefitId}
-                  className={`p-4 rounded-2xl border transition-all ${b.isExhausted
-                      ? 'bg-red-50 border-red-100'
-                      : b.isLowBalance
-                        ? 'bg-amber-50 border-amber-100'
-                        : 'bg-[#FDFBF9] border-gray-100'
-                    }`}
+                  onClick={canSelect ? () => onBenefitSelect?.(b.benefitId, b.benefitName, b.unitLabel) : undefined}
+                  className={`p-4 rounded-2xl border-2 transition-all ${
+                    canSelect ? 'cursor-pointer' : ''
+                  } ${
+                    isSelected
+                      ? 'bg-[#FFF5EE] border-[#FF7A00] shadow-lg shadow-orange-100'
+                      : b.isExhausted
+                        ? 'bg-red-50 border-red-100 opacity-60'
+                        : b.isLowBalance
+                          ? 'bg-amber-50 border-amber-100 hover:border-amber-300'
+                          : canSelect
+                            ? 'bg-[#FDFBF9] border-gray-100 hover:border-[#FF7A00] hover:bg-[#FFF9F5] hover:shadow-md'
+                            : 'bg-[#FDFBF9] border-gray-100'
+                  }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-black text-gray-700">{b.benefitName}</p>
-                    {b.isExhausted ? (
-                      <span className="flex items-center gap-1 text-[9px] font-black text-red-600 uppercase">
-                        <AlertTriangle size={10} /> Exhausted
-                      </span>
-                    ) : b.isLowBalance ? (
-                      <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase">
-                        <AlertTriangle size={10} /> Low
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[9px] font-black text-green-600 uppercase">
-                        <CheckCircle2 size={10} /> OK
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isSelected && (
+                        <div className="w-5 h-5 rounded-full bg-[#FF7A00] flex items-center justify-center flex-shrink-0">
+                          <CheckCheck size={10} className="text-white" />
+                        </div>
+                      )}
+                      <p className={`text-xs font-black ${isSelected ? 'text-[#FF7A00]' : 'text-gray-700'}`}>
+                        {b.benefitName}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {isHourBased && isSelectable && (
+                        <span className="text-[8px] font-black text-purple-500 uppercase tracking-widest bg-purple-50 px-1.5 py-0.5 rounded">
+                          ⏱ At checkout
+                        </span>
+                      )}
+                      {b.isExhausted ? (
+                        <span className="flex items-center gap-1 text-[9px] font-black text-red-600 uppercase">
+                          <AlertTriangle size={10} /> Exhausted
+                        </span>
+                      ) : b.isLowBalance ? (
+                        <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 uppercase">
+                          <AlertTriangle size={10} /> Low
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[9px] font-black text-green-600 uppercase">
+                          <CheckCircle2 size={10} /> OK
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {/* Progress bar */}
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
@@ -286,7 +363,7 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName }: Prop
                       className="h-full rounded-full transition-all duration-700"
                       style={{
                         width: `${b.usagePercent}%`,
-                        backgroundColor: b.isExhausted ? '#EF4444' : b.isLowBalance ? '#F59E0B' : accent,
+                        backgroundColor: isSelected ? '#FF7A00' : b.isExhausted ? '#EF4444' : b.isLowBalance ? '#F59E0B' : accent,
                       }}
                     />
                   </div>
@@ -294,8 +371,18 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName }: Prop
                     <span className="text-[10px] font-bold text-gray-500">
                       {b.usedUnits} used · {b.remainingUnits} left
                     </span>
-                    <span className="text-[10px] font-black text-gray-400 uppercase">{b.unitLabel}</span>
+                    <span className={`text-[10px] font-black uppercase ${isSelected ? 'text-[#FF7A00]' : 'text-gray-400'}`}>
+                      {b.unitLabel}
+                    </span>
                   </div>
+                  {/* Selected indicator line at bottom */}
+                  {isSelected && (
+                    <div className="mt-2 pt-2 border-t border-[#FFE4D3]">
+                      <p className="text-[9px] font-black text-[#FF7A00] uppercase tracking-widest text-center">
+                        ✓ Selected for this visit
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -338,9 +425,7 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName }: Prop
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-xs font-black text-gray-800">
-                      {isHours
-                        ? `${billMinutes}m billed`
-                        : `−1 visit`}
+                      {isHours ? `${billMinutes}m billed` : `−1 visit`}
                     </p>
                     <p className="text-[10px] font-bold text-gray-400">
                       {new Date(log.loggedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
