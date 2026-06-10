@@ -12,6 +12,7 @@ import ZonesPage from './pages/ZonesPage';
 import OperationsManagersPage from './pages/OperationsManagersPage';
 import FieldManagementPage from './pages/FieldManagementPage';
 import FieldManagerPage from './pages/FieldManagerPage';
+import VisitsPage from './pages/VisitsPage';
 import CareCompanionsPage from './pages/CareCompanionsPage';
 import SubscribersPage from './pages/SubscribersPage';
 import BeneficiariesPage from './pages/BeneficiariesPage';
@@ -82,6 +83,10 @@ export const router = createBrowserRouter([
       {
         path: 'field-managers',
         Component: FieldManagerPage,
+      },
+      {
+        path: 'visits',
+        Component: VisitsPage,
       },
       {
         path: 'care-companions',

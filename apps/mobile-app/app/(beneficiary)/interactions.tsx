@@ -16,6 +16,7 @@ interface VitalData {
 
 interface Interaction {
     id: string;
+    visitCode?: string;
     title: string;
     rating: number;
     date: string;
@@ -80,6 +81,7 @@ export default function InteractionsScreen() {
         const fallbacks: Interaction[] = [
             {
                 id: 'fallback-1',
+                visitCode: 'V1A2B3C4',
                 title: 'Medication Review',
                 rating: 5,
                 date: 'February 17',
@@ -96,6 +98,7 @@ export default function InteractionsScreen() {
             },
             {
                 id: 'fallback-2',
+                visitCode: 'V9D8E7F6',
                 title: 'Regular Check-up',
                 rating: 5,
                 date: 'February 10',
@@ -178,7 +181,12 @@ export default function InteractionsScreen() {
                                 <View key={v.id} style={styles.card}>
                                     {/* Card Header Row */}
                                     <View style={styles.cardHeader}>
-                                        <Text style={styles.cardTitle}>{v.title}</Text>
+                                        <View style={{ flex: 1, marginRight: 10 }}>
+                                            <Text style={styles.cardTitle}>{v.title}</Text>
+                                            {v.visitCode ? (
+                                                <Text style={styles.cardSubtitle}>Visit ID: {v.visitCode}</Text>
+                                            ) : null}
+                                        </View>
                                         {renderStars(v.rating)}
                                     </View>
 
@@ -368,8 +376,12 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: '#111827',
         fontFamily: 'Poppins-Medium',
-        flex: 1,
-        marginRight: 10,
+    },
+    cardSubtitle: {
+        fontSize: 13,
+        color: '#FE6700',
+        fontFamily: 'Poppins-Medium',
+        marginTop: 2,
     },
     starsContainer: {
         flexDirection: 'row',

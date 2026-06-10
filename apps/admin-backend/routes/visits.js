@@ -3,6 +3,23 @@ const router = express.Router();
 const { prisma } = require('../lib/prisma');
 const { checkCCAvailability } = require('../services/scheduling');
 const { notifyUser } = require('../services/notifications');
+const multer = require('multer');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const storage = require('../services/storage');
+
+const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
+// ─── Human-readable Visit Code Generator ─────────────────────────────────────
+// Safe charset: avoids O/0, I/1, S/5, B/8 — easy to read aloud over the phone.
+const VISIT_CODE_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function generateVisitCode() {
+  let code = 'V';
+  for (let i = 0; i < 8; i++) {
+    code += VISIT_CODE_CHARSET[Math.floor(Math.random() * VISIT_CODE_CHARSET.length)];
+  }
+  return code;
+}
 
 // ─── Helper: Deduct from a benefit balance inside a transaction ───────────────
 /**
@@ -71,13 +88,16 @@ router.post('/', async (req, res) => {
     benefitId,
   } = req.body;
 
-  if (!beneficiaryId || !careCompanionId || !scheduledTime || !durationMinutes) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  if (!beneficiaryId || !careCompanionId || !scheduledTime || !durationMinutes || !benefitId) {
+    return res.status(400).json({ success: false, message: 'Missing required fields (benefit type is mandatory)' });
+  }
+
+  const startTime = new Date(scheduledTime);
+  if (startTime.getTime() < Date.now() - 60000) {
+    return res.status(400).json({ success: false, message: 'Cannot schedule a visit in the past' });
   }
 
   try {
-    const startTime = new Date(scheduledTime);
-
     // 1. Check CC Availability
     const availability = await checkCCAvailability(careCompanionId, startTime, durationMinutes);
     if (!availability.isAvailable) {
@@ -89,6 +109,7 @@ router.post('/', async (req, res) => {
       const visit = await tx.visit.create({
         data: {
           encounterId: `V-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          visitCode: generateVisitCode(),
           beneficiaryId,
           careCompanionId,
           scheduledTime: startTime,
@@ -332,14 +353,188 @@ router.patch('/:id/complete', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api/visits/:id - Get a single visit by ID
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const visit = await prisma.visit.findUnique({
+      where: { id },
+      include: {
+        beneficiary: { select: { id: true, name: true, user: { select: { phone: true } }, latitude: true, longitude: true, primaryCcId: true, secondaryCcId: true } },
+        careCompanion: { select: { id: true, name: true, user: { select: { phone: true } } } },
+        medicationAdherenceRecords: true,
+        vitalReadings: true
+      },
+    });
+
+    if (!visit) {
+      return res.status(404).json({ success: false, message: 'Visit not found' });
+    }
+
+    // Flatten the phone number to make it easier for the frontend
+    const formattedVisit = {
+      ...visit,
+      beneficiary: visit.beneficiary ? {
+        ...visit.beneficiary,
+        phone: visit.beneficiary.user?.phone
+      } : null,
+      careCompanion: visit.careCompanion ? {
+        ...visit.careCompanion,
+        phone: visit.careCompanion.user?.phone
+      } : null
+    };
+
+    res.json({ success: true, data: formattedVisit });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/visits/:id/edit - Admin edits visit notes/summary/follow-up
+// Logs every field that changed to activity_logs
+// Body: { notes?, visitSummary?, followUpRequired?, followUpNotes?, followUpDate?,
+//         escalateToManager?, escalationReason?, actorName? }
+// ─────────────────────────────────────────────────────────────────────────────
+router.patch('/:id/edit', async (req, res) => {
+  const { id } = req.params;
+  const {
+    notes,
+    visitSummary,
+    followUpRequired,
+    followUpNotes,
+    followUpDate,
+    escalateToManager,
+    escalationReason,
+    actorName,
+    imageUrls, // Array<string> — the FULL updated list after admin deletions
+  } = req.body;
+
+  try {
+    const existing = await prisma.visit.findUnique({
+      where: { id },
+      select: {
+        notes: true, visitSummary: true, followUpRequired: true,
+        followUpNotes: true, followUpDate: true, escalateToManager: true,
+        escalationReason: true, imageUrls: true, beneficiaryId: true,
+        beneficiary: { select: { userId: true } }
+      }
+    });
+
+    if (!existing) return res.status(404).json({ success: false, message: 'Visit not found' });
+
+    // Build diff for audit log
+    const changes = {};
+    const updateData = {};
+
+    const track = (field, newVal) => {
+      if (newVal !== undefined && newVal !== existing[field]) {
+        changes[field] = { from: existing[field], to: newVal };
+        updateData[field] = newVal;
+      }
+    };
+
+    track('notes', notes);
+    track('visitSummary', visitSummary);
+    track('followUpRequired', followUpRequired);
+    track('followUpNotes', followUpNotes);
+    track('escalateToManager', escalateToManager);
+    track('escalationReason', escalationReason);
+    if (followUpDate !== undefined) {
+      const d = followUpDate ? new Date(followUpDate) : null;
+      const oldD = existing.followUpDate ? new Date(existing.followUpDate).toISOString() : null;
+      const newD = d ? d.toISOString() : null;
+      if (oldD !== newD) {
+        changes.followUpDate = { from: oldD, to: newD };
+        updateData.followUpDate = d;
+      }
+    }
+    // imageUrls: admin sent the new full array (after deletions)
+    if (imageUrls !== undefined) {
+      const newJson = JSON.stringify(imageUrls);
+      if (newJson !== existing.imageUrls) {
+        changes.imageUrls = { from: existing.imageUrls, to: newJson };
+        updateData.imageUrls = newJson;
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.json({ success: true, data: existing, message: 'No changes detected' });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedVisit = await tx.visit.update({ where: { id }, data: updateData });
+
+      // Activity log
+      await tx.activityLog.create({
+        data: {
+          userId: existing.beneficiary?.userId || existing.beneficiaryId,
+          type: 'VISIT',
+          action: 'VISIT_EDITED',
+          details: {
+            visitId: id,
+            editedBy: actorName || req.user?.name || 'Admin',
+            changes,
+            editedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      return updatedVisit;
+    });
+
+    res.json({ success: true, data: updated, changesLogged: changes });
+  } catch (err) {
+    console.error('PATCH /visits/:id/edit error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/visits/:id/upload-image - Upload a new image for a visit
+// Accepts multipart/form-data with field "image"
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/:id/upload-image', uploadMemory.single('image'), async (req, res) => {
+  const { id } = req.params;
+  if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+  try {
+    const ext = path.extname(req.file.originalname) || '.jpg';
+    const filePath = `visit-images/${id}/${uuidv4()}${ext}`;
+
+    const { url } = await storage.upload(req.file.buffer, filePath, req.file.mimetype);
+
+    // Append URL to the visit's imageUrls JSON array
+    const visit = await prisma.visit.findUnique({ where: { id }, select: { imageUrls: true } });
+    if (!visit) return res.status(404).json({ success: false, message: 'Visit not found' });
+
+    let existing = [];
+    try { existing = visit.imageUrls ? JSON.parse(visit.imageUrls) : []; } catch (_) {}
+    existing.push(url);
+
+    await prisma.visit.update({ where: { id }, data: { imageUrls: JSON.stringify(existing) } });
+
+    res.json({ success: true, url, imageUrls: existing });
+  } catch (err) {
+    console.error('POST /visits/:id/upload-image error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/visits - Get all visits (optionally filtered)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
-  const { beneficiaryId, careCompanionId, date, fmUserId } = req.query;
+  const { beneficiaryId, careCompanionId, date, fmUserId, visitCode } = req.query;
   try {
     const where = {};
     if (beneficiaryId) where.beneficiaryId = beneficiaryId;
     if (careCompanionId) where.careCompanionId = careCompanionId;
+    // Filter by human-readable visitCode (case-insensitive partial match)
+    if (visitCode) {
+      where.visitCode = { contains: String(visitCode).toUpperCase(), mode: 'insensitive' };
+    }
     if (date) {
       if (date === 'next_7') {
         const start = new Date();
@@ -365,7 +560,7 @@ router.get('/', async (req, res) => {
     const visits = await prisma.visit.findMany({
       where,
       include: {
-        beneficiary: { select: { id: true, name: true, latitude: true, longitude: true } },
+        beneficiary: { select: { id: true, name: true, latitude: true, longitude: true, primaryCcId: true, secondaryCcId: true } },
         careCompanion: {
           select: {
             id: true,
@@ -382,9 +577,10 @@ router.get('/', async (req, res) => {
       orderBy: { scheduledTime: 'asc' },
     });
 
-    // Attach geo-fencing fields to each visit for the admin UI
+    // Attach geo-fencing fields + visitCode to each visit for the admin UI
     const visitsWithGeo = visits.map((v) => ({
       ...v,
+      visitCode: v.visitCode,
       isGeoVerified: v.isGeoVerified,
       geoDistanceMeters: v.geoDistanceMeters,
       manualCheckInReason: v.manualCheckInReason,
@@ -463,6 +659,10 @@ router.put('/:id', async (req, res) => {
     }
 
     const startTime = new Date(scheduledTime);
+
+    if (startTime.getTime() < Date.now() - 60000) {
+      return res.status(400).json({ success: false, message: 'Cannot reschedule a visit to a past date/time' });
+    }
 
     if (
       careCompanionId !== existingVisit.careCompanionId ||

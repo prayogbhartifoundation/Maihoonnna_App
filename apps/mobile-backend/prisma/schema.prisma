@@ -792,6 +792,7 @@ model Address {
 model Visit {
   id                         String                @id @default(uuid())
   encounterId                String                @unique
+  visitCode                  String?               @unique // Human-readable ID: e.g. VK7XM4RP
   beneficiaryId              String
   careCompanionId            String
   appointmentId              String?               @unique
@@ -807,6 +808,9 @@ model Visit {
   isGeoVerified              Boolean               @default(false)
   geoDistanceMeters          Float?
   manualCheckInReason        String?
+  isCheckOutGeoVerified      Boolean               @default(false)
+  checkOutGeoDistanceMeters  Float?
+  manualCheckOutReason       String?
   bpSystolic                 Int?
   bpDiastolic                Int?
   heartRate                  Int?
@@ -832,6 +836,7 @@ model Visit {
   medicationAdherence        Boolean               @default(false)
   medicationNotes            String?
   notes                      String?
+  imageUrls                  String?               @default("[]") // JSON array of Supabase photo URLs
   visitSummary               String?
   followUpRequired           Boolean               @default(false)
   followUpNotes              String?

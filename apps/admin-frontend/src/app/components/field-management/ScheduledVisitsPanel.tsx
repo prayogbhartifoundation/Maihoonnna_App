@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { CalendarClock, User, UserCheck, AlertCircle, RefreshCw, Trash2, Edit3, ChevronDown, X, Clock, Loader2, MapPin, ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { CalendarClock, User, UserCheck, AlertCircle, RefreshCw, Trash2, Edit3, ChevronDown, X, Clock, Loader2, MapPin, ShieldCheck, ShieldAlert, AlertTriangle, Eye } from 'lucide-react';
 import { visitApi, fieldManagerApi } from '../../../services/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import VisitDetailsModal from './VisitDetailsModal';
 
 interface ScheduledVisitsPanelProps {
   /** Optional: pre-select a FM by their userId when rendered inside an FM-scoped view */
@@ -27,6 +28,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [viewingVisitId, setViewingVisitId] = useState<string | null>(null);
 
   // ── Filter state ────────────────────────────────────────────────────────────
   const [fieldManagers, setFieldManagers] = useState<FMOption[]>([]);
@@ -37,6 +39,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
   const [ccLoading, setCcLoading] = useState(false);
   const [selectedCcId, setSelectedCcId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [visitCodeFilter, setVisitCodeFilter] = useState<string>(''); // human-readable code filter
 
   // ── Edit modal state ────────────────────────────────────────────────────────
   const [editingVisit, setEditingVisit] = useState<any | null>(null);
@@ -46,6 +49,72 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
   const [editCcOptions, setEditCcOptions] = useState<CCOption[]>([]);
   const [editCcLoading, setEditCcLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+
+  const [editCcAvailabilities, setEditCcAvailabilities] = useState<Record<string, { isAvailable: boolean; reason: string | null }>>({});
+  const [editCcChecking, setEditCcChecking] = useState<boolean>(false);
+
+  const checkEditCcAvailabilities = async (time: string, duration: number, options: CCOption[]) => {
+    if (!time || !duration || options.length === 0) return;
+    setEditCcChecking(true);
+    try {
+      const scheduledTime = new Date(time).toISOString();
+      const results = await Promise.all(
+        options.map(async (cc) => {
+          try {
+            // Exclude current editing visit so we don't conflict with ourselves
+            const res = await visitApi.checkAvailability(cc.id, scheduledTime, duration);
+            return { ccId: cc.id, isAvailable: res.isAvailable, reason: res.reason };
+          } catch (e) {
+            return { ccId: cc.id, isAvailable: true, reason: null };
+          }
+        })
+      );
+
+      const mapping: Record<string, { isAvailable: boolean; reason: string | null }> = {};
+      results.forEach(r => {
+        mapping[r.ccId] = { isAvailable: r.isAvailable, reason: r.reason };
+      });
+      setEditCcAvailabilities(mapping);
+    } catch (err) {
+      console.error('Failed to check edit CC availabilities', err);
+    } finally {
+      setEditCcChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (editingVisit) {
+      checkEditCcAvailabilities(editTime, editDuration, editCcOptions);
+    } else {
+      setEditCcAvailabilities({});
+    }
+  }, [editTime, editDuration, editCcOptions, editingVisit]);
+
+  const sortedEditCcOptions = React.useMemo(() => {
+    if (!editingVisit) return editCcOptions;
+    return [...editCcOptions].sort((a, b) => {
+      const aIsPrimary = a.id === editingVisit.beneficiary?.primaryCcId;
+      const bIsPrimary = b.id === editingVisit.beneficiary?.primaryCcId;
+      const aIsSecondary = a.id === editingVisit.beneficiary?.secondaryCcId;
+      const bIsSecondary = b.id === editingVisit.beneficiary?.secondaryCcId;
+
+      // Primary first
+      if (aIsPrimary && !bIsPrimary) return -1;
+      if (bIsPrimary && !aIsPrimary) return 1;
+
+      // Secondary second
+      if (aIsSecondary && !bIsSecondary) return -1;
+      if (bIsSecondary && !aIsSecondary) return 1;
+
+      // Available first
+      const aAvail = editCcAvailabilities[a.id]?.isAvailable !== false;
+      const bAvail = editCcAvailabilities[b.id]?.isAvailable !== false;
+      if (aAvail && !bAvail) return -1;
+      if (!aAvail && bAvail) return 1;
+
+      return 0;
+    });
+  }, [editCcOptions, editingVisit, editCcAvailabilities]);
 
   // ── Load all field managers for the dropdown ─────────────────────────────────
   useEffect(() => {
@@ -90,6 +159,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
       if (selectedFmUserId) params.fmUserId = selectedFmUserId;
       if (selectedCcId) params.careCompanionId = selectedCcId;
       if (selectedDate) params.date = selectedDate;
+      if (visitCodeFilter.trim()) params.visitCode = visitCodeFilter.trim().toUpperCase();
       const response = await visitApi.getAll(params);
       setVisits(Array.isArray(response) ? response : []);
     } catch (e: any) {
@@ -97,7 +167,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
     } finally {
       setLoading(false);
     }
-  }, [selectedFmUserId, selectedCcId, selectedDate]);
+  }, [selectedFmUserId, selectedCcId, selectedDate, visitCodeFilter]);
 
   useEffect(() => {
     fetchVisits();
@@ -160,6 +230,13 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
     }
 
     setEditSaving(true);
+    
+    if (new Date(editTime).getTime() < Date.now() - 60000) {
+      toast.error('Cannot reschedule to a past date/time');
+      setEditSaving(false);
+      return;
+    }
+
     try {
       await visitApi.update(editingVisit.id, {
         careCompanionId: editCcId,
@@ -206,7 +283,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
           </div>
         </div>
 
-        {/* ── Filter Row ──────────────────────────────────────────────────── */}
+        {/* ── Filter Row ─────────────────────────────────────────────────────────── */}
         <div className="mt-4 flex flex-col sm:flex-row gap-3">
           {/* Field Manager filter */}
           {!hideFmSelector && (
@@ -251,6 +328,35 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
                 ))}
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Visit Code search filter */}
+          <div className="flex-1 relative">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">
+              Search by Visit Code
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={visitCodeFilter}
+                onChange={e => setVisitCodeFilter(e.target.value.toUpperCase())}
+                placeholder="e.g. VK7XM4RP"
+                maxLength={9}
+                className={`w-full pl-4 pr-8 py-2.5 rounded-xl border font-mono font-bold text-sm tracking-wider transition-colors focus:outline-none ${
+                  visitCodeFilter
+                    ? 'border-[#FF7A00] bg-[#FFF5EE] text-[#FF7A00]'
+                    : 'border-[#E7DED6] bg-white text-gray-700 focus:border-[#FF7A00]'
+                }`}
+              />
+              {visitCodeFilter && (
+                <button
+                  onClick={() => setVisitCodeFilter('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -384,9 +490,23 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
                       {visit.status}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-gray-400 font-bold mr-1">
-                        #{visit.encounterId?.substring(0, 10)}...
+                      {/* Visit Code Badge */}
+                      <span
+                        title={`Visit Code: ${visit.visitCode || 'N/A'}`}
+                        className="font-mono text-[11px] font-black tracking-widest px-2 py-1 rounded-lg bg-[#FFF5EE] text-[#FF7A00] border border-[#FFE0C7] select-all cursor-text"
+                      >
+                        {visit.visitCode || `#${visit.encounterId?.substring(0, 8)}`}
                       </span>
+                      
+                      {/* View Details button */}
+                      <button
+                        onClick={() => setViewingVisitId(visit.id)}
+                        title="View Details"
+                        className="p-1.5 rounded-lg bg-[#E8F0FF] text-[#1D4ED8] hover:bg-[#D1E0FF] transition-colors"
+                      >
+                        <Eye size={12} />
+                      </button>
+
                       {visit.status === 'scheduled' && (
                         <>
                           {/* Edit button */}
@@ -472,7 +592,12 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
             <div className="p-6 border-b border-[#E7DED6] bg-[#FAF8F5] flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-black text-gray-800">Reschedule Visit</h3>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">Encounter {editingVisit.encounterId}</p>
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+                  {editingVisit.visitCode
+                    ? <span className="font-mono text-[#FF7A00]">{editingVisit.visitCode}</span>
+                    : `Encounter ${editingVisit.encounterId}`
+                  }
+                </p>
               </div>
               <button
                 onClick={() => setEditingVisit(null)}
@@ -550,9 +675,24 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
                         className="w-full appearance-none pl-4 pr-10 py-3 rounded-xl border-2 border-[#E7DED6] bg-[#FFFAF7] text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors cursor-pointer"
                       >
                         <option value="" disabled>— Select Care Companion —</option>
-                        {editCcOptions.map(cc => (
-                          <option key={cc.id} value={cc.id}>{cc.name}</option>
-                        ))}
+                        {sortedEditCcOptions.map(cc => {
+                          const isPrimary = cc.id === editingVisit?.beneficiary?.primaryCcId;
+                          const isSecondary = cc.id === editingVisit?.beneficiary?.secondaryCcId;
+                          const relationshipLabel = isPrimary ? ' ★ Primary' : isSecondary ? ' ☆ Secondary' : '';
+
+                          const avail = editCcAvailabilities[cc.id];
+                          const statusLabel = editCcChecking ? ' (Checking...)' : avail && !avail.isAvailable ? ` (Conflict: ${avail.reason || 'Not Available'})` : '';
+
+                          return (
+                            <option 
+                              key={cc.id} 
+                              value={cc.id}
+                              disabled={avail && !avail.isAvailable}
+                            >
+                              {cc.name}{relationshipLabel}{statusLabel}
+                            </option>
+                          );
+                        })}
                       </select>
                       <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
@@ -588,6 +728,14 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
             </form>
           </div>
         </div>
+      )}
+
+      {/* ── View Details Modal ────────────────────────────────────────────── */}
+      {viewingVisitId && (
+        <VisitDetailsModal
+          visitId={viewingVisitId}
+          onClose={() => setViewingVisitId(null)}
+        />
       )}
     </div>
   );

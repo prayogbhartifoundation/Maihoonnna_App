@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { 
   User, Phone, Mail, MapPin, Calendar, Loader2, Heart, Activity, 
-  Thermometer, Droplet, Scale, RefreshCw, UserCheck, ArrowLeft, Edit2, Trash2
+  Thermometer, Droplet, Scale, RefreshCw, UserCheck, ArrowLeft, Edit2, Trash2,
+  CalendarClock, Eye, Pencil, CheckCircle2, XCircle
 } from 'lucide-react';
-import { beneficiaryApi, subscriptionApi } from '../../services/api';
+import { beneficiaryApi, visitApi } from '../../services/api';
 import { StatusChip } from '../components/common/StatusChip';
 import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
 import { RefreshButton } from '../components/common/RefreshButton';
@@ -17,6 +18,8 @@ import { EditBeneficiaryDialog } from '../components/forms/EditBeneficiaryDialog
 import { AddMedicineDialog } from '../components/forms/AddMedicineDialog';
 import { AddConditionDialog } from '../components/forms/AddConditionDialog';
 import { PackageUtilizationPanel } from '../components/PackageUtilizationPanel';
+import VisitDetailsModal from '../components/field-management/VisitDetailsModal';
+import { format } from 'date-fns';
 
 interface StaffPool {
   careCompanions: { id: string; userId: string; name: string; zone: string; isAvailable: boolean }[];
@@ -39,6 +42,12 @@ export default function BeneficiaryProfilePage() {
   const [isAddMedOpen, setIsAddMedOpen] = useState(false);
   const [isAddConditionOpen, setIsAddConditionOpen] = useState(false);
   const [selectedVisitId, setSelectedVisitId] = useState<string>('');
+
+  // Visits tab state
+  const [visits, setVisits] = useState<any[]>([]);
+  const [visitsLoading, setVisitsLoading] = useState(false);
+  const [openModalVisitId, setOpenModalVisitId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('profile');
 
   const [staffPool, setStaffPool] = useState<StaffPool>({ careCompanions: [], fieldManagers: [], zones: [] });
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -90,6 +99,23 @@ export default function BeneficiaryProfilePage() {
   useEffect(() => {
     fetchDetails();
   }, [id]);
+
+  const fetchVisits = async () => {
+    if (!id) return;
+    setVisitsLoading(true);
+    try {
+      const data = await visitApi.getAll({ beneficiaryId: id });
+      setVisits(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load visits', err);
+    } finally {
+      setVisitsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'visits') fetchVisits();
+  }, [activeTab, id]);
 
   const handleAssignStaff = async () => {
     if (!details || !id) return;
@@ -279,12 +305,13 @@ export default function BeneficiaryProfilePage() {
           </div>
 
           <div className="lg:col-span-2">
-            <Tabs defaultValue="profile" className="space-y-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
               <TabsList className="bg-white/50 p-1.5 rounded-3xl h-auto flex gap-1 border border-[#E7DED6] backdrop-blur-sm flex-wrap">
                 <TabsTrigger value="profile" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Health Profile</TabsTrigger>
                 <TabsTrigger value="usage" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Membership & Package Usage</TabsTrigger>
                 <TabsTrigger value="assign" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Staff Assignment</TabsTrigger>
                 <TabsTrigger value="clinical" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#FF7A00] data-[state=active]:shadow-md transition-all">Clinical Config</TabsTrigger>
+                <TabsTrigger value="visits" className="flex-1 py-4 font-black uppercase text-[10px] tracking-widest rounded-2xl data-[state=active]:bg-white data-[state=active]:text-[#1D4ED8] data-[state=active]:shadow-md transition-all flex items-center gap-1.5"><CalendarClock size={12} />Visits</TabsTrigger>
               </TabsList>
 
                <TabsContent value="profile" className="space-y-8 mt-0 outline-none">
@@ -612,7 +639,91 @@ export default function BeneficiaryProfilePage() {
                     )}
                  </div>
               </TabsContent>
+
+              {/* ──────────────── VISITS TAB ──────────────── */}
+              <TabsContent value="visits" className="mt-0 outline-none">
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-black text-gray-800">Visit Records</h3>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">All visits for {details.name}</p>
+                    </div>
+                    <button onClick={fetchVisits} className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors">
+                      <RefreshCw size={14} className={visitsLoading ? 'animate-spin' : ''} /> Refresh
+                    </button>
+                  </div>
+
+                  {visitsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <Loader2 className="w-8 h-8 animate-spin text-[#FF7A00]" />
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading visits...</p>
+                    </div>
+                  ) : visits.length === 0 ? (
+                    <div className="py-16 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                      <CalendarClock className="mx-auto w-10 h-10 text-gray-300 mb-3" />
+                      <p className="text-sm font-bold text-gray-400 uppercase">No visits found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {visits.map((v: any) => (
+                        <div key={v.id} className="group flex items-center justify-between p-4 bg-[#FAF8F5] border border-[#E7DED6] rounded-2xl hover:border-[#1D4ED8]/40 hover:bg-blue-50/20 transition-all">
+                          <div className="flex items-center gap-4 min-w-0">
+                            {/* Status dot */}
+                            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                              v.status === 'completed' ? 'bg-green-500' :
+                              v.status === 'checked_in' ? 'bg-blue-500 animate-pulse' :
+                              v.status === 'cancelled' ? 'bg-red-400' :
+                              'bg-amber-400'
+                            }`} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {v.visitCode && (
+                                  <span className="font-mono text-[11px] font-black px-2 py-0.5 bg-[#FFF5EE] text-[#FF7A00] border border-[#FFE0C7] rounded-md">{v.visitCode}</span>
+                                )}
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase ${
+                                  v.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                  v.status === 'checked_in' ? 'bg-blue-100 text-blue-700' :
+                                  v.status === 'cancelled' ? 'bg-red-100 text-red-400' :
+                                  'bg-amber-100 text-amber-700'
+                                }`}>{v.status.replace('_', ' ')}</span>
+                              </div>
+                              <p className="text-sm font-bold text-gray-800 mt-1">
+                                {format(new Date(v.scheduledTime), 'PPp')}
+                              </p>
+                              {v.careCompanion?.name && (
+                                <p className="text-xs text-gray-500 font-medium mt-0.5">CC: {v.careCompanion.name}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                            <button
+                              onClick={() => setOpenModalVisitId(v.id)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[#E7DED6] text-gray-600 text-xs font-bold hover:border-[#1D4ED8] hover:text-[#1D4ED8] transition-colors"
+                            >
+                              <Eye size={13} /> View
+                            </button>
+                            <button
+                              onClick={() => setOpenModalVisitId(v.id)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1D4ED8] text-white text-xs font-bold hover:bg-[#1e40af] transition-colors"
+                            >
+                              <Pencil size={13} /> Edit
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
+
+            {/* Visit Details / Edit Modal */}
+            {openModalVisitId && (
+              <VisitDetailsModal
+                visitId={openModalVisitId}
+                onClose={() => setOpenModalVisitId(null)}
+              />
+            )}
           </div>
         </div>
       </div>

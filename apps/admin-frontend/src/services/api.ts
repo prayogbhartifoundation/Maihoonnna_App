@@ -866,9 +866,22 @@ export const subscriptionApi = {
 };
 
 export const visitApi = {
-  async getAll(params: { beneficiaryId?: string; careCompanionId?: string; date?: string; fmUserId?: string }): Promise<any[]> {
-    const query = new URLSearchParams(params as any).toString();
+  async getAll(params: { beneficiaryId?: string; careCompanionId?: string; date?: string; fmUserId?: string; visitCode?: string }): Promise<any[]> {
+    // Filter out empty string params to avoid sending ?visitCode= to the backend
+    const clean = Object.fromEntries(Object.entries(params as any).filter(([, v]) => v !== '' && v != null));
+    const query = new URLSearchParams(clean as any).toString();
     return apiJson(`/visits?${query}`);
+  },
+  async getById(id: string): Promise<any> {
+    return apiJson(`/visits/${id}`);
+  },
+  async editVisit(id: string, data: { notes?: string; visitSummary?: string; followUpRequired?: boolean; followUpNotes?: string; followUpDate?: string | null; escalateToManager?: boolean; escalationReason?: string; actorName?: string; imageUrls?: string[] }): Promise<any> {
+    return apiJson(`/visits/${id}/edit`, { method: 'PATCH', body: JSON.stringify(data) });
+  },
+  async uploadVisitImage(id: string, file: File): Promise<{ url: string; imageUrls: string[] }> {
+    const form = new FormData();
+    form.append('image', file);
+    return apiJson(`/visits/${id}/upload-image`, { method: 'POST', body: form });
   },
   async create(data: { beneficiaryId: string; careCompanionId: string; scheduledTime: string; durationMinutes: number; benefitId?: string }): Promise<any> {
     return apiJson('/visits', {

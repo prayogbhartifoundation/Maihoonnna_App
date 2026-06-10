@@ -31,6 +31,7 @@ router.get('/subscriber/:subscriberId', authenticate, async (req: Request, res: 
         beneficiary: { id: b.id, name: b.name, age: b.age, emotionalScore: b.emotionalScore, address: b.address },
         recentVisits: recentVisits.map((v: any) => ({
           id: v.id,
+          visitCode: v.visitCode,
           encounterId: v.encounterId,
           status: v.status,
           scheduledTime: v.scheduledTime,
@@ -63,6 +64,7 @@ router.get('/care-companion/:ccId', authenticate, async (req: Request, res: Resp
     data: {
       todayVisits: visits.map((v: any) => ({
         id: v.id,
+        visitCode: v.visitCode,
         encounterId: v.encounterId,
         beneficiaryId: v.beneficiaryId,
         scheduledTime: v.scheduledTime,

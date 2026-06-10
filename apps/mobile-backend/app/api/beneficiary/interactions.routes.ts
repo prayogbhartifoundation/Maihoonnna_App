@@ -56,6 +56,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
 
             return {
                 id: v.id,
+                visitCode: v.visitCode,
                 title,
                 rating: v.rating || 5,
                 date: dateStr,

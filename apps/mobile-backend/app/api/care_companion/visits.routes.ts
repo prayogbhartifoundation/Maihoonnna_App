@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authenticate, validate } from '../shared/deps';
-import { createVisitSchema, checkInSchema, checkOutSchema, rateVisitSchema } from '../../schemas/visit';
+import { createVisitSchema, checkInSchema, checkOutSchema, rateVisitSchema, saveDetailsSchema } from '../../schemas/visit';
 import * as visitService from '../../services/care_companion/visit_service';
 import prisma from '../../core/database';
 
@@ -89,6 +89,8 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
 
       return {
         id: v.id,
+        visitCode: v.visitCode,
+        rawDate: dateObj.toISOString(),
         patientName: v.beneficiary.name,
         address: patientAddress,
         date: dateStr,
@@ -140,6 +142,16 @@ router.post('/check-out', authenticate, validate(checkOutSchema), async (req: Re
     const visit = await visitService.checkOut(req.body);
     res.json({ success: true, data: visit });
   } catch (e: unknown) {
+    console.error("Checkout Error:", e);
+    res.status(404).json({ success: false, message: (e as Error).message });
+  }
+});
+
+router.post('/save-details', authenticate, validate(saveDetailsSchema), async (req: Request, res: Response) => {
+  try {
+    const visit = await visitService.updateVisitDetails(req.body);
+    res.json({ success: true, data: visit });
+  } catch (e: unknown) {
     res.status(404).json({ success: false, message: (e as Error).message });
   }
 });
@@ -162,6 +174,8 @@ router.get('/:visitId/details', authenticate, async (req: Request, res: Response
       where: { id: visitId },
       include: {
         beneficiary: true,
+        vitalReadings: true,
+        medicationAdherenceRecords: true,
       }
     });
 
@@ -236,10 +250,13 @@ router.get('/:visitId/details', authenticate, async (req: Request, res: Response
           checkOutTime: visit.checkOutTime,
           status: visit.status,
           notes: visit.notes,
+          mood: visit.mood,
           manualCheckInReason: visit.manualCheckInReason,
           // Geo-fencing fields for the mobile app
           isGeoVerified: visit.isGeoVerified,
           geoDistanceMeters: visit.geoDistanceMeters,
+          vitalReadings: visit.vitalReadings,
+          medicationAdherenceRecords: visit.medicationAdherenceRecords,
         },
         beneficiary: {
           id: visit.beneficiary.id,

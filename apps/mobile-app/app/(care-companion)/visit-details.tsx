@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -10,6 +10,7 @@ import * as Location from 'expo-location';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { API_URL } from '@/constants/api';
 import { CompanionBackButton } from '../../components/care-companion/CompanionBackButton';
+import { VisitImageGallery } from '../../components/care-companion/VisitImageGallery';
 
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_BEIGE = '#FAF3EB';
@@ -17,7 +18,9 @@ const INPUT_BG = '#F3F4F6';
 
 export default function VisitDetailsScreen() {
     const router = useRouter();
-    const { visitId } = useLocalSearchParams<{ visitId: string }>();
+    const scrollViewRef = useRef<ScrollView>(null);
+    const { visitId, editMode } = useLocalSearchParams<{ visitId: string; editMode?: string }>();
+    const isEdit = editMode === 'true';
 
     const handleSafeBack = () => {
         if (router.canGoBack()) {
@@ -34,10 +37,12 @@ export default function VisitDetailsScreen() {
     const [requiredVitals, setRequiredVitals] = useState<any[]>([]);
     const [vitalsValues, setVitalsValues] = useState<{ [key: string]: { valueNumeric: string; valueNumeric2: string; valueText: string } }>({});
     
+    const [authToken, setAuthToken] = useState<string>('');
     const [manualRemarks, setManualRemarks] = useState('');
     const [medNotes, setMedNotes] = useState('');
     const [visitNotes, setVisitNotes] = useState('');
     const [mood, setMood] = useState('Neutral');
+    const [isLocallySaved, setIsLocallySaved] = useState(false);
 
     // Geo-fencing state
     const [currentLat, setCurrentLat] = useState<number | null>(null);
@@ -66,6 +71,7 @@ export default function VisitDetailsScreen() {
                 router.replace('/(auth)');
                 return;
             }
+            setAuthToken(token);
 
             const response = await fetch(`${API_URL}/care-companion/visits/${visitId}/details`, {
                 headers: {
@@ -87,11 +93,15 @@ export default function VisitDetailsScreen() {
                 setManualRemarks(json.data.visit?.manualCheckInReason || '');
 
                 if (json.data.activeMedications && json.data.activeMedications.length > 0) {
-                    setMeds(json.data.activeMedications.map((m: any) => ({
-                        id: m.id,
-                        name: m.name,
-                        checked: false
-                    })));
+                    const adherence = json.data.visit?.medicationAdherenceRecords || [];
+                    setMeds(json.data.activeMedications.map((m: any) => {
+                        const record = adherence.find((a: any) => a.medicationId === m.id);
+                        return {
+                            id: m.id,
+                            name: m.name,
+                            checked: record ? record.taken : false
+                        };
+                    }));
                 } else {
                     setMeds([
                         { id: '1', name: 'Metformin 500mg', checked: false },
@@ -103,12 +113,22 @@ export default function VisitDetailsScreen() {
 
                 // Initialize vital values mapping
                 const initialVals: any = {};
+                const existingVitals = json.data.visit?.vitalReadings || [];
                 (json.data.requiredVitals || []).forEach((v: any) => {
-                    initialVals[v.id] = {
-                        valueNumeric: '',
-                        valueNumeric2: '',
-                        valueText: v.dataType === 'boolean' ? 'no' : ''
-                    };
+                    const existing = existingVitals.find((ev: any) => ev.vitalDefinitionId === v.id);
+                    if (existing) {
+                        initialVals[v.id] = {
+                            valueNumeric: existing.valueNumeric !== null ? String(existing.valueNumeric) : '',
+                            valueNumeric2: existing.valueNumeric2 !== null ? String(existing.valueNumeric2) : '',
+                            valueText: existing.valueText !== null ? existing.valueText : (v.dataType === 'boolean' ? 'no' : '')
+                        };
+                    } else {
+                        initialVals[v.id] = {
+                            valueNumeric: '',
+                            valueNumeric2: '',
+                            valueText: v.dataType === 'boolean' ? 'no' : ''
+                        };
+                    }
                 });
                 setVitalsValues(initialVals);
             }
@@ -264,73 +284,161 @@ export default function VisitDetailsScreen() {
         }
     };
 
-    const handleCheckOutSave = async () => {
+    const getPayload = () => {
+        const vitalsList = Object.keys(vitalsValues).map(vid => {
+            const val = vitalsValues[vid];
+            return {
+                vitalDefinitionId: vid,
+                valueNumeric: val.valueNumeric ? parseFloat(val.valueNumeric) : null,
+                valueNumeric2: val.valueNumeric2 ? parseFloat(val.valueNumeric2) : null,
+                valueText: val.valueText || null,
+            };
+        });
+
+        const primaryBP = vitalsList.find(v => requiredVitals.find(rv => rv.id === v.vitalDefinitionId && rv.code === 'BP'));
+        const primaryO2 = vitalsList.find(v => requiredVitals.find(rv => rv.id === v.vitalDefinitionId && rv.code === 'SPO2'));
+        const primaryTemp = vitalsList.find(v => requiredVitals.find(rv => rv.id === v.vitalDefinitionId && rv.code === 'TEMP'));
+
+        const vitalsCompatObj = {
+            bpSystolic: primaryBP?.valueNumeric || undefined,
+            bpDiastolic: primaryBP?.valueNumeric2 || undefined,
+            oxygenLevel: primaryO2?.valueNumeric || undefined,
+            temperature: primaryTemp?.valueNumeric || undefined,
+        };
+
+        return {
+            visitId,
+            vitals: vitalsCompatObj,
+            vitalsList,
+            medicationsList: meds.map(m => ({
+                medicationId: m.id,
+                taken: m.checked
+            })),
+            mood: mood.toLowerCase(),
+            medicationAdherence: meds.every(m => m.checked),
+            notes: visitNotes || medNotes
+        };
+    };
+
+    const handleSaveEncounter = async () => {
         if (!visitId) return;
         setActionLoading(true);
         try {
             const token = await AsyncStorage.getItem('userToken');
-
-            // Format dynamic vitals list to send to backend
-            const vitalsList = Object.keys(vitalsValues).map(vid => {
-                const val = vitalsValues[vid];
-                return {
-                    vitalDefinitionId: vid,
-                    valueNumeric: val.valueNumeric ? parseFloat(val.valueNumeric) : null,
-                    valueNumeric2: val.valueNumeric2 ? parseFloat(val.valueNumeric2) : null,
-                    valueText: val.valueText || null,
-                };
-            });
-
-            // Standard payload values mapped inside vitals object for fallback compatibility
-            const primaryBP = vitalsList.find(v => requiredVitals.find(rv => rv.id === v.vitalDefinitionId && rv.code === 'BP'));
-            const primaryO2 = vitalsList.find(v => requiredVitals.find(rv => rv.id === v.vitalDefinitionId && rv.code === 'SPO2'));
-            const primaryTemp = vitalsList.find(v => requiredVitals.find(rv => rv.id === v.vitalDefinitionId && rv.code === 'TEMP'));
-
-            const vitalsCompatObj = {
-                bpSystolic: primaryBP?.valueNumeric || undefined,
-                bpDiastolic: primaryBP?.valueNumeric2 || undefined,
-                oxygenLevel: primaryO2?.valueNumeric || undefined,
-                temperature: primaryTemp?.valueNumeric || undefined,
-            };
-
-            const response = await fetch(`${API_URL}/care-companion/visits/check-out`, {
+            const response = await fetch(`${API_URL}/care-companion/visits/save-details`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    visitId,
-                    vitals: vitalsCompatObj,
-                    vitalsList,
-                    medicationsList: meds.map(m => ({
-                        medicationId: m.id,
-                        taken: m.checked
-                    })),
-                    mood: mood.toLowerCase(),
-                    medicationAdherence: meds.every(m => m.checked),
-                    notes: visitNotes || medNotes
-                })
+                body: JSON.stringify(getPayload())
+            });
+
+            const json = await response.json();
+            if (json.success) {
+                setIsLocallySaved(true);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert("Encounter Saved", "The visit details have been saved securely.");
+            } else {
+                Alert.alert("Error", json.message || "Failed to save details.");
+            }
+        } catch (error) {
+            Alert.alert("Error Saving Records", "Communication failed during records sync transaction.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleAutoCheckOut = async () => {
+        if (!visitId) return;
+        setActionLoading(true);
+        try {
+            const location = await getMyLocation();
+            if (!location) {
+                setActionLoading(false);
+                return;
+            }
+            
+            const token = await AsyncStorage.getItem('userToken');
+            const payload = {
+                ...getPayload(),
+                latitude: location.latitude,
+                longitude: location.longitude,
+            };
+
+            const response = await fetch(`${API_URL}/care-companion/visits/check-out`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
 
             const json = await response.json();
             if (json.success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                
                 if (Platform.OS === 'web') {
-                    window.alert("Encounter Saved!\n\nThe scheduled visit logs and dynamic vitals have been saved to your patient records.");
+                    window.alert("Check-out Complete: The encounter is now completed and logged.");
                     router.replace('/(care-companion)');
-                    return;
+                } else {
+                    Alert.alert("Check-out Complete", "The encounter is now completed and logged.", [
+                        { text: "Done", onPress: () => router.replace('/(care-companion)') }
+                    ]);
                 }
-
-                Alert.alert("Encounter Saved", "The scheduled visit logs and dynamic vitals have been saved to your patient records.", [
-                    { text: "Done", onPress: () => router.replace('/(care-companion)') }
-                ]);
             } else {
                 Alert.alert("Error", json.message || "Failed to complete checkout.");
             }
-        } catch (error) {
-            Alert.alert("Error Saving Records", "Communication failed during records sync transaction.");
+        } catch {
+            Alert.alert("Check-out Error", "Unable to complete auto geo-fence check-out.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleManualCheckOut = async () => {
+        if (!visitId) return;
+        if (!manualRemarks.trim()) {
+            Alert.alert('Remarks Required', 'Please enter a reason for manual check-out.');
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            let lat = currentLat;
+            let lng = currentLng;
+            if (!lat || !lng) {
+                const loc = await getMyLocation();
+                lat = loc?.latitude ?? null;
+                lng = loc?.longitude ?? null;
+            }
+
+            const payload = {
+                ...getPayload(),
+                latitude: lat ?? 0,
+                longitude: lng ?? 0,
+                manualCheckOutReason: manualRemarks,
+            };
+
+            const response = await fetch(`${API_URL}/care-companion/visits/check-out`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const json = await response.json();
+            if (json.success) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                if (Platform.OS === 'web') {
+                    window.alert("Check-out Complete: Your manual check-out has been recorded.");
+                    router.replace('/(care-companion)');
+                } else {
+                    Alert.alert("Check-out Complete", "Your manual check-out has been recorded.", [
+                        { text: "Done", onPress: () => router.replace('/(care-companion)') }
+                    ]);
+                }
+            } else {
+                Alert.alert("Error", json.message || "Failed to complete checkout.");
+            }
+        } catch {
+            Alert.alert("Check-out Error", "Unable to communicate with check-out endpoint.");
         } finally {
             setActionLoading(false);
         }
@@ -371,7 +479,7 @@ export default function VisitDetailsScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 enabled={Platform.OS !== 'web'}
             >
-                <ScrollView bounces={false} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
+                <ScrollView ref={scrollViewRef} bounces={false} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true}>
 
                     {/* Header */}
                     <View style={styles.deepOrangeHeader}>
@@ -381,9 +489,11 @@ export default function VisitDetailsScreen() {
                                 <Text style={styles.headerTitle}>{beneficiary?.name || 'Loading Patient...'}</Text>
                                 <Text style={styles.headerSub}>{beneficiary ? `Age: ${beneficiary.age} | ${fullAddress}` : 'Home Visit'}</Text>
                             </View>
-                            <TouchableOpacity>
-                                <Ionicons name="camera-outline" size={28} color="#FFFFFF" />
-                            </TouchableOpacity>
+                            {isCheckedIn && (
+                                <TouchableOpacity onPress={() => scrollViewRef.current?.scrollToEnd({ animated: true })}>
+                                    <Ionicons name="camera-outline" size={28} color="#FFFFFF" />
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </View>
 
@@ -739,11 +849,26 @@ export default function VisitDetailsScreen() {
                             </View>
                         )}
 
+                        {/* 7. VISIT PHOTOS CARD */}
+                        {isCheckedIn && authToken && (
+                            <View style={styles.card}>
+                                <View style={styles.cardHeader}>
+                                    <Ionicons name="images-outline" size={20} color="#0891B2" />
+                                    <Text style={styles.cardTitle}>Visit Photos</Text>
+                                </View>
+                                <VisitImageGallery
+                                    visitId={visitId}
+                                    token={authToken}
+                                    isCompleted={isCompleted}
+                                />
+                            </View>
+                        )}
+
                         {/* 7. SAVE BUTTON */}
-                        {isCheckedIn && !isCompleted && (
+                        {isCheckedIn && (!isCompleted || isEdit) && !isLocallySaved && (
                             <TouchableOpacity 
                                 style={[styles.saveBtn, actionLoading && { opacity: 0.7 }]} 
-                                onPress={handleCheckOutSave}
+                                onPress={handleSaveEncounter}
                                 disabled={actionLoading}
                             >
                                 {actionLoading ? (
@@ -751,10 +876,49 @@ export default function VisitDetailsScreen() {
                                 ) : (
                                     <>
                                         <Ionicons name="paper-plane-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                                        <Text style={styles.saveBtnText}>Save Encounter</Text>
+                                        <Text style={styles.saveBtnText}>{isEdit ? 'Update Encounter' : 'Save Encounter'}</Text>
                                     </>
                                 )}
                             </TouchableOpacity>
+                        )}
+                        {isCheckedIn && (!isCompleted || isEdit) && isLocallySaved && (
+                            <View style={{ alignItems: 'flex-end', marginTop: 10 }}>
+                                <TouchableOpacity 
+                                    style={[styles.saveBtn, { paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#E5E7EB', shadowOpacity: 0 }]} 
+                                    onPress={() => setIsLocallySaved(false)}
+                                >
+                                    <Ionicons name="pencil-outline" size={16} color="#4B5563" style={{ marginRight: 6 }} />
+                                    <Text style={[styles.saveBtnText, { color: '#4B5563', fontSize: 13 }]}>Edit Encounter</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        
+                        {/* 8. COMPLETE ENCOUNTER CARD */}
+                        {isCheckedIn && !isCompleted && (
+                            <View style={styles.card}>
+                                <View style={styles.cardHeader}>
+                                    <Ionicons name="flag-outline" size={20} color="#059669" />
+                                    <Text style={styles.cardTitle}>Complete Encounter</Text>
+                                </View>
+                                
+                                <TouchableOpacity style={[styles.checkInBtn, actionLoading && { opacity: 0.7 }]} onPress={handleAutoCheckOut} disabled={actionLoading}>
+                                    {actionLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.checkInBtnText}>Auto Geofence Check-out</Text>}
+                                </TouchableOpacity>
+
+                                <View style={{ marginTop: 16 }}>
+                                    <Text style={styles.manualLabel}>Manual Override — Reason Required</Text>
+                                    <TextInput
+                                        style={styles.manualInput}
+                                        placeholder="Explain why you cannot auto check-out..."
+                                        placeholderTextColor="#9CA3AF"
+                                        value={manualRemarks} onChangeText={setManualRemarks}
+                                    />
+                                    <TouchableOpacity style={[styles.manualBtn, actionLoading && { opacity: 0.7 }]} onPress={handleManualCheckOut} disabled={actionLoading}>
+                                        <Text style={styles.manualBtnText}>Manual Check-out</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
                         )}
 
                         <View style={{ height: 100 }} />
@@ -861,4 +1025,13 @@ const styles = StyleSheet.create({
 
     saveBtn: { backgroundColor: DEEP_ORANGE, flexDirection: 'row', borderRadius: 8, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10, shadowColor: DEEP_ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
     saveBtnText: { color: '#FFFFFF', fontSize: 16, fontFamily: 'Poppins_600SemiBold' },
+
+    checkInBtn: { backgroundColor: '#059669', borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
+    checkInBtnText: { color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold', fontSize: 14 },
+
+    manualLabel: { fontFamily: 'Poppins_500Medium', fontSize: 13, color: '#111827', marginBottom: 8 },
+    manualInput: { backgroundColor: INPUT_BG, borderRadius: 8, padding: 14, fontFamily: 'Poppins_400Regular', fontSize: 14, marginBottom: 16 },
+
+    manualBtn: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
+    manualBtnText: { color: '#111827', fontFamily: 'Poppins_600SemiBold', fontSize: 14 },
 });

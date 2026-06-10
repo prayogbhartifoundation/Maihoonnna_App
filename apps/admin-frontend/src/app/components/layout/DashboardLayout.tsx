@@ -51,6 +51,7 @@ const navigationSections: NavSection[] = [
   {
     title: 'OPERATIONS',
     items: [
+      { path: '/visits', label: 'Visits', icon: Calendar, roles: ['master_admin', 'operations_manager', 'field_manager'] },
       { path: '/field-management', label: 'Field Management', icon: Activity, roles: ['master_admin', 'operations_manager', 'field_manager'] },
       { path: '/zones', label: 'Zones', icon: MapPin, roles: ['master_admin', 'operations_manager'] },
       { path: '/teams', label: 'Teams', icon: Users, roles: ['master_admin', 'operations_manager'] },

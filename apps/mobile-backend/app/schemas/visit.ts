@@ -22,7 +22,7 @@ export const checkInSchema = Joi.object({
   manualCheckInReason: Joi.string().allow('', null).optional(),
 });
 
-export const checkOutSchema = Joi.object({
+export const saveDetailsSchema = Joi.object({
   visitId: Joi.string().uuid().required(),
   vitals: vitalsSchema.optional(),
   vitalsList: Joi.array().items(
@@ -42,6 +42,12 @@ export const checkOutSchema = Joi.object({
     })
   ).optional(),
   notes: Joi.string().allow('', null).optional(),
+});
+
+export const checkOutSchema = saveDetailsSchema.append({
+  latitude: Joi.number().optional(),
+  longitude: Joi.number().optional(),
+  manualCheckOutReason: Joi.string().allow('', null).optional(),
 });
 
 export const rateVisitSchema = Joi.object({

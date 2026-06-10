@@ -1,5 +1,5 @@
 import prisma from '../../core/database';
-import { generateUUID, generateEncounterId } from '../../utils/helpers';
+import { generateUUID, generateEncounterId, generateVisitCode } from '../../utils/helpers';
 import { Prisma } from '@prisma/client';
 import { Vitals } from '../../models/visit';
 
@@ -34,7 +34,7 @@ export const createVisit = async (data: {
   scheduledTime: Date;
 }) => {
   return prisma.visit.create({
-    data: { id: generateUUID(), encounterId: generateEncounterId(), ...data },
+    data: { id: generateUUID(), encounterId: generateEncounterId(), visitCode: generateVisitCode(), ...data },
   });
 };
 
@@ -117,8 +117,179 @@ export const checkIn = async (data: {
   });
 };
 
+
+export const updateVisitDetails = async (data: {
+  visitId: string;
+  vitals?: any;
+  vitalsList?: {
+    vitalDefinitionId: string;
+    valueNumeric?: number;
+    valueNumeric2?: number;
+    valueText?: string;
+  }[];
+  mood?: string;
+  medicationAdherence: boolean;
+  notes?: string;
+}) => {
+  return prisma.$transaction(async (tx) => {
+    const existingVisit = await tx.visit.findUnique({ where: { id: data.visitId } });
+    if (!existingVisit) throw new Error('Visit not found');
+
+    const visitUpdateData: any = {
+      medicationAdherence: data.medicationAdherence,
+      extraVitals: data.vitals ? data.vitals : undefined,
+      mood: data.mood as any,
+      notes: existingVisit.notes?.startsWith('__benefitId:') ? data.notes : (data.notes || existingVisit.notes),
+    };
+
+    if (data.vitals) {
+      if (data.vitals.bpSystolic !== undefined) visitUpdateData.bpSystolic = data.vitals.bpSystolic;
+      if (data.vitals.bpDiastolic !== undefined) visitUpdateData.bpDiastolic = data.vitals.bpDiastolic;
+      if (data.vitals.temperature !== undefined) visitUpdateData.temperature = data.vitals.temperature;
+      if (data.vitals.oxygenLevel !== undefined) visitUpdateData.oxygenLevel = data.vitals.oxygenLevel;
+      if (data.vitals.weight !== undefined) visitUpdateData.weight = data.vitals.weight;
+      if (data.vitals.heartRate !== undefined) visitUpdateData.heartRate = data.vitals.heartRate;
+    }
+
+    if (data.vitalsList && Array.isArray(data.vitalsList)) {
+      for (const reading of data.vitalsList) {
+        const def = await tx.vitalDefinition.findUnique({ where: { id: reading.vitalDefinitionId } });
+        if (def) {
+          const code = def.code.toUpperCase();
+          if ((code === 'BP' || code === 'BLOOD_PRESSURE') && reading.valueNumeric !== undefined && reading.valueNumeric2 !== undefined) {
+            visitUpdateData.bpSystolic = Math.round(reading.valueNumeric);
+            visitUpdateData.bpDiastolic = Math.round(reading.valueNumeric2);
+          } else if (code === 'BP_SYSTOLIC' && reading.valueNumeric !== undefined) {
+            visitUpdateData.bpSystolic = Math.round(reading.valueNumeric);
+          } else if (code === 'BP_DIASTOLIC' && reading.valueNumeric !== undefined) {
+            visitUpdateData.bpDiastolic = Math.round(reading.valueNumeric);
+          } else if ((code === 'SPO2' || code === 'OXYGEN_LEVEL') && reading.valueNumeric !== undefined) {
+            visitUpdateData.oxygenLevel = reading.valueNumeric;
+          } else if ((code === 'TEMP' || code === 'TEMPERATURE') && reading.valueNumeric !== undefined) {
+            visitUpdateData.temperature = reading.valueNumeric;
+          } else if ((code === 'PULSE' || code === 'HEART_RATE') && reading.valueNumeric !== undefined) {
+            visitUpdateData.heartRate = Math.round(reading.valueNumeric);
+          } else if ((code === 'WEIGHT' || code === 'BODY_WEIGHT') && reading.valueNumeric !== undefined) {
+            visitUpdateData.weight = reading.valueNumeric;
+          }
+        }
+      }
+    }
+
+    const visit = await tx.visit.update({
+      where: { id: data.visitId },
+      data: visitUpdateData,
+    });
+
+    if (data.vitalsList && Array.isArray(data.vitalsList)) {
+      await tx.vitalReading.deleteMany({ where: { encounterId: visit.id } });
+
+      const careCompanion = await tx.careCompanion.findUnique({
+        where: { id: existingVisit.careCompanionId },
+        select: { userId: true }
+      });
+      const capturedById = careCompanion?.userId || existingVisit.careCompanionId;
+
+      for (const reading of data.vitalsList) {
+        const def = await tx.vitalDefinition.findUnique({ where: { id: reading.vitalDefinitionId } });
+        let isAbnormal = false;
+        if (def) {
+          if (def.dataType === 'numeric' && reading.valueNumeric !== null && reading.valueNumeric !== undefined) {
+            const val = reading.valueNumeric;
+            if ((def.normalMin !== null && val < def.normalMin) || (def.normalMax !== null && val > def.normalMax)) {
+              isAbnormal = true;
+            }
+          } else if (def.dataType === 'dual_numeric' && reading.valueNumeric !== null && reading.valueNumeric !== undefined && reading.valueNumeric2 !== null && reading.valueNumeric2 !== undefined) {
+            const val1 = reading.valueNumeric;
+            const val2 = reading.valueNumeric2;
+            if (
+              (def.normalMin !== null && val1 < def.normalMin) || 
+              (def.normalMax !== null && val1 > def.normalMax) ||
+              (def.normalMin2 !== null && val2 < def.normalMin2) ||
+              (def.normalMax2 !== null && val2 > def.normalMax2)
+            ) {
+              isAbnormal = true;
+            }
+          } else if (def.dataType === 'boolean' && reading.valueText !== undefined && reading.valueText !== null) {
+            const isTrue = reading.valueText.toLowerCase() === 'true' || reading.valueText.toLowerCase() === 'yes';
+            if (def.booleanAlertValue !== null && isTrue === def.booleanAlertValue) {
+              isAbnormal = true;
+            }
+          } else if (def.dataType === 'text' && reading.valueText !== undefined && reading.valueText !== null) {
+            if (def.alertOptions.includes(reading.valueText)) {
+              isAbnormal = true;
+            }
+          }
+        }
+
+        await tx.vitalReading.create({
+          data: {
+            id: generateUUID(),
+            beneficiaryId: visit.beneficiaryId,
+            vitalDefinitionId: reading.vitalDefinitionId,
+            encounterId: visit.id,
+            valueNumeric: reading.valueNumeric !== undefined ? reading.valueNumeric : null,
+            valueNumeric2: reading.valueNumeric2 !== undefined ? reading.valueNumeric2 : null,
+            valueText: reading.valueText || null,
+            isAbnormal,
+            capturedById,
+            captureMethod: 'manual',
+          }
+        });
+      }
+    }
+
+    if (data.mood === 'sad' || data.mood === 'depressed') {
+      await tx.beneficiary.update({
+        where: { id: visit.beneficiaryId },
+        data: { emotionalScore: data.mood === 'sad' ? 5.0 : 3.0 },
+      });
+    }
+
+    if ((data as any).medicationsList && Array.isArray((data as any).medicationsList)) {
+      const careCompanion = await tx.careCompanion.findUnique({
+        where: { id: existingVisit.careCompanionId },
+        select: { userId: true }
+      });
+      const recordedBy = careCompanion?.userId || existingVisit.careCompanionId;
+
+      for (const item of (data as any).medicationsList) {
+        const validUUIDRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!validUUIDRegex.test(item.medicationId)) continue;
+        const existingRecord = await tx.medicationAdherence.findFirst({
+          where: { visitId: visit.id, medicationId: item.medicationId }
+        });
+        if (existingRecord) {
+          await tx.medicationAdherence.update({
+            where: { id: existingRecord.id },
+            data: { taken: item.taken, recordedBy }
+          });
+        } else {
+          await tx.medicationAdherence.create({
+            data: {
+              id: generateUUID(),
+              medicationId: item.medicationId,
+              beneficiaryId: visit.beneficiaryId,
+              visitId: visit.id,
+              scheduledTime: new Date(),
+              taken: item.taken,
+              takenTime: item.taken ? new Date() : null,
+              recordedBy
+            }
+          });
+        }
+      }
+    }
+
+    return visit;
+  });
+};
+
 export const checkOut = async (data: {
   visitId: string;
+  latitude?: number;
+  longitude?: number;
+  manualCheckOutReason?: string | null;
   vitals?: Vitals;
   vitalsList?: {
     vitalDefinitionId: string;
@@ -135,10 +306,13 @@ export const checkOut = async (data: {
     const existingVisit = await tx.visit.findUnique({ where: { id: data.visitId } });
     if (!existingVisit) throw new Error('Visit not found');
 
-    const checkOutTime = new Date();
-    let durationMinutes = 0;
-    if (existingVisit.checkInTime) {
-      durationMinutes = Math.round((checkOutTime.getTime() - existingVisit.checkInTime.getTime()) / 60000);
+    const isEdit = existingVisit.status === 'completed';
+
+    const checkOutTime = isEdit ? existingVisit.checkOutTime : new Date();
+    let durationMinutes = existingVisit.durationMinutes || 0;
+    
+    if (!isEdit && existingVisit.checkInTime) {
+      durationMinutes = Math.round((checkOutTime!.getTime() - existingVisit.checkInTime.getTime()) / 60000);
     }
 
     // 2. Map dynamic vitals to standard fields on the Visit record for backward compatibility
@@ -194,6 +368,10 @@ export const checkOut = async (data: {
 
     // 4. Create Vital Readings if present
     if (data.vitalsList && Array.isArray(data.vitalsList)) {
+      if (isEdit) {
+        await tx.vitalReading.deleteMany({ where: { encounterId: visit.id } });
+      }
+
       const careCompanion = await tx.careCompanion.findUnique({
         where: { id: existingVisit.careCompanionId },
         select: { userId: true }
@@ -251,7 +429,7 @@ export const checkOut = async (data: {
     }
 
     // 3. Deduct from Subscription
-    if (durationMinutes >= 0) {
+    if (!isEdit && durationMinutes >= 0) {
       const hoursConsumed = durationMinutes / 60;
       const activeSubscription = await tx.subscription.findFirst({
         where: { beneficiaryId: visit.beneficiaryId, isActive: true },
@@ -407,19 +585,6 @@ export const getCareCompanionSchedule = async (userId: string) => {
 
   const ccId = cc.careCompanionProfile.id;
 
-  const visits = await prisma.visit.findMany({
-    where: {
-      careCompanionId: ccId,
-      status: { in: ['scheduled', 'in_progress'] },
-    },
-    include: {
-      beneficiary: true,
-    },
-    orderBy: {
-      scheduledTime: 'asc',
-    },
-  });
-
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
@@ -429,14 +594,40 @@ export const getCareCompanionSchedule = async (userId: string) => {
   const endOfTomorrow = new Date(endOfToday);
   endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
 
+  const visits = await prisma.visit.findMany({
+    where: {
+      careCompanionId: ccId,
+      OR: [
+        {
+          status: { in: ['scheduled', 'in_progress'] }
+        },
+        {
+          status: 'completed',
+          scheduledTime: { gte: startOfToday }
+        }
+      ]
+    },
+    include: {
+      beneficiary: true,
+    },
+    orderBy: {
+      scheduledTime: 'asc',
+    },
+  });
+
   return visits.map((v) => {
     const scheduledTime = new Date(v.scheduledTime);
     let tabType = 'Upcoming';
 
-    if (scheduledTime >= startOfToday && scheduledTime <= endOfToday) {
+    if (scheduledTime < startOfToday) {
+      // Past incomplete visits should show on 'Today'
+      tabType = 'Today';
+    } else if (scheduledTime >= startOfToday && scheduledTime <= endOfToday) {
       tabType = 'Today';
     } else if (scheduledTime >= startOfTomorrow && scheduledTime <= endOfTomorrow) {
       tabType = 'Tomorrow';
+    } else if (scheduledTime > endOfTomorrow) {
+      tabType = 'Upcoming';
     }
 
     const ben = v.beneficiary;
@@ -452,11 +643,13 @@ export const getCareCompanionSchedule = async (userId: string) => {
 
     return {
       id: v.id,
+      visitCode: v.visitCode,
       patientName: ben?.name || 'Unknown Beneficiary',
       address: fullAddress,
       time: formattedTime,
       distance: '2.1 km',
       type: v.notes ? 'Special Care' : 'Home Visit',
+      status: v.status,
       tabType,
     };
   });

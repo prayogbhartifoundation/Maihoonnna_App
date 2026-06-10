@@ -11,9 +11,17 @@ import {
   Loader2, AlertCircle, X, ChevronRight, Phone, MapPin, Sparkles, ChevronDown
 } from 'lucide-react';
 import { visitApi } from '../../../services/api';
+import { toast } from 'sonner';
 import { LoadingState, EmptyState, Avatar, SectionHeader } from './SharedComponents';
 import { PackageUtilizationPanel } from '../PackageUtilizationPanel';
 import type { CCMember } from './TeamPanel';
+
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export interface BeneficiaryItem {
   id: string;
@@ -59,6 +67,11 @@ export default function BeneficiaryList({
     benefitUnit: string;
   }>>({});
 
+  const [ccSlotAvailability, setCcSlotAvailability] = useState<Record<string, {
+    checking: boolean;
+    availabilities: Record<string, { isAvailable: boolean; reason: string | null }>;
+  }>>({});
+
   // Available CCs (for dropdown)
   const availableCCs = team;
 
@@ -75,6 +88,56 @@ export default function BeneficiaryList({
     });
   }, [beneficiaries, search]);
 
+  const checkAllCcAvailability = async (benId: string, state: any) => {
+    if (!state.date || !state.time || !state.duration) return;
+
+    setCcSlotAvailability(prev => ({
+      ...prev,
+      [benId]: {
+        checking: true,
+        availabilities: prev[benId]?.availabilities || {}
+      }
+    }));
+
+    try {
+      const scheduledTime = new Date(`${state.date}T${state.time}`).toISOString();
+      const duration = state.duration;
+
+      const results = await Promise.all(
+        team.map(async (cc) => {
+          try {
+            const res = await visitApi.checkAvailability(cc.id, scheduledTime, duration);
+            return { ccId: cc.id, isAvailable: res.isAvailable, reason: res.reason };
+          } catch (e) {
+            return { ccId: cc.id, isAvailable: cc.isAvailable, reason: 'Failed to check availability' };
+          }
+        })
+      );
+
+      const mapping: Record<string, { isAvailable: boolean; reason: string | null }> = {};
+      results.forEach(r => {
+        mapping[r.ccId] = { isAvailable: r.isAvailable, reason: r.reason };
+      });
+
+      setCcSlotAvailability(prev => ({
+        ...prev,
+        [benId]: {
+          checking: false,
+          availabilities: mapping
+        }
+      }));
+    } catch (e) {
+      console.error('All CC availability check failed', e);
+      setCcSlotAvailability(prev => ({
+        ...prev,
+        [benId]: {
+          checking: false,
+          availabilities: prev[benId]?.availabilities || {}
+        }
+      }));
+    }
+  };
+
   const handleToggleExpand = (benId: string) => {
     const isExpanded = expandedId === benId;
     if (isExpanded) {
@@ -82,15 +145,18 @@ export default function BeneficiaryList({
     } else {
       setExpandedId(benId);
       // Initialize schedule state if not exists
-      if (!scheduleState[benId]) {
+      let currentState = scheduleState[benId];
+      if (!currentState) {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const dateStr = tomorrow.toISOString().split('T')[0];
+        const dateStr = getLocalDateString(tomorrow);
+        currentState = { ccId: '', date: dateStr, time: '10:00', duration: 60, benefitId: '', benefitLabel: '', benefitUnit: '' };
         setScheduleState(prev => ({
           ...prev,
-          [benId]: { ccId: '', date: dateStr, time: '10:00', duration: 60, benefitId: '', benefitLabel: '', benefitUnit: '' }
+          [benId]: currentState
         }));
       }
+      checkAllCcAvailability(benId, currentState);
     }
   };
 
@@ -98,8 +164,20 @@ export default function BeneficiaryList({
     const state = scheduleState[beneficiaryId];
     if (!state || !state.ccId || !state.date || !state.time) return;
 
+    if (!state.benefitId) {
+      toast.error('Please select a benefit type before scheduling a visit.');
+      return;
+    }
+
+    const scheduledTimeObj = new Date(`${state.date}T${state.time}`);
+    if (isNaN(scheduledTimeObj.getTime())) return;
+    if (scheduledTimeObj.getTime() < Date.now() - 60000) {
+      toast.error('Visit time cannot be in the past.');
+      return;
+    }
+
     // Construct ISO string for scheduledTime
-    const scheduledTime = new Date(`${state.date}T${state.time}`).toISOString();
+    const scheduledTime = scheduledTimeObj.toISOString();
 
     await onScheduleVisit(
       beneficiaryId,
@@ -121,6 +199,9 @@ export default function BeneficiaryList({
   const updateSchedule = (benId: string, key: string, value: any) => {
     setScheduleState(prev => {
       const newState = { ...prev, [benId]: { ...prev[benId], [key]: value } };
+      if (key === 'date' || key === 'time' || key === 'duration') {
+        checkAllCcAvailability(benId, newState[benId]);
+      }
       checkConflict(benId, newState[benId]);
       return newState;
     });
@@ -171,12 +252,14 @@ export default function BeneficiaryList({
   }
 
   function CCDropdown({
-    value, onChange, options, benId,
+    value, onChange, options, ben, availabilities, checking
   }: {
     value: string;
     onChange: (id: string) => void;
     options: typeof availableCCs;
-    benId: string;
+    ben: BeneficiaryItem;
+    availabilities?: Record<string, { isAvailable: boolean; reason: string | null }>;
+    checking?: boolean;
   }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -189,6 +272,68 @@ export default function BeneficiaryList({
       document.addEventListener('mousedown', handler);
       return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    const getAvailabilityStatus = (cc: typeof options[0]) => {
+      if (!cc.isAvailable) {
+        return { isAvailable: false, label: 'Offline', reason: 'Care Companion is marked as unavailable' };
+      }
+      if (availabilities && availabilities[cc.id]) {
+        const slot = availabilities[cc.id];
+        if (!slot.isAvailable) {
+          return { isAvailable: false, label: 'Conflict', reason: slot.reason || 'Time conflict' };
+        }
+      }
+      return { isAvailable: true, label: 'Available', reason: null };
+    };
+
+    const sortedOptions = useMemo(() => {
+      return [...options].sort((a, b) => {
+        const aIsPrimary = a.id === ben.primaryCcId;
+        const bIsPrimary = b.id === ben.primaryCcId;
+        const aIsSecondary = a.id === ben.secondaryCcId;
+        const bIsSecondary = b.id === ben.secondaryCcId;
+
+        // Primary first
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (bIsPrimary && !aIsPrimary) return 1;
+
+        // Secondary second
+        if (aIsSecondary && !bIsSecondary) return -1;
+        if (bIsSecondary && !aIsSecondary) return 1;
+
+        // Slot availability (available/online CCs first)
+        const aStatus = getAvailabilityStatus(a);
+        const bStatus = getAvailabilityStatus(b);
+
+        if (aStatus.isAvailable && !bStatus.isAvailable) return -1;
+        if (!aStatus.isAvailable && bStatus.isAvailable) return 1;
+
+        return 0;
+      });
+    }, [options, ben.primaryCcId, ben.secondaryCcId, availabilities]);
+
+    function RelationshipFlag({ ccId }: { ccId: string }) {
+      const isPrimary = ccId === ben.primaryCcId;
+      const isSecondary = ccId === ben.secondaryCcId;
+
+      if (isPrimary) {
+        return (
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide bg-orange-100 text-[#FF7A00] border border-orange-200">
+            ★ Primary CC
+          </span>
+        );
+      }
+      if (isSecondary) {
+        return (
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide bg-blue-100 text-blue-700 border border-blue-200">
+            ☆ Secondary CC
+          </span>
+        );
+      }
+      return null;
+    }
+
+    const selectedStatus = selected ? getAvailabilityStatus(selected) : null;
 
     return (
       <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
@@ -203,21 +348,24 @@ export default function BeneficiaryList({
           }`}
         >
           {selected ? (
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 flex-wrap">
               {/* Availability dot */}
               <span
                 className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                  selected.isAvailable ? 'bg-green-400' : 'bg-gray-300'
+                  selectedStatus && selectedStatus.isAvailable ? 'bg-green-400' : 'bg-gray-300'
                 }`}
               />
               <span className="font-black text-gray-800">{selected.name}</span>
               <CCTypeFlag ccType={selected.ccType} />
-              {!selected.isAvailable && (
-                <span className="text-[9px] text-gray-400 font-bold">(Offline)</span>
+              <RelationshipFlag ccId={selected.id} />
+              {selectedStatus && !selectedStatus.isAvailable && (
+                <span className="text-[9px] text-gray-400 font-bold">({selectedStatus.label})</span>
               )}
             </span>
           ) : (
-            <span className="font-bold text-gray-400">— Select Care Companion —</span>
+            <span className="font-bold text-gray-400">
+              {checking ? 'Checking availability...' : '— Select Care Companion —'}
+            </span>
           )}
           <ChevronDown
             size={14}
@@ -227,52 +375,58 @@ export default function BeneficiaryList({
 
         {/* Dropdown list */}
         {open && (
-          <div className="absolute z-30 top-full mt-1.5 left-0 right-0 bg-white border border-[#E7DED6] rounded-xl shadow-xl overflow-hidden">
-            {options.length === 0 ? (
+          <div className="absolute z-30 top-full mt-1.5 left-0 right-0 bg-white border border-[#E7DED6] rounded-xl shadow-xl max-h-60 overflow-y-auto">
+            {sortedOptions.length === 0 ? (
               <div className="px-4 py-3 text-xs text-gray-400 font-bold">No CCs in this team</div>
             ) : (
-              options.map(cc => (
-                <button
-                  key={cc.id}
-                  type="button"
-                  disabled={!cc.isAvailable}
-                  onClick={() => { onChange(cc.id); setOpen(false); }}
-                  className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors ${
-                    cc.id === value
-                      ? 'bg-[#FFF5EE] border-l-2 border-[#FF7A00]'
-                      : cc.isAvailable
-                        ? 'hover:bg-[#FFF9F5]'
-                        : 'opacity-40 cursor-not-allowed'
-                  }`}
-                >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    {/* Availability dot */}
-                    <span
-                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        cc.isAvailable ? 'bg-green-400' : 'bg-gray-300'
-                      }`}
-                    />
-                    <span className="font-black text-gray-800 text-sm truncate">{cc.name}</span>
-                    <CCTypeFlag ccType={cc.ccType} />
-                  </span>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {cc.primaryBeneficiariesCount > 0 && (
-                      <span className="text-[9px] font-black text-gray-400">
-                        {cc.primaryBeneficiariesCount}P
-                      </span>
-                    )}
-                    <span
-                      className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
-                        cc.isAvailable
-                          ? 'bg-green-50 text-green-600'
-                          : 'bg-gray-100 text-gray-400'
-                      }`}
-                    >
-                      {cc.isAvailable ? 'Online' : 'Offline'}
+              sortedOptions.map(cc => {
+                const status = getAvailabilityStatus(cc);
+                const isSelected = cc.id === value;
+                return (
+                  <button
+                    key={cc.id}
+                    type="button"
+                    disabled={!status.isAvailable}
+                    onClick={() => { onChange(cc.id); setOpen(false); }}
+                    className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors ${
+                      isSelected
+                        ? 'bg-[#FFF5EE] border-l-2 border-[#FF7A00]'
+                        : status.isAvailable
+                          ? 'hover:bg-[#FFF9F5]'
+                          : 'opacity-40 cursor-not-allowed'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                      {/* Availability dot */}
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          status.isAvailable ? 'bg-green-400' : 'bg-gray-300'
+                        }`}
+                      />
+                      <span className="font-black text-gray-800 text-sm truncate">{cc.name}</span>
+                      <CCTypeFlag ccType={cc.ccType} />
+                      <RelationshipFlag ccId={cc.id} />
                     </span>
-                  </div>
-                </button>
-              ))
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {cc.primaryBeneficiariesCount > 0 && (
+                        <span className="text-[9px] font-black text-gray-400">
+                          {cc.primaryBeneficiariesCount}P
+                        </span>
+                      )}
+                      <span
+                        className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                          status.isAvailable
+                            ? 'bg-green-50 text-green-600'
+                            : 'bg-gray-100 text-gray-400'
+                        }`}
+                        title={status.reason || undefined}
+                      >
+                        {status.isAvailable ? 'Available' : status.label}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
         )}
@@ -333,6 +487,12 @@ export default function BeneficiaryList({
             const isSubmitting = submittingId === ben.id;
             const state = scheduleState[ben.id] || { ccId: '', date: '', time: '', duration: 60, benefitId: '', benefitLabel: '', benefitUnit: '' };
             const isHourBased = state.benefitUnit?.toLowerCase().includes('hour');
+            const isPastDateTime = (() => {
+              if (!state.date || !state.time) return false;
+              const selected = new Date(`${state.date}T${state.time}`);
+              if (isNaN(selected.getTime())) return false;
+              return selected.getTime() < Date.now() - 60000;
+            })();
 
             return (
               <div key={ben.id} className="transition-colors">
@@ -399,7 +559,9 @@ export default function BeneficiaryList({
                               value={state.ccId}
                               onChange={id => updateSchedule(ben.id, 'ccId', id)}
                               options={availableCCs}
-                              benId={ben.id}
+                              ben={ben}
+                              availabilities={ccSlotAvailability[ben.id]?.availabilities}
+                              checking={ccSlotAvailability[ben.id]?.checking}
                             />
                           </div>
 
@@ -412,6 +574,7 @@ export default function BeneficiaryList({
                                 value={state.date}
                                 onChange={e => updateSchedule(ben.id, 'date', e.target.value)}
                                 onClick={e => e.stopPropagation()}
+                                min={getLocalDateString()}
                                 className="w-full px-3 py-2.5 rounded-xl border border-[#E7DED6] bg-white text-sm font-bold text-gray-700 focus:outline-none focus:border-[#FF7A00] transition-colors"
                               />
                             </div>
@@ -493,7 +656,7 @@ export default function BeneficiaryList({
                                   e.stopPropagation();
                                   handleSchedule(ben.id);
                                 }}
-                                disabled={!state.ccId || !state.date || !state.time || isSubmitting || !!conflicts[ben.id]}
+                                disabled={!state.ccId || !state.date || !state.time || !state.benefitId || isPastDateTime || isSubmitting || !!conflicts[ben.id]}
                                 className="w-full px-5 py-2.5 bg-[#FF7A00] text-white rounded-xl text-xs font-black uppercase tracking-wide hover:bg-[#E66E00] transition-all disabled:opacity-40 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-orange-200 h-[42px]"
                               >
                                 {isSubmitting ? (
@@ -510,6 +673,26 @@ export default function BeneficiaryList({
                               </button>
                             </div>
                           </div>
+
+                          {/* Past Date/Time Warning */}
+                          {isPastDateTime && (
+                            <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-100 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                              <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                              <p className="text-[11px] font-bold text-red-600 leading-tight">
+                                Visit time cannot be in the past. Please select a current or future date/time.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Missing Benefit Type Warning */}
+                          {state.ccId && state.date && state.time && !isPastDateTime && !state.benefitId && (
+                            <div className="mt-3 p-3 rounded-xl bg-orange-50 border border-orange-100 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                              <AlertCircle size={14} className="text-orange-500 mt-0.5 shrink-0" />
+                              <p className="text-[11px] font-bold text-orange-600 leading-tight">
+                                Please select a benefit type from the utilization panel on the right.
+                              </p>
+                            </div>
+                          )}
 
                           {/* Conflict Warning */}
                           {conflicts[ben.id] && (
