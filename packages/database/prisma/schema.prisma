@@ -348,6 +348,7 @@ model FieldManager {
   userId           String    @unique
   name             String
   photo            String?
+  bio              String    @default("")
   zone             String
   phone            String?
   qualification    String?
@@ -374,6 +375,7 @@ model OperationsManager {
   userId        String   @unique
   name          String
   photo         String?
+  bio           String   @default("")
   phone         String?
   qualification String?
   experience    Int?
@@ -391,6 +393,7 @@ model CustomerServiceAgent {
   userId        String   @unique
   name          String
   photo         String?
+  bio           String   @default("")
   phone         String?
   qualification String?
   experience    Int?

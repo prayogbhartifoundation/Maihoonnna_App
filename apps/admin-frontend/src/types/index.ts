@@ -432,6 +432,7 @@ export interface StaffOnboardingPayload {
   };
   professional: {
     qualification: string;
+    bio?: string;
     experience?: number | string;
     nursingRegistrationNumber?: string;
     nursingCouncil?: string;

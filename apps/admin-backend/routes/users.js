@@ -859,6 +859,7 @@ router.post('/staff/onboard', async (req, res) => {
           data: {
             userId: user.id,
             name: fullName,
+            bio: asTrimmedString(professional.bio) || '',
             zone: primaryZone?.name || '',
             experience: asOptionalInt(professional.experience),
             qualifications: [
@@ -886,6 +887,7 @@ router.post('/staff/onboard', async (req, res) => {
           data: {
             userId: user.id,
             name: fullName,
+            bio: asTrimmedString(professional.bio) || '',
             zone: primaryZone?.name || '',
             phone: mobileNumber,
             qualification: asNullableString(professional.qualification),
@@ -906,6 +908,7 @@ router.post('/staff/onboard', async (req, res) => {
           data: {
             userId: user.id,
             name: fullName,
+            bio: asTrimmedString(professional.bio) || '',
             phone: mobileNumber,
             qualification: asNullableString(professional.qualification),
             experience: asOptionalInt(professional.experience),
@@ -928,6 +931,7 @@ router.post('/staff/onboard', async (req, res) => {
           data: {
             userId: user.id,
             name: fullName,
+            bio: asTrimmedString(professional.bio) || '',
             phone: mobileNumber,
             qualification: asNullableString(professional.qualification),
             experience: asOptionalInt(professional.experience),
@@ -1293,6 +1297,12 @@ router.get('/staff/:userId', async (req, res) => {
           user.operationsManagerProfile?.qualification ||
           user.customerServiceProfile?.qualification ||
           '',
+        bio:
+          user.careCompanionProfile?.bio ||
+          user.fieldManagerProfile?.bio ||
+          user.operationsManagerProfile?.bio ||
+          user.customerServiceProfile?.bio ||
+          '',
         experience: String(
           user.careCompanionProfile?.experience ||
             user.fieldManagerProfile?.experience ||
@@ -1433,6 +1443,7 @@ router.put('/staff/:userId', async (req, res) => {
           where: { userId },
           data: {
             name: asTrimmedString(personal.fullName),
+            bio: asTrimmedString(professional.bio) || '',
             zone: primaryZone?.name || '',
             experience: asOptionalInt(professional.experience),
             qualifications: [
@@ -1463,6 +1474,7 @@ router.put('/staff/:userId', async (req, res) => {
           where: { userId },
           data: {
             name: asTrimmedString(personal.fullName),
+            bio: asTrimmedString(professional.bio) || '',
             phone: asTrimmedString(personal.mobileNumber),
             zone: primaryZone?.name || '',
             qualification: asNullableString(professional.qualification),
@@ -1479,6 +1491,7 @@ router.put('/staff/:userId', async (req, res) => {
           where: { userId },
           data: {
             name: asTrimmedString(personal.fullName),
+            bio: asTrimmedString(professional.bio) || '',
             phone: asTrimmedString(personal.mobileNumber),
             qualification: asNullableString(professional.qualification),
             experience: asOptionalInt(professional.experience),
@@ -1508,6 +1521,7 @@ router.put('/staff/:userId', async (req, res) => {
           where: { userId },
           data: {
             name: asTrimmedString(personal.fullName),
+            bio: asTrimmedString(professional.bio) || '',
             phone: asTrimmedString(personal.mobileNumber),
             qualification: asNullableString(professional.qualification),
             experience: asOptionalInt(professional.experience),

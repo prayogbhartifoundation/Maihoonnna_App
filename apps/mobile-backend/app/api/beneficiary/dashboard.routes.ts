@@ -161,7 +161,7 @@ router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response
                 level: 'Primary',
                 name: beneficiary.primaryCC.name,
                 role: 'Primary Care Coordinator',
-                bio: beneficiary.primaryCC.bio || 'Board-certified nurse practitioner with years of experience in geriatric care. Specialized in chronic disease management and patient education.',
+                bio: beneficiary.primaryCC.bio || '',
                 photo: beneficiary.primaryCC.photo,
                 phone: (beneficiary.primaryCC as any).user?.phone || null
             });
@@ -173,7 +173,7 @@ router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response
                 level: 'Secondary',
                 name: beneficiary.secondaryCC.name,
                 role: 'Secondary Care Coordinator',
-                bio: beneficiary.secondaryCC.bio || 'Registered nurse with expertise in home healthcare coordination. Passionate about improving quality of life for seniors.',
+                bio: beneficiary.secondaryCC.bio || '',
                 photo: beneficiary.secondaryCC.photo,
                 phone: (beneficiary.secondaryCC as any).user?.phone || null
             });
@@ -181,16 +181,14 @@ router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response
 
         if (beneficiary.fieldManager && beneficiary.fieldManager.isActive !== false) {
             const fmProfile = (beneficiary.fieldManager as any).fieldManagerProfile;
-            const qualification = fmProfile?.qualification || 'Healthcare Operations Manager';
-            const experience = fmProfile?.experience || 5;
             team.push({
                 id: beneficiary.fieldManager.id,
                 level: 'Field Manager',
                 name: fmProfile?.name || beneficiary.fieldManager.name || 'Field Manager',
                 role: 'Field Manager',
-                bio: `${qualification}. Experienced operations manager with ${experience} years of expertise in overseeing local care teams, healthcare logistics, and emergency escalations.`,
+                bio: fmProfile?.bio || '',
                 photo: fmProfile?.photo || null, 
-                phone: fmProfile?.phone || beneficiary.fieldManager.phone || null
+                phone: fmProfile?.phone || (beneficiary.fieldManager as any).phone || null
             });
         }
 

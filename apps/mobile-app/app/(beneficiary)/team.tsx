@@ -1,91 +1,151 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '@/constants/api';
+import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 
-// Dummy data based on your Figma design so the UI renders perfectly
-const careTeam = [
-    {
-        id: '1',
-        tag: 'Primary',
-        tagType: 'primary',
-        name: 'Dr. Sarah Johnson',
-        role: 'Primary Care Coordinator',
-        description: 'Board-certified nurse practitioner with 15+ years of experience in geriatric care. Specialized in chronic disease management and patient education.',
-        image: 'https://i.pravatar.cc/150?img=32', // Placeholder for Dr. Sarah
-    },
-    {
-        id: '2',
-        tag: 'Secondary',
-        tagType: 'secondary',
-        name: 'Mark Thompson',
-        role: 'Secondary Care Coordinator',
-        description: 'Registered nurse with expertise in home healthcare coordination. Passionate about improving quality of life for seniors.',
-        image: 'https://i.pravatar.cc/150?img=11', // Placeholder for Mark
-    },
-    {
-        id: '3',
-        tag: 'Field Manager',
-        tagType: 'secondary',
-        name: 'Emily Chen',
-        role: 'Field Manager',
-        description: 'Healthcare operations manager overseeing care delivery in the region. Available for escalations and support.',
-        image: 'https://i.pravatar.cc/150?img=5', // Placeholder for Emily
-    },
-];
+type TeamMember = {
+    id: string;
+    level: 'Primary' | 'Secondary' | 'Field Manager';
+    name: string;
+    role: string;
+    bio: string;
+    photo: string | null;
+    phone: string | null;
+};
 
 export default function CareTeamScreen() {
+    const [team, setTeam] = useState<TeamMember[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetchTeam();
+    }, []);
+
+    const fetchTeam = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            const token = await AsyncStorage.getItem('userToken');
+            const userStr = await AsyncStorage.getItem('userData');
+
+            if (!token || !userStr) {
+                setError('User session not found. Please log in again.');
+                setLoading(false);
+                return;
+            }
+
+            const user = JSON.parse(userStr);
+            const userId = user.id;
+
+            const response = await fetch(`${API_URL}/beneficiary/${userId}/team`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setTeam(data.data);
+            } else {
+                setError(data.message || 'Failed to load care team');
+            }
+        } catch (e: any) {
+            console.error('Fetch Team Error:', e);
+            setError('An error occurred while loading your care team');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getTagStyle = (level: string) =>
+        level === 'Primary' ? styles.badgePrimary : styles.badgeSecondary;
+
+    const getTagTextStyle = (level: string) =>
+        level === 'Primary' ? styles.badgeTextPrimary : styles.badgeTextSecondary;
+
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Header - Arrow removed as requested */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Your Care Team</Text>
             </View>
 
-            <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.content}
-                showsVerticalScrollIndicator={false}
-            >
-                {careTeam.map((member) => (
-                    <View key={member.id} style={styles.card}>
-                        {/* Tag Badge */}
-                        <View style={[
-                            styles.badge,
-                            member.tagType === 'primary' ? styles.badgePrimary : styles.badgeSecondary
-                        ]}>
-                            <Text style={[
-                                styles.badgeText,
-                                member.tagType === 'primary' ? styles.badgeTextPrimary : styles.badgeTextSecondary
-                            ]}>
-                                {member.tag}
-                            </Text>
-                        </View>
-
-                        {/* Profile Info */}
-                        <View style={styles.profileRow}>
-                            <Image source={{ uri: member.image }} style={styles.avatar} />
-                            <View style={styles.profileTextContainer}>
-                                <Text style={styles.name}>{member.name}</Text>
-                                <Text style={styles.role}>{member.role}</Text>
+            {loading ? (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color="#FE6700" />
+                    <Text style={styles.loaderText}>Loading your care team...</Text>
+                </View>
+            ) : error ? (
+                <View style={styles.centerContainer}>
+                    <Feather name="alert-triangle" size={48} color="#EF4444" />
+                    <Text style={styles.errorText}>{error}</Text>
+                    <TouchableOpacity style={styles.retryButton} onPress={fetchTeam}>
+                        <Text style={styles.retryText}>Retry</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : team.length === 0 ? (
+                <View style={styles.centerContainer}>
+                    <Feather name="users" size={48} color="#9CA3AF" />
+                    <Text style={styles.emptyText}>No care team assigned yet.</Text>
+                </View>
+            ) : (
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={styles.content}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {team.map((member) => (
+                        <View key={member.id} style={styles.card}>
+                            {/* Tag Badge */}
+                            <View style={[styles.badge, getTagStyle(member.level)]}>
+                                <Text style={[styles.badgeText, getTagTextStyle(member.level)]}>
+                                    {member.level}
+                                </Text>
                             </View>
-                        </View>
 
-                        {/* Description */}
-                        <Text style={styles.description}>
-                            {member.description}
-                        </Text>
+                            {/* Profile Info */}
+                            <View style={styles.profileRow}>
+                                <View style={styles.avatarContainer}>
+                                    {member.photo ? (
+                                        <Image source={{ uri: member.photo }} style={styles.avatar} />
+                                    ) : (
+                                        <View style={styles.avatarPlaceholder}>
+                                            <Feather name="user" size={26} color="#9CA3AF" />
+                                        </View>
+                                    )}
+                                </View>
 
-                        {/* Actions - Email removed, Call made full width as requested */}
-                        <View style={styles.actionRow}>
-                            <TouchableOpacity style={styles.callButton} activeOpacity={0.8}>
-                                <Feather name="phone" size={18} color="#FFFFFF" style={styles.buttonIcon} />
-                                <Text style={styles.callButtonText}>Call</Text>
-                            </TouchableOpacity>
+                                <View style={styles.profileTextContainer}>
+                                    <Text style={styles.name}>{member.name}</Text>
+                                    <Text style={styles.role}>{member.role}</Text>
+                                </View>
+                            </View>
+
+                            {/* Bio */}
+                            <Text style={styles.description}>{member.bio}</Text>
+
+                            {/* Call Button — uses ConnectContactButton for the modal */}
+                            <ConnectContactButton
+                                name={member.name}
+                                role={member.role}
+                                phone={member.phone}
+                                photo={member.photo}
+                                trigger={
+                                    <View style={styles.callButton}>
+                                        <Feather name="phone" size={18} color="#FFFFFF" style={styles.buttonIcon} />
+                                        <Text style={styles.callButtonText}>Call</Text>
+                                    </View>
+                                }
+                            />
                         </View>
-                    </View>
-                ))}
-            </ScrollView>
+                    ))}
+                </ScrollView>
+            )}
         </SafeAreaView>
     );
 }
@@ -99,9 +159,9 @@ const styles = StyleSheet.create({
         height: 60,
         backgroundColor: '#FFFFFF',
         justifyContent: 'center',
-        alignItems: 'center', // Centered properly without the back arrow
+        alignItems: 'center',
         borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6', // Subtle divider like Figma
+        borderBottomColor: '#F3F4F6',
     },
     headerTitle: {
         fontFamily: 'Poppins-Medium',
@@ -110,7 +170,7 @@ const styles = StyleSheet.create({
     },
     scroll: {
         flex: 1,
-        backgroundColor: '#FAF5ED', // The soft peach background from the design
+        backgroundColor: '#FAF5ED',
     },
     content: {
         padding: 20,
@@ -137,39 +197,53 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     badgePrimary: {
-        backgroundColor: '#FFF0E6', // Light orange bg
+        backgroundColor: '#FFF0E6',
     },
     badgeSecondary: {
-        backgroundColor: '#F3F4F6', // Light grey bg
+        backgroundColor: '#F3F4F6',
     },
     badgeText: {
         fontFamily: 'Poppins-Medium',
         fontSize: 12,
     },
     badgeTextPrimary: {
-        color: '#FE6700', // Orange text
+        color: '#FE6700',
     },
     badgeTextSecondary: {
-        color: '#4B5563', // Grey text
+        color: '#4B5563',
     },
     profileRow: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 16,
     },
+    avatarContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        overflow: 'hidden',
+        marginRight: 16,
+    },
     avatar: {
         width: 60,
         height: 60,
         borderRadius: 30,
         backgroundColor: '#E5E7EB',
-        marginRight: 16,
+    },
+    avatarPlaceholder: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     profileTextContainer: {
         flex: 1,
         justifyContent: 'center',
     },
     name: {
-        fontFamily: 'Poppins-Medium', // Exactly as requested for Poppins
+        fontFamily: 'Poppins-Medium',
         fontSize: 18,
         color: '#111827',
         marginBottom: 2,
@@ -183,16 +257,12 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Regular',
         fontSize: 14,
         color: '#4B5563',
-        lineHeight: 22, // Critical for readability matches Figma
+        lineHeight: 22,
         marginBottom: 20,
     },
-    actionRow: {
-        flexDirection: 'row',
-        justifyContent: 'center', // Centers the button
-    },
     callButton: {
-        flex: 1, // Takes up full width now that Email is gone
-        backgroundColor: '#FE6700', // Figma Orange
+        flex: 1,
+        backgroundColor: '#FE6700',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -206,5 +276,43 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Medium',
         fontSize: 15,
         color: '#FFFFFF',
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+        backgroundColor: '#FAF5ED',
+    },
+    loaderText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 15,
+        color: '#6B7280',
+        marginTop: 12,
+    },
+    errorText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 15,
+        color: '#EF4444',
+        textAlign: 'center',
+        marginTop: 12,
+    },
+    retryButton: {
+        backgroundColor: '#FE6700',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginTop: 16,
+    },
+    retryText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 14,
+        color: '#FFFFFF',
+    },
+    emptyText: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 15,
+        color: '#9CA3AF',
+        marginTop: 12,
     },
 });

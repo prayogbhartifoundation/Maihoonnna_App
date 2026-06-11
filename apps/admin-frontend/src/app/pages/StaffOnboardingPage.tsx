@@ -154,6 +154,7 @@ function createInitialFormState(role: StaffOnboardingRole): FormState {
     },
     professional: {
       qualification: '',
+      bio: '',
       experience: '',
       nursingRegistrationNumber: '',
       nursingCouncil: '',
@@ -946,6 +947,24 @@ export default function StaffOnboardingPage() {
                     />
                     <p className="text-xs text-gray-400 mt-3">If set, user can log in with their phone number and this password. Minimum 6 characters required.</p>
                   </div>
+                </section>
+
+                <section>
+                  <h3 className="text-base font-black text-gray-800 mb-4">Bio</h3>
+                  <p className="text-sm text-gray-500 mb-3">
+                    A short professional bio that will be shown to beneficiaries on the app when viewing their care team.
+                  </p>
+                  <textarea
+                    value={formState.professional.bio || ''}
+                    onChange={(event) => setProfessionalField('bio', event.target.value)}
+                    placeholder="e.g. Certified nurse with 5+ years of experience in geriatric home care and daily vitals monitoring..."
+                    rows={4}
+                    maxLength={500}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00] resize-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1 text-right">
+                    {(formState.professional.bio || '').length}/500
+                  </p>
                 </section>
               </div>
             )}

@@ -351,6 +351,23 @@ export default function StaffEditModal({ userId, role, onClose, onSuccess }: Sta
                     />
                   </div>
                 </div>
+
+                {/* Bio — full width at bottom of Personal tab */}
+                <div className="md:col-span-2 space-y-1 pt-4 border-t border-[#E7DED6]">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Professional Bio</label>
+                  <p className="text-[10px] text-gray-400 px-1 mb-2">Shown to beneficiaries on the mobile app when they view their care team.</p>
+                  <textarea
+                    value={formState.professional.bio || ''}
+                    onChange={(e) => updateNestedField('professional', 'bio', e.target.value)}
+                    placeholder="e.g. Certified nurse with 5+ years of experience in geriatric home care and daily vitals monitoring..."
+                    rows={4}
+                    maxLength={500}
+                    className="w-full px-4 py-3 bg-white border border-[#E7DED6] rounded-2xl font-bold text-sm focus:outline-none focus:border-[#FF7A00] resize-none"
+                  />
+                  <p className="text-[10px] text-gray-400 text-right px-1">
+                    {(formState.professional.bio || '').length}/500
+                  </p>
+                </div>
               </div>
             )}
 
