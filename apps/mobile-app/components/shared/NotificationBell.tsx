@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { addNotificationReceivedListener } from '@/services/notifications';
+import { API_URL } from '@/constants/api';
 
 export default function NotificationBell() {
   const router = useRouter();
@@ -15,11 +16,7 @@ export default function NotificationBell() {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
 
-      const API_BASE =
-        process.env.EXPO_PUBLIC_PRODUCTION_API_URL ||
-        `http://${process.env.EXPO_PUBLIC_LOCAL_IP || 'localhost'}:3000/api`;
-
-      const response = await fetch(`${API_BASE}/shared/users/notifications`, {
+      const response = await fetch(`${API_URL}/shared/users/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

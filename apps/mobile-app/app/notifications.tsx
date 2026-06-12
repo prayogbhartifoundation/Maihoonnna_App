@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { addNotificationReceivedListener } from '@/services/notifications';
+import { API_URL } from '@/constants/api';
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -15,11 +16,7 @@ export default function NotificationsScreen() {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
 
-      const API_BASE =
-        process.env.EXPO_PUBLIC_PRODUCTION_API_URL ||
-        `http://${process.env.EXPO_PUBLIC_LOCAL_IP || 'localhost'}:3000/api`;
-
-      const response = await fetch(`${API_BASE}/shared/users/notifications`, {
+      const response = await fetch(`${API_URL}/shared/users/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -39,11 +36,7 @@ export default function NotificationsScreen() {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
 
-      const API_BASE =
-        process.env.EXPO_PUBLIC_PRODUCTION_API_URL ||
-        `http://${process.env.EXPO_PUBLIC_LOCAL_IP || 'localhost'}:3000/api`;
-
-      await fetch(`${API_BASE}/shared/users/notifications/read-all`, {
+      await fetch(`${API_URL}/shared/users/notifications/read-all`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -60,7 +53,18 @@ export default function NotificationsScreen() {
       fetchNotifications();
     });
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      // Auto-mark all as read silently when leaving the screen
+      AsyncStorage.getItem('userToken').then((token) => {
+        if (token) {
+          fetch(`${API_URL}/shared/users/notifications/read-all`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => {});
+        }
+      });
+    };
   }, []);
 
   const onRefresh = () => {
