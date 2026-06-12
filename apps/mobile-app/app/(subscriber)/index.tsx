@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '@/components/CallbackButton';
 import { logoutWithConfirm } from '@/utils/logout';
+import { formatHours } from '@/utils/timeFormat';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -196,10 +197,10 @@ export default function SubscriberDashboardScreen() {
                             <View style={styles.statIconCircleBlue}>
                                 <Ionicons name="hourglass-outline" size={24} color="#2563FF" />
                             </View>
-                            <Text style={styles.statValue}>{activeHours}h</Text>
+                            <Text style={styles.statValue}>{formatHours(activeHours)}</Text>
                         </View>
                         <Text style={styles.statLabel}>Active Hours</Text>
-                        <Text style={[styles.statSub, { color: '#A855F7' }]}>⏰ {remainingHours}h remaining</Text>
+                        <Text style={[styles.statSub, { color: '#A855F7' }]}>⏰ {formatHours(remainingHours)} remaining</Text>
                     </View>
 
                     {/* Total Care Plans */}

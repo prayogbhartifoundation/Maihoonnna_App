@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { formatHours } from '@/utils/timeFormat';
 
 export interface BenefitBalance {
   benefitId: string;
@@ -120,7 +121,18 @@ export default function PackageUtilizationPanel({ data }: Props) {
               </View>
 
               <View style={styles.benefitFooter}>
-                <Text style={styles.benefitStats}>{b.usedUnits} used · {b.remainingUnits} remaining</Text>
+                {
+                  // Detect hour-type benefits by their unit label
+                  (() => {
+                    const lbl = (b.unitLabel || '').toLowerCase();
+                    const isHourType = lbl.includes('hour') || lbl.includes('hr');
+                    const usedStr = isHourType ? formatHours(b.usedUnits) : `${b.usedUnits}`;
+                    const remainStr = isHourType ? formatHours(b.remainingUnits) : `${b.remainingUnits}`;
+                    return (
+                      <Text style={styles.benefitStats}>{usedStr} used · {remainStr} remaining</Text>
+                    );
+                  })()
+                }
                 <Text style={styles.benefitUnit}>{b.unitLabel}</Text>
               </View>
             </View>

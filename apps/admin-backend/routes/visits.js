@@ -295,10 +295,12 @@ router.patch('/:id/complete', async (req, res) => {
         if (benefit) {
           const isHourBased = benefit.unitLabel?.toLowerCase() === 'hours' || benefit.unitLabel?.toLowerCase() === 'hour';
           if (isHourBased) {
-            // Hours billing: min 1 hour, then actual
+            // Billing rule:
+            //   < 60 min  → charge exactly 1h  (e.g. 50 min → 1.0h)
+            //   >= 60 min → charge actual time  (e.g. 65 min → 1.0833h = "1h 5min")
             const billableMinutes = Math.max(60, actualMinutes);
-            const hoursConsumed = billableMinutes / 60; // e.g. 39min → 1.0hr, 65min → 1.083hr
-            const unitsToDeduct = Math.ceil(hoursConsumed); // integer deduction for balance tracking
+            const hoursConsumed = billableMinutes / 60;   // exact float, minimum 1.0
+            const unitsToDeduct = hoursConsumed;          // float stored; formatHours() displays it cleanly
 
             const subscription = await tx.subscription.findFirst({
               where: { beneficiaryId: visit.beneficiaryId, isActive: true, endDate: { gte: new Date() } },
@@ -311,11 +313,11 @@ router.patch('/:id/complete', async (req, res) => {
                 benefitId: hoursBenefitId,
                 visitId: id,
                 unitsToDeduct,
-                hoursConsumed: parseFloat(hoursConsumed.toFixed(4)),
-                description: `Visit completed: ${visit.encounterId} — ${actualMinutes} mins billed as ${billableMinutes} mins`,
+                hoursConsumed: hoursConsumed,
+                description: `Visit completed: ${visit.encounterId} — actual ${actualMinutes} min, billed as ${hoursConsumed}h (min 1h rule)`,
               });
 
-              // Also update subscription.hoursUsed for quick access
+              // Also update subscription.hoursUsed for quick access (whole hours only)
               await tx.subscription.update({
                 where: { id: subscription.id },
                 data: { hoursUsed: { increment: hoursConsumed } },

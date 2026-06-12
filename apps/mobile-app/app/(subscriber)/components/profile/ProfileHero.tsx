@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ProfilePhotoUploader } from '@/components/ui/ProfilePhotoUploader';
+import { formatHours } from '@/utils/timeFormat';
 
 interface ProfileHeroProps {
     user: {
@@ -83,12 +84,12 @@ export const ProfileHero = ({ user, stats, onPhotoUpdated }: ProfileHeroProps) =
                     </View>
                     <View style={[styles.statItem, styles.hoursStat]}>
                         <Ionicons name="pulse-outline" size={24} color="#1F6BFF" />
-                        <Text style={styles.statValue}>{stats.usedHours}h</Text>
+                        <Text style={styles.statValue}>{formatHours(stats.usedHours)}</Text>
                         <Text style={styles.statLabel}>Hours Used</Text>
                     </View>
                     <View style={[styles.statItem, styles.availableStat]}>
                         <Ionicons name="ribbon-outline" size={24} color="#A12BFF" />
-                        <Text style={styles.statValue}>{stats.availableHours}h</Text>
+                        <Text style={styles.statValue}>{formatHours(stats.availableHours)}</Text>
                         <Text style={styles.statLabel}>Available</Text>
                     </View>
                 </View>

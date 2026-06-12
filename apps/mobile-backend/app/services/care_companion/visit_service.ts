@@ -3,7 +3,7 @@ import { generateUUID, generateEncounterId, generateVisitCode } from '../../util
 import { Prisma } from '@prisma/client';
 import { Vitals } from '../../models/visit';
 
-// ─── Geo-fencing Helper ────────────────────────────────────────────────────────
+// â”€â”€â”€ Geo-fencing Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Calculates the straight-line distance between two GPS coordinates using
@@ -25,7 +25,7 @@ function haversineDistance(
   return R * c;
 }
 
-// Configurable from .env — defaults to 50m (industry standard)
+// Configurable from .env â€” defaults to 50m (industry standard)
 const GEOFENCE_RADIUS_METERS = parseFloat(process.env.GEOFENCE_RADIUS_METERS || '50');
 
 export const createVisit = async (data: {
@@ -310,7 +310,7 @@ export const checkOut = async (data: {
 
     const checkOutTime = isEdit ? existingVisit.checkOutTime : new Date();
     let durationMinutes = existingVisit.durationMinutes || 0;
-    
+
     if (!isEdit && existingVisit.checkInTime) {
       durationMinutes = Math.round((checkOutTime!.getTime() - existingVisit.checkInTime.getTime()) / 60000);
     }
@@ -360,7 +360,7 @@ export const checkOut = async (data: {
       }
     }
 
-    // 3. Update the Visit
+    // 3. Update the Visit record
     const visit = await tx.visit.update({
       where: { id: data.visitId },
       data: visitUpdateData,
@@ -381,7 +381,7 @@ export const checkOut = async (data: {
       for (const reading of data.vitalsList) {
         const def = await tx.vitalDefinition.findUnique({ where: { id: reading.vitalDefinitionId } });
         let isAbnormal = false;
-        
+
         if (def) {
           if (def.dataType === 'numeric' && reading.valueNumeric !== null && reading.valueNumeric !== undefined) {
             const val = reading.valueNumeric;
@@ -392,7 +392,7 @@ export const checkOut = async (data: {
             const val1 = reading.valueNumeric;
             const val2 = reading.valueNumeric2;
             if (
-              (def.normalMin !== null && val1 < def.normalMin) || 
+              (def.normalMin !== null && val1 < def.normalMin) ||
               (def.normalMax !== null && val1 > def.normalMax) ||
               (def.normalMin2 !== null && val2 < def.normalMin2) ||
               (def.normalMax2 !== null && val2 > def.normalMax2)
@@ -428,9 +428,15 @@ export const checkOut = async (data: {
       }
     }
 
-    // 3. Deduct from Subscription
+    // 5. Deduct from Subscription — minimum 1h billing rule
     if (!isEdit && durationMinutes >= 0) {
-      const hoursConsumed = durationMinutes / 60;
+      // Billing rule:
+      //   < 60 min  → charge exactly 1h  (e.g. 50 min → 1.0h)
+      //   >= 60 min → charge actual time  (e.g. 65 min → 1.0833h = "1h 5min")
+      const actualMinutes   = durationMinutes;
+      const billableMinutes = Math.max(60, actualMinutes);   // floor at 60 min
+      const hoursConsumed   = billableMinutes / 60;          // exact float, min 1.0
+
       const activeSubscription = await tx.subscription.findFirst({
         where: { beneficiaryId: visit.beneficiaryId, isActive: true },
         orderBy: { createdAt: 'desc' },
@@ -438,6 +444,7 @@ export const checkOut = async (data: {
       });
 
       if (activeSubscription) {
+        // Update quick-access hour counter (exact float: min 1.0h, then actual)
         await tx.subscription.update({
           where: { id: activeSubscription.id },
           data: {
@@ -446,6 +453,7 @@ export const checkOut = async (data: {
           }
         });
 
+        // Determine which specific benefit (morning/evening/noon nurse) to deduct from
         let targetBenefitId: string | null = null;
         if (existingVisit.notes?.startsWith('__benefitId:')) {
           targetBenefitId = existingVisit.notes.replace('__benefitId:', '').trim();
@@ -455,23 +463,33 @@ export const checkOut = async (data: {
         if (targetBenefitId) {
           benefitToDeduct = activeSubscription.benefitBalances.find(b => b.benefitId === targetBenefitId);
         }
-        
+
         if (!benefitToDeduct) {
-          benefitToDeduct = activeSubscription.benefitBalances.find(b => 
-            b.benefit.unitLabel && b.benefit.unitLabel.toLowerCase().includes('visit') && 
+          // Fallback: find any visit-type benefit with remaining balance
+          benefitToDeduct = activeSubscription.benefitBalances.find(b =>
+            b.benefit.unitLabel && b.benefit.unitLabel.toLowerCase().includes('visit') &&
             (b.totalUnits === -1 || b.usedUnits < b.totalUnits)
           );
         }
 
+        // Idempotency guard â€” don't double-deduct if already logged
         const existingLog = await tx.packageHoursLog.findUnique({
           where: { visitId: visit.id }
         });
 
         if (benefitToDeduct) {
+          // Detect if this benefit is hour-based or visit-count-based
+          const isHourBenefit = benefitToDeduct.benefit.unitLabel
+            ? benefitToDeduct.benefit.unitLabel.toLowerCase().includes('hour') ||
+              benefitToDeduct.benefit.unitLabel.toLowerCase().includes('hr')
+            : false;
+          // For hour-type benefits, deduct exact float hours; for visit-count, deduct 1
+          const unitsToDeduct = isHourBenefit ? hoursConsumed : 1;
+
           if (!existingLog) {
             await tx.subscriptionBenefitBalance.update({
               where: { id: benefitToDeduct.id },
-              data: { usedUnits: benefitToDeduct.usedUnits + 1 }
+              data: { usedUnits: benefitToDeduct.usedUnits + unitsToDeduct }
             });
             await tx.packageHoursLog.create({
               data: {
@@ -480,8 +498,8 @@ export const checkOut = async (data: {
                 visitId: visit.id,
                 hoursConsumed,
                 balanceBefore: benefitToDeduct.usedUnits,
-                balanceAfter: benefitToDeduct.usedUnits + 1,
-                description: `Visit completed. Duration: ${durationMinutes} mins.`
+                balanceAfter: benefitToDeduct.usedUnits + unitsToDeduct,
+                description: `Visit completed. Actual: ${actualMinutes} min â€” billed as ${hoursConsumed}h (min 1h rule).`
               }
             });
           } else {
@@ -489,11 +507,12 @@ export const checkOut = async (data: {
               where: { id: existingLog.id },
               data: {
                 hoursConsumed,
-                description: `Visit completed. Duration: ${durationMinutes} mins. (Re-run)`
+                description: `Visit completed. Actual: ${actualMinutes} min â€” billed as ${hoursConsumed}h (Re-run).`
               }
             });
           }
         } else {
+          // No specific benefit found â€” log against overall subscription hours
           if (!existingLog) {
             await tx.packageHoursLog.create({
               data: {
@@ -503,7 +522,7 @@ export const checkOut = async (data: {
                 hoursConsumed,
                 balanceBefore: activeSubscription.hoursTotal !== null ? (activeSubscription.hoursTotal - activeSubscription.hoursUsed) : 0,
                 balanceAfter: activeSubscription.hoursTotal !== null ? Math.max(0, (activeSubscription.hoursTotal - activeSubscription.hoursUsed) - hoursConsumed) : 0,
-                description: `Visit completed. Duration: ${durationMinutes} mins.`
+                description: `Visit completed. Actual: ${actualMinutes} min â€” billed as ${hoursConsumed}h (min 1h rule).`
               }
             });
           } else {
@@ -511,7 +530,7 @@ export const checkOut = async (data: {
               where: { id: existingLog.id },
               data: {
                 hoursConsumed,
-                description: `Visit completed. Duration: ${durationMinutes} mins. (Re-run)`
+                description: `Visit completed. Actual: ${actualMinutes} min â€” billed as ${hoursConsumed}h (Re-run).`
               }
             });
           }
@@ -519,7 +538,7 @@ export const checkOut = async (data: {
       }
     }
 
-    // 4. Update emotional score if mood is sad/depressed
+    // 6. Update emotional score if mood is sad/depressed
     if (data.mood === 'sad' || data.mood === 'depressed') {
       await tx.beneficiary.update({
         where: { id: visit.beneficiaryId },
@@ -527,7 +546,7 @@ export const checkOut = async (data: {
       });
     }
 
-    // 5. Create Medication Adherence records if present
+    // 7. Create Medication Adherence records if present
     if ((data as any).medicationsList && Array.isArray((data as any).medicationsList)) {
       const careCompanion = await tx.careCompanion.findUnique({
         where: { id: existingVisit.careCompanionId },
@@ -564,7 +583,6 @@ export const checkOut = async (data: {
     return visit;
   });
 };
-
 export const rateVisit = async (data: { visitId: string; rating: number; feedback?: string }) => {
   if (data.rating < 1 || data.rating > 5) throw new Error('Rating must be between 1 and 5');
   return prisma.visit.update({

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ScrollView }
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { formatHours } from '@/utils/timeFormat';
 
 interface SubscriptionTabProps {
     plan: {
@@ -46,7 +47,7 @@ const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
                     <View style={styles.progressSection}>
                         <View style={styles.progressLabels}>
                             <Text style={styles.progressText}>Hours Used</Text>
-                            <Text style={styles.progressText}>{plan.hoursUsed} / {plan.hoursTotal} hrs</Text>
+                            <Text style={styles.progressText}>{formatHours(plan.hoursUsed)} / {formatHours(plan.hoursTotal)}</Text>
                         </View>
                         <View style={styles.progressBarBg}>
                             <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
