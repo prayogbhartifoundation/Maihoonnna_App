@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator, ImageBackground, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -106,6 +106,16 @@ export default function BeneficiaryProfileScreen() {
             </SafeAreaView>
         );
     }
+
+    useEffect(() => {
+        if (beneficiary?.isDefaultData) {
+            Alert.alert(
+                "No Visits Recorded Yet",
+                "We are currently showing placeholder values (100% Happiness Score, 0 bpm, 0/0 BP) because no visit records exist for this beneficiary yet.",
+                [{ text: "Understood", style: "default" }]
+            );
+        }
+    }, [beneficiary?.isDefaultData]);
 
     const happinessScore = beneficiary.emotionalScore ?? 0;
     const conditions = beneficiary.conditions?.map((c: any) => c.condition?.name) || [];

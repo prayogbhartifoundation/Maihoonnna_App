@@ -385,10 +385,13 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
 
   const vitalsData = [];
 
+  const hasVisitsOrVitals = visitsWithVitals.length > 0 || beneficiary.vitalHistory.length > 0 || pastVisits.length > 0 || !!nextVisit;
+  const isDefaultData = !hasVisitsOrVitals;
+
   // Heart Rate grid card (always shown as primary metric)
   vitalsData.push({
     label: 'Heart Rate',
-    value: latestReadings?.heartRate ? `${latestReadings.heartRate} bpm` : '-- bpm',
+    value: latestReadings?.heartRate ? `${latestReadings.heartRate} bpm` : (isDefaultData ? '0 bpm' : '-- bpm'),
     icon: 'heart-pulse',
     color: '#EF4444',
     trend: 'Normal'
@@ -397,7 +400,7 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
   // Blood Pressure grid card (always shown as primary metric)
   vitalsData.push({
     label: 'Blood Pressure',
-    value: latestReadings?.bpSystolic ? `${latestReadings.bpSystolic}/${latestReadings.bpDiastolic}` : '--',
+    value: latestReadings?.bpSystolic ? `${latestReadings.bpSystolic}/${latestReadings.bpDiastolic}` : (isDefaultData ? '0/0' : '--'),
     icon: 'blood-bag',
     color: '#8B5CF6',
     trend: 'Normal'
@@ -481,8 +484,12 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
     bloodSugar: trendData.map(t => t.bloodSugar),
   };
 
+  const computedEmotionalScore = isDefaultData ? 100 : (beneficiary.emotionalScore === 8.0 ? 85 : beneficiary.emotionalScore);
+
   return {
     ...beneficiary,
+    emotionalScore: computedEmotionalScore,
+    isDefaultData,
     hoursUsedPercent,
     vitalsData,
     vitalsTrends,

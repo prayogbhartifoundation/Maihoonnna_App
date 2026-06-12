@@ -28,7 +28,7 @@ router.get('/subscriber/:subscriberId', authenticate, async (req: Request, res: 
       }
 
       return {
-        beneficiary: { id: b.id, name: b.name, age: b.age, emotionalScore: b.emotionalScore, address: b.address },
+        beneficiary: { id: b.id, name: b.name, age: b.age, emotionalScore: b.emotionalScore === 8.0 ? 85 : (b.emotionalScore || 85), address: b.address },
         recentVisits: recentVisits.map((v: any) => ({
           id: v.id,
           visitCode: v.visitCode,
@@ -137,11 +137,17 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
       });
     }
 
+    // Map beneficiaries to normalize the default 8.0 score
+    const mappedBeneficiaries = beneficiaries.map((b: any) => ({
+      ...b,
+      emotionalScore: b.emotionalScore === 8.0 ? 85 : (b.emotionalScore || 85)
+    }));
+
     // Average Happiness
     let avgHappiness = 85;
-    if (beneficiaries.length > 0) {
-      const totalScore = beneficiaries.reduce((sum: any, b: any) => sum + (b.emotionalScore || 85), 0);
-      avgHappiness = Math.round(totalScore / beneficiaries.length);
+    if (mappedBeneficiaries.length > 0) {
+      const totalScore = mappedBeneficiaries.reduce((sum: any, b: any) => sum + b.emotionalScore, 0);
+      avgHappiness = Math.round(totalScore / mappedBeneficiaries.length);
     }
 
     // Active Hours (Actual aggregation from subscriptions)
@@ -179,7 +185,7 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
     res.json({
       success: true,
       activeSubscriptions,
-      beneficiaries,
+      beneficiaries: mappedBeneficiaries,
       topStats: {
         happinessScore: avgHappiness,
         visitsThisWeek: { total: visitsThisWeek, completed: completedVisitsThisWeek },

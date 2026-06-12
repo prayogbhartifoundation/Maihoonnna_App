@@ -10,6 +10,7 @@ import { useLocationPermission } from '../../hooks/useLocationPermission';
 import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function RequestServiceScreen() {
+  const safeBack = useSafeBack();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{ id?: string, address: string, lat: number, lng: number } | null>(null);
   const [loading, setLoading] = useState(false);

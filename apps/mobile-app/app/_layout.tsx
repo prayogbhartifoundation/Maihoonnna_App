@@ -15,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { registerForPushNotifications } from '@/services/notifications';
 
 // Keep splash screen visible while we load fonts + session
 SplashScreen.preventAutoHideAsync();
@@ -64,6 +65,9 @@ function RootNavigator() {
       if (segments[0] !== '(setup)') {
         router.replace('/(auth)');
       }
+    } else if (isLoggedIn) {
+      // Register for push notifications when logged in
+      registerForPushNotifications();
     }
   }, [isLoggedIn, isLoading, segments]);
 

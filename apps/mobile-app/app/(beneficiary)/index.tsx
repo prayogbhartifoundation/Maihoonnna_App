@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import { API_URL } from '@/constants/api';
 import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
+import NotificationBell from '@/components/shared/NotificationBell';
 
 const MOCK_BENEFICIARY_ID = '8340d860-2641-479c-b26a-8b9a71bcec29';
 
@@ -167,9 +168,9 @@ export default function BeneficiaryDashboard() {
                             </Text>
                         </View>
 
-                        <TouchableOpacity style={styles.notificationIcon} activeOpacity={0.85}>
-                            <Feather name="bell" size={20} color="#FE6700" />
-                        </TouchableOpacity>
+                        <View style={styles.notificationWrapper}>
+                            <NotificationBell />
+                        </View>
                     </View>
 
                     <TouchableOpacity style={styles.emergencyBtn} activeOpacity={0.85}>
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         color: '#000000',
     },
-    notificationIcon: {
+    notificationWrapper: {
         width: 40,
         height: 40,
         marginTop: 0,

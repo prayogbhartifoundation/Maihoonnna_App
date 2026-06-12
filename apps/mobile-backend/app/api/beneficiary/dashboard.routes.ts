@@ -106,7 +106,7 @@ async function handleBeneficiaryDashboard(req: AuthRequest, res: Response) {
             data: {
                 greeting,
                 firstName: beneficiary.name.split(' ')[0], // Assuming first part of name
-                emotionalScore: beneficiary.emotionalScore,
+                emotionalScore: beneficiary.emotionalScore === 8.0 ? 85 : beneficiary.emotionalScore,
                 nextVisit: nextVisit ? nextVisit.scheduledTime : null,
                 adherence: `${adherencePercentage}%`,
                 subscription: activeSub ? {

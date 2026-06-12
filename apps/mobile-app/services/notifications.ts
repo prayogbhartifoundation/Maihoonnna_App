@@ -24,7 +24,7 @@ import * as Device from 'expo-device';
 // ─── Backend API Base ─────────────────────────────────────────────────────────
 const API_BASE =
   process.env.EXPO_PUBLIC_PRODUCTION_API_URL ||
-  `http://${process.env.EXPO_PUBLIC_LOCAL_IP || 'localhost'}:3001/api`;
+  `http://${process.env.EXPO_PUBLIC_LOCAL_IP || 'localhost'}:3000/api`;
 
 // ─── Foreground notification handler ─────────────────────────────────────────
 // Note: setNotificationHandler was removed in expo-notifications SDK 55.
@@ -108,18 +108,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
  */
 async function syncTokenToBackend(token: string): Promise<void> {
   try {
-    const savedAuth = await AsyncStorage.getItem('maihoonna_auth');
+    const savedAuth = await AsyncStorage.getItem('userToken');
     if (!savedAuth) return;
 
-    let authToken: string | undefined;
-    try {
-      authToken = JSON.parse(savedAuth)?.token;
-    } catch {
-      return;
-    }
-    if (!authToken) return;
+    let authToken: string | undefined = savedAuth;
 
-    const res = await fetch(`${API_BASE}/users/push-token`, {
+    const res = await fetch(`${API_BASE}/shared/users/push-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

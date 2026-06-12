@@ -8,6 +8,7 @@ import { API_URL } from '@/constants/api';
 
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { CompanionBottomNav } from '../../components/care-companion/CompanionBottomNav';
+import NotificationBell from '@/components/shared/NotificationBell';
 
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_ORANGE = '#F97316';
@@ -128,9 +129,12 @@ export default function DashboardScreen() {
                             <Text style={styles.headerTitle}>Care Companion</Text>
                             <Text style={styles.headerSub}>Welcome back, {dashboardData.user.firstName}</Text>
                         </View>
-                        <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(care-companion)/profile' as any)}>
-                            <Ionicons name="person-outline" size={24} color={DEEP_ORANGE} />
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <NotificationBell />
+                            <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(care-companion)/profile' as any)}>
+                                <Ionicons name="person-outline" size={24} color={DEEP_ORANGE} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     <View style={styles.dateTimeRow}>

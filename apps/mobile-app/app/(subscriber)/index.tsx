@@ -12,6 +12,7 @@ import { logoutWithConfirm } from '@/utils/logout';
 import { formatHours } from '@/utils/timeFormat';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import NotificationBell from '@/components/shared/NotificationBell';
 
 const { width, height } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -138,10 +139,7 @@ export default function SubscriberDashboardScreen() {
             <View style={styles.dashHeader}>
                 <Text style={styles.dashTitle}>Dashboard</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(16) }}>
-                    <View style={styles.headerIconBtn}>
-                        <Ionicons name="notifications-outline" size={scale(24)} color="#111827" />
-                        <View style={styles.headerBadge}><Text style={styles.headerBadgeText}>2</Text></View>
-                    </View>
+                    <NotificationBell />
                     <TouchableOpacity onPress={openDrawer} style={styles.headerIconBtn}>
                         <Ionicons name="menu-outline" size={scale(28)} color="#111827" />
                     </TouchableOpacity>

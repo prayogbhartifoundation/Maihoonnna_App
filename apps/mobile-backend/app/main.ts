@@ -35,6 +35,7 @@ import profilePhotoRouter from './api/shared/profile-photo.routes';
 import emergencyRouter from './api/shared/emergency.routes';
 import callbackRouter from './api/shared/callback.routes';
 import utilizationRouter from './api/shared/utilization.routes';
+import sharedUsersRouter from './api/shared/users.routes';
 
 // Beneficiary Routes
 import beneficiaryDashboardRouter from './api/beneficiary/dashboard.routes';
@@ -125,6 +126,7 @@ app.use(`${API}/shared/medications`, medicationsRouter);
 app.use(`${API}/shared/emergency`, emergencyRouter);
 app.use(`${API}/shared/callbacks`, callbackRouter);
 app.use(`${API}/shared/utilization`, utilizationRouter);
+app.use(`${API}/shared/users`, sharedUsersRouter);
 
 // Profile Photo Upload (all roles)
 app.use(`${API}/profile-photo`, profilePhotoRouter);

@@ -117,7 +117,7 @@ router.post('/', async (req, res) => {
           status: 'scheduled',
         },
         include: {
-          beneficiary: { select: { name: true, userId: true } },
+          beneficiary: { select: { name: true, userId: true, subscriberId: true } },
           careCompanion: { select: { name: true, userId: true } },
         },
       });
@@ -182,6 +182,16 @@ router.post('/', async (req, res) => {
           type: 'visit_reminder',
           title: 'Care Companion Visit Scheduled',
           body: `${visit.careCompanion?.name || 'Your Care Companion'} will visit you on ${formattedTime}.`,
+          data: { visitId: visit.id },
+        });
+      }
+
+      if (visit.beneficiary?.subscriberId && visit.beneficiary.subscriberId !== visit.beneficiary.userId) {
+        await notifyUser(tx, {
+          userId: visit.beneficiary.subscriberId,
+          type: 'visit_reminder',
+          title: 'Care Companion Visit Scheduled',
+          body: `A visit for ${visit.beneficiary?.name || 'your beneficiary'} with ${visit.careCompanion?.name || 'the Care Companion'} has been scheduled for ${formattedTime}.`,
           data: { visitId: visit.id },
         });
       }
@@ -622,12 +632,58 @@ router.get('/check-availability', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const visit = await prisma.visit.findUnique({ where: { id } });
+    const visit = await prisma.visit.findUnique({
+      where: { id },
+      include: {
+        beneficiary: { select: { name: true, userId: true, subscriberId: true } },
+        careCompanion: { select: { name: true, userId: true } },
+      },
+    });
+
     if (!visit) return res.status(404).json({ success: false, message: 'Visit not found' });
     if (visit.status === 'completed') {
       return res.status(400).json({ success: false, message: 'Cannot cancel a completed visit' });
     }
-    await prisma.visit.update({ where: { id }, data: { status: 'cancelled' } });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.visit.update({ where: { id }, data: { status: 'cancelled' } });
+
+      const formattedTime = visit.scheduledTime.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+
+      // Notify Care Companion
+      if (visit.careCompanion?.userId) {
+        await notifyUser(tx, {
+          userId: visit.careCompanion.userId,
+          type: 'visit_cancelled',
+          title: 'Visit Cancelled',
+          body: `Your scheduled visit with ${visit.beneficiary?.name || 'a beneficiary'} on ${formattedTime} has been cancelled.`,
+          data: { visitId: visit.id },
+        });
+      }
+
+      // Notify Beneficiary
+      if (visit.beneficiary?.userId) {
+        await notifyUser(tx, {
+          userId: visit.beneficiary.userId,
+          type: 'visit_cancelled',
+          title: 'Visit Cancelled',
+          body: `Your scheduled visit with ${visit.careCompanion?.name || 'the Care Companion'} on ${formattedTime} has been cancelled.`,
+          data: { visitId: visit.id },
+        });
+      }
+
+      // Notify Subscriber
+      if (visit.beneficiary?.subscriberId && visit.beneficiary.subscriberId !== visit.beneficiary.userId) {
+        await notifyUser(tx, {
+          userId: visit.beneficiary.subscriberId,
+          type: 'visit_cancelled',
+          title: 'Visit Cancelled',
+          body: `The scheduled visit for ${visit.beneficiary?.name || 'your beneficiary'} with ${visit.careCompanion?.name || 'the Care Companion'} on ${formattedTime} has been cancelled.`,
+          data: { visitId: visit.id },
+        });
+      }
+    });
+
     res.json({ success: true, message: 'Visit cancelled successfully' });
   } catch (err) {
     console.error('DELETE /visits/:id error:', err);
@@ -682,7 +738,7 @@ router.put('/:id', async (req, res) => {
         where: { id },
         data: { careCompanionId, scheduledTime: startTime, durationMinutes },
         include: {
-          beneficiary: { select: { name: true, userId: true } },
+          beneficiary: { select: { name: true, userId: true, subscriberId: true } },
           careCompanion: { select: { name: true, userId: true } },
         },
       });
@@ -705,6 +761,16 @@ router.put('/:id', async (req, res) => {
           type: 'visit_reminder',
           title: 'Scheduled Visit Updated',
           body: `Your visit with ${updatedVisit.careCompanion?.name || 'Unknown'} has been rescheduled to ${formattedTime}.`,
+          data: { visitId: updatedVisit.id },
+        });
+      }
+
+      if (updatedVisit.beneficiary?.subscriberId && updatedVisit.beneficiary.subscriberId !== updatedVisit.beneficiary.userId) {
+        await notifyUser(tx, {
+          userId: updatedVisit.beneficiary.subscriberId,
+          type: 'visit_reminder',
+          title: 'Scheduled Visit Updated',
+          body: `The visit for ${updatedVisit.beneficiary?.name || 'Unknown'} with ${updatedVisit.careCompanion?.name || 'Unknown'} has been rescheduled to ${formattedTime}.`,
           data: { visitId: updatedVisit.id },
         });
       }

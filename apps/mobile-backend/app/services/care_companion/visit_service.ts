@@ -239,11 +239,37 @@ export const updateVisitDetails = async (data: {
       }
     }
 
-    if (data.mood === 'sad' || data.mood === 'depressed') {
-      await tx.beneficiary.update({
-        where: { id: visit.beneficiaryId },
-        data: { emotionalScore: data.mood === 'sad' ? 5.0 : 3.0 },
-      });
+    if (data.mood) {
+      const moodValueMap: Record<string, number> = {
+        happy: 100,
+        neutral: 80,
+        sad: 50,
+        anxious: 20,
+        depressed: 0
+      };
+
+      const moodKey = data.mood.toLowerCase();
+      if (moodValueMap[moodKey] !== undefined) {
+        const currentMoodScore = moodValueMap[moodKey];
+        const beneficiary = await tx.beneficiary.findUnique({
+          where: { id: visit.beneficiaryId },
+          select: { emotionalScore: true }
+        });
+
+        if (beneficiary) {
+          const alpha = 0.4;
+          let newScore = currentMoodScore;
+          // Since the schema default is 8.0 (old 1-10 scale), we treat 8.0 as "no score" on the new 0-100 scale.
+          if (beneficiary.emotionalScore !== null && beneficiary.emotionalScore !== 8.0) {
+             newScore = alpha * currentMoodScore + (1 - alpha) * beneficiary.emotionalScore;
+          }
+
+          await tx.beneficiary.update({
+            where: { id: visit.beneficiaryId },
+            data: { emotionalScore: newScore },
+          });
+        }
+      }
     }
 
     if ((data as any).medicationsList && Array.isArray((data as any).medicationsList)) {
@@ -538,12 +564,38 @@ export const checkOut = async (data: {
       }
     }
 
-    // 6. Update emotional score if mood is sad/depressed
-    if (data.mood === 'sad' || data.mood === 'depressed') {
-      await tx.beneficiary.update({
-        where: { id: visit.beneficiaryId },
-        data: { emotionalScore: data.mood === 'sad' ? 5.0 : 3.0 },
-      });
+    // 6. Update emotional score based on mood using EWMA
+    if (data.mood) {
+      const moodValueMap: Record<string, number> = {
+        happy: 100,
+        neutral: 80,
+        sad: 50,
+        anxious: 20,
+        depressed: 0
+      };
+
+      const moodKey = data.mood.toLowerCase();
+      if (moodValueMap[moodKey] !== undefined) {
+        const currentMoodScore = moodValueMap[moodKey];
+        const beneficiary = await tx.beneficiary.findUnique({
+          where: { id: visit.beneficiaryId },
+          select: { emotionalScore: true }
+        });
+
+        if (beneficiary) {
+          const alpha = 0.4;
+          let newScore = currentMoodScore;
+          // Since the schema default is 8.0 (old 1-10 scale), we treat 8.0 as "no score" on the new 0-100 scale.
+          if (beneficiary.emotionalScore !== null && beneficiary.emotionalScore !== 8.0) {
+             newScore = alpha * currentMoodScore + (1 - alpha) * beneficiary.emotionalScore;
+          }
+
+          await tx.beneficiary.update({
+            where: { id: visit.beneficiaryId },
+            data: { emotionalScore: newScore },
+          });
+        }
+      }
     }
 
     // 7. Create Medication Adherence records if present
