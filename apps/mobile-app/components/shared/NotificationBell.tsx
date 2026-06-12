@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
+import { addNotificationReceivedListener } from '@/services/notifications';
 
 export default function NotificationBell() {
   const router = useRouter();
@@ -36,6 +37,13 @@ export default function NotificationBell() {
       fetchUnreadCount();
     }, [])
   );
+
+  useEffect(() => {
+    const subscription = addNotificationReceivedListener(() => {
+      fetchUnreadCount();
+    });
+    return () => subscription.remove();
+  }, []);
 
   return (
     <TouchableOpacity style={styles.container} onPress={() => router.push('/notifications')}>

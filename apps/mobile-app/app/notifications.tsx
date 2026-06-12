@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, 
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { addNotificationReceivedListener } from '@/services/notifications';
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -54,6 +55,12 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     fetchNotifications();
+
+    const subscription = addNotificationReceivedListener(() => {
+      fetchNotifications();
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const onRefresh = () => {
