@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from './deps';
-import prisma from '../../core/prisma';
+import prisma from '../../core/database';
 
 const router = Router();
 
@@ -55,7 +55,7 @@ router.get('/notifications', authenticate, async (req, res, next) => {
 router.patch('/notifications/:id/read', authenticate, async (req, res, next) => {
   try {
     const authReq = req as AuthRequest;
-    const { id } = authReq.params;
+    const id = authReq.params.id as string;
     const userId = authReq.userId;
 
     if (!userId) {
