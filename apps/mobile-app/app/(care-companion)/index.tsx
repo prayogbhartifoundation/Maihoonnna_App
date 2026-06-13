@@ -9,12 +9,14 @@ import { API_URL } from '@/constants/api';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { CompanionBottomNav } from '../../components/care-companion/CompanionBottomNav';
 import NotificationBell from '@/components/shared/NotificationBell';
+import { useExitOnBack } from '@/hooks/useExitOnBack';
 
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_ORANGE = '#F97316';
 const LIGHT_BEIGE = '#FAF3EB';
 
 export default function DashboardScreen() {
+    useExitOnBack();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState('');

@@ -13,6 +13,7 @@ import { formatHours } from '@/utils/timeFormat';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '@/components/shared/NotificationBell';
+import { useExitOnBack } from '@/hooks/useExitOnBack';
 
 const { width, height } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -25,6 +26,7 @@ const HORIZONTAL_PADDING = scale(20);
 const CARD_GAP = scale(12);
 
 export default function SubscriberDashboardScreen() {
+    useExitOnBack();
     const router = useRouter();
     const [userData, setUserData] = useState<any>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);

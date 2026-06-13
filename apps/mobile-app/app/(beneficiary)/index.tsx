@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { API_URL } from '@/constants/api';
 import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 import NotificationBell from '@/components/shared/NotificationBell';
+import { useExitOnBack } from '@/hooks/useExitOnBack';
 
 const MOCK_BENEFICIARY_ID = '8340d860-2641-479c-b26a-8b9a71bcec29';
 
@@ -56,6 +57,7 @@ interface DashboardData {
 }
 
 export default function BeneficiaryDashboard() {
+    useExitOnBack();
     const {
         data,
         isLoading: loading,

@@ -50,26 +50,6 @@ function onAppStateChange(status: AppStateStatus) {
  */
 function RootNavigator() {
   const { isLoading, isLoggedIn } = useAuth();
-  const router = useRouter();
-  const segments = useSegments();
-
-  // Route protection logic
-  useEffect(() => {
-    if (isLoading) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-
-    if (!isLoggedIn && !inAuthGroup) {
-      // If not logged in and trying to access an app screen, redirect to auth
-      // Note: we allow (setup) for browsing packages
-      if (segments[0] !== '(setup)') {
-        router.replace('/(auth)');
-      }
-    } else if (isLoggedIn) {
-      // Register for push notifications when logged in
-      registerForPushNotifications();
-    }
-  }, [isLoggedIn, isLoading, segments]);
 
   // While we're checking AsyncStorage, show a native splash-compatible loader
   if (isLoading) {
@@ -80,19 +60,35 @@ function RootNavigator() {
     );
   }
 
-  // ── UNIFIED STACK ──
-  // Expo Router strictly recommends against conditionally hiding <Stack.Screen>.
-  // Instead, all screens are registered, and we use the effect above + gestureEnabled:false
-  // on root dashboards to prevent backing into auth.
+  // Register for push notifications when logged in
+  if (isLoggedIn) {
+    registerForPushNotifications();
+  }
+
+  // ── CONDITIONAL STACK ──
+  // By rendering screens conditionally, we ensure that back gestures
+  // cannot traverse between auth and app boundaries.
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(subscriber)" />
-      <Stack.Screen name="(beneficiary)" />
-      <Stack.Screen name="(care-companion)" />
-      <Stack.Screen name="(setup)" />
-      <Stack.Screen name="package-utilization" />
+      {!isLoggedIn ? (
+        // --- LOGGED OUT SCREENS ---
+        <>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          {/* Allow browsing packages while logged out */}
+          <Stack.Screen name="(setup)" />
+        </>
+      ) : (
+        // --- LOGGED IN SCREENS ---
+        <>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(subscriber)" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="(beneficiary)" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="(care-companion)" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="(setup)" />
+          <Stack.Screen name="package-utilization" />
+        </>
+      )}
     </Stack>
   );
 }
