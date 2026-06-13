@@ -24,7 +24,9 @@ class SupabaseStorage extends StorageService {
         `[SupabaseStorage] Missing env vars: ${missing.join(', ')}. Set them in Admin_panel/backend/.env`
       );
     } else {
-      this.supabase = createClient(supabaseUrl, supabaseKey);
+      this.supabase = createClient(supabaseUrl, supabaseKey, {
+        global: { WebSocket: require('ws') },
+      });
       console.log(
         '[SupabaseStorage] Initialized with bucket:',
         this.bucketName
