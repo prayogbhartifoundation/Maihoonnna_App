@@ -17,8 +17,9 @@ function normalizeUnit(unitLabel) {
 // GET /api/packages — list all with nested benefits
 router.get('/', async (req, res) => {
   try {
+    const { all } = req.query;
     const packages = await prisma.subscriptionPackage.findMany({
-      where: { isActive: true },
+      where: all === 'true' ? undefined : { isActive: true },
       orderBy: { sortOrder: 'asc' },
       include: {
         packageBenefits: {
@@ -407,20 +408,19 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/packages/:id — soft delete
+// DELETE /api/packages/:id — hard delete
 router.delete('/:id', async (req, res) => {
   try {
-    await prisma.subscriptionPackage.update({
-      where: { id: req.params.id },
-      data: { isActive: false },
+    await prisma.$transaction(async (tx) => {
+      await tx.packageBenefit.deleteMany({ where: { packageId: req.params.id } });
+      await tx.packageDiscount.deleteMany({ where: { packageId: req.params.id } });
+      await tx.subscriptionPackage.delete({ where: { id: req.params.id } });
     });
-    res.json({ success: true, message: 'Package deactivated' });
+    res.json({ success: true, message: 'Package deleted' });
   } catch (err) {
     if (err.code === 'P2025')
-      return res
-        .status(404)
-        .json({ success: false, message: 'Package not found' });
-    res.status(500).json({ success: false, message: err.message });
+      return res.status(404).json({ success: false, message: 'Package not found' });
+    res.status(500).json({ success: false, message: 'Cannot delete package, it may be in use.' });
   }
 });
 

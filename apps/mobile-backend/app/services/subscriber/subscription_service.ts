@@ -13,6 +13,32 @@ function normalizeUnit(unitLabel: string | null | undefined): string {
   return clean + 's';
 }
 
+function parseDob(dobStr: string | null | undefined): Date | null {
+  if (!dobStr) return null;
+  const parts = dobStr.split(/[-/]/);
+  if (parts.length === 3) {
+    if (parts[2].length === 4) {
+      // DD-MM-YYYY or DD/MM/YYYY
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month, day);
+      }
+    } else if (parts[0].length === 4) {
+      // YYYY-MM-DD or YYYY/MM/DD
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month, day);
+      }
+    }
+  }
+  const parsed = new Date(dobStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export const purchaseSubscription = async (
   userId: string,
   packageId: string, // We map this to the package type string
@@ -31,6 +57,7 @@ export const purchaseSubscription = async (
     longitude?: number;
     relationship: string;
     phone: string;
+    dob?: string;
   },
   medicalData?: any,
   emergencyContactsRaw?: any,
@@ -56,12 +83,16 @@ export const purchaseSubscription = async (
     beneficiaryPhone = `+91${Date.now().toString().slice(-10)}`; // Use timestamp as backup
   }
 
+  const dobDate = parseDob(beneficiaryData.dob);
+
   const newBeneficiaryUser = await prisma.user.create({
     data: {
       id: generateUUID(),
       phone: beneficiaryPhone,
       name: beneficiaryData.name,
-      role: 'beneficiary'
+      role: 'beneficiary',
+      age: parseInt(String(beneficiaryData.age || 65), 10),
+      dateOfBirth: dobDate
     }
   });
 
@@ -159,10 +190,13 @@ export const purchaseSubscription = async (
   }
 
   if (finalEmergencyContacts.length === 0) {
+      const subscriberUser = await prisma.user.findUnique({
+          where: { id: userId }
+      });
       finalEmergencyContacts.push({
-          name: "Subscriber",
-          phone: beneficiaryData.phone || "0000000000",
-          relation: beneficiaryData.relationship || "Self"
+          name: subscriberUser?.name || "Subscriber",
+          phone: subscriberUser?.phone || "0000000000",
+          relation: beneficiaryData.relationship || "Subscriber"
       });
   }
 
@@ -187,6 +221,7 @@ export const purchaseSubscription = async (
       subscriberId: userId,
       name: beneficiaryData.name,
       age: parseInt(String(beneficiaryData.age || 65), 10),
+      dateOfBirth: dobDate,
       gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
       address: beneficiaryData.address || "Not provided",
       flatPlot: beneficiaryData.flatPlot || null,

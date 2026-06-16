@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -37,12 +37,19 @@ export const GenericEditDialog: React.FC<GenericEditDialogProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Only reset formData when the dialog transitions from closed → open.
+  // We track previous open state with a ref so that re-renders of the parent
+  // (which produce a new initialData object reference every time) do NOT 
+  // wipe out what the user has typed.
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevOpenRef.current) {
+      // Dialog just opened — seed the form with the latest initialData snapshot
       setFormData(initialData || {});
       setError('');
     }
-  }, [isOpen, initialData]);
+    prevOpenRef.current = isOpen;
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [key]: value }));
@@ -118,11 +125,18 @@ export const GenericEditDialog: React.FC<GenericEditDialogProps> = ({
                       onChange={(e) => handleChange(field.key, e.target.value)}
                       className="rounded-2xl border-gray-200 focus:border-[#FF7A00] focus:ring-[#FF7A00]"
                     />
-                    {computedAge !== null && (
-                      <p className="text-[11px] text-gray-500 pl-1">
-                        Age: <span className="font-bold text-[#FF7A00]">{computedAge} years</span>
-                      </p>
-                    )}
+                    <div className="flex flex-col gap-1 pl-1 text-[11px] text-gray-500">
+                      {computedAge !== null && (
+                        <p>
+                          Age from selected DOB: <span className="font-bold text-[#FF7A00]">{computedAge} years</span>
+                        </p>
+                      )}
+                      {formData.age && (
+                        <p>
+                          Estimated DOB (based on Age {formData.age}): <span className="font-bold text-[#FF7A00]">01/01/{new Date().getFullYear() - formData.age}</span>
+                        </p>
+                      )}
+                    </div>
                   </div>
                 );
               })()

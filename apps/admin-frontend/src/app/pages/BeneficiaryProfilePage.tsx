@@ -200,6 +200,12 @@ export default function BeneficiaryProfilePage() {
   const effectiveSecondary = pendingSecondary !== undefined ? pendingSecondary : details.secondaryCcId;
   const hasChanges = pendingPrimary !== undefined || pendingSecondary !== undefined;
 
+  const primaryContact = Array.isArray(details.emergencyContacts)
+    ? details.emergencyContacts.find((c: any) => c.isPrimary) || details.emergencyContacts[0]
+    : null;
+  const isFallback = primaryContact?.name?.toLowerCase() === 'subscriber';
+  const hasRealContact = primaryContact && !isFallback;
+
   return (
     <div className="p-8 bg-[#F4EAE3] min-h-screen">
       <div className="max-w-5xl mx-auto">
@@ -252,9 +258,25 @@ export default function BeneficiaryProfilePage() {
                     <Phone size={18} />
                   </div>
                   <div className="min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Beneficiary Number</p>
+                    <p className="text-sm font-bold text-gray-700">{details.phone || 'N/A'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 flex-shrink-0">
+                    <Phone size={18} />
+                  </div>
+                  <div className="min-w-0">
                     <p className="text-[10px] font-black text-gray-400 uppercase">Emergency Contact</p>
-                    <p className="text-sm font-bold text-gray-700">{details.emergencyContacts?.[0]?.name || 'N/A'}</p>
-                    {details.emergencyContacts?.[0]?.phone && <p className="text-xs text-gray-500">{details.emergencyContacts[0].phone}</p>}
+                    {hasRealContact ? (
+                      <>
+                        <p className="text-sm font-bold text-gray-700">{primaryContact.name} ({primaryContact.relationship || 'Emergency'})</p>
+                        <p className="text-xs text-gray-500">{primaryContact.phone}</p>
+                      </>
+                    ) : (
+                      <p className="text-sm font-bold text-gray-700 text-gray-400 italic">N/A</p>
+                    )}
                   </div>
                 </div>
 
@@ -269,6 +291,27 @@ export default function BeneficiaryProfilePage() {
                   </div>
                 </div>
 
+                {/* Date of Birth */}
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500 flex-shrink-0">
+                    <Calendar size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Date of Birth</p>
+                    {details.dateOfBirth ? (
+                      <>
+                        <p className="text-sm font-bold text-gray-700">
+                          {new Date(details.dateOfBirth).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        </p>
+                        <p className="text-xs text-gray-500">Age: {details.age}</p>
+                      </>
+                    ) : (
+                      <p className="text-sm font-bold text-gray-400 italic">Not set — click Edit Care Profile</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Registered On */}
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0">
                     <Calendar size={18} />
@@ -286,6 +329,7 @@ export default function BeneficiaryProfilePage() {
                 <Edit2 size={14} /> Edit Care Profile
               </button>
             </div>
+
 
             <div className="bg-white rounded-[32px] p-6 shadow-sm border border-[#E7DED6]">
                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Subscriber Info</h4>

@@ -11,6 +11,8 @@ export const createBeneficiarySchema = Joi.object({
   medicalConditions: Joi.array().items(Joi.string()).default([]),
   medications: Joi.array().items(Joi.string()).default([]),
   emergencyContacts: Joi.array().items(Joi.object()).default([]),
+  dob: Joi.string().optional(),
+  dateOfBirth: Joi.string().optional(),
 });
 
 export const updateBeneficiarySchema = Joi.object({

@@ -47,10 +47,15 @@ const DataFilter: React.FC<DataFilterProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const onFilterChangeRef = useRef(onFilterChange);
+  useEffect(() => {
+    onFilterChangeRef.current = onFilterChange;
+  }, [onFilterChange]);
+
   // Debounce search effect
   useEffect(() => {
     const timer = setTimeout(() => {
-      onFilterChange({
+      onFilterChangeRef.current({
         search: localSearch,
         searchBy: localSearchBy === 'all' ? '' : localSearchBy,
         ...localFilters
@@ -58,7 +63,7 @@ const DataFilter: React.FC<DataFilterProps> = ({
     }, debounceMs);
 
     return () => clearTimeout(timer);
-  }, [localSearch, localSearchBy, localFilters, debounceMs, onFilterChange]);
+  }, [localSearch, localSearchBy, localFilters, debounceMs]);
 
   const handleClearAll = () => {
     setLocalSearch('');

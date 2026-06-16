@@ -179,7 +179,7 @@ export default function CheckoutScreen() {
 
                     if (parsed.dob) {
                         try {
-                            const [day, month, year] = parsed.dob.split('-');
+                            const [day, month, year] = parsed.dob.split(/[-/]/);
                             if (year && year.length === 4) {
                                 beneficiaryData.age = new Date().getFullYear() - parseInt(year, 10);
                             }

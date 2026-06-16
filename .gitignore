@@ -5,3 +5,5 @@ apps/admin-backend/prisma/seedTestSub.js
 MOBILE_TESTING_SETUP.md
 apps/mobile-backend/scratch_check_user.ts
 apps/mobile-backend/scratch_delete_user.ts
+apps/admin-backend/scratch/
+apps/mobile-backend/scratch_check_harshit.ts

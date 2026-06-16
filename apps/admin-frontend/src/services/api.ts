@@ -521,7 +521,33 @@ export const beneficiaryApi = {
       page: params.page.toString(),
       limit: params.limit.toString()
     }).toString();
-    return apiJson(`/beneficiaries?${query}`);
+    const res = await apiJson<any>(`/beneficiaries?${query}`);
+    
+    if (res && res.data && Array.isArray(res.data)) {
+      res.data = res.data.map((b: any) => {
+        const emContacts = Array.isArray(b.emergencyContacts) ? b.emergencyContacts : [];
+        const firstEmContact = emContacts[0] || {};
+        return {
+          ...b,
+          medicalHistory: b.medicalConditions
+            ? (typeof b.medicalConditions === 'string'
+                ? b.medicalConditions.split(',').map((s: string) => s.trim()).filter(Boolean)
+                : b.medicalConditions)
+            : [],
+          medications: b.medications || [],
+          emergencyContact: { 
+            name: firstEmContact.name || b.subscriberName || 'N/A', 
+            relation: firstEmContact.relation || 'Subscriber', 
+            phone: firstEmContact.phone || b.subscriberPhone || '' 
+          },
+          careCompanion: b.careCompanion,
+          secondaryCareCompanion: b.secondaryCareCompanion,
+          fieldManager: b.fieldManager,
+          emotionalScore: b.emotionalScore,
+        };
+      });
+    }
+    return res;
   },
 
   async getById(id: string): Promise<any | undefined> {
@@ -790,13 +816,18 @@ export const benefitApi = {
 };
 
 export const packageApi = {
-  async getAll(): Promise<any[]> { return apiJson('/packages'); },
+  async getAll(params?: { all?: boolean }): Promise<any[]> { 
+    return apiJson(params?.all ? '/packages?all=true' : '/packages'); 
+  },
   async getOne(id: string): Promise<any> { return apiJson(`/packages/${id}`); },
   async create(data: { name: string; packageCost: number; mrp: number; discountPercentage: number; activeFrom: string; benefits?: any[]; [key: string]: any }): Promise<any> {
     return apiJson('/packages', { method: 'POST', body: JSON.stringify(data) });
   },
   async update(id: string, data: { name?: string; packageCost?: number; mrp?: number; discountPercentage?: number; activeFrom?: string; benefits?: any[]; [key: string]: any }): Promise<any> {
     return apiJson(`/packages/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+  async toggleStatus(id: string, isActive: boolean): Promise<any> {
+    return apiJson(`/packages/${id}`, { method: 'PATCH', body: JSON.stringify({ isActive }) });
   },
   async delete(id: string): Promise<void> { return apiJson(`/packages/${id}`, { method: 'DELETE' }); },
   async updateBenefits(id: string, benefits: { benefitId: string; unitsIncluded: number; unitsPeriod?: string; isUnlimited?: boolean }[]): Promise<any> {

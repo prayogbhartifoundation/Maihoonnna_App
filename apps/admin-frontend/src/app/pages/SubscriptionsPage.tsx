@@ -81,7 +81,7 @@ export default function SubscriptionsPage() {
 
   const loadData = async () => {
     const [pkgs, bnfs] = await Promise.all([
-      packageApi.getAll(),
+      packageApi.getAll({ all: true }),
       benefitApi.getAll({ activeOnly: true }),
     ]);
     setPackages(pkgs);
@@ -182,14 +182,27 @@ export default function SubscriptionsPage() {
     setShowWizard(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to deactivate this package?')) return;
+  const handleToggleStatus = async (pkg: any) => {
+    const newStatus = !pkg.isActive;
+    const action = newStatus ? 'Active' : 'Inactive';
+    if (!window.confirm(`Do you want to set this package to ${action}?`)) return;
     try {
-      await packageApi.delete(id);
-      toast.success('Package deactivated');
+      await packageApi.toggleStatus(pkg.id, newStatus);
+      toast.success(`Package set to ${action}`);
       await loadData();
     } catch (error) {
-      toast.error('Failed to deactivate package');
+      toast.error(`Failed to set package to ${action}`);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to permanently delete this package?')) return;
+    try {
+      await packageApi.delete(id);
+      toast.success('Package deleted');
+      await loadData();
+    } catch (error) {
+      toast.error('Failed to delete package. It may be in use.');
     }
   };
 
@@ -638,7 +651,9 @@ export default function SubscriptionsPage() {
                           <span className="text-[10px] bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-semibold uppercase">Private</span>
                         )}
                       </CardTitle>
-                      <StatusChip status={pkg.isActive ? 'Active' : 'Inactive'} />
+                      <div onClick={() => handleToggleStatus(pkg)} className="cursor-pointer hover:opacity-80 transition-opacity" title={`Click to set ${pkg.isActive ? 'Inactive' : 'Active'}`}>
+                        <StatusChip status={pkg.isActive ? 'Active' : 'Inactive'} />
+                      </div>
                     </div>
                     {pkg.discountPercentage > 0 && (
                       <CardDescription>

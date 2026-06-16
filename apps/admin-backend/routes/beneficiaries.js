@@ -58,8 +58,9 @@ router.get('/', async (req, res) => {
 
     const listQuery = {
       where: filterParams,
-      orderBy: sortBy && sortBy !== 'distance' ? { [sortBy]: sortOrder } : { createdAt: 'desc' },
+      orderBy: sortBy && sortBy !== 'distance' ? [ { [sortBy]: sortOrder }, { id: 'desc' } ] : [ { createdAt: 'desc' }, { id: 'desc' } ],
       include: {
+        user: { select: { phone: true } },
         subscriber: {
           select: { name: true, phone: true, email: true },
         },
@@ -127,6 +128,7 @@ router.get('/', async (req, res) => {
         id: b.id,
         userId: b.userId,
         name: b.name,
+        phone: b.user?.phone || null,
         photo: b.photo,
         dateOfBirth: b.dateOfBirth || null,
         age: b.dateOfBirth ? (calculateAge(b.dateOfBirth) ?? b.age) : b.age,
@@ -517,6 +519,7 @@ router.get('/:id', async (req, res) => {
     const b = await prisma.beneficiary.findUnique({
       where: { id: req.params.id },
       include: {
+        user: true,
         subscriber: true,
         primaryCC: true,
         secondaryCC: true,
@@ -551,6 +554,7 @@ router.get('/:id', async (req, res) => {
       success: true,
       data: { 
         ...b, 
+        phone: b.user?.phone || null,
         dateOfBirth: b.dateOfBirth || null,
         age: b.dateOfBirth ? (calculateAge(b.dateOfBirth) ?? b.age) : b.age,
         subscriptions: sub ? [sub] : [] 
@@ -573,7 +577,8 @@ router.put('/:id', async (req, res) => {
       primaryPhysicianName, primaryPhysicianPhone, primaryPhysicianSpec, 
       emotionalScore, trackBloodPressure, trackHeartRate, trackBloodSugar,
       trackTemperature, trackOxygenSaturation, trackWeight, trackPainLevel,
-      trackRespiratoryRate, medicalConditions, medications, isActive, dateOfBirth
+      trackRespiratoryRate, medicalConditions, medications, isActive, dateOfBirth,
+      emergencyContactName, emergencyContactPhone, emergencyContactRelationship
     } = req.body;
 
     const b = await prisma.beneficiary.findUnique({ where: { id } });
@@ -621,6 +626,19 @@ router.put('/:id', async (req, res) => {
         data: dataToUpdate
       });
 
+      // Update corresponding User record if age/dob/name changed
+      const userUpdate = {};
+      if (name !== undefined) userUpdate.name = name;
+      if (parsedAge !== undefined) userUpdate.age = parsedAge;
+      if (dateOfBirth !== undefined) userUpdate.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+
+      if (Object.keys(userUpdate).length > 0) {
+        await tx.user.update({
+          where: { id: ben.userId },
+          data: userUpdate
+        });
+      }
+
       // 2. Sync Medical Conditions (delete old links, create new ones)
       if (medicalConditions !== undefined && Array.isArray(medicalConditions)) {
         // Remove current condition links
@@ -662,6 +680,34 @@ router.put('/:id', async (req, res) => {
               startDate: m.startDate ? new Date(m.startDate) : new Date(),
               endDate: m.endDate ? new Date(m.endDate) : null,
               isActive: true,
+            }
+          });
+        }
+      }
+
+      // 4. Sync/Update Primary Emergency Contact
+      if (emergencyContactName !== undefined || emergencyContactPhone !== undefined || emergencyContactRelationship !== undefined) {
+        const existingPrimary = await tx.emergencyContact.findFirst({
+          where: { beneficiaryId: id, isPrimary: true }
+        });
+
+        if (existingPrimary) {
+          await tx.emergencyContact.update({
+            where: { id: existingPrimary.id },
+            data: {
+              name: emergencyContactName !== undefined ? emergencyContactName : existingPrimary.name,
+              phone: emergencyContactPhone !== undefined ? emergencyContactPhone : existingPrimary.phone,
+              relationship: emergencyContactRelationship !== undefined ? emergencyContactRelationship : existingPrimary.relationship,
+            }
+          });
+        } else {
+          await tx.emergencyContact.create({
+            data: {
+              beneficiaryId: id,
+              name: emergencyContactName || 'Emergency Contact',
+              phone: emergencyContactPhone || '',
+              relationship: emergencyContactRelationship || 'Emergency',
+              isPrimary: true
             }
           });
         }

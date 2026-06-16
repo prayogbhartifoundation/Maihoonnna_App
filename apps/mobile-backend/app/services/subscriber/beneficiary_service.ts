@@ -39,6 +39,31 @@ const normalizeGender = (raw: string): string => {
   return 'prefer_not_to_say';
 };
 
+const parseDob = (dobStr: string | null | undefined): Date | null => {
+  if (!dobStr) return null;
+  const parts = dobStr.split(/[-/]/);
+  if (parts.length === 3) {
+    if (parts[2].length === 4) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month, day);
+      }
+    } else if (parts[0].length === 4) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month, day);
+      }
+    }
+  }
+  const parsed = new Date(dobStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+
 export const createBeneficiary = async (data: {
   subscriberId: string;
   phone: string; // Add real phone property
@@ -50,6 +75,7 @@ export const createBeneficiary = async (data: {
   medicalConditions?: string[];
   medications?: string[];
   emergencyContacts?: any[];
+  dob?: string;
 }) => {
   // Check if user with this phone already exists
   const existingUser = await prisma.user.findUnique({ where: { phone: data.phone } });
@@ -57,12 +83,16 @@ export const createBeneficiary = async (data: {
     throw new Error("A user with this phone number already exists.");
   }
 
+  const dobDate = parseDob(data.dob);
+
   const user = await prisma.user.create({
     data: {
       id: generateUUID(),
       phone: data.phone, // Use provided phone instead of generated
       name: data.name,
       role: 'beneficiary',
+      age: data.age,
+      dateOfBirth: dobDate
     },
   });
 
@@ -74,6 +104,7 @@ export const createBeneficiary = async (data: {
       name: data.name,
       photo: data.photo,
       age: data.age,
+      dateOfBirth: dobDate,
       gender: (data.gender.toLowerCase() === 'male' ? 'male' : data.gender.toLowerCase() === 'female' ? 'female' : 'prefer_not_to_say') as any,
       address: data.address,
       emergencyContacts: {
