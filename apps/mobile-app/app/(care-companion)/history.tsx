@@ -9,6 +9,8 @@ import { CompanionBackButton } from '../../components/care-companion/CompanionBa
 
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { CompanionBottomNav } from '../../components/care-companion/CompanionBottomNav';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_BEIGE = '#FAF3EB';
@@ -16,11 +18,13 @@ const GRAY_BG = '#F9FAFB';
 
 export default function HistoryScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const handleSafeBack = () => {
         if (router.canGoBack()) {
-            router.back();
+            pop();
         } else {
-            router.replace('/(care-companion)');
+            replace('/(care-companion)');
         }
     };
     const [loading, setLoading] = useState(true);
@@ -61,7 +65,7 @@ export default function HistoryScreen() {
             try {
                 const token = await AsyncStorage.getItem('userToken');
                 if (!token) {
-                    router.replace('/(auth)');
+                    replace('/(auth)');
                     return;
                 }
 
@@ -367,7 +371,7 @@ export default function HistoryScreen() {
                                         {(visit.rawDate && Date.now() - new Date(visit.rawDate).getTime() <= 24 * 60 * 60 * 1000) && (
                                             <TouchableOpacity 
                                                 style={styles.editBtn}
-                                                onPress={() => router.push({ pathname: '/(care-companion)/visit-details', params: { visitId: visit.id, editMode: 'true' } } as any)}
+                                                onPress={() => push({ pathname: '/(care-companion)/visit-details', params: { visitId: visit.id, editMode: 'true' } } as any)}
                                             >
                                                 <Ionicons name="pencil" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
                                                 <Text style={styles.editBtnText}>Edit Visit Details</Text>

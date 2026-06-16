@@ -3,14 +3,18 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function CoverageSuccessScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
 
     const handleProceed = () => {
         // Navigate to the Subscription Setup flow instead of tabs immediately
-        router.replace("/(setup)/subscription-packages");
+        replace("/(setup)/subscription-packages");
     };
 
     return (

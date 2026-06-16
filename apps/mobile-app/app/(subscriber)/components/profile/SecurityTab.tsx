@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 interface SecurityItemProps {
     icon: any;
@@ -41,6 +43,8 @@ const iconToneByTitle: Record<string, { color: string; box: object }> = {
 
 export const SecurityTab = () => {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
 
     return (
         <View style={styles.container}>
@@ -51,7 +55,7 @@ export const SecurityTab = () => {
                         icon="lock-closed-outline" 
                         title="Change Password" 
                         subtitle="Update your password" 
-                        onPress={() => router.push({ pathname: '/(subscriber)/settings/change-password' } as any)}
+                        onPress={() => push({ pathname: '/(subscriber)/settings/change-password' } as any)}
                     />
                     <View style={styles.divider} />
                     <SecurityItem 
@@ -66,7 +70,7 @@ export const SecurityTab = () => {
                         icon="globe-outline" 
                         title="Login Activity" 
                         subtitle="View recent account events" 
-                        onPress={() => router.push({ pathname: '/(subscriber)/settings/activity-log' } as any)}
+                        onPress={() => push({ pathname: '/(subscriber)/settings/activity-log' } as any)}
                     />
                 </View>
             </View>
@@ -85,7 +89,7 @@ export const SecurityTab = () => {
                         icon="heart-outline" 
                         title="Data Privacy" 
                         subtitle="Manage your data" 
-                        onPress={() => router.push({ pathname: '/(subscriber)/settings/privacy' } as any)}
+                        onPress={() => push({ pathname: '/(subscriber)/settings/privacy' } as any)}
                     />
                 </View>
             </View>

@@ -15,6 +15,7 @@
 import { Alert, Platform } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCallback } from 'react';
+import { router } from 'expo-router';
 
 /**
  * Hook that returns a confirm-then-logout function, ready to be used as onPress.
@@ -27,10 +28,15 @@ export function useLogoutWithConfirm(): () => void {
     const { logout } = useAuth();
 
     return useCallback(() => {
+        const performLogout = async () => {
+            await logout();
+            router.replace('/(auth)');
+        };
+
         if (Platform.OS === 'web') {
             // eslint-disable-next-line no-alert
             if (window.confirm('Are you sure you want to log out?')) {
-                logout();
+                performLogout();
             }
         } else {
             Alert.alert(
@@ -38,7 +44,7 @@ export function useLogoutWithConfirm(): () => void {
                 'Are you sure you want to log out?',
                 [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Log Out', style: 'destructive', onPress: logout },
+                    { text: 'Log Out', style: 'destructive', onPress: performLogout },
                 ],
                 { cancelable: true }
             );
@@ -51,10 +57,15 @@ export function useLogoutWithConfirm(): () => void {
  * Shows an "Are you sure?" dialog before calling the provided logout function.
  */
 export const logoutWithConfirm = (logoutFn: () => Promise<void>): void => {
+    const performLogout = async () => {
+        await logoutFn();
+        router.replace('/(auth)');
+    };
+
     if (Platform.OS === 'web') {
         // eslint-disable-next-line no-alert
         if (window.confirm('Are you sure you want to log out?')) {
-            logoutFn();
+            performLogout();
         }
     } else {
         Alert.alert(
@@ -62,7 +73,7 @@ export const logoutWithConfirm = (logoutFn: () => Promise<void>): void => {
             'Are you sure you want to log out?',
             [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Log Out', style: 'destructive', onPress: logoutFn },
+                { text: 'Log Out', style: 'destructive', onPress: performLogout },
             ],
             { cancelable: true }
         );

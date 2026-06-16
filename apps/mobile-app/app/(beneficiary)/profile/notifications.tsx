@@ -4,9 +4,13 @@ import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function NotificationsScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
 
     const [medPush, setMedPush] = useState(true);

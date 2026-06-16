@@ -10,12 +10,16 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderSpacer from '../../components/HeaderSpacer';
 
 export default function SchedulePreferencesScreen() {
     const router = useRouter();
+    const { push } = useNavigationStack();
     const safeBack = useSafeBack();
+    useAndroidBackHandler();
     const params = useLocalSearchParams();
     const [fontsLoaded] = useFonts({
         Poppins_400Regular,
@@ -49,16 +53,13 @@ export default function SchedulePreferencesScreen() {
             return;
         }
 
-        router.push({
-            pathname: '/(setup)/checkout',
-            params: {
-                packageId: params.packageId,
-                subscriberData: params.subscriberData,
-                beneficiaryData: params.beneficiaryData,
-                medicalData: params.medicalData,
-                emergencyContacts: params.emergencyContacts,
-                preferencesData: JSON.stringify({ preferredTiming: visitTiming })
-            }
+        push('/(setup)/checkout', {
+            packageId: params.packageId,
+            subscriberData: params.subscriberData,
+            beneficiaryData: params.beneficiaryData,
+            medicalData: params.medicalData,
+            emergencyContacts: params.emergencyContacts,
+            preferencesData: JSON.stringify({ preferredTiming: visitTiming })
         });
     };
 
@@ -215,9 +216,9 @@ const styles = StyleSheet.create({
     label: { fontFamily: 'Poppins_400Regular', fontSize: 14, lineHeight: 20, color: '#000000', marginBottom: 21 },
     pillContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 31 },
     timingPill: { backgroundColor: '#E5E5E5', borderRadius: 14, paddingHorizontal: 11, paddingVertical: 3, marginRight: 10, marginBottom: 10 },
-    timingPillActive: { backgroundColor: '#E5E5E5' },
+    timingPillActive: { backgroundColor: '#FE6700', borderColor: '#FE6700' },
     timingText: { color: '#000000', fontFamily: 'Poppins_400Regular', fontSize: 12, lineHeight: 16 },
-    timingTextActive: { color: '#000000', fontFamily: 'Poppins_400Regular' },
+    timingTextActive: { color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold' },
 
     agreementBox: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 37 },
     checkbox: { marginRight: 8, marginTop: 1 },

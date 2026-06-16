@@ -98,7 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Called from logout button — clears everything
   const logout = useCallback(async () => {
-    await AsyncStorage.multiRemove(['userToken', 'userData']);
+    try {
+      await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userData');
+      await AsyncStorage.clear();
+    } catch (err) {
+      console.error('[AuthContext] Failed to clear AsyncStorage:', err);
+    }
     setState({
       isLoading: false,
       isLoggedIn: false,

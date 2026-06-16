@@ -5,6 +5,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 const { width, height } = Dimensions.get('window');
 const BASE_WIDTH = 390;
@@ -15,6 +17,8 @@ export default function AuthScreen() {
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
 
   const handleLogin = async () => {
     if (phone.length !== 10) {
@@ -34,7 +38,7 @@ export default function AuthScreen() {
       const data = await response.json();
 
       if (data.success) {
-        router.push({
+        push({
           pathname: "/(auth)/verify-otp",
           params: { phone: `+91${phone}` },
         });
@@ -125,7 +129,7 @@ export default function AuthScreen() {
           {/* Password Login */}
           <TouchableOpacity
             style={styles.passwordButton}
-            onPress={() => router.push("/(auth)/login-password" as any)}
+            onPress={() => push("/(auth)/login-password" as any)}
             disabled={isLoading}
             activeOpacity={0.85}
           >
@@ -137,14 +141,14 @@ export default function AuthScreen() {
           <View style={styles.footer}>
             <View style={styles.signUpRow}>
               <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
+              <TouchableOpacity onPress={() => push("/(auth)/register")}>
                 <Text style={styles.orangeTextBold}>Sign Up</Text>
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
               style={styles.browseButton}
-              onPress={() => router.push("/(setup)/subscription-packages")}
+              onPress={() => push("/(setup)/subscription-packages")}
               activeOpacity={0.85}
             >
               <MaterialCommunityIcons name="package-variant-closed" size={scale(22)} color="#FF8E4D" />

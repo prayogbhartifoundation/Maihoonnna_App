@@ -16,6 +16,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { registerForPushNotifications } from '@/services/notifications';
+import { NavigationStackProvider, useNavigationStack } from '@/contexts/NavigationStackContext';
 
 // Keep splash screen visible while we load fonts + session
 SplashScreen.preventAutoHideAsync();
@@ -50,6 +51,12 @@ function onAppStateChange(status: AppStateStatus) {
  */
 function RootNavigator() {
   const { isLoading, isLoggedIn } = useAuth();
+  const { resetStack } = useNavigationStack();
+
+  // Reset logical navigation stack when auth state changes
+  useEffect(() => {
+    resetStack();
+  }, [isLoggedIn, resetStack]);
 
   // While we're checking AsyncStorage, show a native splash-compatible loader
   if (isLoading) {
@@ -125,7 +132,9 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <SafeAreaProvider>
           <AuthProvider>
-            <RootNavigator />
+            <NavigationStackProvider>
+              <RootNavigator />
+            </NavigationStackProvider>
           </AuthProvider>
           <StatusBar style="auto" />
         </SafeAreaProvider>

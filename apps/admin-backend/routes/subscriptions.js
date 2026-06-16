@@ -4,6 +4,17 @@ const { prisma } = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
 const { calculateAge } = require('../utils/age');
 
+function normalizeUnit(unitLabel) {
+  if (!unitLabel) return 'visits';
+  const clean = unitLabel.replace(/^per\s+/i, '').trim().toLowerCase();
+  if (clean === 'visit') return 'visits';
+  if (clean === 'hour') return 'hours';
+  if (clean === 'session') return 'sessions';
+  if (clean === 'test') return 'tests';
+  if (clean.endsWith('s')) return clean;
+  return clean + 's';
+}
+
 // ── GET /api/subscriptions/check-phone ────────────────────────────────────────
 // Pre-check if a phone already has a user record + their beneficiaries
 router.get('/check-phone', async (req, res) => {
@@ -123,21 +134,13 @@ router.post('/admin-enroll', async (req, res) => {
       });
   }
 
-  // If beneficiary is different, we need their phone
-  if (!sameAsSubscriber && !beneficiaryPhone) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: 'beneficiaryPhone is required when sameAsSubscriber is false',
-      });
-  }
+  // If beneficiary is different, we generate a placeholder phone if not provided
 
   try {
     // Fetch package
     const pkg = await prisma.subscriptionPackage.findUnique({
       where: { id: packageId },
-      include: { packageBenefits: true },
+      include: { packageBenefits: { include: { benefit: true } } },
     });
     if (!pkg)
       return res
@@ -200,7 +203,8 @@ router.post('/admin-enroll', async (req, res) => {
       if (sameAsSubscriber) {
         beneficiaryUser = subscriberUser;
       } else {
-        const benPhone = beneficiaryPhone;
+        // If no beneficiary phone given, generate a placeholder (BEN- prefix + subscriber phone suffix)
+        const benPhone = beneficiaryPhone || `BEN${subscriberPhone.slice(-8)}`;
         const benHash = await bcrypt.hash('otp-only-' + benPhone, 8);
         beneficiaryUser = await tx.user.findUnique({
           where: { phone: benPhone },
@@ -424,6 +428,7 @@ router.post('/admin-enroll', async (req, res) => {
             benefitId: pb.benefitId,
             totalUnits: pb.unitsIncluded,
             usedUnits: 0,
+            unit: pb.unit || (pb.benefit?.unitLabel ? normalizeUnit(pb.benefit.unitLabel) : 'visits'),
           })),
           skipDuplicates: true,
         });
@@ -510,6 +515,85 @@ router.get('/:id/balances', async (req, res) => {
   }
 });
 
+// ── POST /api/subscriptions/:id/initialize-balances ──────────────────────────
+// Backfills missing SubscriptionBenefitBalance rows for an existing subscription.
+// Safe to call multiple times — uses skipDuplicates.
+router.post('/:id/initialize-balances', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Fetch subscription + its package benefits
+    const sub = await prisma.subscription.findUnique({
+      where: { id },
+      include: {
+        package: {
+          include: {
+            packageBenefits: {
+              include: { benefit: true },
+            },
+          },
+        },
+        benefitBalances: true,
+      },
+    });
+
+    if (!sub) {
+      return res.status(404).json({ success: false, message: 'Subscription not found' });
+    }
+
+    const packageBenefits = sub.package?.packageBenefits || [];
+
+    if (packageBenefits.length === 0) {
+      return res.json({
+        success: true,
+        message: 'This package has no defined benefits — nothing to initialize.',
+        created: 0,
+      });
+    }
+
+    // Find which benefitIds are already tracked
+    const existingBenefitIds = new Set(sub.benefitBalances.map((bb) => bb.benefitId));
+
+    // Only create missing ones
+    const toCreate = packageBenefits
+      .filter((pb) => !existingBenefitIds.has(pb.benefitId))
+      .map((pb) => ({
+        subscriptionId: id,
+        benefitId: pb.benefitId,
+        totalUnits: pb.unitsIncluded,
+        usedUnits: 0,
+        unit: pb.unit || (pb.benefit?.unitLabel ? normalizeUnit(pb.benefit.unitLabel) : 'visits'),
+      }));
+
+    if (toCreate.length === 0) {
+      return res.json({
+        success: true,
+        message: 'All benefit balances are already initialized.',
+        created: 0,
+      });
+    }
+
+    await prisma.subscriptionBenefitBalance.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+
+    console.log(`[InitBalances] Created ${toCreate.length} balances for subscription ${id}`);
+
+    res.json({
+      success: true,
+      message: `Successfully initialized ${toCreate.length} benefit balance(s).`,
+      created: toCreate.length,
+      benefits: toCreate.map((b) => {
+        const pb = packageBenefits.find((p) => p.benefitId === b.benefitId);
+        return { benefitId: b.benefitId, name: pb?.benefit?.name, totalUnits: b.totalUnits };
+      }),
+    });
+  } catch (err) {
+    console.error('[InitBalances] Error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── POST /api/subscriptions/enroll ────────────────────────────────────────────
 // Legacy enroll route (requires existing user IDs)
 router.post('/enroll', async (req, res) => {
@@ -528,7 +612,7 @@ router.post('/enroll', async (req, res) => {
   try {
     const pkg = await prisma.subscriptionPackage.findUnique({
       where: { id: packageId },
-      include: { packageBenefits: true },
+      include: { packageBenefits: { include: { benefit: true } } },
     });
     if (!pkg)
       return res
@@ -566,6 +650,7 @@ router.post('/enroll', async (req, res) => {
             benefitId: pb.benefitId,
             totalUnits: pb.unitsIncluded,
             usedUnits: 0,
+            unit: pb.unit || (pb.benefit?.unitLabel ? normalizeUnit(pb.benefit.unitLabel) : 'visits'),
           })),
         });
       }

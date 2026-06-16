@@ -46,6 +46,9 @@ import publicZonesRouter from './api/public/zones.routes';
 import publicEnrollmentRouter from './api/public/enrollment.routes';
 import publicLocationRouter from './api/public/location.routes';
 
+// ⚠️ DEV-ONLY — Remove this import + route registration below when done testing
+import devRouter from './api/dev/dev.routes';
+
 const app = express();
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
@@ -136,6 +139,9 @@ app.use(`${API}/public/vitals`, publicVitalsRouter);
 app.use(`${API}/public/zones`, publicZonesRouter);
 app.use(`${API}/public/location`, publicLocationRouter);
 app.use(`${API}/public`, publicEnrollmentRouter);
+
+// ⚠️ DEV-ONLY — Remove this block when done testing (also delete app/api/dev/dev.routes.ts)
+app.use(`${API}/dev`, devRouter);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {

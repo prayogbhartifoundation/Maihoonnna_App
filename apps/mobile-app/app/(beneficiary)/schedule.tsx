@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 type Visit = {
     id: string;
@@ -19,6 +21,8 @@ type Visit = {
 
 export default function ScheduleScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const [upcomingVisits, setUpcomingVisits] = useState<Visit[]>([]);
     const [pastVisits, setPastVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
@@ -142,7 +146,7 @@ export default function ScheduleScreen() {
                                 key={visit.id}
                                 style={styles.card}
                                 activeOpacity={0.7}
-                                onPress={() => router.push({
+                                onPress={() => push({
                                     pathname: '/(beneficiary)/interactions',
                                     params: { visitId: visit.id }
                                 })}

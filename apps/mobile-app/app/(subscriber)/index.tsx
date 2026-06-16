@@ -99,6 +99,12 @@ export default function SubscriberDashboardScreen() {
 
     const onRefresh = () => refetch();
 
+    useFocusEffect(
+        useCallback(() => {
+            refetch();
+        }, [refetch])
+    );
+
     /* ─── Drawer helpers ─────────────────────────────────── */
     const openDrawer = () => {
         setDrawerOpen(true);

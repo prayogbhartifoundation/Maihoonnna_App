@@ -10,9 +10,13 @@ import AddMedicineModal, { type Medication } from './components/shared/AddMedici
 import { AddressInputField } from '../../components/ui/AddressInputField';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function EditBeneficiaryScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
     const { id } = useLocalSearchParams<{ id: string }>();
 

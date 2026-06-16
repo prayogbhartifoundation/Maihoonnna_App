@@ -14,13 +14,19 @@ import { useLocationPermission } from '../../hooks/useLocationPermission';
 import { PhotoPickerInput } from '../../components/ui/PhotoPickerInput';
 import { AddressInputField } from '../../components/ui/AddressInputField';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderSpacer from '@/components/HeaderSpacer';
+// ⚠️ DEV ONLY — remove this import when done testing
+import { useState as useDevState } from 'react';
 
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
+    const { push } = useNavigationStack();
     const safeBack = useSafeBack();
+    useAndroidBackHandler();
     const params = useLocalSearchParams();
     const [fontsLoaded] = useFonts({
         Poppins_400Regular,
@@ -71,6 +77,11 @@ export default function BeneficiaryInfoScreen() {
         longitude: 0,
     });
 
+    // ⚠️ DEV ONLY — remove this block when done testing
+    const [devPassword, setDevPassword] = useState('');
+    const [devPwdVisible, setDevPwdVisible] = useState(false);
+    // end DEV ONLY
+
     const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
 
     const handleDobChange = (text: string) => {
@@ -97,13 +108,11 @@ export default function BeneficiaryInfoScreen() {
     };
 
     const handleNext = () => {
-        router.push({
-            pathname: '/(setup)/medical-info',
-            params: {
-                packageId: params.packageId,
-                subscriberData: params.subscriberData,
-                beneficiaryData: JSON.stringify(beneficiaryForm)
-            }
+        push('/(setup)/medical-info', {
+            packageId: params.packageId,
+            subscriberData: params.subscriberData,
+            // ⚠️ DEV ONLY — devPassword is included so checkout can call /api/dev/set-beneficiary-password
+            beneficiaryData: JSON.stringify({ ...beneficiaryForm, devPassword: devPassword || undefined })
         });
     };
 
@@ -192,6 +201,7 @@ export default function BeneficiaryInfoScreen() {
                                 placeholder="Enter beneficiary's full name"
                                 placeholderTextColor="#9CA3AF"
                                 value={beneficiaryForm.fullName}
+                                maxLength={50}
                                 onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, fullName: t })}
                             />
                         </View>
@@ -275,6 +285,7 @@ export default function BeneficiaryInfoScreen() {
                                     placeholder="e.g. Grandfather, Aunt, etc."
                                     placeholderTextColor="#9CA3AF"
                                     value={beneficiaryForm.relationship === 'Other' ? '' : beneficiaryForm.relationship}
+                                    maxLength={50}
                                     onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, relationship: t })}
                                     autoFocus
                                 />
@@ -289,10 +300,35 @@ export default function BeneficiaryInfoScreen() {
                                 placeholder="10-digit mobile number"
                                 placeholderTextColor="#9CA3AF"
                                 keyboardType="numeric"
+                                maxLength={10}
                                 value={beneficiaryForm.phone}
-                                onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, phone: t })}
+                                onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, phone: t.replace(/[^0-9]/g, '').slice(0, 10) })}
                             />
                         </View>
+
+                        {/* ⚠️ DEV ONLY — inline test password field — remove this block when done testing */}
+                        <View style={styles.inputGroup}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                <Text style={styles.label}>Test Password</Text>
+                                <View style={{ marginLeft: 6, backgroundColor: '#FEF3C7', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 }}>
+                                    <Text style={{ fontSize: 9, fontWeight: '700', color: '#92400E', letterSpacing: 0.3 }}>DEV ONLY</Text>
+                                </View>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F59E0B', borderRadius: 9, backgroundColor: '#FFFBEB', overflow: 'hidden' }}>
+                                <TextInput
+                                    style={[styles.input, { flex: 1, borderWidth: 0, backgroundColor: 'transparent', marginBottom: 0 }]}
+                                    placeholder="Set login password (optional)"
+                                    placeholderTextColor="#9CA3AF"
+                                    secureTextEntry={!devPwdVisible}
+                                    value={devPassword}
+                                    onChangeText={setDevPassword}
+                                />
+                                <TouchableOpacity onPress={() => setDevPwdVisible(v => !v)} style={{ paddingHorizontal: 12 }}>
+                                    <Ionicons name={devPwdVisible ? 'eye-off-outline' : 'eye-outline'} size={20} color="#92400E" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        {/* end DEV ONLY */}
 
                         {/* Address Area */}
                         <AddressInputField
@@ -319,6 +355,7 @@ export default function BeneficiaryInfoScreen() {
                                     placeholder="e.g. 402, Sunshine"
                                     placeholderTextColor="#9CA3AF"
                                     value={beneficiaryForm.flatPlot}
+                                    maxLength={50}
                                     onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, flatPlot: t })}
                                 />
                             </View>
@@ -329,6 +366,7 @@ export default function BeneficiaryInfoScreen() {
                                     placeholder="e.g. Sector 15"
                                     placeholderTextColor="#9CA3AF"
                                     value={beneficiaryForm.streetArea}
+                                    maxLength={80}
                                     onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, streetArea: t })}
                                 />
                             </View>
@@ -341,6 +379,7 @@ export default function BeneficiaryInfoScreen() {
                                 placeholder="e.g. Near HDFC Bank"
                                 placeholderTextColor="#9CA3AF"
                                 value={beneficiaryForm.landmark}
+                                maxLength={80}
                                 onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, landmark: t })}
                             />
                         </View>
@@ -353,6 +392,7 @@ export default function BeneficiaryInfoScreen() {
                                     placeholder="City"
                                     placeholderTextColor="#9CA3AF"
                                     value={beneficiaryForm.city}
+                                    maxLength={50}
                                     onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, city: t })}
                                 />
                             </View>
@@ -363,8 +403,9 @@ export default function BeneficiaryInfoScreen() {
                                     placeholder="Pincode"
                                     placeholderTextColor="#9CA3AF"
                                     keyboardType="numeric"
+                                    maxLength={6}
                                     value={beneficiaryForm.pincode}
-                                    onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, pincode: t })}
+                                    onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, pincode: t.replace(/[^0-9]/g, '').slice(0, 6) })}
                                 />
                             </View>
                         </View>
@@ -376,6 +417,7 @@ export default function BeneficiaryInfoScreen() {
                                 placeholder="State"
                                 placeholderTextColor="#9CA3AF"
                                 value={beneficiaryForm.state}
+                                maxLength={50}
                                 onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, state: t })}
                             />
                         </View>
@@ -445,6 +487,8 @@ export default function BeneficiaryInfoScreen() {
                     onConfirm={handleConfirmDate}
                     onCancel={() => setDatePickerVisibility(false)}
                 />
+
+                {/* ⚠️ DEV ONLY — auto-set password after form next — remove when done testing */}
 
             </KeyboardAvoidingView>
 

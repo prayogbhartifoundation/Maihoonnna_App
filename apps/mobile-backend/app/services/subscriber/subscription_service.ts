@@ -2,6 +2,17 @@ import prisma from '../../core/database';
 import { generateUUID } from '../../utils/helpers';
 import { validateCoupon, applyCoupon } from '../coupon_service';
 
+function normalizeUnit(unitLabel: string | null | undefined): string {
+  if (!unitLabel) return 'visits';
+  const clean = unitLabel.replace(/^per\s+/i, '').trim().toLowerCase();
+  if (clean === 'visit') return 'visits';
+  if (clean === 'hour') return 'hours';
+  if (clean === 'session') return 'sessions';
+  if (clean === 'test') return 'tests';
+  if (clean.endsWith('s')) return clean;
+  return clean + 's';
+}
+
 export const purchaseSubscription = async (
   userId: string,
   packageId: string, // We map this to the package type string
@@ -234,6 +245,22 @@ export const purchaseSubscription = async (
       package: true,
     }
   });
+
+  // Initialize benefit balances
+  const packageBenefits = (subPackage as any).packageBenefits || [];
+  if (packageBenefits.length > 0) {
+    await prisma.subscriptionBenefitBalance.createMany({
+      data: packageBenefits.map((pb: any) => ({
+        id: generateUUID(),
+        subscriptionId: subscription.id,
+        benefitId: pb.benefitId,
+        totalUnits: pb.unitsIncluded,
+        usedUnits: 0,
+        unit: pb.unit || (pb.benefit?.unitLabel ? normalizeUnit(pb.benefit.unitLabel) : 'visits'),
+      })),
+      skipDuplicates: true,
+    });
+  }
 
   // 3. Create a Payment record to track this enrollment
   await prisma.payment.create({

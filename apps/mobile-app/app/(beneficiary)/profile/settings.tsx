@@ -4,9 +4,13 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function SettingsScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
 
     return (

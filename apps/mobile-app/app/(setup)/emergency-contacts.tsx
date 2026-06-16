@@ -10,11 +10,15 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function EmergencyContactsScreen() {
     const router = useRouter();
+    const { push } = useNavigationStack();
     const safeBack = useSafeBack();
+    useAndroidBackHandler();
     const params = useLocalSearchParams();
     const [fontsLoaded] = useFonts({
         Poppins_400Regular,
@@ -47,17 +51,37 @@ export default function EmergencyContactsScreen() {
         secondaryPhone: '',
         secondaryEmail: ''
     });
+    const [primaryEmailError, setPrimaryEmailError] = useState('');
+    const [secondaryEmailError, setSecondaryEmailError] = useState('');
 
     const handleNext = () => {
-        router.push({
-            pathname: '/(setup)/schedule-preferences',
-            params: {
-                packageId: params.packageId,
-                subscriberData: params.subscriberData,
-                beneficiaryData: params.beneficiaryData,
-                medicalData: params.medicalData,
-                emergencyContacts: JSON.stringify(form)
-            }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        let hasError = false;
+
+        if (form.primaryEmail && !emailRegex.test(form.primaryEmail)) {
+            setPrimaryEmailError('Please enter a valid email address');
+            hasError = true;
+        } else {
+            setPrimaryEmailError('');
+        }
+
+        if (form.secondaryEmail && !emailRegex.test(form.secondaryEmail)) {
+            setSecondaryEmailError('Please enter a valid email address');
+            hasError = true;
+        } else {
+            setSecondaryEmailError('');
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        push('/(setup)/schedule-preferences', {
+            packageId: params.packageId,
+            subscriberData: params.subscriberData,
+            beneficiaryData: params.beneficiaryData,
+            medicalData: params.medicalData,
+            emergencyContacts: JSON.stringify(form)
         });
     };
 
@@ -117,6 +141,7 @@ export default function EmergencyContactsScreen() {
                             <TextInput
                                 style={styles.input}
                                 value={form.primaryName}
+                                maxLength={50}
                                 onChangeText={(t) => setForm({ ...form, primaryName: t })}
                             />
                         </View>
@@ -127,7 +152,8 @@ export default function EmergencyContactsScreen() {
                                 style={styles.input}
                                 keyboardType="numeric"
                                 value={form.primaryPhone}
-                                onChangeText={(t) => setForm({ ...form, primaryPhone: t })}
+                                maxLength={10}
+                                onChangeText={(t) => setForm({ ...form, primaryPhone: t.replace(/[^0-9]/g, '').slice(0, 10) })}
                             />
                         </View>
 
@@ -138,8 +164,15 @@ export default function EmergencyContactsScreen() {
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 value={form.primaryEmail}
-                                onChangeText={(t) => setForm({ ...form, primaryEmail: t })}
+                                maxLength={80}
+                                onChangeText={(t) => {
+                                    setForm({ ...form, primaryEmail: t });
+                                    if (primaryEmailError) setPrimaryEmailError('');
+                                }}
                             />
+                            {primaryEmailError ? (
+                                <Text style={styles.errorText}>{primaryEmailError}</Text>
+                            ) : null}
                         </View>
 
                         {/* Secondary Emergency Contact */}
@@ -150,6 +183,7 @@ export default function EmergencyContactsScreen() {
                             <TextInput
                                 style={styles.input}
                                 value={form.secondaryName}
+                                maxLength={50}
                                 onChangeText={(t) => setForm({ ...form, secondaryName: t })}
                             />
                         </View>
@@ -160,7 +194,8 @@ export default function EmergencyContactsScreen() {
                                 style={styles.input}
                                 keyboardType="numeric"
                                 value={form.secondaryPhone}
-                                onChangeText={(t) => setForm({ ...form, secondaryPhone: t })}
+                                maxLength={10}
+                                onChangeText={(t) => setForm({ ...form, secondaryPhone: t.replace(/[^0-9]/g, '').slice(0, 10) })}
                             />
                         </View>
 
@@ -171,8 +206,15 @@ export default function EmergencyContactsScreen() {
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 value={form.secondaryEmail}
-                                onChangeText={(t) => setForm({ ...form, secondaryEmail: t })}
+                                maxLength={80}
+                                onChangeText={(t) => {
+                                    setForm({ ...form, secondaryEmail: t });
+                                    if (secondaryEmailError) setSecondaryEmailError('');
+                                }}
                             />
+                            {secondaryEmailError ? (
+                                <Text style={styles.errorText}>{secondaryEmailError}</Text>
+                            ) : null}
                         </View>
 
                         <View style={styles.divider} />
@@ -242,5 +284,6 @@ const styles = StyleSheet.create({
     prevBtn: { flex: 0.48, height: 53, borderWidth: 1, borderColor: '#FF5C00', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     prevBtnText: { color: '#FF5C00', fontSize: 18, lineHeight: 25, fontWeight: '600', fontFamily: 'Poppins_600SemiBold' },
     nextBtn: { flex: 0.48, height: 53, backgroundColor: '#FF5C00', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-    nextBtnText: { color: '#FFFFFF', fontSize: 18, lineHeight: 25, fontWeight: '600', fontFamily: 'Poppins_600SemiBold' }
+    nextBtnText: { color: '#FFFFFF', fontSize: 18, lineHeight: 25, fontWeight: '600', fontFamily: 'Poppins_600SemiBold' },
+    errorText: { color: '#EF4444', fontSize: 12, fontFamily: 'Poppins_400Regular', marginTop: 4, marginLeft: 4 }
 });

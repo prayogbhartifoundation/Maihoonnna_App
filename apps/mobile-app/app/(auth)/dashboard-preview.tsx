@@ -3,9 +3,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useLogoutWithConfirm } from '../../utils/logout';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function DashboardPreviewScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const logoutWithConfirm = useLogoutWithConfirm();
     const params = useLocalSearchParams();
 
@@ -63,7 +67,7 @@ export default function DashboardPreviewScreen() {
                 {/* Option to proceed forward to test the Subscriptions view or sign out */}
                 <TouchableOpacity
                     style={styles.primaryButton}
-                    onPress={() => router.push("/(setup)/subscription-packages")}
+                    onPress={() => push("/(setup)/subscription-packages")}
                 >
                     <Text style={styles.primaryButtonText}>Continue to Subscriptions</Text>
                 </TouchableOpacity>

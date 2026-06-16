@@ -439,10 +439,6 @@ router.put('/:id/assign-staff', async (req, res) => {
     // ── Post-transaction: notifications + upcoming visit ─────────────────────
     // (Outside transaction so a push failure never rolls back the DB update)
     if (newPrimaryCC) {
-      const scheduledTime = new Date();
-      scheduledTime.setDate(scheduledTime.getDate() + 2);
-      scheduledTime.setHours(10, 0, 0, 0);
-
       // Build notification list
       const notifications = [
         // 1. Notify the Care Companion
@@ -450,7 +446,7 @@ router.put('/:id/assign-staff', async (req, res) => {
           userId: newPrimaryCC.userId,
           type: 'system',
           title: '👋 New Beneficiary Assignment',
-          body: `You have been assigned as the Primary Care Companion for ${beneficiary.name}. Your first visit is scheduled for ${scheduledTime.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} at 10 AM.`,
+          body: `You have been assigned as the Primary Care Companion for ${beneficiary.name}. Please check your schedule for upcoming visits.`,
           data: { beneficiaryId: id, type: 'cc_assignment' },
         },
       ];
@@ -461,7 +457,7 @@ router.put('/:id/assign-staff', async (req, res) => {
           userId: beneficiary.userId,
           type: 'system',
           title: '🤝 Care Companion Assigned',
-          body: `${newPrimaryCC.name} has been assigned as your Care Companion and will visit you on ${scheduledTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at 10 AM.`,
+          body: `${newPrimaryCC.name} has been assigned as your Care Companion and will be in touch soon.`,
           data: { ccId: newPrimaryCC.id, type: 'cc_assignment' },
         });
       }
@@ -472,7 +468,7 @@ router.put('/:id/assign-staff', async (req, res) => {
           userId: beneficiary.subscriberId,
           type: 'system',
           title: '✅ Care Companion Assigned',
-          body: `${newPrimaryCC.name} has been assigned to take care of ${beneficiary.name}. First visit: ${scheduledTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at 10 AM.`,
+          body: `${newPrimaryCC.name} has been assigned to take care of ${beneficiary.name}.`,
           data: { beneficiaryId: id, ccId: newPrimaryCC.id, type: 'cc_assignment' },
         });
       }
@@ -492,22 +488,7 @@ router.put('/:id/assign-staff', async (req, res) => {
       notifyMany(prisma, notifications).catch(err =>
         console.error('[AssignStaff] Notification batch error:', err.message)
       );
-
-      // 5. Create an upcoming visit for the new CC
-      const encounterId = `ENC-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-      prisma.visit
-        .create({
-          data: {
-            encounterId,
-            beneficiaryId: id,
-            careCompanionId: newPrimaryCC.id,
-            scheduledTime,
-            status: 'scheduled',
-          },
-        })
-        .catch(err =>
-          console.error('[AssignStaff] Failed to create upcoming visit:', err.message)
-        );
+      // (Auto-visit creation removed — admin must schedule visits explicitly)
     } else if (newSecondaryCcUserId) {
       // Only secondary CC changed — still notify them
       notifyMany(prisma, [

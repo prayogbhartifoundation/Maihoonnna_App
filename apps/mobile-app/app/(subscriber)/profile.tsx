@@ -14,11 +14,15 @@ import { SecurityTab } from './components/profile/SecurityTab';
 import SubscriptionTab from './components/profile/SubscriptionTab';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 type TabType = 'Personal' | 'Security' | 'Subscription';
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const logoutWithConfirm = useLogoutWithConfirm();
     const [loading, setLoading] = useState(true);
     const [profileData, setProfileData] = useState<any>(null);
@@ -42,7 +46,7 @@ export default function ProfileScreen() {
         try {
             const token = await AsyncStorage.getItem('userToken');
             if (!token) {
-                router.replace('/(auth)');
+                replace('/(auth)');
                 return;
             }
 
@@ -92,7 +96,7 @@ export default function ProfileScreen() {
         <SafeAreaView style={styles.container}>
             {/* Inline header */}
             <View style={styles.inlineHeader}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+                <TouchableOpacity onPress={() => pop()} style={styles.iconBtn}>
                     <Ionicons name="arrow-back" size={24} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>My Profile</Text>

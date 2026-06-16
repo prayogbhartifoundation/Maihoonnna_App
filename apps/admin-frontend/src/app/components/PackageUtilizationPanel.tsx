@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, TrendingUp, AlertTriangle, CheckCircle2, Loader2, RefreshCw, PackageCheck, Calendar, CheckCheck } from 'lucide-react';
+import { Clock, TrendingUp, AlertTriangle, CheckCircle2, Loader2, RefreshCw, PackageCheck, Calendar, CheckCheck, Sparkles } from 'lucide-react';
 import { subscriptionApi } from '../../services/api';
+import { toast } from 'sonner';
 
 interface BenefitBalance {
   benefitId: string;
@@ -164,6 +165,7 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName, onBene
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAllLogs, setShowAllLogs] = useState(false);
+  const [initializing, setInitializing] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -295,7 +297,36 @@ export function PackageUtilizationPanel({ beneficiaryId, beneficiaryName, onBene
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-400 text-center py-8 italic">No benefit balances configured for this subscription.</p>
+          <div className="py-8 flex flex-col items-center gap-4">
+            <p className="text-sm text-gray-400 text-center italic">No benefit balances configured for this subscription.</p>
+            <button
+              onClick={async () => {
+                if (!data.subscription?.id) return;
+                setInitializing(true);
+                try {
+                  const result = await subscriptionApi.initializeBalances(data.subscription.id);
+                  if (result.created > 0) {
+                    toast.success(`✅ Initialized ${result.created} benefit balance(s)!`);
+                    load(); // Refresh data
+                  } else {
+                    toast.info(result.message || 'No new balances to create.');
+                  }
+                } catch (err: any) {
+                  toast.error(err.message || 'Failed to initialize balances');
+                } finally {
+                  setInitializing(false);
+                }
+              }}
+              disabled={initializing}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#FF7A00] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#e06d00] transition-colors disabled:opacity-60"
+            >
+              {initializing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {initializing ? 'Initializing...' : 'Initialize Benefit Balances'}
+            </button>
+            <p className="text-[10px] text-gray-400 max-w-xs text-center">
+              This will set up benefit tracking based on the package's defined benefits.
+            </p>
+          </div>
         )}
 
         {/* Benefit Detail Cards — clickable when onBenefitSelect is provided */}

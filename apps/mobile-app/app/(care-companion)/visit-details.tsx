@@ -11,6 +11,8 @@ import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, P
 import { API_URL } from '@/constants/api';
 import { CompanionBackButton } from '../../components/care-companion/CompanionBackButton';
 import { VisitImageGallery } from '../../components/care-companion/VisitImageGallery';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_BEIGE = '#FAF3EB';
@@ -18,15 +20,17 @@ const INPUT_BG = '#F3F4F6';
 
 export default function VisitDetailsScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const scrollViewRef = useRef<ScrollView>(null);
     const { visitId, editMode } = useLocalSearchParams<{ visitId: string; editMode?: string }>();
     const isEdit = editMode === 'true';
 
     const handleSafeBack = () => {
         if (router.canGoBack()) {
-            router.back();
+            pop();
         } else {
-            router.replace('/(care-companion)');
+            replace('/(care-companion)');
         }
     };
 
@@ -68,7 +72,7 @@ export default function VisitDetailsScreen() {
         try {
             const token = await AsyncStorage.getItem('userToken');
             if (!token) {
-                router.replace('/(auth)');
+                replace('/(auth)');
                 return;
             }
             setAuthToken(token);
@@ -377,10 +381,10 @@ export default function VisitDetailsScreen() {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 if (Platform.OS === 'web') {
                     window.alert("Check-out Complete: The encounter is now completed and logged.");
-                    router.replace('/(care-companion)');
+                    replace('/(care-companion)');
                 } else {
                     Alert.alert("Check-out Complete", "The encounter is now completed and logged.", [
-                        { text: "Done", onPress: () => router.replace('/(care-companion)') }
+                        { text: "Done", onPress: () => replace('/(care-companion)') }
                     ]);
                 }
             } else {
@@ -428,10 +432,10 @@ export default function VisitDetailsScreen() {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 if (Platform.OS === 'web') {
                     window.alert("Check-out Complete: Your manual check-out has been recorded.");
-                    router.replace('/(care-companion)');
+                    replace('/(care-companion)');
                 } else {
                     Alert.alert("Check-out Complete", "Your manual check-out has been recorded.", [
-                        { text: "Done", onPress: () => router.replace('/(care-companion)') }
+                        { text: "Done", onPress: () => replace('/(care-companion)') }
                     ]);
                 }
             } else {

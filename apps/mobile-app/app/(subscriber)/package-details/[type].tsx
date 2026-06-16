@@ -7,9 +7,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function PackageDetailScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
     const { type } = useLocalSearchParams<{ type: string }>();
     const [pkg, setPkg] = useState<any>(null);
@@ -173,7 +177,7 @@ export default function PackageDetailScreen() {
             <View style={styles.footer}>
                 <TouchableOpacity 
                     style={styles.actionBtn}
-                    onPress={() => router.push({ pathname: '/(setup)/subscribe-form', params: { packageId: pkg.type } })}
+                    onPress={() => push({ pathname: '/(setup)/subscribe-form', params: { packageId: pkg.type } })}
                 >
                     <Text style={styles.actionBtnText}>Select this Package</Text>
                     <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />

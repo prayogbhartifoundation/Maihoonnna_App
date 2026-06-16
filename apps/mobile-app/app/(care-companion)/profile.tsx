@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { ProfilePhotoUploader } from '@/components/ui/ProfilePhotoUploader';
 import { CompanionBackButton } from '../../components/care-companion/CompanionBackButton';
+import { useLogoutWithConfirm } from '@/utils/logout';
 import Animated, { 
     useSharedValue, 
     useAnimatedStyle, 
@@ -27,6 +28,8 @@ const VIBRANT_ORANGE = '#FF8C42';
 const LIGHT_BEIGE = '#FAF3EB';
 
 import { API_URL } from '@/constants/api';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 const API_BASE_URL = API_URL;
 
 // 🚀 PREMIUM REANIMATED TOGGLE COMPONENT
@@ -68,11 +71,13 @@ const CustomToggle = ({ value, onValueChange }: { value: boolean, onValueChange:
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const handleSafeBack = () => {
         if (router.canGoBack()) {
-            router.back();
+            pop();
         } else {
-            router.replace('/(care-companion)');
+            replace('/(care-companion)');
         }
     };
     const [loading, setLoading] = useState(true);
@@ -100,7 +105,7 @@ export default function ProfileScreen() {
                 try {
                     const token = await AsyncStorage.getItem('userToken');
                     if (!token) {
-                        router.replace('/(auth)');
+                        replace('/(auth)');
                         return;
                     }
 
@@ -139,10 +144,7 @@ export default function ProfileScreen() {
         }, [fontsLoaded])
     );
 
-    const handleLogout = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace('/(auth)' as any);
-    };
+    const logoutWithConfirm = useLogoutWithConfirm();
 
     if (!fontsLoaded || loading || !profileData) {
         return (
@@ -323,7 +325,7 @@ export default function ProfileScreen() {
                     {/* Logout */}
                     <TouchableOpacity 
                         style={styles.logoutBtn} 
-                        onPress={handleLogout}
+                        onPress={logoutWithConfirm}
                         activeOpacity={0.7}
                     >
                         <Ionicons name="log-out-outline" size={20} color="#DC2626" />

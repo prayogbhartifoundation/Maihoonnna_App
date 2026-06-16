@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { formatHours } from '@/utils/timeFormat';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 interface SubscriptionTabProps {
     plan: {
@@ -18,6 +20,8 @@ interface SubscriptionTabProps {
 
 const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
             month: 'long',
@@ -32,7 +36,7 @@ const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Current Plan Card */}
             {plan ? (
-                <TouchableOpacity onPress={() => router.push('/package-utilization')} activeOpacity={0.9}>
+                <TouchableOpacity onPress={() => push('/package-utilization')} activeOpacity={0.9}>
                 <LinearGradient colors={['#F97316', '#EA580C']} style={styles.planCard}>
                     <View style={styles.planHeader}>
                         <View>
@@ -72,7 +76,7 @@ const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
                 <Text style={styles.sectionTitle}>Manage Subscription</Text>
                 <View style={styles.card}>
                     {[
-                        { icon: 'ribbon-outline', title: 'Upgrade Plan', sub: 'Get more hours & benefits', onPress: () => router.push('/(setup)/subscription-packages') },
+                        { icon: 'ribbon-outline', title: 'Upgrade Plan', sub: 'Get more hours & benefits', onPress: () => push('/(setup)/subscription-packages') },
                         { icon: 'card-outline', title: 'Payment Methods', sub: 'Manage payment options' },
                         { icon: 'document-text-outline', title: 'Billing History', sub: 'View past invoices' },
                     ].map((item, i) => (
@@ -107,7 +111,7 @@ const SubscriptionTab = ({ plan, beneficiaries }: SubscriptionTabProps) => {
                         <TouchableOpacity 
                             key={b.id || i} 
                             style={styles.benCard}
-                            onPress={() => router.push({ pathname: '/(subscriber)/beneficiary-profile', params: { id: b.id } })}
+                            onPress={() => push({ pathname: '/(subscriber)/beneficiary-profile', params: { id: b.id } })}
                         >
                             <View style={[styles.benAvatar]}>
                                 {b.photo ? (

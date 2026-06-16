@@ -7,9 +7,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function RegisterScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
 
     // Form State
@@ -106,11 +110,11 @@ export default function RegisterScreen() {
 
                 // Registration successful! Store tokens/details and go to dashboard
                 if (result.user.role === 'care_companion') {
-                    router.replace("/(care-companion)");
+                    replace("/(care-companion)");
                 } else if (result.user.role === 'beneficiary') {
-                    router.replace("/(beneficiary)");
+                    replace("/(beneficiary)");
                 } else {
-                    router.replace("/(subscriber)");
+                    replace("/(subscriber)");
                 }
             } else {
                 Alert.alert("Registration Failed", data.message || "Something went wrong.");
@@ -149,7 +153,7 @@ export default function RegisterScreen() {
                     <View style={styles.welcomeHeader}>
                         <Text style={styles.title}>Welcome!</Text>
                         <Text style={styles.subtitle}>
-                            Let's get started with your care companion journey
+                            Let's set up your account to access personalised care for your loved ones
                         </Text>
                     </View>
 
@@ -312,7 +316,7 @@ export default function RegisterScreen() {
                     <View style={styles.bottomSection}>
                         <TouchableOpacity
                             style={styles.loginRow}
-                            onPress={() => router.push("/(auth)/login-password")}
+                            onPress={() => push("/(auth)/login-password")}
                         >
                             <Text style={styles.loginTextNormal}>Already have an account? </Text>
                             <Text style={styles.loginTextHighlight}>Login</Text>

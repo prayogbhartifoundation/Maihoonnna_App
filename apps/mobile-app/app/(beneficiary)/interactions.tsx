@@ -6,6 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 interface VitalData {
     bp: string;
@@ -29,6 +31,8 @@ interface Interaction {
 
 export default function InteractionsScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
     const { visitId } = useLocalSearchParams();
     const [interactions, setInteractions] = useState<Interaction[]>([]);

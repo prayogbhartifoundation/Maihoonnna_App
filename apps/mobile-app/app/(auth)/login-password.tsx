@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function LoginPasswordScreen() {
     const [form, setForm] = useState({
@@ -13,6 +15,8 @@ export default function LoginPasswordScreen() {
     });
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const { login } = useAuth();
 
     const handleLogin = async () => {
@@ -47,11 +51,11 @@ export default function LoginPasswordScreen() {
                 // Route explicitly to the correct dashboard to avoid layout flicker
                 const role = result.user.role;
                 if (role === "care_companion" || role === "volunteer") {
-                    router.replace("/(care-companion)");
+                    replace("/(care-companion)");
                 } else if (role === "beneficiary") {
-                    router.replace("/(beneficiary)");
+                    replace("/(beneficiary)");
                 } else {
-                    router.replace("/(subscriber)");
+                    replace("/(subscriber)");
                 }
             } else {
                 Alert.alert("Login Failed", data.message || "Invalid credentials.");
@@ -120,7 +124,7 @@ export default function LoginPasswordScreen() {
 
                     <TouchableOpacity
                         style={styles.secondaryButton}
-                        onPress={() => router.push("/(auth)/register")}
+                        onPress={() => push("/(auth)/register")}
                         disabled={isLoading}
                     >
                         <Text style={styles.secondaryButtonText}>Don't have an account? Sign Up</Text>

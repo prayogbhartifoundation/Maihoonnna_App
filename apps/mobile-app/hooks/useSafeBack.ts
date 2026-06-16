@@ -1,20 +1,14 @@
-import { useRouter } from 'expo-router';
+import { useNavigationStack } from '../contexts/NavigationStackContext';
 
 /**
  * A custom hook that provides a safe way to go back in navigation.
- * If the navigation stack has history, it goes back.
- * If there is no history (e.g., accessed via deep link or direct page load),
- * it redirects to a fallback route to prevent app crashes.
+ * Uses the global NavigationStackContext to track logical history.
  */
 export function useSafeBack() {
-    const router = useRouter();
+    const { pop } = useNavigationStack();
 
     const safeBack = (fallbackRoute: string = '/') => {
-        if (router.canGoBack()) {
-            router.back();
-        } else {
-            router.replace(fallbackRoute as any);
-        }
+        pop(fallbackRoute);
     };
 
     return safeBack;

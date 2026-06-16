@@ -7,6 +7,8 @@ import { API_URL } from '@/constants/api';
 import { useLogoutWithConfirm } from '@/utils/logout';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 interface ContactInfo {
     phone: string;
@@ -26,6 +28,8 @@ interface ProfileData {
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
     const logoutWithConfirm = useLogoutWithConfirm();
     const [loading, setLoading] = useState(true);
@@ -283,7 +287,7 @@ export default function ProfileScreen() {
                         {/* Health Information */}
                         <TouchableOpacity
                             style={styles.navRow}
-                            onPress={() => router.push('/(beneficiary)/profile/health-info')}
+                            onPress={() => push('/(beneficiary)/profile/health-info')}
                             activeOpacity={0.6}
                         >
                             <View style={[styles.navIconWrap, { backgroundColor: '#FEF2F2' }]}>
@@ -301,7 +305,7 @@ export default function ProfileScreen() {
                         {/* Emergency Contacts */}
                         <TouchableOpacity
                             style={styles.navRow}
-                            onPress={() => router.push('/(beneficiary)/profile/emergency-contacts')}
+                            onPress={() => push('/(beneficiary)/profile/emergency-contacts')}
                             activeOpacity={0.6}
                         >
                             <View style={[styles.navIconWrap, { backgroundColor: '#FFF7ED' }]}>
@@ -319,7 +323,7 @@ export default function ProfileScreen() {
                         {/* Notifications */}
                         <TouchableOpacity
                             style={styles.navRow}
-                            onPress={() => router.push('/(beneficiary)/profile/notifications')}
+                            onPress={() => push('/(beneficiary)/profile/notifications')}
                             activeOpacity={0.6}
                         >
                             <View style={[styles.navIconWrap, { backgroundColor: '#EFF6FF' }]}>
@@ -338,7 +342,7 @@ export default function ProfileScreen() {
                         {/* Settings */}
                         <TouchableOpacity
                             style={styles.navRow}
-                            onPress={() => router.push('/(beneficiary)/profile/settings')}
+                            onPress={() => push('/(beneficiary)/profile/settings')}
                             activeOpacity={0.6}
                         >
                             <View style={[styles.navIconWrap, { backgroundColor: '#F3F4F6' }]}>

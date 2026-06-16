@@ -18,11 +18,15 @@ import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 type TabType = 'Timeline' | 'Vitals' | 'Medical';
 
 export default function BeneficiaryProfileScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
     const params = useLocalSearchParams();
     const { id } = params;
@@ -61,7 +65,7 @@ export default function BeneficiaryProfileScreen() {
             if (storedUser) setUserData(JSON.parse(storedUser));
 
             if (!storedUser || !storedToken) {
-                router.replace('/(auth)');
+                replace('/(auth)');
                 throw new Error("Auth missing");
             }
 
@@ -74,7 +78,7 @@ export default function BeneficiaryProfileScreen() {
 
             if (res.status === 401) {
                 console.error('Unauthorized access - redirecting to login');
-                router.replace('/(auth)');
+                replace('/(auth)');
                 throw new Error("Unauthorized");
             }
 
@@ -86,6 +90,16 @@ export default function BeneficiaryProfileScreen() {
         },
         enabled: !!id,
     });
+
+    useEffect(() => {
+        if (beneficiary?.isDefaultData) {
+            Alert.alert(
+                "No Visits Recorded Yet",
+                "We are currently showing placeholder values (100% Happiness Score, 0 bpm, 0/0 BP) because no visit records exist for this beneficiary yet.",
+                [{ text: "Understood", style: "default" }]
+            );
+        }
+    }, [beneficiary?.isDefaultData]);
 
     if (loading) {
         return (
@@ -107,16 +121,6 @@ export default function BeneficiaryProfileScreen() {
         );
     }
 
-    useEffect(() => {
-        if (beneficiary?.isDefaultData) {
-            Alert.alert(
-                "No Visits Recorded Yet",
-                "We are currently showing placeholder values (100% Happiness Score, 0 bpm, 0/0 BP) because no visit records exist for this beneficiary yet.",
-                [{ text: "Understood", style: "default" }]
-            );
-        }
-    }, [beneficiary?.isDefaultData]);
-
     const happinessScore = beneficiary.emotionalScore ?? 0;
     const conditions = beneficiary.conditions?.map((c: any) => c.condition?.name) || [];
 
@@ -128,7 +132,7 @@ export default function BeneficiaryProfileScreen() {
                     <Ionicons name="arrow-back" size={24} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Beneficiary Details</Text>
-                <TouchableOpacity onPress={() => router.push({ pathname: '/(subscriber)/beneficiary-edit', params: { id } })} style={styles.iconBtn}>
+                <TouchableOpacity onPress={() => push({ pathname: '/(subscriber)/beneficiary-edit', params: { id } })} style={styles.iconBtn}>
                     <Ionicons name="pencil-outline" size={22} color="#FE6700" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={openDrawer} style={styles.iconBtn}>

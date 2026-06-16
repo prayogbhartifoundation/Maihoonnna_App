@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import { useLogoutWithConfirm } from '@/utils/logout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+import { useAuth } from '@/contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -15,19 +18,23 @@ interface GlobalDrawerProps {
     userData: any;
 }
 
-const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerProps) => {
+const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData: _userDataProp }: GlobalDrawerProps) => {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const pathname = usePathname();
     const logoutWithConfirm = useLogoutWithConfirm();
     const insets = useSafeAreaInsets();
+    const { user: authUser, isLoggedIn } = useAuth();
 
-    const isLoggedIn = !!userData && !!userData.id;
+    // Use auth context (always up-to-date) — fallback to prop if context not available
+    const userData = authUser || _userDataProp;
 
     const navigateTo = (path: string) => {
         onClose();
         // Small delay to allow drawer to close before navigating
         setTimeout(() => {
-            router.push(path as any);
+            push(path as any);
         }, 300);
     };
 
@@ -65,7 +72,7 @@ const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerPro
                                 <DrawerItem 
                                     label="Dashboard" 
                                     icon="home-outline" 
-                                    onPress={() => { onClose(); router.push('/(subscriber)'); }} 
+                                    onPress={() => { onClose(); push('/(subscriber)'); }} 
                                 />
                                 <DrawerItem 
                                     label="My Profile" 
@@ -81,7 +88,7 @@ const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData }: GlobalDrawerPro
                                             if (pathname === '/' || pathname === '/(subscriber)' || pathname === '/(subscriber)/') {
                                                 router.setParams({ highlightBen: Date.now().toString() });
                                             } else {
-                                                router.push(`/(subscriber)?highlightBen=${Date.now()}`);
+                                                push(`/(subscriber)?highlightBen=${Date.now()}`);
                                             }
                                         }, 300);
                                     }} 

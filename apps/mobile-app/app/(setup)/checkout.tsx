@@ -4,10 +4,13 @@ import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { useQueryClient } from '@tanstack/react-query';
 
 // 🛑 BACKEND SETUP
 import { API_URL } from '@/constants/api';
 import HeaderSpacer from '@/components/HeaderSpacer';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 const UPI_APPS = ['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'Amazon Pay'];
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FIGMA_WIDTH = 716;
@@ -16,6 +19,9 @@ const fs = (value: number) => Math.round(value * figmaScale);
 
 export default function CheckoutScreen() {
     const router = useRouter();
+    const { pop, replace } = useNavigationStack();
+    useAndroidBackHandler();
+    const queryClient = useQueryClient();
     const params = useLocalSearchParams();
     const [fontsLoaded] = useFonts({
         Poppins_400Regular,
@@ -41,73 +47,72 @@ export default function CheckoutScreen() {
     const [promoCode, setPromoCode] = useState('');
 
     useEffect(() => {
-        const fetchPackage = async () => {
+        const fetchPackageDetails = async () => {
             try {
-                const response = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
-                const json = await response.json();
-                if (json.success) {
-                    const pkgType = packageId || 'silver';
-                    const pkg = json.data.find((p: any) => p.type === pkgType) || json.data[0];
-                    if (pkg) {
-                        setPackageName(pkg.name);
-                        const price = pkg.basePrice || 0;
-                        setBasePrice(price);
-                        const taxInc = price * 0.18;
-                        setTaxes(taxInc);
-                        setTotalAmount((price + taxInc).toFixed(2));
-
-                        // Re-calculate if a coupon is already applied
-                        if (appliedCoupon) {
-                            const discountedBase = price - appliedCoupon.discountApplied;
-                            const newTax = discountedBase * 0.18;
-                            setTaxes(newTax);
-                            setTotalAmount((discountedBase + newTax).toFixed(2));
-                        }
-                    }
+                const response = await fetch(`${API_URL}/admin/packages/${packageId}`);
+                if (!response.ok) throw new Error("Failed to fetch package");
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    setPackageName(data.data.name);
+                    const p = data.data.price || 0;
+                    setBasePrice(p);
+                    const t = p * 0.18; // 18% GST
+                    setTaxes(t);
+                    setTotalAmount((p + t).toFixed(2));
                 }
             } catch (err) {
-                console.error('Failed to fetch package:', err);
+                console.error("Failed to load package details", err);
+                Alert.alert("Error", "Could not load package details.");
             }
         };
-        fetchPackage();
-    }, [packageId, appliedCoupon]);
+
+        if (packageId) fetchPackageDetails();
+    }, [packageId]);
 
     const handleApplyCoupon = async () => {
-        if (!promoCode) {
-            setCouponError('Please enter a coupon code.');
-            return;
-        }
-
+        if (!promoCode.trim()) return;
         setIsApplyingCoupon(true);
         setCouponError('');
+        
         try {
-            const storedUserData = await AsyncStorage.getItem('userData');
-            if (!storedUserData) throw new Error("Session expired.");
-            const user = JSON.parse(storedUserData);
-
-            const payload = {
-                code: promoCode,
-                userId: user.id,
-                packageType: packageId || 'silver',
-                orderAmount: basePrice
-            };
-
+            const storedToken = await AsyncStorage.getItem('userToken');
             const response = await fetch(`${API_URL}/subscriber/coupons/validate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${storedToken}`
+                },
+                body: JSON.stringify({ 
+                    code: promoCode,
+                    packageId: packageId,
+                    amount: basePrice
+                })
             });
-            const result = await response.json();
-
-            if (result.success && result.data.isValid) {
-                setAppliedCoupon(result.data);
-                // The useEffect will recalculate the totals automatically
+            const data = await response.json();
+            
+            if (data.success && data.coupon) {
+                setAppliedCoupon(data.coupon);
+                // recalculate total
+                const discount = data.coupon.discountValue || 0;
+                let newBase = basePrice;
+                
+                if (data.coupon.discountType === 'percentage') {
+                    newBase = basePrice * (1 - discount / 100);
+                } else if (data.coupon.discountType === 'fixed') {
+                    newBase = Math.max(0, basePrice - discount);
+                }
+                
+                const t = newBase * 0.18;
+                setTaxes(t);
+                setTotalAmount((newBase + t).toFixed(2));
+                Alert.alert("Success", "Coupon applied successfully!");
             } else {
+                setCouponError(data.message || 'Invalid or expired coupon code');
                 setAppliedCoupon(null);
-                setCouponError(result.data?.message || result.message || 'Invalid coupon.');
             }
-        } catch (error) {
-            setCouponError('Failed to apply coupon. Try again.');
+        } catch (err) {
+            setCouponError('Failed to validate coupon');
         } finally {
             setIsApplyingCoupon(false);
         }
@@ -117,6 +122,9 @@ export default function CheckoutScreen() {
         setAppliedCoupon(null);
         setPromoCode('');
         setCouponError('');
+        const t = basePrice * 0.18;
+        setTaxes(t);
+        setTotalAmount((basePrice + t).toFixed(2));
     };
 
     const handlePay = async () => {
@@ -200,8 +208,21 @@ export default function CheckoutScreen() {
             const data = await response.json();
 
             if (data.success) {
+                // ⚠️ DEV ONLY — auto-set beneficiary password if provided — remove when done testing
+                if (beneficiaryData.devPassword && beneficiaryData.phone) {
+                    fetch(`${API_URL}/dev/set-beneficiary-password`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: beneficiaryData.phone, password: beneficiaryData.devPassword }),
+                    }).catch(() => {}); // fire-and-forget, non-blocking
+                }
+                // end DEV ONLY
+
+                // Invalidate dashboard queries so the new beneficiary appears immediately
+                queryClient.invalidateQueries({ queryKey: ['subscriberDashboard'] });
+
                 // Payment gateway is mocked for now, but beneficiary is saved in DB
-                router.replace({ pathname: '/(setup)/payment-success', params: { orderId: data.subscriptionId, packageName: data.package || packageName, price: totalAmount } });
+                replace('/(setup)/payment-success', { orderId: data.subscriptionId, packageName: data.package || packageName, price: totalAmount });
             } else {
                 throw new Error(data.message || "Purchase failed on server.");
             }
@@ -228,11 +249,7 @@ export default function CheckoutScreen() {
                 <HeaderSpacer backgroundColor="#FFFFFF" />
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => {
-                        if (router.canGoBack()) {
-                            router.back();
-                        } else {
-                            router.replace('/(setup)/subscription-packages');
-                        }
+                        pop('/(setup)/subscription-packages');
                     }} style={styles.backBtn}>
                         <Feather name="arrow-left" size={24} color="#111827" />
                     </TouchableOpacity>

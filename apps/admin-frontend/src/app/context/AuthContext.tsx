@@ -65,7 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('maihonna_user');
+    localStorage.clear();
+    sessionStorage.clear();
   };
 
   /**

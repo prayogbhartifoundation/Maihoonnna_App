@@ -4,18 +4,22 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function LocationScreen() {
     const [location, setLocation] = useState("");
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
 
     const handleCheckAvailability = () => {
         // Basic mock: if location ends with '0', we "fail"
         if (location.endsWith("0")) {
-            router.push("/(auth)/coverage-failure");
+            push("/(auth)/coverage-failure");
         } else {
-            router.push("/(auth)/coverage-success");
+            push("/(auth)/coverage-success");
         }
     };
 

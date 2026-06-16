@@ -576,6 +576,7 @@ model PackageBenefit {
   benefitId        String
   unitsIncluded    Int                 @default(1)
   unitsPeriod      String              @default("monthly")
+  unit             String?
   isUnlimited      Boolean             @default(false)
   allowRollover    Boolean             @default(false)
   maxRolloverUnits Int?
@@ -1294,6 +1295,7 @@ model SubscriptionBenefitBalance {
   benefitId      String
   totalUnits     Int          @default(0)
   usedUnits      Int          @default(0)
+  unit           String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   benefit        Benefit      @relation(fields: [benefitId], references: [id])

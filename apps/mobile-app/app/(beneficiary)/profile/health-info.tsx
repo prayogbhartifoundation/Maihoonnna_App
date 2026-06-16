@@ -6,6 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 const BLOOD_GROUPS_ENUM_MAP: Record<string, string> = {
     'A+': 'A_positive', 'A-': 'A_negative',
@@ -25,6 +27,8 @@ const ENUM_BLOOD_GROUPS_MAP: Record<string, string> = {
 
 export default function HealthInformationScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

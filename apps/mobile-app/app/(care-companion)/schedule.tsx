@@ -10,6 +10,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '@/constants/api';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { CompanionBottomNav } from '../../components/care-companion/CompanionBottomNav';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_BEIGE = '#FAF3EB';
@@ -50,6 +52,8 @@ function getTimeSlot(timeStr: string | undefined): string {
 
 export default function ScheduleScreen() {
   const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
   const [loading, setLoading] = useState(true);
   const [scheduleData, setScheduleData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('Today');
@@ -66,7 +70,7 @@ export default function ScheduleScreen() {
     const fetchSchedule = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        if (!token) { router.replace('/(auth)'); return; }
+        if (!token) { replace('/(auth)'); return; }
         const response = await fetch(`${API_URL}/care-companion/schedule`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
@@ -91,7 +95,7 @@ export default function ScheduleScreen() {
   };
 
   const handleStartVisit = (visitId: string) => {
-    router.push({ pathname: '/(care-companion)/visit-details' as any, params: { visitId } });
+    push({ pathname: '/(care-companion)/visit-details' as any, params: { visitId } });
   };
 
   const toggleFilter = <T extends string>(val: T, setter: React.Dispatch<React.SetStateAction<T[]>>) => {

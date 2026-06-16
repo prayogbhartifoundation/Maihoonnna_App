@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import HeaderSpacer from '@/components/HeaderSpacer';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 interface GlobalHeaderProps {
     title: string;
@@ -15,6 +17,8 @@ interface GlobalHeaderProps {
 
 const GlobalHeader = ({ title, onMenuPress, showBack = false, rightIcon, onRightIconPress }: GlobalHeaderProps) => {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
 
     return (

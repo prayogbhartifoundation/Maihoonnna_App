@@ -10,6 +10,8 @@ import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, P
 import { CompanionBottomNav } from '../../components/care-companion/CompanionBottomNav';
 import NotificationBell from '@/components/shared/NotificationBell';
 import { useExitOnBack } from '@/hooks/useExitOnBack';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_ORANGE = '#F97316';
@@ -18,6 +20,8 @@ const LIGHT_BEIGE = '#FAF3EB';
 export default function DashboardScreen() {
     useExitOnBack();
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const [loading, setLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState('');
     const [currentDate, setCurrentDate] = useState('');
@@ -98,7 +102,7 @@ export default function DashboardScreen() {
 
     const handleStartVisit = () => {
         if (!dashboardData?.nextVisit) return;
-        router.push({
+        push({
             pathname: '/(care-companion)/visit-details' as any,
             params: {
                 visitId: dashboardData.nextVisit.id,
@@ -133,7 +137,7 @@ export default function DashboardScreen() {
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <NotificationBell />
-                            <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(care-companion)/profile' as any)}>
+                            <TouchableOpacity style={styles.profileBtn} onPress={() => push('/(care-companion)/profile' as any)}>
                                 <Ionicons name="person-outline" size={24} color={DEEP_ORANGE} />
                             </TouchableOpacity>
                         </View>
@@ -248,12 +252,12 @@ export default function DashboardScreen() {
                         <Text style={styles.quickActionsTitle}>Quick Actions</Text>
 
                         <View style={styles.quickActionsGrid}>
-                            <TouchableOpacity style={styles.actionBox} onPress={() => router.push('/(care-companion)/schedule' as any)}>
+                            <TouchableOpacity style={styles.actionBox} onPress={() => push('/(care-companion)/schedule' as any)}>
                                 <Ionicons name="calendar-outline" size={24} color="#2563EB" style={{ marginBottom: 8 }} />
                                 <Text style={styles.actionText}>Schedule</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.actionBox} onPress={() => router.push('/(care-companion)/history' as any)}>
+                            <TouchableOpacity style={styles.actionBox} onPress={() => push('/(care-companion)/history' as any)}>
                                 <Ionicons name="pulse-outline" size={24} color="#16A34A" style={{ marginBottom: 8 }} />
                                 <Text style={styles.actionText}>History</Text>
                             </TouchableOpacity>

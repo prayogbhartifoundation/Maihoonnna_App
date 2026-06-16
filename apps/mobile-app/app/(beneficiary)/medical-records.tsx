@@ -7,6 +7,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 // --- PIXEL PERFECT CUSTOM SVGS ---
 const CustomPulseIcon = ({ size = 22, color = '#EF4444' }) => (
@@ -62,6 +64,8 @@ interface HistoryItem {
 
 export default function MedicalRecordsScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
 
     // Production state setup (Empty by default)

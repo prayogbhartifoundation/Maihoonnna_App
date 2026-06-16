@@ -10,6 +10,8 @@ const DRAWER_WIDTH = width * 0.75;
 import GlobalDrawer from '../(subscriber)/components/shared/GlobalDrawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderSpacer from '@/components/HeaderSpacer';
 
@@ -24,7 +26,9 @@ type Medication = {
 
 export default function MedicalInfoScreen() {
     const router = useRouter();
+    const { push } = useNavigationStack();
     const safeBack = useSafeBack();
+    useAndroidBackHandler();
     const params = useLocalSearchParams();
 
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -107,14 +111,11 @@ export default function MedicalInfoScreen() {
             vitals
         };
 
-        router.push({
-            pathname: '/(setup)/emergency-contacts',
-            params: {
-                packageId: params.packageId,
-                subscriberData: params.subscriberData,
-                beneficiaryData: params.beneficiaryData,
-                medicalData: JSON.stringify(medicalDataPayload)
-            }
+        push('/(setup)/emergency-contacts', {
+            packageId: params.packageId,
+            subscriberData: params.subscriberData,
+            beneficiaryData: params.beneficiaryData,
+            medicalData: JSON.stringify(medicalDataPayload)
         });
     };
 
@@ -296,6 +297,7 @@ export default function MedicalInfoScreen() {
                             placeholder="Dr. Name"
                             placeholderTextColor="#9CA3AF"
                             value={physicianName}
+                            maxLength={50}
                             onChangeText={setPhysicianName}
                         />
 
@@ -307,8 +309,9 @@ export default function MedicalInfoScreen() {
                             placeholder="Contact number"
                             placeholderTextColor="#9CA3AF"
                             keyboardType="numeric"
+                            maxLength={10}
                             value={physicianPhone}
-                            onChangeText={setPhysicianPhone}
+                            onChangeText={(t) => setPhysicianPhone(t.replace(/[^0-9]/g, '').slice(0, 10))}
                         />
 
                         <View style={{ marginTop: 16 }} />
@@ -335,10 +338,12 @@ export default function MedicalInfoScreen() {
                                     style={styles.input}
                                     placeholder="e.g. Swimming, Bird Watching"
                                     placeholderTextColor="#9CA3AF"
+                                    maxLength={50}
                                     onChangeText={(t) => {
                                         const baseHobbies = hobbiesText.split(', ').filter(h => h !== 'Other' && !h.startsWith('('));
-                                        if (t.trim()) {
-                                            setHobbiesText([...baseHobbies, 'Other', `(${t.trim()})`].join(', '));
+                                        const trimmed = t.slice(0, 50).trim();
+                                        if (trimmed) {
+                                            setHobbiesText([...baseHobbies, 'Other', `(${trimmed})`].join(', '));
                                         } else {
                                             setHobbiesText([...baseHobbies, 'Other'].join(', '));
                                         }
@@ -376,6 +381,7 @@ export default function MedicalInfoScreen() {
                             placeholder="e.g., Hypertension, Diabetes"
                             placeholderTextColor="#9CA3AF"
                             value={newCondition}
+                            maxLength={50}
                             onChangeText={setNewCondition}
                             autoFocus
                         />
@@ -401,6 +407,7 @@ export default function MedicalInfoScreen() {
                             placeholder="e.g., Amoxicillin"
                             placeholderTextColor="#9CA3AF"
                             value={newMedicine.name}
+                            maxLength={50}
                             onChangeText={(t) => setNewMedicine({...newMedicine, name: t})}
                         />
 
@@ -412,6 +419,7 @@ export default function MedicalInfoScreen() {
                                     placeholder="250mg"
                                     placeholderTextColor="#9CA3AF"
                                     value={newMedicine.dosage}
+                                    maxLength={30}
                                     onChangeText={(t) => setNewMedicine({...newMedicine, dosage: t})}
                                 />
                             </View>
@@ -445,8 +453,9 @@ export default function MedicalInfoScreen() {
                             placeholder="e.g. 30 (Leave blank for ongoing)"
                             placeholderTextColor="#9CA3AF"
                             keyboardType="numeric"
-                            value={newMedicine.totalDays}
-                            onChangeText={(t) => setNewMedicine({...newMedicine, totalDays: t})}
+                            maxLength={4}
+                            value={newMedicine.totalDays ?? ''}
+                            onChangeText={(t) => setNewMedicine({...newMedicine, totalDays: t.replace(/[^0-9]/g, '').slice(0, 4)})}
                         />
 
                         <View style={styles.dividerLine} />

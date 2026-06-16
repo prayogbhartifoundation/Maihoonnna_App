@@ -3,10 +3,22 @@ const router = express.Router();
 const path = require('path');
 const { prisma } = require('../lib/prisma');
 
+function normalizeUnit(unitLabel) {
+  if (!unitLabel) return 'visits';
+  const clean = unitLabel.replace(/^per\s+/i, '').trim().toLowerCase();
+  if (clean === 'visit') return 'visits';
+  if (clean === 'hour') return 'hours';
+  if (clean === 'session') return 'sessions';
+  if (clean === 'test') return 'tests';
+  if (clean.endsWith('s')) return clean;
+  return clean + 's';
+}
+
 // GET /api/packages — list all with nested benefits
 router.get('/', async (req, res) => {
   try {
     const packages = await prisma.subscriptionPackage.findMany({
+      where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
       include: {
         packageBenefits: {
@@ -139,12 +151,21 @@ router.post('/', async (req, res) => {
 
       // 2. Create packageBenefits
       if (benefits.length > 0) {
+        const dbBenefits = await tx.benefit.findMany({
+          where: { id: { in: benefits.map(b => b.benefitId) } }
+        });
+        const benefitMap = {};
+        dbBenefits.forEach(b => {
+          benefitMap[b.id] = normalizeUnit(b.unitLabel);
+        });
+
         await tx.packageBenefit.createMany({
           data: benefits.map((b, idx) => ({
             packageId: created.id,
             benefitId: b.benefitId,
             unitsIncluded: b.unitsIncluded ?? b.monthlyUnits ?? 1,
             unitsPeriod: b.unitsPeriod ?? 'monthly',
+            unit: benefitMap[b.benefitId] || 'visits',
             isUnlimited: b.isUnlimited ?? false,
             allowRollover: b.allowRollover ?? false,
             displayOrder: idx,
@@ -152,7 +173,27 @@ router.post('/', async (req, res) => {
         });
       }
 
-      // 3. Create discounts
+      // 3. Update legacy features array from confirmed DB state
+      let visitsPerWeek = 0;
+      let hoursPerMonth = 0;
+      let features = [];
+      const createdBenefits = await tx.packageBenefit.findMany({
+        where: { packageId: created.id },
+        include: { benefit: true }
+      });
+      createdBenefits.forEach(pb => {
+        const units = pb.unitsIncluded;
+        const label = pb.benefit?.unitLabel || 'visits';
+        features.push(`${units} ${label.replace(/^per\s+/i, '')}`);
+        if (label.toLowerCase().includes('visit')) visitsPerWeek += Math.round(units / 4);
+        if (label.toLowerCase().includes('hour')) hoursPerMonth += units;
+      });
+      await tx.subscriptionPackage.update({
+        where: { id: created.id },
+        data: { features, visitsPerWeek, hoursPerMonth }
+      });
+
+      // 4. Create discounts
       if (discounts.length > 0) {
         await tx.packageDiscount.createMany({
           data: discounts.map((d) => ({
@@ -270,21 +311,21 @@ router.put('/:id', async (req, res) => {
           description: description || name,
           basePrice:
             packageCost ??
-            (req.body.totalCost ? parseInt(req.body.totalCost) : undefined),
-          mrp: mrp ? parseFloat(mrp) : undefined,
+            (req.body.totalCost ? parseFloat(req.body.totalCost) : 0),
+          mrp: mrp ? parseFloat(mrp) : 0,
           discountPercentage: discountPercentage
             ? parseFloat(discountPercentage)
-            : undefined,
+            : 0,
           miscellaneousCost: miscellaneousCost
             ? parseFloat(miscellaneousCost)
-            : undefined,
+            : 0,
           currency: currency ?? 'INR',
           billingCycle: billingCycle ?? 'monthly',
           isFreeTrial: isFreeTrial ?? false,
           trialDurationDays: trialDurationDays ?? null,
           activeFrom: activeFrom ? new Date(activeFrom) : undefined,
           activeTo: activeTo ? new Date(activeTo) : null,
-          sortOrder: displayOrder ?? undefined,
+          sortOrder: displayOrder ?? 0,
           isGlobal: isGlobal ?? true,
           isPopular: isPopular ?? false,
           totalHours: totalHours ? parseFloat(totalHours) : undefined,
@@ -294,12 +335,21 @@ router.put('/:id', async (req, res) => {
       // 2. Refresh benefits (delete and recreate)
       if (benefits.length > 0) {
         await tx.packageBenefit.deleteMany({ where: { packageId: id } });
+        const dbBenefits = await tx.benefit.findMany({
+          where: { id: { in: benefits.map(b => b.benefitId) } }
+        });
+        const benefitMap = {};
+        dbBenefits.forEach(b => {
+          benefitMap[b.id] = normalizeUnit(b.unitLabel);
+        });
+
         await tx.packageBenefit.createMany({
           data: benefits.map((b, idx) => ({
             packageId: id,
             benefitId: b.benefitId,
             unitsIncluded: b.unitsIncluded ?? b.monthlyUnits ?? 1,
             unitsPeriod: b.unitsPeriod ?? 'monthly',
+            unit: benefitMap[b.benefitId] || 'visits',
             isUnlimited: b.isUnlimited ?? false,
             allowRollover: b.allowRollover ?? false,
             displayOrder: idx,
@@ -307,7 +357,27 @@ router.put('/:id', async (req, res) => {
         });
       }
 
-      // 3. Refresh discounts (delete and recreate)
+      // 3. Update legacy features array from confirmed DB state
+      let visitsPerWeek = 0;
+      let hoursPerMonth = 0;
+      let features = [];
+      const updatedBenefits = await tx.packageBenefit.findMany({
+        where: { packageId: id },
+        include: { benefit: true }
+      });
+      updatedBenefits.forEach(pb => {
+        const units = pb.unitsIncluded;
+        const label = pb.benefit?.unitLabel || 'visits';
+        features.push(`${units} ${label.replace(/^per\s+/i, '')}`);
+        if (label.toLowerCase().includes('visit')) visitsPerWeek += Math.round(units / 4);
+        if (label.toLowerCase().includes('hour')) hoursPerMonth += units;
+      });
+      await tx.subscriptionPackage.update({
+        where: { id: id },
+        data: { features, visitsPerWeek, hoursPerMonth }
+      });
+
+      // 4. Handle Discounts (delete and recreate)
       if (discounts.length > 0) {
         await tx.packageDiscount.deleteMany({ where: { packageId: id } });
         await tx.packageDiscount.createMany({
@@ -362,12 +432,21 @@ router.post('/:id/benefits', async (req, res) => {
     await prisma.$transaction(async (tx) => {
       await tx.packageBenefit.deleteMany({ where: { packageId: id } });
       if (benefits.length > 0) {
+        const dbBenefits = await tx.benefit.findMany({
+          where: { id: { in: benefits.map(b => b.benefitId) } }
+        });
+        const benefitMap = {};
+        dbBenefits.forEach(b => {
+          benefitMap[b.id] = normalizeUnit(b.unitLabel);
+        });
+
         await tx.packageBenefit.createMany({
           data: benefits.map((b, idx) => ({
             packageId: id,
             benefitId: b.benefitId,
             unitsIncluded: b.unitsIncluded ?? 1,
             unitsPeriod: b.unitsPeriod ?? 'monthly',
+            unit: benefitMap[b.benefitId] || 'visits',
             isUnlimited: b.isUnlimited ?? false,
             displayOrder: idx,
           })),

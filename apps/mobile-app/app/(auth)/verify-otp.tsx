@@ -8,9 +8,13 @@ import { useAuth } from "@/contexts/AuthContext";
 // API source of truth from central constants
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function VerifyOtpScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const { login } = useAuth();
     // Retrieve the phone number passed from the previous screen
     const { phone } = useLocalSearchParams<{ phone: string }>();
@@ -68,7 +72,7 @@ export default function VerifyOtpScreen() {
 
                 if (result.isNewUser) {
                     // Navigate to registration if user profile doesn't exist yet
-                    router.push({ pathname: "/(auth)/register", params: { phone } });
+                    push({ pathname: "/(auth)/register", params: { phone } });
                 } else if (result.user) {
                     // PERSIST SESSION via AuthContext
                     await login(result.token, result.user);
@@ -76,11 +80,11 @@ export default function VerifyOtpScreen() {
                     // Route explicitly to the correct dashboard to avoid layout flicker
                     const role = result.user.role;
                     if (role === "care_companion" || role === "volunteer") {
-                        router.replace("/(care-companion)");
+                        replace("/(care-companion)");
                     } else if (role === "beneficiary") {
-                        router.replace("/(beneficiary)");
+                        replace("/(beneficiary)");
                     } else {
-                        router.replace("/(subscriber)");
+                        replace("/(subscriber)");
                     }
                 }
             } else {
@@ -108,9 +112,9 @@ export default function VerifyOtpScreen() {
                     <View style={styles.header}>
                         <TouchableOpacity onPress={() => {
                             if (router.canGoBack()) {
-                                router.back();
+                                pop();
                             } else {
-                                router.replace('/(auth)');
+                                replace('/(auth)');
                             }
                         }} style={styles.backButton}>
                             <Ionicons name="arrow-back" size={22} color="#111827" />
@@ -153,9 +157,9 @@ export default function VerifyOtpScreen() {
 
                         <TouchableOpacity onPress={() => {
                             if (router.canGoBack()) {
-                                router.back();
+                                pop();
                             } else {
-                                router.replace('/(auth)');
+                                replace('/(auth)');
                             }
                         }} disabled={isLoading}>
                             <Text style={styles.resendLink}>Resend OTP</Text>

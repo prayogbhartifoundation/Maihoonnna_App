@@ -10,11 +10,15 @@ type PlanDuration = 'basic' | '6months' | 'annual';
 import { API_URL } from '@/constants/api';
 import { CallbackButton } from '../../components/CallbackButton';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SubscriptionPackagesScreen() {
     const router = useRouter();
+    const { push } = useNavigationStack();
     const safeBack = useSafeBack();
+    useAndroidBackHandler();
     const [packages, setPackages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -37,10 +41,7 @@ export default function SubscriptionPackagesScreen() {
 
     const handleSelectPackage = (packageId: string) => {
         // We pass the package "type" (e.g. silver/gold) directly to the subscribe form
-        router.push({
-            pathname: '/(setup)/subscribe-form',
-            params: { packageId }
-        });
+        push('/(setup)/subscribe-form', { packageId });
     };
 
     const getPrice = (pkg: any) => {

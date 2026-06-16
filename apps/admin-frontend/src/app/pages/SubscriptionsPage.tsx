@@ -110,9 +110,10 @@ export default function SubscriptionsPage() {
   };
 
   const handlePublish = async () => {
-    const packageBenefits: PackageBenefit[] = Array.from(selectedBenefits).map(benefitId => ({
+    const packageBenefits: any[] = Array.from(selectedBenefits).map(benefitId => ({
       benefitId,
       monthlyUnits: benefitUnits[benefitId] || 0,
+      unitsIncluded: benefitUnits[benefitId] || 0,
     }));
 
     const payload = {

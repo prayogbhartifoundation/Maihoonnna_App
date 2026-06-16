@@ -5,9 +5,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { CallbackButton } from '../../components/CallbackButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+
 export default function PaymentSuccessScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { resetStack } = useNavigationStack();
+
+    React.useEffect(() => {
+        resetStack();
+    }, [resetStack]);
+
+    useAndroidBackHandler('/(subscriber)');
 
     // Destructure passed data (or use defaults if missing)
     const orderId = (params.orderId as string) || `ORD${Date.now()}`;

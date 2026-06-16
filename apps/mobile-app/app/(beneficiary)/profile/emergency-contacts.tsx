@@ -6,6 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 interface EmergencyContact {
     name: string;
@@ -17,6 +19,8 @@ interface EmergencyContact {
 
 export default function EmergencyContactsScreen() {
     const router = useRouter();
+    const { push, replace, pop } = useNavigationStack();
+    useAndroidBackHandler();
     const safeBack = useSafeBack();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

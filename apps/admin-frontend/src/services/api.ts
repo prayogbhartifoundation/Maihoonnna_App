@@ -863,6 +863,10 @@ export const subscriptionApi = {
   }> {
     return apiJson(`/subscriptions/beneficiary/${beneficiaryId}/utilization`);
   },
+  /** Initialize/backfill missing benefit balances for a subscription */
+  async initializeBalances(subscriptionId: string): Promise<{ created: number; message: string; benefits: any[] }> {
+    return apiJson(`/subscriptions/${subscriptionId}/initialize-balances`, { method: 'POST' });
+  },
 };
 
 export const visitApi = {

@@ -12,6 +12,8 @@ import { AddressInputField } from '../../components/ui/AddressInputField';
 
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type PackageDetails = {
@@ -24,7 +26,9 @@ type PackageDetails = {
 
 export default function SubscribeFormScreen() {
     const router = useRouter();
+    const { push } = useNavigationStack();
     const safeBack = useSafeBack();
+    useAndroidBackHandler();
     const params = useLocalSearchParams();
 
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -68,6 +72,7 @@ export default function SubscribeFormScreen() {
         latitude: 0,
         longitude: 0,
     });
+    const [emailError, setEmailError] = useState('');
 
     useEffect(() => {
         const checkAuthAndFetchPackage = async () => {
@@ -122,12 +127,19 @@ export default function SubscribeFormScreen() {
     }, [params.packageId]);
 
     const handleNext = () => {
-        router.push({
-            pathname: '/(setup)/beneficiary-info',
-            params: {
-                packageId: params.packageId || 'silver',
-                subscriberData: JSON.stringify(subscriberForm)
-            }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!subscriberForm.email) {
+            setEmailError('Email is required');
+            return;
+        } else if (!emailRegex.test(subscriberForm.email)) {
+            setEmailError('Please enter a valid email address');
+            return;
+        }
+        setEmailError('');
+
+        push('/(setup)/beneficiary-info', {
+            packageId: params.packageId || 'silver',
+            subscriberData: JSON.stringify(subscriberForm)
         });
     };
 
@@ -201,6 +213,7 @@ export default function SubscribeFormScreen() {
                                 placeholder="Enter your full name"
                                 placeholderTextColor="#9CA3AF"
                                 value={subscriberForm.fullName}
+                                maxLength={50}
                                 onChangeText={(text) => setSubscriberForm({ ...subscriberForm, fullName: text })}
                             />
                         </View>
@@ -218,7 +231,7 @@ export default function SubscribeFormScreen() {
                                     keyboardType="numeric"
                                     maxLength={10}
                                     value={subscriberForm.phone}
-                                    onChangeText={(text) => setSubscriberForm({ ...subscriberForm, phone: text })}
+                                    onChangeText={(text) => setSubscriberForm({ ...subscriberForm, phone: text.replace(/[^0-9]/g, '').slice(0, 10) })}
                                 />
                             </View>
                         </View>
@@ -232,8 +245,15 @@ export default function SubscribeFormScreen() {
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 value={subscriberForm.email}
-                                onChangeText={(text) => setSubscriberForm({ ...subscriberForm, email: text })}
+                                maxLength={80}
+                                onChangeText={(text) => {
+                                    setSubscriberForm({ ...subscriberForm, email: text });
+                                    if (emailError) setEmailError('');
+                                }}
                             />
+                            {emailError ? (
+                                <Text style={styles.errorText}>{emailError}</Text>
+                            ) : null}
                         </View>
 
                         <AddressInputField
@@ -260,6 +280,7 @@ export default function SubscribeFormScreen() {
                                     placeholder="e.g. 402, Sunshine"
                                     placeholderTextColor="#9CA3AF"
                                     value={subscriberForm.flatPlot}
+                                    maxLength={50}
                                     onChangeText={(t) => setSubscriberForm({ ...subscriberForm, flatPlot: t })}
                                 />
                             </View>
@@ -270,6 +291,7 @@ export default function SubscribeFormScreen() {
                                     placeholder="e.g. Sector 15"
                                     placeholderTextColor="#9CA3AF"
                                     value={subscriberForm.streetArea}
+                                    maxLength={80}
                                     onChangeText={(t) => setSubscriberForm({ ...subscriberForm, streetArea: t })}
                                 />
                             </View>
@@ -282,6 +304,7 @@ export default function SubscribeFormScreen() {
                                 placeholder="e.g. Near HDFC Bank"
                                 placeholderTextColor="#9CA3AF"
                                 value={subscriberForm.landmark}
+                                maxLength={80}
                                 onChangeText={(t) => setSubscriberForm({ ...subscriberForm, landmark: t })}
                             />
                         </View>
@@ -294,6 +317,7 @@ export default function SubscribeFormScreen() {
                                     placeholder="City"
                                     placeholderTextColor="#9CA3AF"
                                     value={subscriberForm.city}
+                                    maxLength={50}
                                     onChangeText={(t) => setSubscriberForm({ ...subscriberForm, city: t })}
                                 />
                             </View>
@@ -304,8 +328,9 @@ export default function SubscribeFormScreen() {
                                     placeholder="Pincode"
                                     placeholderTextColor="#9CA3AF"
                                     keyboardType="numeric"
+                                    maxLength={6}
                                     value={subscriberForm.pincode}
-                                    onChangeText={(t) => setSubscriberForm({ ...subscriberForm, pincode: t })}
+                                    onChangeText={(t) => setSubscriberForm({ ...subscriberForm, pincode: t.replace(/[^0-9]/g, '').slice(0, 6) })}
                                 />
                             </View>
                         </View>
@@ -317,6 +342,7 @@ export default function SubscribeFormScreen() {
                                 placeholder="State"
                                 placeholderTextColor="#9CA3AF"
                                 value={subscriberForm.state}
+                                maxLength={50}
                                 onChangeText={(t) => setSubscriberForm({ ...subscriberForm, state: t })}
                             />
                         </View>
@@ -436,5 +462,6 @@ const styles = StyleSheet.create({
 
     buttonRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 20 },
     nextBtn: { backgroundColor: '#F97316', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-    nextBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' }
+    nextBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+    errorText: { color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }
 });
