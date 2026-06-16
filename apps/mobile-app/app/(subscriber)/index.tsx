@@ -210,25 +210,27 @@ export default function SubscriberDashboardScreen() {
                     </View>
 
                     {/* Total Care Plans */}
-                    <LinearGradient colors={['#FE6700', '#E95200']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.statCard, { overflow: 'hidden' }]}>
-                        <View style={styles.statTopRow}>
-                            <View style={styles.planIconCircle}>
-                                <Ionicons name="ribbon-outline" size={23} color="#333333" />
+                    <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/package-utilization')}>
+                        <LinearGradient colors={['#FE6700', '#E95200']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.statCard, { overflow: 'hidden' }]}>
+                            <View style={styles.statTopRow}>
+                                <View style={styles.planIconCircle}>
+                                    <Ionicons name="ribbon-outline" size={23} color="#333333" />
+                                </View>
+                                <Text style={[styles.statValue, { color: '#FFF' }]}>{totalCarePlans}</Text>
                             </View>
-                            <Text style={[styles.statValue, { color: '#FFF' }]}>{totalCarePlans}</Text>
-                        </View>
-                        <Text style={[styles.statLabel, { color: '#FFE4CC' }]}>Total Care Plans</Text>
-                        <TouchableOpacity onPress={() => router.push('/(setup)/subscription-packages')}>
-                            <Text style={styles.addMoreText}>＋ Add more →</Text>
-                        </TouchableOpacity>
-                    </LinearGradient>
+                            <Text style={[styles.statLabel, { color: '#FFE4CC' }]}>Total Care Plans</Text>
+                            <TouchableOpacity onPress={() => router.push('/(setup)/subscription-packages')}>
+                                <Text style={styles.addMoreText}>＋ Add more →</Text>
+                            </TouchableOpacity>
+                        </LinearGradient>
+                    </TouchableOpacity>
                 </View>
 
                 {/* ── Beneficiaries Section ── */}
                 <Animated.View style={{ transform: [{ scale: benScaleAnim }] }}>
                 <View style={styles.sectionHeaderRow}>
                     <Text style={styles.sectionTitle}>Your Beneficiaries</Text>
-                    <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/(setup)/subscribe-form')}>
+                    <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/(setup)/subscription-packages')}>
                         <Ionicons name="add" size={14} color="#FFF" style={{ marginRight: 2 }} />
                         <Text style={styles.addBtnText}>Add</Text>
                     </TouchableOpacity>

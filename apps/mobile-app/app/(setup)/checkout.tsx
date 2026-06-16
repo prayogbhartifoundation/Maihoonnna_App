@@ -49,17 +49,23 @@ export default function CheckoutScreen() {
     useEffect(() => {
         const fetchPackageDetails = async () => {
             try {
-                const response = await fetch(`${API_URL}/admin/packages/${packageId}`);
-                if (!response.ok) throw new Error("Failed to fetch package");
+                // Fetch all available packages since mobile-backend doesn't have a specific get-by-id endpoint yet
+                const response = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
+                if (!response.ok) throw new Error("Failed to fetch packages");
                 const data = await response.json();
                 
                 if (data.success && data.data) {
-                    setPackageName(data.data.name);
-                    const p = data.data.price || 0;
-                    setBasePrice(p);
-                    const t = p * 0.18; // 18% GST
-                    setTaxes(t);
-                    setTotalAmount((p + t).toFixed(2));
+                    const selectedPkg = data.data.find((p: any) => p.type === packageId || p.id === packageId);
+                    if (selectedPkg) {
+                        setPackageName(selectedPkg.name);
+                        const p = selectedPkg.basePrice || 0;
+                        setBasePrice(p);
+                        const t = p * 0.18; // 18% GST
+                        setTaxes(t);
+                        setTotalAmount((p + t).toFixed(2));
+                    } else {
+                        console.warn('Package not found in list:', packageId);
+                    }
                 }
             } catch (err) {
                 console.error("Failed to load package details", err);
