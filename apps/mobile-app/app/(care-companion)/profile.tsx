@@ -1,19 +1,18 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native';
+﻿import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { ProfilePhotoUploader } from '@/components/ui/ProfilePhotoUploader';
 import { CompanionBackButton } from '../../components/care-companion/CompanionBackButton';
 import { useLogoutWithConfirm } from '@/utils/logout';
-import Animated, { 
-    useSharedValue, 
-    useAnimatedStyle, 
-    withSpring, 
-    withTiming, 
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
     interpolateColor,
     FadeInDown,
     FadeInUp
@@ -24,7 +23,6 @@ import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, P
 import { CompanionBottomNav } from '../../components/care-companion/CompanionBottomNav';
 
 const DEEP_ORANGE = '#FE6700';
-const VIBRANT_ORANGE = '#FF8C42';
 const LIGHT_BEIGE = '#FAF3EB';
 
 import { API_URL } from '@/constants/api';
@@ -32,7 +30,7 @@ import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 const API_BASE_URL = API_URL;
 
-// 🚀 PREMIUM REANIMATED TOGGLE COMPONENT
+// ðŸš€ PREMIUM REANIMATED TOGGLE COMPONENT
 const CustomToggle = ({ value, onValueChange }: { value: boolean, onValueChange: (val: boolean) => void }) => {
     const isOn = useSharedValue(value ? 1 : 0);
 
@@ -95,7 +93,7 @@ export default function ProfileScreen() {
         Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold,
     });
 
-    // 🚀 ZERO-TOUCH AUTO-FALLBACK FETCH
+    // ðŸš€ ZERO-TOUCH AUTO-FALLBACK FETCH
     useFocusEffect(
         useCallback(() => {
             let isActive = true;
@@ -145,6 +143,7 @@ export default function ProfileScreen() {
     );
 
     const logoutWithConfirm = useLogoutWithConfirm();
+    const { width } = useWindowDimensions();
 
     if (!fontsLoaded || loading || !profileData) {
         return (
@@ -154,46 +153,39 @@ export default function ProfileScreen() {
             </View>
         );
     }
+    const contentWidth = Math.min(Math.max(width - 32, 0), 440);
+
+    const responsiveContentStyle = {
+        width: contentWidth,
+        alignSelf: 'center' as const,
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-            {/* Added Stack.Screen to hide default header */}
             <Stack.Screen options={{ headerShown: false }} />
-            
-            <ScrollView bounces={true} contentContainerStyle={styles.scrollContent}>
 
-                {/* Gradient Header */}
-                <LinearGradient
-                    colors={[DEEP_ORANGE, VIBRANT_ORANGE]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.deepOrangeHeader}
-                >
-                    <View style={styles.headerRow}>
+            <ScrollView bounces={false} contentContainerStyle={styles.scrollContent}>
+                <View style={styles.deepOrangeHeader}>
+                    <View style={[styles.headerRow, responsiveContentStyle]}>
                         <CompanionBackButton style={styles.backButton} />
-                        <View>
+                        <View style={styles.headerTextBlock}>
                             <Text style={styles.headerTitle}>Profile</Text>
                             <Text style={styles.headerSub}>Manage your account</Text>
                         </View>
                     </View>
-                </LinearGradient>
+                </View>
 
-                <View style={styles.contentArea}>
-                    {/* Identity Card */}
-                    <Animated.View 
-                        entering={FadeInUp.delay(200).duration(600)}
-                        style={[styles.card, styles.identityCard]}
-                    >
-                        {/* Profile Photo Uploader */}
+                <View style={[styles.contentArea, responsiveContentStyle]}>
+                    <Animated.View entering={FadeInUp.delay(200).duration(600)} style={[styles.card, styles.identityCard]}>
                         <View style={styles.avatarWrapper}>
                             <ProfilePhotoUploader
                                 config={{
                                     targetType: 'self',
                                     currentPhotoUrl: profileData.photo || null,
-                                    size: 90,
+                                    size: 96,
                                     editable: true,
                                     initials: profileData.initials || 'CC',
-                                    accentColor: DEEP_ORANGE,
+                                    accentColor: '#EF4444',
                                     onSuccess: (url) => setProfileData((prev: any) => ({ ...prev, photo: url })),
                                 }}
                             />
@@ -204,48 +196,36 @@ export default function ProfileScreen() {
 
                         {profileData.verified && (
                             <View style={styles.verifiedBadge}>
-                                <Ionicons name="shield-checkmark-outline" size={16} color="#10B981" />
-                                <Text style={styles.verifiedText}>Verified Professional</Text>
+                                <Ionicons name="shield-checkmark-outline" size={16} color="#16A34A" />
+                                <Text style={styles.verifiedText}>Verified</Text>
                             </View>
                         )}
 
                         <View style={styles.divider} />
 
-                        <View style={styles.infoRow}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="mail-outline" size={18} color={DEEP_ORANGE} />
+                        <View style={styles.infoList}>
+                            <View style={styles.infoRow}>
+                                <Ionicons name="mail-outline" size={16} color="#333333" />
+                                <Text style={styles.infoText}>{profileData.email}</Text>
                             </View>
-                            <Text style={styles.infoText}>{profileData.email}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="call-outline" size={18} color={DEEP_ORANGE} />
+                            <View style={styles.infoRow}>
+                                <Ionicons name="call-outline" size={16} color="#333333" />
+                                <Text style={styles.infoText}>{profileData.phone}</Text>
                             </View>
-                            <Text style={styles.infoText}>{profileData.phone}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="location-outline" size={18} color={DEEP_ORANGE} />
+                            <View style={styles.infoRow}>
+                                <Ionicons name="location-outline" size={16} color="#333333" />
+                                <Text style={styles.infoText}>{profileData.location}</Text>
                             </View>
-                            <Text style={styles.infoText}>{profileData.location}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="calendar-outline" size={18} color={DEEP_ORANGE} />
+                            <View style={styles.infoRow}>
+                                <Ionicons name="calendar-outline" size={16} color="#333333" />
+                                <Text style={styles.infoText}>Member since {profileData.memberSince}</Text>
                             </View>
-                            <Text style={styles.infoText}>Member since {profileData.memberSince}</Text>
                         </View>
                     </Animated.View>
 
-                    {/* Notifications Card */}
-                    <Animated.View 
-                        entering={FadeInUp.delay(400).duration(600)}
-                        style={styles.card}
-                    >
+                    <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.card}>
                         <View style={styles.cardHeaderRow}>
-                            <View style={[styles.iconCircle, { backgroundColor: '#F3F4F6' }]}>
-                                <Ionicons name="notifications-outline" size={20} color="#111827" />
-                            </View>
+                            <Ionicons name="notifications-outline" size={20} color="#111827" />
                             <Text style={styles.cardSectionTitle}>Notifications</Text>
                         </View>
 
@@ -261,18 +241,46 @@ export default function ProfileScreen() {
                             <Text style={styles.switchLabel}>Training Updates</Text>
                             <CustomToggle value={toggles.training} onValueChange={v => setToggles({ ...toggles, training: v })} />
                         </View>
+                        <View style={[styles.switchRow, styles.lastRow]}>
+                            <Text style={styles.switchLabel}>Geofence Alerts</Text>
+                            <CustomToggle value={toggles.geofence} onValueChange={v => setToggles({ ...toggles, geofence: v })} />
+                        </View>
                     </Animated.View>
 
-                    {/* Your Impact */}
-                    <Animated.View 
-                        entering={FadeInUp.delay(600).duration(600)}
-                        style={styles.card}
-                    >
-                        <Text style={[styles.cardSectionTitle, { marginLeft: 0, marginBottom: 20 }]}>Your Impact</Text>
+                    <Animated.View entering={FadeInUp.delay(600).duration(600)} style={styles.card}>
+                        <View style={styles.cardHeaderRow}>
+                            <Ionicons name="settings-outline" size={20} color="#111827" />
+                            <Text style={styles.cardSectionTitle}>Settings</Text>
+                        </View>
+
+                        <TouchableOpacity style={styles.settingsButton} activeOpacity={0.75}>
+                            <View style={styles.settingsRowLeft}>
+                                <Ionicons name="person-outline" size={16} color="#0A0A0A" />
+                                <Text style={styles.settingsText}>Edit Profile</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.settingsButton} activeOpacity={0.75}>
+                            <View style={styles.settingsRowLeft}>
+                                <Ionicons name="shield-outline" size={16} color="#0A0A0A" />
+                                <Text style={styles.settingsText}>Privacy & Security</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.settingsButton} activeOpacity={0.75}>
+                            <View style={styles.settingsRowLeft}>
+                                <Ionicons name="options-outline" size={16} color="#0A0A0A" />
+                                <Text style={styles.settingsText}>App Preferences</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </Animated.View>
+
+                    <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.card}>
+                        <Text style={styles.impactTitle}>Your Impact</Text>
                         <View style={styles.impactGrid}>
                             <View style={styles.impactBox}>
                                 <Text style={styles.impactNumber}>{profileData.impact.visits}</Text>
-                                <Text style={styles.impactLabel}>Visits</Text>
+                                <Text style={styles.impactLabel}>Total Visits</Text>
                             </View>
                             <View style={styles.impactBox}>
                                 <Text style={styles.impactNumber}>{profileData.impact.hours}</Text>
@@ -285,54 +293,12 @@ export default function ProfileScreen() {
                         </View>
                     </Animated.View>
 
-                    {/* Settings Links */}
-                    <Animated.View 
-                        entering={FadeInUp.delay(800).duration(600)}
-                        style={styles.card}
-                    >
-                        <View style={styles.cardHeaderRow}>
-                            <View style={[styles.iconCircle, { backgroundColor: '#F3F4F6' }]}>
-                                <Ionicons name="settings-outline" size={20} color="#111827" />
-                            </View>
-                            <Text style={styles.cardSectionTitle}>Settings</Text>
-                        </View>
-
-                        <TouchableOpacity style={styles.settingsRow} activeOpacity={0.7}>
-                            <View style={styles.settingsRowLeft}>
-                                <Ionicons name="person-outline" size={20} color="#4B5563" />
-                                <Text style={styles.settingsText}>Edit Profile</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.settingsRow} activeOpacity={0.7}>
-                            <View style={styles.settingsRowLeft}>
-                                <Ionicons name="shield-outline" size={20} color="#4B5563" />
-                                <Text style={styles.settingsText}>Privacy & Security</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={[styles.settingsRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]} activeOpacity={0.7}>
-                            <View style={styles.settingsRowLeft}>
-                                <Ionicons name="options-outline" size={20} color="#4B5563" />
-                                <Text style={styles.settingsText}>App Preferences</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                        </TouchableOpacity>
-                    </Animated.View>
-
-                    {/* Logout */}
-                    <TouchableOpacity 
-                        style={styles.logoutBtn} 
-                        onPress={logoutWithConfirm}
-                        activeOpacity={0.7}
-                    >
+                    <TouchableOpacity style={styles.logoutBtn} onPress={logoutWithConfirm} activeOpacity={0.75}>
                         <Ionicons name="log-out-outline" size={20} color="#DC2626" />
                         <Text style={styles.logoutText}>Logout</Text>
                     </TouchableOpacity>
 
-                    <View style={{ height: 100 }} />
+                    <View style={styles.bottomSpacer} />
                 </View>
             </ScrollView>
 
@@ -345,7 +311,6 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: LIGHT_BEIGE },
     scrollContent: { flexGrow: 1 },
 
-    // --- Custom Toggle Styles ---
     toggleTrack: {
         width: 44,
         height: 24,
@@ -366,127 +331,224 @@ const styles = StyleSheet.create({
     },
 
     deepOrangeHeader: {
-        paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'ios' ? 10 : 30,
-        paddingBottom: 40,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
+        backgroundColor: DEEP_ORANGE,
+        height: 80,
+        paddingHorizontal: 16,
+        paddingTop: Platform.OS === 'ios' ? 10 : 16,
+        paddingBottom: 16,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 15,
+        elevation: 4,
     },
-    headerRow: { flexDirection: 'row', alignItems: 'center' },
-    backButton: { marginRight: 16 },
-    headerTitle: { fontFamily: 'Poppins_600SemiBold', color: '#FFFFFF', fontSize: 22, lineHeight: 30 },
-    headerSub: { fontFamily: 'Poppins_400Regular', color: '#FFFFFF', fontSize: 13, opacity: 0.9, marginTop: -2 },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 48,
+    },
+    headerTextBlock: {
+        flex: 1,
+        minWidth: 0,
+    },
+    backButton: {
+        marginRight: 12,
+    },
+    headerTitle: {
+        fontFamily: 'Poppins_600SemiBold',
+        color: '#FFFFFF',
+        fontSize: 20,
+        lineHeight: 28,
+    },
+    headerSub: {
+        fontFamily: 'Poppins_400Regular',
+        color: '#DBEAFE',
+        fontSize: 14,
+        lineHeight: 20,
+        opacity: 0.9,
+    },
 
-    contentArea: { paddingHorizontal: 20 },
-
+    contentArea: {
+        paddingHorizontal: 0,
+        paddingTop: 16,
+    },
     card: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
+        borderRadius: 14,
         padding: 24,
         marginBottom: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
         elevation: 3,
     },
-
     identityCard: {
-        marginTop: -30,
         alignItems: 'center',
     },
     avatarWrapper: {
-        position: 'relative',
-        marginTop: -45,
         marginBottom: 16,
     },
-    avatarCircle: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 4,
-        borderColor: '#FFFFFF',
-    },
-    avatarText: {
+    profileName: {
         fontFamily: 'Poppins_600SemiBold',
-        color: '#FFFFFF',
-        fontSize: 32,
+        fontSize: 20,
+        lineHeight: 28,
+        color: '#000000',
+        textAlign: 'center',
     },
-    cameraBadge: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: '#FFFFFF',
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-        elevation: 4,
+    profileRole: {
+        fontFamily: 'Poppins_400Regular',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#333333',
+        textAlign: 'center',
+        marginTop: 2,
     },
-
-    profileName: { fontFamily: 'Poppins_600SemiBold', fontSize: 20, color: '#111827' },
-    profileRole: { fontFamily: 'Poppins_400Regular', fontSize: 14, color: '#4B5563', marginTop: 2 },
-
-    verifiedBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 8, backgroundColor: '#ECFDF5', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
-    verifiedText: { fontFamily: 'Poppins_500Medium', color: '#10B981', fontSize: 12, marginLeft: 6 },
-
-    divider: { height: 1, backgroundColor: '#F3F4F6', width: '100%', marginVertical: 20 },
-
-    infoRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 16 },
-    iconCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#FFF7ED',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    infoText: { fontFamily: 'Poppins_400Regular', fontSize: 14, color: '#374151' },
-
-    cardHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    cardSectionTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 17, color: '#111827', marginLeft: 12 },
-
-    switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    switchLabel: { fontFamily: 'Poppins_500Medium', fontSize: 15, color: '#374151' },
-
-    impactGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-    impactBox: { alignItems: 'center', flex: 1 },
-    impactNumber: { fontFamily: 'Poppins_700Bold', fontSize: 28, color: DEEP_ORANGE },
-    impactLabel: { fontFamily: 'Poppins_400Regular', fontSize: 13, color: '#6B7280', marginTop: 4 },
-
-    settingsRow: {
+    verifiedBadge: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 8,
+    },
+    verifiedText: {
+        fontFamily: 'Poppins_500Medium',
+        color: '#16A34A',
+        fontSize: 14,
+        lineHeight: 20,
+        marginLeft: 6,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        width: '100%',
+        marginVertical: 24,
+    },
+    infoList: {
+        width: '100%',
+        gap: 12,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+        gap: 12,
+    },
+    infoText: {
+        flex: 1,
+        minWidth: 0,
+        fontFamily: 'Poppins_400Regular',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#333333',
+    },
+
+    cardHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    cardSectionTitle: {
+        fontFamily: 'Poppins_600SemiBold',
+        fontSize: 18,
+        lineHeight: 28,
+        color: '#000000',
+        marginLeft: 8,
+    },
+    switchRow: {
+        flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
+        alignItems: 'center',
+        gap: 16,
+        marginBottom: 16,
+    },
+    lastRow: {
+        marginBottom: 0,
+    },
+    switchLabel: {
+        flex: 1,
+        minWidth: 0,
+        fontFamily: 'Poppins_500Medium',
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#0A0A0A',
+    },
+
+    settingsButton: {
+        height: 40,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.1)',
+        borderRadius: 8,
+        justifyContent: 'center',
+        paddingHorizontal: 16,
+        marginBottom: 8,
+        backgroundColor: '#FFFFFF',
     },
     settingsRowLeft: {
         flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
     },
     settingsText: {
+        flex: 1,
+        minWidth: 0,
         fontFamily: 'Poppins_500Medium',
-        fontSize: 15,
-        color: '#374151',
-        marginLeft: 12
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#0A0A0A',
+        marginLeft: 12,
+    },
+
+    impactTitle: {
+        fontFamily: 'Poppins_600SemiBold',
+        fontSize: 18,
+        lineHeight: 28,
+        color: '#000000',
+        marginBottom: 24,
+    },
+    impactGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 8,
+    },
+    impactBox: {
+        alignItems: 'center',
+        flex: 1,
+        minWidth: 0,
+    },
+    impactNumber: {
+        fontFamily: 'Poppins_600SemiBold',
+        fontSize: 24,
+        lineHeight: 32,
+        color: DEEP_ORANGE,
+        textAlign: 'center',
+    },
+    impactLabel: {
+        fontFamily: 'Poppins_400Regular',
+        fontSize: 12,
+        lineHeight: 16,
+        color: '#333333',
+        textAlign: 'center',
+        marginTop: 4,
     },
 
     logoutBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         paddingVertical: 16,
         borderRadius: 12,
         backgroundColor: '#FEE2E2',
-        marginBottom: 20
+        marginBottom: 20,
     },
-    logoutText: { fontFamily: 'Poppins_600SemiBold', color: '#DC2626', fontSize: 16, marginLeft: 8 },
+    logoutText: {
+        fontFamily: 'Poppins_600SemiBold',
+        color: '#DC2626',
+        fontSize: 16,
+        marginLeft: 8,
+    },
+    bottomSpacer: {
+        height: 100,
+    },
 });
+
+
