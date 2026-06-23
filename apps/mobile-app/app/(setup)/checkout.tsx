@@ -214,6 +214,45 @@ export default function CheckoutScreen() {
             const data = await response.json();
 
             if (data.success) {
+                // Upload beneficiary photo if selected
+                const beneficiaryId = data.beneficiaryId;
+                if (beneficiaryData.photoUri && beneficiaryId) {
+                    try {
+                        const token = storedToken;
+                        const uri = beneficiaryData.photoUri;
+                        const ext = uri.split('.').pop() || 'jpg';
+                        const fileName = `photo_${Date.now()}.${ext}`;
+                        const mimeType = `image/${ext === 'png' ? 'png' : 'jpeg'}`;
+
+                        const formData = new FormData();
+                        if (Platform.OS === 'web') {
+                            const blobResponse = await fetch(uri);
+                            const blob = await blobResponse.blob();
+                            formData.append('file', blob, fileName);
+                        } else {
+                            formData.append('file', {
+                                uri,
+                                name: fileName,
+                                type: mimeType,
+                            } as any);
+                        }
+                        formData.append('targetType', 'beneficiary');
+                        formData.append('targetId', beneficiaryId);
+
+                        const uploadResponse = await fetch(`${API_URL}/profile-photo/upload`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': token ? `Bearer ${token}` : ''
+                            },
+                            body: formData
+                        });
+                        const uploadResult = await uploadResponse.json();
+                        console.log('[Checkout Photo Upload] Result:', uploadResult);
+                    } catch (uploadErr) {
+                        console.error('Failed to upload beneficiary photo during checkout:', uploadErr);
+                    }
+                }
+
                 // ⚠️ DEV ONLY — auto-set beneficiary password if provided — remove when done testing
                 if (beneficiaryData.devPassword && beneficiaryData.phone) {
                     fetch(`${API_URL}/dev/set-beneficiary-password`, {

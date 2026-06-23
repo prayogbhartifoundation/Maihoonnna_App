@@ -36,10 +36,13 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
 
     const ccId = user.careCompanionProfile.id;
 
+    // Run auto-transition check
+    await visitService.autoUpdateMissedVisits();
+
     const completedVisits = await prisma.visit.findMany({
       where: {
         careCompanionId: ccId,
-        status: 'completed',
+        status: { in: ['completed', 'missed', 'cancelled'] },
       },
       include: {
         beneficiary: true,
@@ -50,12 +53,12 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
         }
       },
       orderBy: {
-        checkOutTime: 'desc',
+        scheduledTime: 'desc',
       },
     });
 
-    const totalVisitsCount = completedVisits.length;
-    const totalMinutes = completedVisits.reduce((sum, v) => sum + (v.durationMinutes || 0), 0);
+    const totalVisitsCount = completedVisits.filter(v => v.status === 'completed').length;
+    const totalMinutes = completedVisits.filter(v => v.status === 'completed').reduce((sum, v) => sum + (v.durationMinutes || 0), 0);
     const totalHoursVal = totalMinutes / 60;
     const avgHoursVal = totalVisitsCount > 0 ? (totalHoursVal / totalVisitsCount) : 0;
 
@@ -94,15 +97,20 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
         patientName: v.beneficiary.name,
         address: patientAddress,
         date: dateStr,
-        duration: `${v.durationMinutes || 0} mins`,
-        tags: ['Home Visit', v.medicationAdherence ? 'Meds Taken' : 'Meds Flagged'],
+        duration: v.status === 'completed' ? `${v.durationMinutes || 0} mins` : '—',
+        tags: v.status === 'completed' 
+          ? ['Home Visit', v.medicationAdherence ? 'Meds Taken' : 'Meds Flagged']
+          : v.status === 'cancelled'
+            ? ['Home Visit', 'Cancelled Visit']
+            : ['Home Visit', 'Missed Visit'],
+        status: v.status,
         isExpanded: false,
-        details: {
+        details: v.status === 'completed' ? {
           vitals: { bp, weight, temp, o2 },
           meds,
           mood: v.mood || 'N/A',
           notes: v.notes || 'No visit notes captured.',
-        }
+        } : null
       };
     });
 

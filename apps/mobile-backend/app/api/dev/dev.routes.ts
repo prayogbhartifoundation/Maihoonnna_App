@@ -29,14 +29,12 @@ router.post('/set-beneficiary-password', async (req: Request, res: Response) => 
     return res.status(400).json({ success: false, message: 'password must be at least 4 characters' });
   }
 
+  const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+
   // Find user by phone (try with and without country code)
   const user = await prisma.user.findFirst({
     where: {
-      OR: [
-        { phone: phone },
-        { phone: `+91${phone}` },
-        { phone: phone.replace(/^\+91/, '') },
-      ],
+      phone: normalizedPhone,
       role: 'beneficiary',
     },
     select: { id: true, phone: true, name: true, role: true },

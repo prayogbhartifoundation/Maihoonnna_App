@@ -75,12 +75,25 @@ export const purchaseSubscription = async (
 
   // 1a. The Beneficiary is technically a user in this schema, so we create a simple placeholder user row first
   // We try to use the beneficiary's phone if it looks like a real one, else generate a unique fake one
-  let beneficiaryPhone = beneficiaryData.phone || `+91000${Math.floor(Math.random() * 9000000)}`;
-  
-  // Check if phone already exists to avoid unique constraint error
-  const existingUser = await prisma.user.findFirst({ where: { phone: beneficiaryPhone } });
-  if (existingUser) {
-    beneficiaryPhone = `+91${Date.now().toString().slice(-10)}`; // Use timestamp as backup
+  let beneficiaryPhone = '';
+  if (beneficiaryData.phone) {
+    beneficiaryPhone = beneficiaryData.phone.replace(/\D/g, '').slice(-10);
+    // Check if phone already exists to avoid unique constraint error
+    const existingUser = await prisma.user.findUnique({ where: { phone: beneficiaryPhone } });
+    if (existingUser) {
+      throw new Error('A user with this phone number already exists.');
+    }
+  } else {
+    // Generate a unique fake 10-digit phone number starting with '000'
+    let isUnique = false;
+    while (!isUnique) {
+      const fakePhone = `000${Math.floor(1000000 + Math.random() * 9000000)}`;
+      const existingFake = await prisma.user.findUnique({ where: { phone: fakePhone } });
+      if (!existingFake) {
+        beneficiaryPhone = fakePhone;
+        isUnique = true;
+      }
+    }
   }
 
   const dobDate = parseDob(beneficiaryData.dob);
@@ -338,7 +351,8 @@ export const purchaseSubscription = async (
     message: 'Subscription purchased successfully!',
     subscriptionId: subscription.id,
     package: (subscription as any).package.name,
-    beneficiaryName: beneficiary.name
+    beneficiaryName: beneficiary.name,
+    beneficiaryId: beneficiary.id
   };
 };
 

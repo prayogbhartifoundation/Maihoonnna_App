@@ -77,8 +77,9 @@ export const createBeneficiary = async (data: {
   emergencyContacts?: any[];
   dob?: string;
 }) => {
+  const phone = data.phone.replace(/\D/g, '').slice(-10);
   // Check if user with this phone already exists
-  const existingUser = await prisma.user.findUnique({ where: { phone: data.phone } });
+  const existingUser = await prisma.user.findUnique({ where: { phone } });
   if (existingUser) {
     throw new Error("A user with this phone number already exists.");
   }
@@ -88,7 +89,7 @@ export const createBeneficiary = async (data: {
   const user = await prisma.user.create({
     data: {
       id: generateUUID(),
-      phone: data.phone, // Use provided phone instead of generated
+      phone, // Use normalized 10-digit phone
       name: data.name,
       role: 'beneficiary',
       age: data.age,

@@ -14,9 +14,11 @@ router.get('/check-enrollment', async (req: Request, res: Response) => {
     return res.status(400).json({ success: false, message: 'phone is required' });
   }
 
+  const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+
   try {
     const user = await prisma.user.findUnique({
-      where: { phone },
+      where: { phone: normalizedPhone },
       select: {
         id: true,
         name: true,

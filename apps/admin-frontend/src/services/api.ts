@@ -37,6 +37,7 @@ import type {
   VisitBlock,
   StaffOnboardingMetadata,
   StaffOnboardingPayload,
+  CallbackRequest,
 } from '../types';
 
 // Simulate network delay for realistic behavior
@@ -1223,6 +1224,22 @@ export const uploadApi = {
       entityType: result.entityType,
       targetId: result.targetId,
     };
+  },
+};
+
+// ============================================================================
+// CALLBACK REQUESTS API
+// ============================================================================
+
+export const callbacksApi = {
+  async getAll(): Promise<CallbackRequest[]> {
+    return apiJson<CallbackRequest[]>('/callbacks');
+  },
+  async updateStatus(id: string, status: string): Promise<CallbackRequest> {
+    return apiJson<CallbackRequest>(`/callbacks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   },
 };
 

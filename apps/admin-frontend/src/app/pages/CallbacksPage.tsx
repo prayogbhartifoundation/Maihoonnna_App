@@ -7,20 +7,8 @@ import {
     AlertCircle
 } from 'lucide-react';
 import { cn } from '../components/ui/utils';
-
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001/api';
-
-interface CallbackRequest {
-    id: string;
-    name: string;
-    phone: string;
-    status: 'pending' | 'called' | 'resolved';
-    notes: string | null;
-    subscriberId: string | null;
-    beneficiaryId: string | null;
-    createdAt: string;
-    updatedAt: string;
-}
+import { callbacksApi } from '../../services/api';
+import type { CallbackRequest } from '../../types';
 
 const CallbacksPage = () => {
     const [callbacks, setCallbacks] = useState<CallbackRequest[]>([]);
@@ -33,10 +21,8 @@ const CallbacksPage = () => {
     const fetchCallbacks = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_BASE}/callbacks`);
-            const json = await res.json();
-            if (json.success) setCallbacks(json.data);
-            else throw new Error(json.message);
+            const data = await callbacksApi.getAll();
+            setCallbacks(data);
         } catch (err: any) {
             setError(err.message || 'Failed to fetch callbacks');
         } finally {
@@ -51,15 +37,8 @@ const CallbacksPage = () => {
     const handleUpdateStatus = async (id: string, status: string) => {
         setUpdatingId(id);
         try {
-            const res = await fetch(`${API_BASE}/callbacks/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status })
-            });
-            const json = await res.json();
-            if (json.success) {
-                setCallbacks(prev => prev.map(c => c.id === id ? json.data : c));
-            } else throw new Error(json.message);
+            const updated = await callbacksApi.updateStatus(id, status);
+            setCallbacks(prev => prev.map(c => c.id === id ? updated : c));
         } catch (err: any) {
             alert(`Failed to update status: ${err.message}`);
         } finally {

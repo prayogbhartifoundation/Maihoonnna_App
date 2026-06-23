@@ -269,6 +269,7 @@ router.patch('/:id/complete', async (req, res) => {
     if (!visit) return res.status(404).json({ success: false, message: 'Visit not found' });
     if (visit.status === 'completed') return res.status(400).json({ success: false, message: 'Visit is already completed' });
     if (visit.status === 'cancelled') return res.status(400).json({ success: false, message: 'Cannot complete a cancelled visit' });
+    if (visit.status === 'missed') return res.status(400).json({ success: false, message: 'Cannot complete a missed visit' });
 
     // Determine which benefitId to charge for hours (from override or notes tag)
     let hoursBenefitId = overrideBenefitId;
@@ -540,6 +541,24 @@ router.post('/:id/upload-image', uploadMemory.single('image'), async (req, res) 
 router.get('/', async (req, res) => {
   const { beneficiaryId, careCompanionId, date, fmUserId, visitCode } = req.query;
   try {
+    // Auto-update missed visits
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    try {
+      await prisma.visit.updateMany({
+        where: {
+          status: 'scheduled',
+          scheduledTime: {
+            lt: startOfToday,
+          },
+        },
+        data: {
+          status: 'missed',
+        },
+      });
+    } catch (err) {
+      console.error('Error auto-updating missed visits:', err);
+    }
     const where = {};
     if (beneficiaryId) where.beneficiaryId = beneficiaryId;
     if (careCompanionId) where.careCompanionId = careCompanionId;

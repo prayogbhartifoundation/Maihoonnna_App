@@ -254,7 +254,7 @@ export default function SubscriberDashboardScreen() {
                             onPress={() => router.push(`/(subscriber)/beneficiary-profile?id=${b.id}`)}
                         >
                             <Image
-                                source={{ uri: b.photo || 'https://randomuser.me/api/portraits/men/32.jpg' }}
+                                source={{ uri: b.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.name || 'Beneficiary')}&background=FFE3D1&color=FE6700&bold=true` }}
                                 style={styles.benPhoto}
                             />
                             <View style={styles.benDetails}>

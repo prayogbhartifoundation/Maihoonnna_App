@@ -1361,6 +1361,7 @@ enum VisitStatus {
   in_progress
   completed
   cancelled
+  missed
 }
 
 enum AppointmentStatus {

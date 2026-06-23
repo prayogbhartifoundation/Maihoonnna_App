@@ -23,6 +23,7 @@ const STATUS_FILTERS = [
   { key: 'in_progress', label: 'In Progress', color: '#3B82F6', bg: '#DBEAFE' },
   { key: 'completed', label: 'Completed', color: '#10B981', bg: '#D1FAE5' },
   { key: 'cancelled', label: 'Cancelled', color: '#EF4444', bg: '#FEE2E2' },
+  { key: 'missed', label: 'Missed', color: '#6B7280', bg: '#F3F4F6' },
 ];
 
 const TIME_FILTERS = [

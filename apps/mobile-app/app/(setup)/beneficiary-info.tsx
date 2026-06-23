@@ -112,7 +112,7 @@ export default function BeneficiaryInfoScreen() {
             packageId: params.packageId,
             subscriberData: params.subscriberData,
             // ⚠️ DEV ONLY — devPassword is included so checkout can call /api/dev/set-beneficiary-password
-            beneficiaryData: JSON.stringify({ ...beneficiaryForm, devPassword: devPassword || undefined })
+            beneficiaryData: JSON.stringify({ ...beneficiaryForm, photoUri: pickedPhotoUri, devPassword: devPassword || undefined })
         });
     };
 
