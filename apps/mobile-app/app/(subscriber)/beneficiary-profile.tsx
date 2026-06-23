@@ -92,13 +92,9 @@ export default function BeneficiaryProfileScreen() {
     });
 
     useEffect(() => {
-        if (beneficiary?.isDefaultData) {
-            Alert.alert(
-                "No Visits Recorded Yet",
-                "We are currently showing placeholder values (100% Happiness Score, 0 bpm, 0/0 BP) because no visit records exist for this beneficiary yet.",
-                [{ text: "Understood", style: "default" }]
-            );
-        }
+    // no-op: we no longer show a default-data alert since vitals are fully
+    // filtered server-side based on the beneficiary's tracked selections.
+    // Kept in case future telemetry is wired here.
     }, [beneficiary?.isDefaultData]);
 
     if (loading) {
@@ -123,6 +119,31 @@ export default function BeneficiaryProfileScreen() {
 
     const happinessScore = beneficiary.emotionalScore ?? 0;
     const conditions = beneficiary.conditions?.map((c: any) => c.condition?.name) || [];
+
+    /** Returns a distinct pastel icon-box background for each vital type */
+    /** Returns a distinct pastel icon-box background for each vital code */
+    const getVitalBgColor = (code: string, label: string): string => {
+        switch (code) {
+            case 'PULSE':         return '#FFD9EC'; // pink
+            case 'BP':            return '#FFD9D9'; // red-tint
+            case 'BLOOD_GLUCOSE': return '#FFF3CD'; // amber
+            case 'TEMP':          return '#D1F5FA'; // cyan
+            case 'SPO2':          return '#D1FAE5'; // green
+            case 'WEIGHT':        return '#DBEAFE'; // blue
+            case 'PAIN':          return '#FFE8D9'; // orange
+            case 'RESP':          return '#CCFBF1'; // teal
+        }
+        // Fallback: map by label (backwards compat + custom vitals)
+        switch (label) {
+            case 'Heart Rate':        return '#FFD9EC';
+            case 'Blood Pressure':    return '#FFD9D9';
+            case 'Blood Sugar':       return '#FFF3CD';
+            case 'Temperature':       return '#D1F5FA';
+            case 'Oxygen Saturation': return '#D1FAE5';
+            case 'Weight':            return '#DBEAFE';
+            default:                  return '#F3F4F6'; // grey fallback for custom vitals
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -189,9 +210,9 @@ export default function BeneficiaryProfileScreen() {
                                 <Text style={styles.statValue}>{beneficiary.hoursUsedPercent || 0}%</Text>
                                 <Text style={styles.statLabel}>Hours Used</Text>
                             </View>
-                            {beneficiary.vitalsData?.slice(0, 2).map((v: any, i: number) => (
-                                <View key={i} style={styles.statItem}>
-                                    <View style={[styles.statIconBox, i === 0 ? styles.heartIconBox : styles.bpIconBox]}>
+                            {beneficiary.vitalsData?.slice(0, 4).map((v: any, i: number) => (
+                                <View key={v.label} style={styles.statItem}>
+                                    <View style={[styles.statIconBox, { backgroundColor: getVitalBgColor(v.code || '', v.label) }]}>
                                         <MaterialCommunityIcons name={v.icon} size={24} color={v.color} />
                                     </View>
                                     <Text style={styles.statValue}>{v.value}</Text>
@@ -367,8 +388,6 @@ const styles = StyleSheet.create({
     },
     happinessIconBox: { backgroundColor: '#FFEBCB' },
     hoursIconBox: { backgroundColor: '#DDEBFF' },
-    heartIconBox: { backgroundColor: '#FFD9EC' },
-    bpIconBox: { backgroundColor: '#FFD9D9' },
     statEmoji: { fontSize: 22 },
     statValue: { fontSize: 21, fontWeight: '800', color: '#111111', marginBottom: 0 },
     statLabel: { fontSize: 15, color: '#333333' },

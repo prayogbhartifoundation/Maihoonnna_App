@@ -214,16 +214,19 @@ export const purchaseSubscription = async (
   }
 
   // Map Vitals to model fields
+  // The enrollment form sends vitals keyed by vitalDefinition.code (e.g. 'PULSE', 'BP', 'SPO2',
+  // 'BLOOD_GLUCOSE', 'TEMP', 'WEIGHT', 'PAIN', 'RESP'). Legacy aliases (HR, SUGAR, RR) are also
+  // handled for backward compatibility.
   const vitalsInput = medicalData?.vitals || {};
   const mappedVitals = {
-    trackBloodPressure: !!(vitalsInput.BP || vitalsInput.trackBloodPressure),
-    trackHeartRate: !!(vitalsInput.HR || vitalsInput.trackHeartRate),
-    trackBloodSugar: !!(vitalsInput.SUGAR || vitalsInput.trackBloodSugar),
-    trackTemperature: !!(vitalsInput.TEMP || vitalsInput.trackTemperature),
-    trackOxygenSaturation: !!(vitalsInput.SPO2 || vitalsInput.trackOxygenSaturation),
-    trackWeight: !!(vitalsInput.WEIGHT || vitalsInput.trackWeight),
-    trackPainLevel: !!(vitalsInput.PAIN || vitalsInput.trackPainLevel),
-    trackRespiratoryRate: !!(vitalsInput.RR || vitalsInput.trackRespiratoryRate),
+    trackBloodPressure:    !!(vitalsInput.BP    || vitalsInput.trackBloodPressure),
+    trackHeartRate:        !!(vitalsInput.PULSE || vitalsInput.HR || vitalsInput.trackHeartRate),
+    trackBloodSugar:       !!(vitalsInput.BLOOD_GLUCOSE || vitalsInput.SUGAR || vitalsInput.trackBloodSugar),
+    trackTemperature:      !!(vitalsInput.TEMP  || vitalsInput.trackTemperature),
+    trackOxygenSaturation: !!(vitalsInput.SPO2  || vitalsInput.trackOxygenSaturation),
+    trackWeight:           !!(vitalsInput.WEIGHT || vitalsInput.trackWeight),
+    trackPainLevel:        !!(vitalsInput.PAIN  || vitalsInput.trackPainLevel),
+    trackRespiratoryRate:  !!(vitalsInput.RESP  || vitalsInput.RR || vitalsInput.trackRespiratoryRate),
   };
 
   // 1b. Create Beneficiary mapped to the logged-in User
@@ -276,6 +279,43 @@ export const purchaseSubscription = async (
       } : undefined
     }
   });
+
+  // 1c. Create BeneficiaryVitalConfig rows for EVERY vital the subscriber checked.
+  //     This covers both the 8 system vitals AND any custom vitals added via the admin module.
+  //     Without this step, custom vitals are silently ignored.
+  const checkedVitalCodes = Object.entries(vitalsInput)
+    .filter(([, checked]) => !!checked)
+    .map(([code]) => code.trim().toUpperCase());
+
+  if (checkedVitalCodes.length > 0) {
+    const vitalDefs = await prisma.vitalDefinition.findMany({
+      where: { code: { in: checkedVitalCodes }, isActive: true }
+    });
+
+    const today = new Date(new Date().setHours(0, 0, 0, 0));
+    await Promise.all(
+      vitalDefs.map((def: any) =>
+        prisma.beneficiaryVitalConfig.upsert({
+          where: {
+            beneficiaryId_vitalDefinitionId_effectiveFrom: {
+              beneficiaryId: beneficiary.id,
+              vitalDefinitionId: def.id,
+              effectiveFrom: today,
+            }
+          },
+          update: { isActive: true },
+          create: {
+            id: generateUUID(),
+            beneficiaryId: beneficiary.id,
+            vitalDefinitionId: def.id,
+            isActive: true,
+            frequency: 'every_visit',
+            effectiveFrom: today,
+          }
+        })
+      )
+    );
+  }
 
   // 2. Create the Subscription record
   const subscription = await prisma.subscription.create({

@@ -566,6 +566,7 @@ model Benefit {
   benefitType     BenefitType                  @relation(fields: [benefitTypeId], references: [id])
   packageBenefits PackageBenefit[]
   balances        SubscriptionBenefitBalance[]
+  visits          Visit[]
 
   @@map("benefits")
 }
@@ -800,6 +801,7 @@ model Visit {
   beneficiaryId              String
   careCompanionId            String
   appointmentId              String?               @unique
+  benefitId                  String?               // The benefit selected for this visit — determines deduction rule (visits vs hours)
   scheduledTime              DateTime
   checkInTime                DateTime?
   checkOutTime               DateTime?
@@ -859,6 +861,7 @@ model Visit {
   appointment                Appointment?          @relation(fields: [appointmentId], references: [id])
   beneficiary                Beneficiary           @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
   careCompanion              CareCompanion         @relation(fields: [careCompanionId], references: [id])
+  benefit                    Benefit?              @relation(fields: [benefitId], references: [id])
   vitalReadings              VitalReading[]
   vitalHistory               VitalHistory[]
 

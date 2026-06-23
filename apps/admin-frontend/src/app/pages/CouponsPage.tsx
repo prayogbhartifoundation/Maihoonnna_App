@@ -50,7 +50,8 @@ export default function CouponsPage() {
         packageApi.getAll()
       ]);
       setCoupons(couponsData);
-      setStats(statsData.data || {});
+      setStats(statsData || {});
+
       setPackages(packagesData || []);
     } catch (error) {
       console.error('Failed to load coupons data', error);

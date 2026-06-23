@@ -11,6 +11,8 @@ import { API_URL } from '@/constants/api';
 import HeaderSpacer from '@/components/HeaderSpacer';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+// @ts-ignore
+import RazorpayCheckout from 'react-native-razorpay';
 const UPI_APPS = ['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'Amazon Pay'];
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FIGMA_WIDTH = 716;
@@ -30,107 +32,108 @@ export default function CheckoutScreen() {
         Poppins_700Bold
     });
 
-    // 🛑 BACKEND STATE
+    // ── Pricing state — all values come exclusively from the backend ──────────
     const packageId = (params.packageId as string) || 'silver';
-    const [basePrice, setBasePrice] = useState(0);
-    const [taxes, setTaxes] = useState(0);
-    const [totalAmount, setTotalAmount] = useState('0.00');
-    const [packageName, setPackageName] = useState('Basic Care');
+    const [pricing, setPricing] = useState<{
+        packageName: string;
+        basePrice: number;
+        discountApplied: number;
+        tax: number;
+        total: number;
+        couponValid: boolean;
+        couponMessage?: string;
+    }>({
+        packageName: 'Loading...',
+        basePrice: 0,
+        discountApplied: 0,
+        tax: 0,
+        total: 0,
+        couponValid: false,
+    });
+    const [pricingLoading, setPricingLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
-    const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
     const [couponError, setCouponError] = useState('');
+    const [appliedCouponCode, setAppliedCouponCode] = useState('');
 
     // 🛑 UI STATE
     const [activeTab, setActiveTab] = useState<'UPI' | 'CARDS' | 'NET_BANKING'>('UPI');
     const [upiId, setUpiId] = useState('');
     const [promoCode, setPromoCode] = useState('');
 
-    useEffect(() => {
-        const fetchPackageDetails = async () => {
-            try {
-                // Fetch all available packages since mobile-backend doesn't have a specific get-by-id endpoint yet
-                const response = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
-                if (!response.ok) throw new Error("Failed to fetch packages");
-                const data = await response.json();
-                
-                if (data.success && data.data) {
-                    const selectedPkg = data.data.find((p: any) => p.type === packageId || p.id === packageId);
-                    if (selectedPkg) {
-                        setPackageName(selectedPkg.name);
-                        const p = selectedPkg.basePrice || 0;
-                        setBasePrice(p);
-                        const t = p * 0.18; // 18% GST
-                        setTaxes(t);
-                        setTotalAmount((p + t).toFixed(2));
-                    } else {
-                        console.warn('Package not found in list:', packageId);
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to load package details", err);
-                Alert.alert("Error", "Could not load package details.");
-            }
-        };
-
-        if (packageId) fetchPackageDetails();
-    }, [packageId]);
-
-    const handleApplyCoupon = async () => {
-        if (!promoCode.trim()) return;
-        setIsApplyingCoupon(true);
-        setCouponError('');
-        
+    // ── Single function: calls /checkout/preview with optional couponCode ──────
+    // All arithmetic lives on the server. Frontend just renders what it receives.
+    const fetchCheckoutPreview = async (couponCode?: string) => {
         try {
             const storedToken = await AsyncStorage.getItem('userToken');
-            const response = await fetch(`${API_URL}/subscriber/coupons/validate`, {
+            const response = await fetch(`${API_URL}/subscriber/subscriptions/checkout/preview`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${storedToken}`
                 },
-                body: JSON.stringify({ 
-                    code: promoCode,
-                    packageId: packageId,
-                    amount: basePrice
-                })
+                body: JSON.stringify({ packageId, couponCode: couponCode || undefined })
             });
-            const data = await response.json();
-            
-            if (data.success && data.coupon) {
-                setAppliedCoupon(data.coupon);
-                // recalculate total
-                const discount = data.coupon.discountValue || 0;
-                let newBase = basePrice;
-                
-                if (data.coupon.discountType === 'percentage') {
-                    newBase = basePrice * (1 - discount / 100);
-                } else if (data.coupon.discountType === 'fixed') {
-                    newBase = Math.max(0, basePrice - discount);
-                }
-                
-                const t = newBase * 0.18;
-                setTaxes(t);
-                setTotalAmount((newBase + t).toFixed(2));
-                Alert.alert("Success", "Coupon applied successfully!");
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                setPricing({
+                    packageName: result.data.packageName,
+                    basePrice: result.data.basePrice,
+                    discountApplied: result.data.discountApplied,
+                    tax: result.data.tax,
+                    total: result.data.total,
+                    couponValid: result.data.couponValid,
+                    couponMessage: result.data.couponMessage,
+                });
+                return result.data;
             } else {
-                setCouponError(data.message || 'Invalid or expired coupon code');
-                setAppliedCoupon(null);
+                throw new Error(result.message || 'Failed to load pricing');
+            }
+        } catch (err: any) {
+            console.error('[Checkout Preview Error]', err);
+            throw err;
+        }
+    };
+
+    // Initial load — no coupon
+    useEffect(() => {
+        if (!packageId) return;
+        setPricingLoading(true);
+        fetchCheckoutPreview()
+            .catch(() => Alert.alert('Error', 'Could not load package pricing.'))
+            .finally(() => setPricingLoading(false));
+    }, [packageId]);
+
+    // Apply coupon — calls preview again with the code
+    const handleApplyCoupon = async () => {
+        if (!promoCode.trim()) return;
+        setIsApplyingCoupon(true);
+        setCouponError('');
+
+        try {
+            const result = await fetchCheckoutPreview(promoCode.trim().toUpperCase());
+            if (result.couponValid) {
+                setAppliedCouponCode(promoCode.trim().toUpperCase());
+                Alert.alert('✅ Coupon Applied!', `You saved ₹${result.discountApplied.toFixed(2)} on this order.`);
+            } else {
+                setCouponError(result.couponMessage || 'Invalid or expired coupon code');
+                setAppliedCouponCode('');
+                // Pricing is already reset to no-coupon values by fetchCheckoutPreview
             }
         } catch (err) {
-            setCouponError('Failed to validate coupon');
+            setCouponError('Failed to validate coupon. Please try again.');
         } finally {
             setIsApplyingCoupon(false);
         }
     };
 
-    const handleRemoveCoupon = () => {
-        setAppliedCoupon(null);
+    // Remove coupon — re-fetch clean pricing
+    const handleRemoveCoupon = async () => {
+        setAppliedCouponCode('');
         setPromoCode('');
         setCouponError('');
-        const t = basePrice * 0.18;
-        setTaxes(t);
-        setTotalAmount((basePrice + t).toFixed(2));
+        await fetchCheckoutPreview(); // No couponCode → clean pricing from server
     };
 
     const handlePay = async () => {
@@ -191,7 +194,84 @@ export default function CheckoutScreen() {
             try { if (emergencyContactsRaw) emergencyContacts = JSON.parse(emergencyContactsRaw); } catch (e) { }
             try { if (preferencesDataRaw) preferencesData = JSON.parse(preferencesDataRaw); } catch (e) { }
 
-            // Call the real backend to create beneficiary + subscription
+            // 1. Check if total is 0 (e.g. 100% discount). If so, skip Razorpay.
+            let paymentDetails = {};
+            
+            if (pricing.total > 0) {
+                // 2. Fetch Razorpay order from backend
+                const orderRes = await fetch(`${API_URL}/subscriber/subscriptions/create-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': storedToken ? `Bearer ${storedToken}` : ''
+                    },
+                    body: JSON.stringify({ packageId, couponCode: appliedCouponCode || undefined })
+                });
+                const orderData = await orderRes.json();
+                if (!orderData.success) {
+                    throw new Error(orderData.message || "Failed to create payment order");
+                }
+
+                // 3. Open Razorpay Checkout
+                const options = {
+                    description: `Mai-Hoonaa: ${pricing.packageName}`,
+                    image: 'https://maihoonna.com/logo.png', // Replace with your actual logo URL
+                    currency: orderData.data.currency,
+                    key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID,
+                    amount: orderData.data.amount,
+                    name: 'Mai-Hoonaa',
+                    order_id: orderData.data.order_id,
+                    prefill: {
+                        email: user.email || '',
+                        contact: user.phone || beneficiaryData.phone || '',
+                        name: user.name || ''
+                    },
+                    theme: { color: '#FE6700' }
+                };
+
+                try {
+                    if (Platform.OS === 'web') {
+                        // Razorpay Native SDK doesn't work on Web, mock for testing
+                        paymentDetails = {
+                            razorpay_payment_id: "pay_test_" + Date.now(),
+                            razorpay_order_id: orderData.data.order_id,
+                            razorpay_signature: "DEV_MOCK_SIGNATURE"
+                        };
+                        alert("Running on Web: Simulating successful Razorpay payment.");
+                    } else {
+                        // Try native checkout, fallback to mock if running in Expo Go (missing native module)
+                        try {
+                            const paymentResponse = await RazorpayCheckout.open(options);
+                            paymentDetails = {
+                                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                                razorpay_order_id: paymentResponse.razorpay_order_id,
+                                razorpay_signature: paymentResponse.razorpay_signature
+                            };
+                        } catch (paymentErr: any) {
+                            if (paymentErr.message?.includes('Native module cannot be null') || paymentErr.message?.includes('RazorpayCheckout')) {
+                                // Missing native module (likely Expo Go)
+                                console.warn("Razorpay Native Module missing. Using Dev Mock.");
+                                paymentDetails = {
+                                    razorpay_payment_id: "pay_test_" + Date.now(),
+                                    razorpay_order_id: orderData.data.order_id,
+                                    razorpay_signature: "DEV_MOCK_SIGNATURE"
+                                };
+                                Alert.alert("Test Mode", "Razorpay native module not found (Expo Go). Simulating successful payment.");
+                            } else {
+                                setIsProcessing(false);
+                                console.log('[Razorpay Cancelled/Error]', paymentErr);
+                                return;
+                            }
+                        }
+                    }
+                } catch (err: any) {
+                    setIsProcessing(false);
+                    return;
+                }
+            }
+
+            // 4. Call the real backend to create beneficiary + subscription
+            // couponCode sent so backend re-validates and applies it server-side
             const payload = {
                 userId: user.id,
                 packageId: packageId,
@@ -200,7 +280,8 @@ export default function CheckoutScreen() {
                 medicalData,
                 emergencyContacts,
                 preferencesData,
-                couponCode: appliedCoupon ? promoCode : undefined
+                couponCode: appliedCouponCode || undefined,
+                ...paymentDetails
             };
 
             const response = await fetch(`${API_URL}/subscriber/subscriptions/purchase`, {
@@ -267,7 +348,7 @@ export default function CheckoutScreen() {
                 queryClient.invalidateQueries({ queryKey: ['subscriberDashboard'] });
 
                 // Payment gateway is mocked for now, but beneficiary is saved in DB
-                replace('/(setup)/payment-success', { orderId: data.subscriptionId, packageName: data.package || packageName, price: totalAmount });
+                replace('/(setup)/payment-success', { orderId: data.subscriptionId, packageName: data.package || pricing.packageName, price: pricing.total.toString() });
             } else {
                 throw new Error(data.message || "Purchase failed on server.");
             }
@@ -377,8 +458,6 @@ export default function CheckoutScreen() {
                                     <Text style={styles.qrText}>Or scan QR code with any UPI app</Text>
                                 </View>
 
-                                <View style={styles.divider} />
-
                                 {/* ─── PROMO / COUPON SECTION ─── */}
                                 <View style={styles.couponCard}>
                                     <View style={styles.couponHeader}>
@@ -386,18 +465,17 @@ export default function CheckoutScreen() {
                                         <Text style={styles.couponHeaderText}>Have a Promo Code?</Text>
                                     </View>
 
-                                    {!appliedCoupon ? (
+                                    {!pricing.couponValid ? (
                                         <>
                                             <View style={styles.promoInputRow}>
                                                 <TextInput
-                                                    style={[styles.promoInput, couponError ? { borderColor: '#EF4444' } : {}]}
-                                                    placeholder="Enter coupon code (e.g. SAVE20)"
+                                                    style={styles.promoInput}
+                                                    placeholder="Enter Code"
                                                     placeholderTextColor="#9CA3AF"
                                                     value={promoCode}
                                                     onChangeText={(text) => { setPromoCode(text.toUpperCase()); setCouponError(''); }}
                                                     autoCapitalize="characters"
                                                     autoCorrect={false}
-                                                    editable={!isApplyingCoupon}
                                                 />
                                                 <TouchableOpacity
                                                     style={[styles.applyBtnOutline, (!promoCode || isApplyingCoupon) && { opacity: 0.5 }]}
@@ -426,8 +504,8 @@ export default function CheckoutScreen() {
                                             <View style={styles.couponAppliedLeft}>
                                                 <Ionicons name="checkmark-circle" size={24} color="#10B981" />
                                                 <View style={{ marginLeft: 10 }}>
-                                                    <Text style={styles.couponAppliedCode}>{promoCode.toUpperCase()}</Text>
-                                                    <Text style={styles.couponAppliedSaving}>You saved ₹{appliedCoupon.discountApplied.toFixed(2)}!</Text>
+                                                    <Text style={styles.couponAppliedCode}>{appliedCouponCode}</Text>
+                                                    <Text style={styles.couponAppliedSaving}>You saved ₹{pricing.discountApplied.toFixed(2)}!</Text>
                                                 </View>
                                             </View>
                                             <TouchableOpacity onPress={handleRemoveCoupon} style={styles.removeBtn}>
@@ -442,14 +520,16 @@ export default function CheckoutScreen() {
                                 <TouchableOpacity
                                     style={[styles.payButton, isProcessing && { opacity: 0.7 }]}
                                     onPress={handlePay}
-                                    disabled={isProcessing}
+                                    disabled={isProcessing || pricingLoading}
                                 >
                                     {isProcessing ? (
                                         <ActivityIndicator color="#FFFFFF" />
                                     ) : (
                                         <>
                                             <Feather name="lock" size={16} color="#FFF" style={styles.payBtnIcon} />
-                                            <Text style={styles.payButtonText}>Pay ₹{totalAmount}</Text>
+                                            <Text style={styles.payButtonText}>
+                                                Pay ₹{pricingLoading ? '...' : pricing.total.toFixed(2)}
+                                            </Text>
                                         </>
                                     )}
                                 </TouchableOpacity>
@@ -481,39 +561,48 @@ export default function CheckoutScreen() {
                     <View style={styles.summaryContainer}>
                         <Text style={styles.summaryTitle}>Order Summary</Text>
 
-                        <Text style={styles.planName}>{packageName}</Text>
-                        <Text style={styles.planDuration}>1 Month</Text>
-
-                        <View style={styles.featuresList}>
-                            {['Weekly health checkups', 'Vitals monitoring', 'Emergency contact support', 'Basic companionship'].map((feature, index) => (
-                                <View key={index} style={styles.featureRow}>
-                                    <Ionicons name="checkmark-circle" size={18} color="#FE6700" />
-                                    <Text style={styles.featureText}>{feature}</Text>
-                                </View>
-                            ))}
-                        </View>
-
-                        <View style={styles.divider} />
-
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Subtotal</Text>
-                            <Text style={styles.priceValue}>₹{basePrice.toFixed(2)}</Text>
-                        </View>
-                        {appliedCoupon && (
-                            <View style={styles.priceRow}>
-                                <Text style={[styles.priceLabel, { color: '#059669' }]}>Discount ({promoCode})</Text>
-                                <Text style={[styles.priceValue, { color: '#059669' }]}>-₹{appliedCoupon.discountApplied.toFixed(2)}</Text>
+                        {pricingLoading ? (
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <ActivityIndicator size="large" color="#FE6700" />
+                                <Text style={{ marginTop: 10, color: '#6B6B6B' }}>Calculating Pricing...</Text>
                             </View>
-                        )}
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>GST (18%)</Text>
-                            <Text style={styles.priceValue}>₹{taxes.toFixed(2)}</Text>
-                        </View>
+                        ) : (
+                            <>
+                                <Text style={styles.planName}>{pricing.packageName}</Text>
+                                <Text style={styles.planDuration}>1 Month</Text>
 
-                        <View style={[styles.priceRow, { marginTop: 12 }]}>
-                            <Text style={styles.totalLabel}>Total</Text>
-                            <Text style={styles.totalValue}>₹{totalAmount}</Text>
-                        </View>
+                                <View style={styles.featuresList}>
+                                    {['Weekly health checkups', 'Vitals monitoring', 'Emergency contact support', 'Basic companionship'].map((feature, index) => (
+                                        <View key={index} style={styles.featureRow}>
+                                            <Ionicons name="checkmark-circle" size={18} color="#FE6700" />
+                                            <Text style={styles.featureText}>{feature}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+
+                                <View style={styles.divider} />
+
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.priceLabel}>Subtotal</Text>
+                                    <Text style={styles.priceValue}>₹{pricing.basePrice.toFixed(2)}</Text>
+                                </View>
+                                {pricing.couponValid && (
+                                    <View style={styles.priceRow}>
+                                        <Text style={[styles.priceLabel, { color: '#059669' }]}>Discount ({appliedCouponCode})</Text>
+                                        <Text style={[styles.priceValue, { color: '#059669' }]}>-₹{pricing.discountApplied.toFixed(2)}</Text>
+                                    </View>
+                                )}
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.priceLabel}>GST (18%)</Text>
+                                    <Text style={styles.priceValue}>₹{pricing.tax.toFixed(2)}</Text>
+                                </View>
+
+                                <View style={[styles.priceRow, { marginTop: 12 }]}>
+                                    <Text style={styles.totalLabel}>Total</Text>
+                                    <Text style={styles.totalValue}>₹{pricing.total.toFixed(2)}</Text>
+                                </View>
+                            </>
+                        )}
                     </View>
 
                 </ScrollView>
