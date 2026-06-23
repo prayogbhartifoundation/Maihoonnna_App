@@ -105,7 +105,9 @@ router.get('/:id', async (req, res) => {
           include: {
             primaryCC: true,
             secondaryCC: true,
-            fieldManager: true,
+            team: {
+              include: { fieldManager: true }
+            },
           },
         },
       },

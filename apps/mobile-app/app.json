@@ -7,7 +7,7 @@
     "updates": {
       "enabled": false
     },
-    "icon": "./assets/images/group1.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "maihoonna",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -20,8 +20,8 @@
     "android": {
       "package": "com.rajeev_23.maihoonna",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/group2.png",
-        "backgroundColor": "#E6F4FE"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#ffffff"
       },
       "predictiveBackGestureEnabled": false,
       "config": {
@@ -31,7 +31,7 @@
       }
     },
     "web": {
-      "favicon": "./assets/images/group3.png"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
       "expo-router",
@@ -53,7 +53,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/group1.png",
+          "icon": "./assets/images/icon.png",
           "color": "#FF7A00",
           "sounds": [],
           "androidMode": "default",

@@ -141,9 +141,13 @@ router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response
             include: {
                 primaryCC: { include: { user: true } },
                 secondaryCC: { include: { user: true } },
-                fieldManager: {
+                team: {
                     include: {
-                        fieldManagerProfile: true
+                        fieldManager: {
+                            include: {
+                                user: true
+                            }
+                        }
                     }
                 }, 
             },
@@ -179,16 +183,16 @@ router.get('/:userId/team', authenticate, async (req: AuthRequest, res: Response
             });
         }
 
-        if (beneficiary.fieldManager && beneficiary.fieldManager.isActive !== false) {
-            const fmProfile = (beneficiary.fieldManager as any).fieldManagerProfile;
+        if (beneficiary.team && beneficiary.team.fieldManager) {
+            const fmProfile = beneficiary.team.fieldManager;
             team.push({
-                id: beneficiary.fieldManager.id,
+                id: fmProfile.id,
                 level: 'Field Manager',
-                name: fmProfile?.name || beneficiary.fieldManager.name || 'Field Manager',
+                name: fmProfile.name || 'Field Manager',
                 role: 'Field Manager',
-                bio: fmProfile?.bio || '',
-                photo: fmProfile?.photo || null, 
-                phone: fmProfile?.phone || (beneficiary.fieldManager as any).phone || null
+                bio: fmProfile.bio || '',
+                photo: fmProfile.photo || null, 
+                phone: fmProfile.phone || fmProfile.user?.phone || null
             });
         }
 

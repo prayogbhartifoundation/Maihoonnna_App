@@ -34,7 +34,6 @@ model User {
   createdAt                      DateTime                 @default(now())
   updatedAt                      DateTime                 @updatedAt
   bookedAppointments             Appointment[]            @relation("AppointmentBookedBy")
-  beneficiariesManaged           Beneficiary[]            @relation("BeneficiaryFieldManager")
   subscriberBeneficiaries        Beneficiary[]            @relation("SubscriberBeneficiaries")
   beneficiaryProfile             Beneficiary?             @relation("BeneficiaryUser")
   assignedCallbackRequests       CallbackRequest[]        @relation("CallbackAssignedTo")
@@ -252,7 +251,7 @@ model Beneficiary {
   trackRespiratoryRate  Boolean                  @default(false)
   primaryCcId           String?
   secondaryCcId         String?
-  fieldManagerId        String?
+  teamId                String?
   emotionalScore        Float                    @default(8.0)
   medicationScore       Float                    @default(100.0)
   healthScore           Float                    @default(8.0)
@@ -267,7 +266,7 @@ model Beneficiary {
   updatedAt             DateTime                 @updatedAt
   maritalStatus         String?
   appointments          Appointment[]
-  fieldManager          User?                    @relation("BeneficiaryFieldManager", fields: [fieldManagerId], references: [id])
+  team                  Team?                    @relation(fields: [teamId], references: [id])
   primaryCC             CareCompanion?           @relation("PrimaryCC", fields: [primaryCcId], references: [id])
   secondaryCC           CareCompanion?           @relation("SecondaryCC", fields: [secondaryCcId], references: [id])
   subscriber            User                     @relation("SubscriberBeneficiaries", fields: [subscriberId], references: [id])
@@ -294,7 +293,7 @@ model Beneficiary {
   @@index([city])
   @@index([pincode])
   @@index([subscriberId])
-  @@index([fieldManagerId])
+  @@index([teamId])
   @@index([primaryCcId])
   @@index([secondaryCcId])
   @@map("beneficiaries")
@@ -529,6 +528,7 @@ model Team {
   updatedAt      DateTime        @updatedAt
   careCompanions CareCompanion[]
   staffProfiles  StaffProfile[]
+  beneficiaries  Beneficiary[]
   fieldManager   FieldManager    @relation(fields: [fieldManagerId], references: [id])
 
   @@map("teams")

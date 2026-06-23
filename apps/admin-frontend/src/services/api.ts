@@ -346,8 +346,8 @@ export const fieldManagerApi = {
     return apiJson<any>(`/field-manager/beneficiaries/${beneficiaryId}/benefit-usage`);
   },
 
-  /** Assign CC to beneficiary */
-  async assignCC(beneficiaryId: string, payload: { primaryCcId?: string | null; secondaryCcId?: string | null }): Promise<any> {
+  /** Assign CC or Team to beneficiary */
+  async assignCC(beneficiaryId: string, payload: { primaryCcId?: string | null; secondaryCcId?: string | null; teamId?: string | null }): Promise<any> {
     return apiJson<any>(`/beneficiaries/${beneficiaryId}/assign-staff`, {
       method: 'PUT',
       body: JSON.stringify(payload),
@@ -515,13 +515,17 @@ export const beneficiaryApi = {
       return [...mockBeneficiaries];
     }
   },
-  async getAllPaginated(params: { search: string; searchBy?: string; page: number; limit: number }): Promise<any> {
-    const query = new URLSearchParams({
+  async getAllPaginated(params: { search: string; searchBy?: string; page: number; limit: number; sortBy?: string; filterBy?: string }): Promise<any> {
+    const queryParams: any = {
       search: params.search,
       searchBy: params.searchBy || '',
       page: params.page.toString(),
       limit: params.limit.toString()
-    }).toString();
+    };
+    if (params.sortBy) queryParams.sortBy = params.sortBy;
+    if (params.filterBy) queryParams.filterBy = params.filterBy;
+    
+    const query = new URLSearchParams(queryParams).toString();
     const res = await apiJson<any>(`/beneficiaries?${query}`);
     
     if (res && res.data && Array.isArray(res.data)) {
@@ -608,10 +612,10 @@ export const beneficiaryApi = {
     return mockBeneficiaries[index];
   },
 
-  async getAvailableStaff(pincode: string, fieldManagerUserId?: string | null): Promise<{ careCompanions: any[]; fieldManagers: any[]; zones: any[] }> {
+  async getAvailableStaff(pincode: string, teamId?: string | null): Promise<{ careCompanions: any[]; fieldManagers: any[]; zones: any[] }> {
     try {
       let url = `/beneficiaries/available-staff?pincode=${encodeURIComponent(pincode)}`;
-      if (fieldManagerUserId) url += `&fieldManagerUserId=${encodeURIComponent(fieldManagerUserId)}`;
+      if (teamId) url += `&teamId=${encodeURIComponent(teamId)}`;
       return await apiJson(url);
     } catch (err) {
       console.error('beneficiaryApi.getAvailableStaff failed:', err);
@@ -619,7 +623,7 @@ export const beneficiaryApi = {
     }
   },
 
-  async assignStaff(beneficiaryId: string, payload: { primaryCcId?: string | null; secondaryCcId?: string | null; fieldManagerId?: string | null }): Promise<any> {
+  async assignStaff(beneficiaryId: string, payload: { primaryCcId?: string | null; secondaryCcId?: string | null; teamId?: string | null }): Promise<any> {
     return apiJson(`/beneficiaries/${beneficiaryId}/assign-staff`, {
       method: 'PUT',
       body: JSON.stringify(payload),
@@ -948,6 +952,21 @@ export const visitApi = {
 };
 
 export const teamApi = {
+  async getAll(): Promise<any[]> {
+    return apiJson('/teams');
+  },
+  async getAllPaginated(params: { search: string; page: number; limit: number }): Promise<any> {
+    const query = new URLSearchParams({
+      search: params.search,
+      page: params.page.toString(),
+      limit: params.limit.toString()
+    }).toString();
+    return apiJson(`/teams?${query}`);
+  },
+  async getById(id: string): Promise<any | undefined> {
+    const teams = await this.getAll();
+    return teams.find((team: any) => team.id === id);
+  },
   async getTeams(): Promise<any[]> {
     return apiJson('/teams');
   },
