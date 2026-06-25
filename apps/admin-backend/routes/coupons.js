@@ -16,6 +16,48 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/coupons/analytics/stats — MUST be before /:id to avoid id='analytics' match
+router.get('/analytics/stats', async (req, res) => {
+  try {
+    const totalCoupons = await prisma.coupon.count();
+    const activeCoupons = await prisma.coupon.count({
+      where: { isActive: true },
+    });
+
+    // Total usages
+    const usages = await prisma.couponUsage.aggregate({
+      _sum: { discountApplied: true, orderAmount: true },
+      _count: true,
+    });
+
+    // Recent attempts (success vs fail)
+    const attempts = await prisma.couponAttemptLog.groupBy({
+      by: ['status'],
+      _count: true,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        totalCoupons,
+        activeCoupons,
+        totalUsages: usages._count || 0,
+        totalDiscountGiven: usages._sum.discountApplied || 0,
+        totalOrderValueWithCoupons: usages._sum.orderAmount || 0,
+        attempts: attempts.reduce(
+          (acc, curr) => ({ ...acc, [curr.status]: curr._count }),
+          {}
+        ),
+      },
+    });
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res
+      .status(500)
+      .json({ success: false, message: 'Failed to fetch analytics' });
+  }
+});
+
 // GET /api/coupons/:id — get one coupon
 router.get('/:id', async (req, res) => {
   try {
@@ -171,46 +213,6 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// GET /api/coupons/analytics/stats
-router.get('/analytics/stats', async (req, res) => {
-  try {
-    const totalCoupons = await prisma.coupon.count();
-    const activeCoupons = await prisma.coupon.count({
-      where: { isActive: true },
-    });
-
-    // Total usages
-    const usages = await prisma.couponUsage.aggregate({
-      _sum: { discountApplied: true, orderAmount: true },
-      _count: true,
-    });
-
-    // Recent attempts (success vs fail)
-    const attempts = await prisma.couponAttemptLog.groupBy({
-      by: ['status'],
-      _count: true,
-    });
-
-    res.json({
-      success: true,
-      data: {
-        totalCoupons,
-        activeCoupons,
-        totalUsages: usages._count || 0,
-        totalDiscountGiven: usages._sum.discountApplied || 0,
-        totalOrderValueWithCoupons: usages._sum.orderAmount || 0,
-        attempts: attempts.reduce(
-          (acc, curr) => ({ ...acc, [curr.status]: curr._count }),
-          {}
-        ),
-      },
-    });
-  } catch (error) {
-    console.error('Analytics error:', error);
-    res
-      .status(500)
-      .json({ success: false, message: 'Failed to fetch analytics' });
-  }
-});
+// (stats route moved above /:id — see top of file)
 
 module.exports = router;

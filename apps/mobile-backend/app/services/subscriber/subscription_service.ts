@@ -75,12 +75,25 @@ export const purchaseSubscription = async (
 
   // 1a. The Beneficiary is technically a user in this schema, so we create a simple placeholder user row first
   // We try to use the beneficiary's phone if it looks like a real one, else generate a unique fake one
-  let beneficiaryPhone = beneficiaryData.phone || `+91000${Math.floor(Math.random() * 9000000)}`;
-  
-  // Check if phone already exists to avoid unique constraint error
-  const existingUser = await prisma.user.findFirst({ where: { phone: beneficiaryPhone } });
-  if (existingUser) {
-    beneficiaryPhone = `+91${Date.now().toString().slice(-10)}`; // Use timestamp as backup
+  let beneficiaryPhone = '';
+  if (beneficiaryData.phone) {
+    beneficiaryPhone = beneficiaryData.phone.replace(/\D/g, '').slice(-10);
+    // Check if phone already exists to avoid unique constraint error
+    const existingUser = await prisma.user.findUnique({ where: { phone: beneficiaryPhone } });
+    if (existingUser) {
+      throw new Error('A user with this phone number already exists.');
+    }
+  } else {
+    // Generate a unique fake 10-digit phone number starting with '000'
+    let isUnique = false;
+    while (!isUnique) {
+      const fakePhone = `000${Math.floor(1000000 + Math.random() * 9000000)}`;
+      const existingFake = await prisma.user.findUnique({ where: { phone: fakePhone } });
+      if (!existingFake) {
+        beneficiaryPhone = fakePhone;
+        isUnique = true;
+      }
+    }
   }
 
   const dobDate = parseDob(beneficiaryData.dob);
@@ -201,16 +214,19 @@ export const purchaseSubscription = async (
   }
 
   // Map Vitals to model fields
+  // The enrollment form sends vitals keyed by vitalDefinition.code (e.g. 'PULSE', 'BP', 'SPO2',
+  // 'BLOOD_GLUCOSE', 'TEMP', 'WEIGHT', 'PAIN', 'RESP'). Legacy aliases (HR, SUGAR, RR) are also
+  // handled for backward compatibility.
   const vitalsInput = medicalData?.vitals || {};
   const mappedVitals = {
-    trackBloodPressure: !!(vitalsInput.BP || vitalsInput.trackBloodPressure),
-    trackHeartRate: !!(vitalsInput.HR || vitalsInput.trackHeartRate),
-    trackBloodSugar: !!(vitalsInput.SUGAR || vitalsInput.trackBloodSugar),
-    trackTemperature: !!(vitalsInput.TEMP || vitalsInput.trackTemperature),
-    trackOxygenSaturation: !!(vitalsInput.SPO2 || vitalsInput.trackOxygenSaturation),
-    trackWeight: !!(vitalsInput.WEIGHT || vitalsInput.trackWeight),
-    trackPainLevel: !!(vitalsInput.PAIN || vitalsInput.trackPainLevel),
-    trackRespiratoryRate: !!(vitalsInput.RR || vitalsInput.trackRespiratoryRate),
+    trackBloodPressure:    !!(vitalsInput.BP    || vitalsInput.trackBloodPressure),
+    trackHeartRate:        !!(vitalsInput.PULSE || vitalsInput.HR || vitalsInput.trackHeartRate),
+    trackBloodSugar:       !!(vitalsInput.BLOOD_GLUCOSE || vitalsInput.SUGAR || vitalsInput.trackBloodSugar),
+    trackTemperature:      !!(vitalsInput.TEMP  || vitalsInput.trackTemperature),
+    trackOxygenSaturation: !!(vitalsInput.SPO2  || vitalsInput.trackOxygenSaturation),
+    trackWeight:           !!(vitalsInput.WEIGHT || vitalsInput.trackWeight),
+    trackPainLevel:        !!(vitalsInput.PAIN  || vitalsInput.trackPainLevel),
+    trackRespiratoryRate:  !!(vitalsInput.RESP  || vitalsInput.RR || vitalsInput.trackRespiratoryRate),
   };
 
   // 1b. Create Beneficiary mapped to the logged-in User
@@ -263,6 +279,43 @@ export const purchaseSubscription = async (
       } : undefined
     }
   });
+
+  // 1c. Create BeneficiaryVitalConfig rows for EVERY vital the subscriber checked.
+  //     This covers both the 8 system vitals AND any custom vitals added via the admin module.
+  //     Without this step, custom vitals are silently ignored.
+  const checkedVitalCodes = Object.entries(vitalsInput)
+    .filter(([, checked]) => !!checked)
+    .map(([code]) => code.trim().toUpperCase());
+
+  if (checkedVitalCodes.length > 0) {
+    const vitalDefs = await prisma.vitalDefinition.findMany({
+      where: { code: { in: checkedVitalCodes }, isActive: true }
+    });
+
+    const today = new Date(new Date().setHours(0, 0, 0, 0));
+    await Promise.all(
+      vitalDefs.map((def: any) =>
+        prisma.beneficiaryVitalConfig.upsert({
+          where: {
+            beneficiaryId_vitalDefinitionId_effectiveFrom: {
+              beneficiaryId: beneficiary.id,
+              vitalDefinitionId: def.id,
+              effectiveFrom: today,
+            }
+          },
+          update: { isActive: true },
+          create: {
+            id: generateUUID(),
+            beneficiaryId: beneficiary.id,
+            vitalDefinitionId: def.id,
+            isActive: true,
+            frequency: 'every_visit',
+            effectiveFrom: today,
+          }
+        })
+      )
+    );
+  }
 
   // 2. Create the Subscription record
   const subscription = await prisma.subscription.create({
@@ -338,7 +391,8 @@ export const purchaseSubscription = async (
     message: 'Subscription purchased successfully!',
     subscriptionId: subscription.id,
     package: (subscription as any).package.name,
-    beneficiaryName: beneficiary.name
+    beneficiaryName: beneficiary.name,
+    beneficiaryId: beneficiary.id
   };
 };
 

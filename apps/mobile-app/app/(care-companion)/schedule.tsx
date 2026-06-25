@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Platform, ActivityIndicator, Modal, Pressable, useWindowDimensions
+  Platform, ActivityIndicator, Modal, Pressable
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
@@ -15,28 +15,27 @@ import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_BEIGE = '#FAF3EB';
-const SOFT_PEACH = '#FFF0E6';
-const MAX_CONTENT_WIDTH = 398;
-const BASE_HORIZONTAL_PADDING = 16;
+const SOFT_PEACH = '#FFF7ED';
 
-// ─── Filter Definitions ──────────────────────────────────────────────────────
+// ─── Filter Definitions ───────────────────────────────────────────────────────
 const STATUS_FILTERS = [
   { key: 'scheduled', label: 'Scheduled', color: '#F59E0B', bg: '#FEF3C7' },
   { key: 'in_progress', label: 'In Progress', color: '#3B82F6', bg: '#DBEAFE' },
   { key: 'completed', label: 'Completed', color: '#10B981', bg: '#D1FAE5' },
   { key: 'cancelled', label: 'Cancelled', color: '#EF4444', bg: '#FEE2E2' },
+  { key: 'missed', label: 'Missed', color: '#6B7280', bg: '#F3F4F6' },
 ];
 
 const TIME_FILTERS = [
-  { key: 'morning', label: 'Morning (6AM-12PM)' },
-  { key: 'afternoon', label: 'Afternoon (12-5PM)' },
-  { key: 'evening', label: 'Evening (5PM-9PM)' },
+  { key: 'morning', label: '🌅 Morning (6AM–12PM)' },
+  { key: 'afternoon', label: '☀️ Afternoon (12–5PM)' },
+  { key: 'evening', label: '🌆 Evening (5PM–9PM)' },
 ];
 
 const TYPE_FILTERS = [
-  { key: 'Home Visit', label: 'Home Visit' },
-  { key: 'Clinic Visit', label: 'Clinic Visit' },
-  { key: 'Follow-up', label: 'Follow-up' },
+  { key: 'Home Visit', label: '🏠 Home Visit' },
+  { key: 'Clinic Visit', label: '🏥 Clinic Visit' },
+  { key: 'Follow-up', label: '📋 Follow-up' },
 ];
 
 function getTimeSlot(timeStr: string | undefined): string {
@@ -54,7 +53,6 @@ function getTimeSlot(timeStr: string | undefined): string {
 
 export default function ScheduleScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
   const [loading, setLoading] = useState(true);
@@ -107,11 +105,6 @@ export default function ScheduleScreen() {
 
   const clearAllFilters = () => { setSelStatus([]); setSelTime([]); setSelType([]); };
   const activeFilterCount = selStatus.length + selTime.length + selType.length;
-  const contentWidth = Math.min(Math.max(width - BASE_HORIZONTAL_PADDING * 2, 0), MAX_CONTENT_WIDTH);
-  const responsiveContentStyle = {
-    width: contentWidth,
-    alignSelf: 'center' as const,
-  };
 
   const tabVisits = useMemo(() => {
     if (!scheduleData) return [];
@@ -142,9 +135,8 @@ export default function ScheduleScreen() {
       <ScrollView bounces={false} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.deepOrangeHeader}>
-          <View style={[styles.headerTitleRow, responsiveContentStyle]}>
-            <View style={styles.headerSpacer} />
-            <View style={styles.headerTextBlock}>
+          <View style={styles.headerTitleRow}>
+            <View>
               <Text style={styles.headerTitle}>Schedule</Text>
               <Text style={styles.headerSub}>Manage your visits</Text>
             </View>
@@ -160,12 +152,12 @@ export default function ScheduleScreen() {
 
           {/* Active filters row */}
           {activeFilterCount > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.activeFiltersScroll, responsiveContentStyle]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
               {selStatus.map(s => {
                 const f = STATUS_FILTERS.find(sf => sf.key === s);
                 return (
                   <TouchableOpacity key={s} style={styles.activeChip} onPress={() => setSelStatus(prev => prev.filter(v => v !== s))}>
-                    <Text style={styles.activeChipText}>{f?.label} x</Text>
+                    <Text style={styles.activeChipText}>{f?.label} ×</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -173,13 +165,13 @@ export default function ScheduleScreen() {
                 const f = TIME_FILTERS.find(tf => tf.key === t);
                 return (
                   <TouchableOpacity key={t} style={styles.activeChip} onPress={() => setSelTime(prev => prev.filter(v => v !== t))}>
-                    <Text style={styles.activeChipText}>{f?.label} x</Text>
+                    <Text style={styles.activeChipText}>{f?.label} ×</Text>
                   </TouchableOpacity>
                 );
               })}
               {selType.map(t => (
                 <TouchableOpacity key={t} style={styles.activeChip} onPress={() => setSelType(prev => prev.filter(v => v !== t))}>
-                  <Text style={styles.activeChipText}>{t} x</Text>
+                  <Text style={styles.activeChipText}>{t} ×</Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity style={[styles.activeChip, { backgroundColor: 'rgba(255,255,255,0.15)' }]} onPress={clearAllFilters}>
@@ -189,7 +181,7 @@ export default function ScheduleScreen() {
           )}
         </View>
 
-        <View style={[styles.contentArea, responsiveContentStyle]}>
+        <View style={styles.contentArea}>
           {/* Segmented Control */}
           <View style={styles.segmentedControl}>
             {[
@@ -229,7 +221,7 @@ export default function ScheduleScreen() {
               return (
                 <View key={visit.id} style={styles.card}>
                   <View style={styles.cardHeader}>
-                    <View style={styles.cardTitleBlock}>
+                    <View style={{ flex: 1 }}>
                       <Text style={styles.patientName}>{visit.patientName}</Text>
                       {visit.visitCode ? <Text style={styles.visitCodeText}>Visit ID: {visit.visitCode}</Text> : null}
                     </View>
@@ -270,7 +262,7 @@ export default function ScheduleScreen() {
             })
           )}
 
-          <View style={styles.bottomSpacer} />
+          <View style={{ height: 100 }} />
         </View>
       </ScrollView>
 
@@ -290,7 +282,7 @@ export default function ScheduleScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
               {/* Status */}
               <Text style={styles.filterGroupLabel}>Status</Text>
               <View style={styles.chipRow}>
@@ -302,7 +294,7 @@ export default function ScheduleScreen() {
                       style={[styles.chip, active && { backgroundColor: f.bg, borderColor: f.color }]}
                       onPress={() => toggleFilter(f.key, setSelStatus)}
                     >
-                      {active && <Ionicons name="checkmark" size={13} color={f.color} style={styles.chipIcon} />}
+                      {active && <Ionicons name="checkmark" size={13} color={f.color} style={{ marginRight: 4 }} />}
                       <Text style={[styles.chipText, active && { color: f.color, fontFamily: 'Poppins_600SemiBold' }]}>{f.label}</Text>
                     </TouchableOpacity>
                   );
@@ -320,7 +312,7 @@ export default function ScheduleScreen() {
                       style={[styles.chip, active && styles.chipActive]}
                       onPress={() => toggleFilter(f.key, setSelTime)}
                     >
-                      {active && <Ionicons name="checkmark" size={13} color={DEEP_ORANGE} style={styles.chipIcon} />}
+                      {active && <Ionicons name="checkmark" size={13} color={DEEP_ORANGE} style={{ marginRight: 4 }} />}
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
                     </TouchableOpacity>
                   );
@@ -338,7 +330,7 @@ export default function ScheduleScreen() {
                       style={[styles.chip, active && styles.chipActive]}
                       onPress={() => toggleFilter(f.key, setSelType)}
                     >
-                      {active && <Ionicons name="checkmark" size={13} color={DEEP_ORANGE} style={styles.chipIcon} />}
+                      {active && <Ionicons name="checkmark" size={13} color={DEEP_ORANGE} style={{ marginRight: 4 }} />}
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
                     </TouchableOpacity>
                   );
@@ -364,24 +356,16 @@ const styles = StyleSheet.create({
 
   deepOrangeHeader: {
     backgroundColor: DEEP_ORANGE,
-    height: 80,
-    paddingHorizontal: BASE_HORIZONTAL_PADDING,
-    paddingTop: Platform.OS === 'ios' ? 10 : 16,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 4,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 10 : 30,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
-  headerTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 48 },
-  headerSpacer: { width: 36, height: 36 },
-  headerTextBlock: { flex: 1, minWidth: 0, marginLeft: 12 },
-  headerTitle: { fontFamily: 'Poppins_600SemiBold', color: '#FFFFFF', fontSize: 20, lineHeight: 28 },
-  headerSub: { fontFamily: 'Poppins_400Regular', color: '#DBEAFE', fontSize: 14, lineHeight: 20 },
-  filterBtn: { width: 36, height: 36, alignItems: 'flex-end', justifyContent: 'center', position: 'relative', flexShrink: 0 },
+  headerTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { fontFamily: 'Poppins_600SemiBold', color: '#FFFFFF', fontSize: 22 },
+  headerSub: { fontFamily: 'Poppins_400Regular', color: '#FFFFFF', fontSize: 14, opacity: 0.9 },
+  filterBtn: { width: 40, height: 40, alignItems: 'flex-end', justifyContent: 'center', position: 'relative' },
   filterBadge: {
     position: 'absolute', top: 0, right: -2,
     backgroundColor: '#FFFFFF', borderRadius: 10,
@@ -395,23 +379,18 @@ const styles = StyleSheet.create({
     marginRight: 8, flexDirection: 'row', alignItems: 'center',
   },
   activeChipText: { color: '#FFFFFF', fontSize: 12, fontFamily: 'Poppins_500Medium' },
-  activeFiltersScroll: { marginTop: 10 },
 
-  contentArea: { paddingHorizontal: 0, paddingTop: 17 },
+  contentArea: { paddingHorizontal: 20 },
   resultsCount: { fontFamily: 'Poppins_400Regular', fontSize: 12, color: '#6B7280', marginBottom: 8, marginTop: -8 },
 
   segmentedControl: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 3,
-    flexDirection: 'row',
-    height: 36,
-    marginTop: 0,
-    marginBottom: 24,
+    backgroundColor: '#FFFFFF', borderRadius: 24, padding: 6, flexDirection: 'row',
+    marginTop: 12, marginBottom: 20,
+    shadowColor: DEEP_ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5,
   },
-  tabBtn: { flex: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center', minWidth: 0 },
+  tabBtn: { flex: 1, paddingVertical: 12, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   activeTabBtn: { backgroundColor: DEEP_ORANGE },
-  tabText: { fontFamily: 'Poppins_500Medium', fontSize: 14, lineHeight: 20, color: '#333333', textAlign: 'center' },
+  tabText: { fontFamily: 'Poppins_500Medium', fontSize: 13, color: '#4B5563' },
   activeTabText: { color: '#FFFFFF', fontFamily: 'Poppins_600SemiBold' },
 
   emptyState: { alignItems: 'center', paddingVertical: 60 },
@@ -420,44 +399,34 @@ const styles = StyleSheet.create({
   clearBtnText: { color: '#fff', fontFamily: 'Poppins_600SemiBold', fontSize: 14 },
 
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    minHeight: 206,
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginBottom: 16,
+    borderWidth: 1, borderColor: '#FDF2F8',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 },
-  cardTitleBlock: { flex: 1, minWidth: 0 },
-  patientName: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, lineHeight: 28, color: '#000000', flexShrink: 1 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
+  patientName: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: '#111827' },
   visitCodeText: { fontFamily: 'Poppins_500Medium', fontSize: 13, color: DEEP_ORANGE, marginTop: 2 },
-  statusBadge: { backgroundColor: SOFT_PEACH, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, flexShrink: 0 },
-  statusBadgeText: { color: DEEP_ORANGE, fontSize: 12, lineHeight: 16, fontFamily: 'Poppins_500Medium', textTransform: 'lowercase' },
+  statusBadge: { backgroundColor: SOFT_PEACH, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusBadgeText: { color: DEEP_ORANGE, fontSize: 11, fontFamily: 'Poppins_500Medium' },
 
-  addressText: { fontFamily: 'Poppins_400Regular', color: '#333333', fontSize: 14, lineHeight: 20, marginBottom: 16 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', rowGap: 8, marginBottom: 8 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', marginRight: 16 },
-  metaText: { fontFamily: 'Poppins_400Regular', color: '#333333', marginLeft: 4, fontSize: 14, lineHeight: 20 },
+  addressText: { fontFamily: 'Poppins_400Regular', color: '#4B5563', fontSize: 14, marginBottom: 16 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', marginRight: 24 },
+  metaText: { fontFamily: 'Poppins_400Regular', color: '#111827', marginLeft: 6, fontSize: 13 },
 
-  tagBadge: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 16 },
-  tagText: { color: '#333333', fontSize: 12, lineHeight: 16, fontFamily: 'Poppins_500Medium' },
+  tagBadge: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 20 },
+  tagText: { color: '#374151', fontSize: 12, fontFamily: 'Poppins_500Medium' },
 
   primaryActionBtn: {
-    backgroundColor: DEEP_ORANGE, borderRadius: 8, height: 36, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DEEP_ORANGE, borderRadius: 12, paddingVertical: 14, alignItems: 'center',
     shadowColor: DEEP_ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
   },
-  primaryActionBtnText: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontFamily: 'Poppins_600SemiBold' },
+  primaryActionBtnText: { color: '#FFFFFF', fontSize: 14, fontFamily: 'Poppins_600SemiBold' },
 
   // ─── Filter Sheet ───
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   filterSheet: {
     backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center',
     paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12,
   },
   sheetHandle: { width: 40, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
@@ -476,9 +445,6 @@ const styles = StyleSheet.create({
   chipActive: { borderColor: DEEP_ORANGE, backgroundColor: '#FFF7ED' },
   chipText: { fontFamily: 'Poppins_500Medium', fontSize: 13, color: '#6B7280' },
   chipTextActive: { color: DEEP_ORANGE, fontFamily: 'Poppins_600SemiBold' },
-  chipIcon: { marginRight: 4 },
-  sheetScroll: { maxHeight: 420 },
-  bottomSpacer: { height: 100 },
 
   applyBtn: {
     backgroundColor: DEEP_ORANGE, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8,

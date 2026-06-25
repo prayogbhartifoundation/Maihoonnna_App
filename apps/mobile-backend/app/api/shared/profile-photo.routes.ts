@@ -12,7 +12,7 @@ const uploadMiddleware = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB — no size restriction as per user request
   fileFilter: (_req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -76,7 +76,15 @@ function generateProfilePath(entityType: string, entityId: string, originalName:
 //   - targetType : 'self' | 'beneficiary' (default: 'self')
 //   - targetId   : required when targetType = 'beneficiary'
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/upload', authenticate, uploadMiddleware.single('file'), async (req: AuthRequest, res: Response) => {
+router.post('/upload', authenticate, (req: any, res: Response, next) => {
+  uploadMiddleware.single('file')(req, res, (err: any) => {
+    if (err) {
+      console.error('📸 [Profile Photo Upload] Multer error:', err.message);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+}, async (req: AuthRequest, res: Response) => {
   const file = req.file;
   const userId = req.userId!;
   const targetType = (req.body.targetType as string) || 'self';
@@ -114,8 +122,9 @@ router.post('/upload', authenticate, uploadMiddleware.single('file'), async (req
 
     if (targetType === 'self') {
       // ── Upload profile photo for the authenticated user themselves ───────────
+      const mimeType = file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype;
       const storagePath = generateProfilePath(user.role, userId, file.originalname);
-      photoUrl = await uploadToSupabase(file.buffer, storagePath, file.mimetype);
+      photoUrl = await uploadToSupabase(file.buffer, storagePath, mimeType);
 
       if (user.role === 'care_companion' && user.careCompanionProfile) {
         // CC: update CareCompanion.photo
@@ -170,8 +179,9 @@ router.post('/upload', authenticate, uploadMiddleware.single('file'), async (req
         });
       }
 
+      const mimeType = file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype;
       const storagePath = generateProfilePath('beneficiary', targetId, file.originalname);
-      photoUrl = await uploadToSupabase(file.buffer, storagePath, file.mimetype);
+      photoUrl = await uploadToSupabase(file.buffer, storagePath, mimeType);
 
       updatedEntity = await prisma.beneficiary.update({
         where: { id: targetId },

@@ -15,8 +15,8 @@ import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_BEIGE = '#FAF3EB';
 const GRAY_BG = '#F9FAFB';
-const MAX_CONTENT_WIDTH = 440;
-const BASE_HORIZONTAL_PADDING = 20;
+const MAX_CONTENT_WIDTH = 398;
+const BASE_HORIZONTAL_PADDING = 16;
 
 export default function HistoryScreen() {
     const router = useRouter();
@@ -40,11 +40,18 @@ export default function HistoryScreen() {
     const [selMood, setSelMood] = useState<string[]>([]);
     const [selHasVitals, setSelHasVitals] = useState<string[]>([]);
     const [selFollowUp, setSelFollowUp] = useState<string[]>([]);
+    const [selStatus, setSelStatus] = useState<string[]>([]);
 
     const DATE_FILTERS = [
         { key: 'today', label: 'Today' },
         { key: 'this_week', label: 'This Week' },
         { key: 'this_month', label: 'This Month' },
+    ];
+
+    const STATUS_FILTERS = [
+        { key: 'completed', label: 'Completed' },
+        { key: 'missed', label: 'Missed' },
+        { key: 'cancelled', label: 'Cancelled' },
     ];
 
     const MOOD_FILTERS = [
@@ -109,6 +116,7 @@ export default function HistoryScreen() {
                     date: '2/23/2026',
                     duration: '90 mins',
                     tags: ['Home Visit', 'Check-in: auto'],
+                    status: 'completed',
                     isExpanded: false,
                     details: null,
                 },
@@ -121,6 +129,7 @@ export default function HistoryScreen() {
                     date: '3/3/2026',
                     duration: '90 mins',
                     tags: ['Home Visit', 'Check-in: auto'],
+                    status: 'completed',
                     isExpanded: true,
                     details: {
                         vitals: { bp: '132/84', weight: '78 kg', temp: '36.8°C', o2: '97%' },
@@ -149,9 +158,10 @@ export default function HistoryScreen() {
         setSelMood([]);
         setSelHasVitals([]);
         setSelFollowUp([]);
+        setSelStatus([]);
     };
 
-    const activeFilterCount = selDate.length + selMood.length + selHasVitals.length + selFollowUp.length;
+    const activeFilterCount = selDate.length + selMood.length + selHasVitals.length + selFollowUp.length + selStatus.length;
     const isCompact = width < 360;
     const contentWidth = Math.min(Math.max(width - BASE_HORIZONTAL_PADDING * 2, 0), MAX_CONTENT_WIDTH);
 
@@ -192,9 +202,10 @@ export default function HistoryScreen() {
             if (selMood.length > 0 && !selMood.includes(v.details?.mood)) return false;
             if (selHasVitals.length > 0 && !v.details?.vitals) return false;
             if (selFollowUp.length > 0 && !v.followUpRequired) return false;
+            if (selStatus.length > 0 && !selStatus.includes(v.status)) return false;
             return true;
         });
-    }, [historyData, selDate, selMood, selHasVitals, selFollowUp]);
+    }, [historyData, selDate, selMood, selHasVitals, selFollowUp, selStatus]);
 
     if (!fontsLoaded || loading || !historyData) {
         return (
@@ -239,6 +250,15 @@ export default function HistoryScreen() {
                                 return (
                                     <TouchableOpacity key={d} style={styles.activeChip} onPress={() => setSelDate(prev => prev.filter(v => v !== d))}>
                                         <Text style={styles.activeChipText}>{f?.label} x</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+
+                            {selStatus.map(s => {
+                                const f = STATUS_FILTERS.find(sf => sf.key === s);
+                                return (
+                                    <TouchableOpacity key={s} style={styles.activeChip} onPress={() => setSelStatus(prev => prev.filter(v => v !== s))}>
+                                        <Text style={styles.activeChipText}>{f?.label || s} x</Text>
                                     </TouchableOpacity>
                                 );
                             })}
@@ -319,8 +339,14 @@ export default function HistoryScreen() {
                                         ) : null}
                                     </View>
 
-                                    <View style={styles.completedBadge}>
-                                        <Text style={styles.completedText}>Completed</Text>
+                                    <View style={[
+                                        styles.completedBadge,
+                                        visit.status === 'missed' && { backgroundColor: '#6B7280' },
+                                        visit.status === 'cancelled' && { backgroundColor: '#EF4444' }
+                                    ]}>
+                                        <Text style={styles.completedText}>
+                                            {visit.status === 'missed' ? 'Missed' : visit.status === 'cancelled' ? 'Cancelled' : 'Completed'}
+                                        </Text>
                                     </View>
                                 </View>
 
@@ -461,6 +487,23 @@ export default function HistoryScreen() {
                                 })}
                             </View>
 
+                            <Text style={styles.filterGroupLabel}>Visit Status</Text>
+                            <View style={styles.chipRow}>
+                                {STATUS_FILTERS.map(f => {
+                                    const active = selStatus.includes(f.key);
+                                    return (
+                                        <TouchableOpacity
+                                            key={f.key}
+                                            style={[styles.chip, active && styles.chipActive]}
+                                            onPress={() => toggleFilter(f.key, setSelStatus)}
+                                        >
+                                            {active && <Ionicons name="checkmark" size={13} color={DEEP_ORANGE} style={styles.chipIcon} />}
+                                            <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+
                             <Text style={styles.filterGroupLabel}>Patient Mood</Text>
                             <View style={styles.chipRow}>
                                 {MOOD_FILTERS.map(f => {
@@ -524,6 +567,7 @@ const styles = StyleSheet.create({
     },
     deepOrangeHeader: {
         backgroundColor: DEEP_ORANGE,
+        height: 80,
         paddingHorizontal: BASE_HORIZONTAL_PADDING,
         paddingTop: Platform.OS === 'ios' ? 10 : 16,
         paddingBottom: 16,

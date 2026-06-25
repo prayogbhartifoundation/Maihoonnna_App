@@ -69,12 +69,36 @@ export const checkIn = async (data: {
   longitude: number;
   manualCheckInReason?: string | null;
 }) => {
-  // 1. Fetch the visit to get beneficiaryId
+  // 1. Fetch the visit details
   const visit = await prisma.visit.findUnique({
     where: { id: data.visitId },
-    select: { beneficiaryId: true },
+    select: { beneficiaryId: true, scheduledTime: true, status: true },
   });
   if (!visit) throw new Error('Visit not found');
+
+  if (visit.status === 'completed') {
+    throw new Error('Cannot check-in to an already completed visit.');
+  }
+  if (visit.status === 'cancelled') {
+    throw new Error('Cannot check-in to a cancelled visit.');
+  }
+  if (visit.status === 'missed') {
+    throw new Error('Cannot check-in to a missed visit.');
+  }
+
+  // Enforce passed date restriction
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const visitScheduledTime = new Date(visit.scheduledTime);
+  const startOfScheduledDay = new Date(
+    visitScheduledTime.getFullYear(),
+    visitScheduledTime.getMonth(),
+    visitScheduledTime.getDate()
+  );
+
+  if (startOfScheduledDay < startOfToday) {
+    throw new Error('Cannot check-in to a visit scheduled for a past date.');
+  }
 
   // 2. Fetch the beneficiary's stored GPS coordinates
   const beneficiary = await prisma.beneficiary.findUnique({
@@ -643,7 +667,28 @@ export const rateVisit = async (data: { visitId: string; rating: number; feedbac
   });
 };
 
+export const autoUpdateMissedVisits = async () => {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  try {
+    await prisma.visit.updateMany({
+      where: {
+        status: 'scheduled',
+        scheduledTime: {
+          lt: startOfToday,
+        },
+      },
+      data: {
+        status: 'missed',
+      },
+    });
+  } catch (err) {
+    console.error('Error auto-updating missed visits:', err);
+  }
+};
+
 export const getCareCompanionSchedule = async (userId: string) => {
+  await autoUpdateMissedVisits();
   const cc = await prisma.user.findUnique({
     where: { id: userId },
     include: { careCompanionProfile: true },

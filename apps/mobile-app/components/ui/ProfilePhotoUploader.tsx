@@ -177,7 +177,10 @@ export function ProfilePhotoUploader({ config, style }: ProfilePhotoUploaderProp
       if (!token) throw new Error('Not authenticated. Please log in again.');
 
       const fileName = asset.fileName || `photo_${Date.now()}.jpg`;
-      const mimeType = asset.mimeType || 'image/jpeg';
+      let mimeType = asset.mimeType || 'image/jpeg';
+      if (mimeType === 'image/jpg') {
+        mimeType = 'image/jpeg';
+      }
 
       const formData = new FormData();
 
@@ -209,7 +212,14 @@ export function ProfilePhotoUploader({ config, style }: ProfilePhotoUploaderProp
         body: formData,
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error('[profile photo upload debug] Raw response not JSON:', responseText);
+        throw new Error(`Server returned invalid response (Status ${response.status || 'unknown'}).`);
+      }
 
       if (!data.success) throw new Error(data.message || 'Upload failed');
 

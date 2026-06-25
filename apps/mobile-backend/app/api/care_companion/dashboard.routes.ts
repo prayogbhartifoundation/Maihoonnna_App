@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../shared/deps';
 import prisma from '../../core/database';
+import { autoUpdateMissedVisits } from '../../services/care_companion/visit_service';
 
 const router = Router();
 
@@ -8,6 +9,9 @@ const router = Router();
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId; // From authenticate middleware
+
+    // Run auto-transition check
+    await autoUpdateMissedVisits();
 
     // 1. Get Care Companion Profile
     const cc = await prisma.user.findUnique({

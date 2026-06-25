@@ -11,20 +11,22 @@ const { calculateAge } = require('../utils/age');
 // ── GET /api/beneficiaries ───────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { search, searchBy, page, limit, sortBy, sortOrder = 'desc', filterBy = 'all', fieldManagerId } = req.query;
+    const { search, searchBy, page, limit, sortBy, sortOrder = 'desc', filterBy = 'all', teamId } = req.query;
     const filterParams = {};
 
-    if (fieldManagerId) {
-      filterParams.fieldManagerId = fieldManagerId;
+    if (teamId) {
+      filterParams.teamId = teamId;
     }
 
     // RBAC Filtering
     if (req.user && req.user.role === 'field_manager') {
-      filterParams.fieldManagerId = req.user.id;
+      filterParams.teamId = { not: null }; // Simplified until we have team resolution here
     }
 
     if (filterBy === 'unassigned') {
-      filterParams.fieldManagerId = null;
+      filterParams.teamId = null;
+    } else if (filterBy === 'assigned') {
+      filterParams.teamId = { not: null };
     }
 
     if (search) {
@@ -70,7 +72,7 @@ router.get('/', async (req, res) => {
         secondaryCC: {
           select: { id: true, name: true, zone: true, userId: true },
         },
-        fieldManager: {
+        team: {
           select: { id: true, name: true },
         },
         emergencyContacts: {
@@ -148,11 +150,11 @@ router.get('/', async (req, res) => {
         subscriberPhone: b.subscriber?.phone || null,
         primaryCcId: b.primaryCcId,
         secondaryCcId: b.secondaryCcId,
-        fieldManagerId: b.fieldManagerId,
+        teamId: b.teamId,
         careCompanion: b.primaryCC?.name || null,
         careCompanionZone: b.primaryCC?.zone || null,
         secondaryCareCompanion: b.secondaryCC?.name || null,
-        fieldManager: b.fieldManager?.name || null,
+        teamName: b.team?.name || null,
         activePackage: activeSub?.package?.name || null,
         isActive: b.isActive,
         createdAt: b.createdAt,
@@ -220,15 +222,33 @@ router.get('/available-staff', async (req, res) => {
     }
 
     const zoneNames = matchingZones.map(z => z.name);
-    const { fieldManagerUserId } = req.query;
+    const { fieldManagerUserId, teamId } = req.query;
 
-    console.log('[available-staff] pincode:', pincode, 'fieldManagerUserId:', fieldManagerUserId, 'zoneNames:', zoneNames);
+    console.log('[available-staff] pincode:', pincode, 'teamId:', teamId, 'fieldManagerUserId:', fieldManagerUserId, 'zoneNames:', zoneNames);
 
     let careCompanions = [];
     let fieldManagers = [];
 
-    // PRIMARY PATH: If a specific FM is assigned to this beneficiary, use that FM's teams
-    if (fieldManagerUserId) {
+    // PRIMARY PATH: If a specific Team is assigned to this beneficiary, use only that Team's CCs
+    if (teamId) {
+      const team = await prisma.team.findUnique({
+        where: { id: String(teamId) },
+        include: {
+          fieldManager: { include: { user: true } },
+          careCompanions: { include: { user: true } }
+        }
+      });
+      if (team) {
+        if (team.fieldManager) {
+           fieldManagers = [{ id: team.fieldManager.id, userId: team.fieldManager.userId, name: team.fieldManager.name, zone: team.fieldManager.zone, isAvailable: team.fieldManager.isAvailable ?? true }];
+        }
+        careCompanions = team.careCompanions.filter(cc => cc.user?.isActive !== false).map(cc => ({
+           id: cc.id, userId: cc.userId,
+           name: cc.name || cc.user?.name,
+           zone: cc.zone, isAvailable: cc.isAvailable ?? true,
+        }));
+      }
+    } else if (fieldManagerUserId) {
       const fm = await prisma.fieldManager.findUnique({
         where: { userId: String(fieldManagerUserId) },
         include: {
@@ -323,7 +343,7 @@ router.get('/available-staff', async (req, res) => {
 });
 
 // ── PUT /api/beneficiaries/:id/assign-staff ───────────────────────────────────
-// Body: { primaryCcId, secondaryCcId, fieldManagerId }  (all optional, null to unassign)
+// Body: { primaryCcId, secondaryCcId, teamId }  (all optional, null to unassign)
 // Side-effects on new primary CC assignment:
 //   1. Notifies the CC        → "New Assignment"
 //   2. Notifies the Beneficiary user → "Care Companion Assigned"
@@ -331,7 +351,7 @@ router.get('/available-staff', async (req, res) => {
 //   4. Creates an upcoming Visit     → scheduled for 2 days from now at 10 AM
 router.put('/:id/assign-staff', async (req, res) => {
   const { id } = req.params;
-  const { primaryCcId, secondaryCcId, fieldManagerId } = req.body;
+  const { primaryCcId, secondaryCcId, teamId } = req.body;
   try {
     // Fetch full beneficiary for notifications
     const beneficiary = await prisma.beneficiary.findUnique({
@@ -350,7 +370,7 @@ router.put('/:id/assign-staff', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Beneficiary not found' });
     }
 
-    console.log(`[AssignStaff] Ben: ${id}, FM: ${fieldManagerId}, PrimaryCC: ${primaryCcId}, SecondaryCC: ${secondaryCcId}`);
+    console.log(`[AssignStaff] Ben: ${id}, Team: ${teamId}, PrimaryCC: ${primaryCcId}, SecondaryCC: ${secondaryCcId}`);
 
     const data = {};
     let newPrimaryCC = null;     // { id, name, userId } of newly assigned primary CC
@@ -403,7 +423,7 @@ router.put('/:id/assign-staff', async (req, res) => {
       data.secondaryCcId = secondaryCcId || null;
     }
 
-    if (fieldManagerId !== undefined) data.fieldManagerId = fieldManagerId || null;
+    if (teamId !== undefined) data.teamId = teamId || null;
 
     // ── DB Transaction: update + activity log ────────────────────────────────
     const updated = await prisma.$transaction(async (tx) => {
@@ -414,7 +434,7 @@ router.put('/:id/assign-staff', async (req, res) => {
           user: { select: { id: true } },
           primaryCC: { select: { id: true, name: true, zone: true } },
           secondaryCC: { select: { id: true, name: true, zone: true } },
-          fieldManager: { select: { id: true, name: true } },
+          team: { select: { id: true, name: true } },
         },
       });
 
@@ -428,7 +448,7 @@ router.put('/:id/assign-staff', async (req, res) => {
             entityId: id,
             primaryCcId,
             secondaryCcId,
-            fieldManagerId,
+            teamId,
             updatedByRole: req.user?.role || 'system',
             updatedByName: req.user?.name || 'Admin',
           },
@@ -523,7 +543,7 @@ router.get('/:id', async (req, res) => {
         subscriber: true,
         primaryCC: true,
         secondaryCC: true,
-        fieldManager: true,
+        team: { include: { fieldManager: true } },
         emergencyContacts: true,
         visits: { orderBy: { scheduledTime: 'desc' } },
         medicationList: { where: { isActive: true } },
@@ -535,6 +555,15 @@ router.get('/:id', async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: 'Beneficiary not found' });
+        
+    // Maintain backwards compatibility for frontend
+    if (b.team && b.team.fieldManager) {
+      b.fieldManager = b.team.fieldManager;
+      b.fieldManagerId = b.team.fieldManagerId;
+    } else {
+      b.fieldManager = null;
+      b.fieldManagerId = null;
+    }
     
     // Map medicationList to medications for frontend compatibility
     b.medications = b.medicationList;

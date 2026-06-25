@@ -193,6 +193,7 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
                 visit.status === 'scheduled' ? 'bg-amber-100 text-amber-700' :
                 visit.status === 'completed' ? 'bg-green-100 text-green-700' :
                 visit.status === 'cancelled' ? 'bg-red-100 text-red-400' :
+                visit.status === 'missed' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
                 'bg-gray-100 text-gray-500'
               }`}>{visit.status}</span>
             </p>

@@ -13,7 +13,7 @@ const VISIT_IMAGE_MAX_COUNT = parseInt(process.env.VISIT_IMAGE_MAX_COUNT || '10'
 const VISIT_IMAGE_MAX_SIZE_MB = parseFloat(process.env.VISIT_IMAGE_MAX_SIZE_MB || '25');
 const VISIT_IMAGE_ALLOWED_TYPES = (
   process.env.VISIT_IMAGE_ALLOWED_TYPES ||
-  'image/jpeg,image/png,image/webp,image/heic,image/heif'
+  'image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif'
 )
   .split(',')
   .map(t => t.trim());
@@ -104,7 +104,15 @@ router.get('/:visitId', authenticate, async (req: AuthRequest, res: Response) =>
 // Body: multipart/form-data, field "file"
 // Response: { success, url, totalImages, maxImages }
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/:visitId', authenticate, uploadMiddleware.single('file'), async (req: AuthRequest, res: Response) => {
+router.post('/:visitId', authenticate, (req: any, res: Response, next) => {
+  uploadMiddleware.single('file')(req, res, (err: any) => {
+    if (err) {
+      console.error('📸 [Visit Image Upload] Multer error:', err.message);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+}, async (req: AuthRequest, res: Response) => {
   const file = req.file;
   const visitId = req.params.visitId as string;
   const userId = req.userId!;
@@ -143,7 +151,8 @@ router.post('/:visitId', authenticate, uploadMiddleware.single('file'), async (r
     const uid = uuidv4().split('-')[0];
     const storagePath = `visits/${visitId}/${Date.now()}_${uid}.${ext}`;
 
-    const publicUrl = await uploadToSupabase(file.buffer, storagePath, file.mimetype);
+    const mimeType = file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype;
+    const publicUrl = await uploadToSupabase(file.buffer, storagePath, mimeType);
 
     // Append the new URL and persist
     const updated = [...existing, publicUrl];

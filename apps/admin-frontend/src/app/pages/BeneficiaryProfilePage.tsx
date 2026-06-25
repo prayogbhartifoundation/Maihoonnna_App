@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useLocation } from 'react-router';
 import { 
   User, Phone, Mail, MapPin, Calendar, Loader2, Heart, Activity, 
   Thermometer, Droplet, Scale, RefreshCw, UserCheck, ArrowLeft, Edit2, Trash2,
@@ -47,7 +47,14 @@ export default function BeneficiaryProfilePage() {
   const [visits, setVisits] = useState<any[]>([]);
   const [visitsLoading, setVisitsLoading] = useState(false);
   const [openModalVisitId, setOpenModalVisitId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('profile');
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const [activeTab, setActiveTab] = useState(queryParams.get('tab') || 'profile');
+
+  useEffect(() => {
+    const tab = new URLSearchParams(location.search).get('tab');
+    if (tab) setActiveTab(tab);
+  }, [location.search]);
 
   const [staffPool, setStaffPool] = useState<StaffPool>({ careCompanions: [], fieldManagers: [], zones: [] });
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -63,7 +70,7 @@ export default function BeneficiaryProfilePage() {
       const data = await beneficiaryApi.getById(id);
       setDetails(data);
       if (data.pincode) {
-        fetchStaffPool(data.pincode, data.fieldManagerId);
+        fetchStaffPool(data.pincode, data.teamId);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load beneficiary details');
@@ -84,10 +91,10 @@ export default function BeneficiaryProfilePage() {
     }
   };
 
-  const fetchStaffPool = async (pincode: string, fieldManagerUserId?: string | null) => {
+  const fetchStaffPool = async (pincode: string, teamId?: string | null) => {
     setLoadingStaff(true);
     try {
-      const pool = await beneficiaryApi.getAvailableStaff(pincode, fieldManagerUserId);
+      const pool = await beneficiaryApi.getAvailableStaff(pincode, teamId);
       setStaffPool(pool);
     } catch (err) {
       console.error('Failed to load available staff', err);
@@ -462,7 +469,18 @@ export default function BeneficiaryProfilePage() {
                      )}
                   </div>
 
-                  {!details.pincode ? (
+                  {!details.teamId ? (
+                    <div className="flex flex-col items-center gap-3 py-16 text-center bg-gray-50 rounded-[32px] border border-dashed border-gray-200">
+                      <UserCheck className="w-12 h-12 text-gray-200" />
+                      <p className="font-bold text-gray-400 uppercase tracking-widest text-sm">Not Allocated to a Team</p>
+                      <button 
+                        onClick={() => navigate('/allocation')}
+                        className="text-[#FF7A00] font-black text-[10px] uppercase tracking-widest bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 hover:bg-orange-100 transition-colors"
+                      >
+                        Allocate in Team
+                      </button>
+                    </div>
+                  ) : !details.pincode ? (
                     <div className="flex flex-col items-center gap-3 py-16 text-center bg-gray-50 rounded-[32px] border border-dashed border-gray-200">
                       <MapPin className="w-12 h-12 text-gray-200" />
                       <p className="font-bold text-gray-400 uppercase tracking-widest text-sm">Pincode missing on profile</p>

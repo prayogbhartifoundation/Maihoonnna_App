@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router';
 import { 
   Users, MapPin, Search, Loader2, Filter,
   ArrowRight, CheckCircle2, AlertTriangle,
   ChevronRight, Info, UserCheck, ShieldCheck
 } from 'lucide-react';
-import { beneficiaryApi, fieldManagerApi } from '../../services/api';
+import { beneficiaryApi, teamApi } from '../../services/api';
 import { toast } from 'sonner';
 import { EntityAvatar } from '../components/common/EntityAvatar';
 import { useAuth } from '../context/AuthContext';
@@ -20,27 +21,28 @@ interface AllocationBeneficiary {
   pincode: string;
   distance: number | null;
   nearestZone: string | null;
-  fieldManagerId?: string;
-  fieldManager?: string;
+  teamId?: string;
+  teamName?: string;
   isActive: boolean;
 }
 
-interface FieldManagerItem {
+interface TeamItem {
   id: string;
-  userId: string;
   name: string;
   zone: string;
   beneficiaryCount: number;
   maxCapacity: number;
+  fieldManagerName: string;
 }
 
 const AllocationPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [beneficiaries, setBeneficiaries] = useState<AllocationBeneficiary[]>([]);
-  const [fieldManagers, setFieldManagers] = useState<FieldManagerItem[]>([]);
+  const [teams, setTeams] = useState<TeamItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterBy, setFilterBy] = useState<'all' | 'unassigned'>('unassigned');
+  const [filterBy, setFilterBy] = useState<'all' | 'unassigned' | 'assigned'>('unassigned');
   const [sortBy, setSortBy] = useState<'distance' | 'createdAt'>('distance');
   const [submitting, setSubmitting] = useState<string | null>(null);
 
@@ -53,27 +55,26 @@ const AllocationPage = () => {
         page: 1,
         limit: 100, // Fetch more for allocation view
         sortBy,
-        filterBy: filterBy === 'unassigned' ? 'unassigned' : 'all'
+        filterBy
       } as any);
 
-      const fmResponse = await fieldManagerApi.getAll();
+      const teamResponse = await teamApi.getAll();
       
       setBeneficiaries(benResponse.data || []);
       
-      // Map FM data with basic capacity (mock capacity for now, in real it would come from backend)
-      const mappedFMs = fmResponse.map((fm: any) => ({
-        id: fm.id,
-        userId: fm.userId,
-        name: fm.name,
-        zone: fm.zone,
-        beneficiaryCount: fm.beneficiaryCount || 0,
-        maxCapacity: 20 // Default capacity
+      const mappedTeams = teamResponse.map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        zone: t.zone,
+        beneficiaryCount: t.beneficiaries?.length || 0,
+        maxCapacity: t.maxCapacity || 20,
+        fieldManagerName: t.fieldManager?.name || 'Unassigned'
       }));
       
-      setFieldManagers(mappedFMs);
+      setTeams(mappedTeams);
     } catch (err) {
       console.error('Failed to load allocation data', err);
-      toast.error('Failed to load beneficiaries and field managers');
+      toast.error('Failed to load beneficiaries and teams');
     } finally {
       setLoading(false);
     }
@@ -83,17 +84,17 @@ const AllocationPage = () => {
     fetchData();
   }, [fetchData]);
 
-  const handleAssign = async (beneficiaryId: string, fmId: string) => {
-    const targetFmId = fmId === '' || fmId === 'undefined' ? null : fmId;
+  const handleAssign = async (beneficiaryId: string, teamId: string) => {
+    const targetTeamId = teamId === '' || teamId === 'undefined' ? null : teamId;
     
     setSubmitting(beneficiaryId);
-    console.log(`[Allocation] Assigning Ben: ${beneficiaryId} to FM: ${targetFmId}`);
+    console.log(`[Allocation] Assigning Ben: ${beneficiaryId} to Team: ${targetTeamId}`);
     try {
-      await beneficiaryApi.assignStaff(beneficiaryId, { fieldManagerId: targetFmId });
-      toast.success('Field Manager assigned successfully');
+      await beneficiaryApi.assignStaff(beneficiaryId, { teamId: targetTeamId });
+      toast.success('Team assigned successfully');
       fetchData(); // Refresh to update counts and list
     } catch (err: any) {
-      toast.error(err.message || 'Failed to assign Field Manager');
+      toast.error(err.message || 'Failed to assign Team');
     } finally {
       setSubmitting(null);
     }
@@ -112,7 +113,7 @@ const AllocationPage = () => {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Beneficiary Allocation Portal</h1>
-          <p className="text-gray-600">Assign beneficiaries to Field Manager teams based on geo-proximity</p>
+          <p className="text-gray-600">Assign beneficiaries to Teams based on geo-proximity</p>
         </div>
         <div className="flex gap-3">
            <div className="flex bg-white rounded-xl p-1 shadow-sm border border-[#E7DED6]">
@@ -121,6 +122,12 @@ const AllocationPage = () => {
                 className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${filterBy === 'unassigned' ? 'bg-[#FF7A00] text-white' : 'text-gray-500 hover:bg-gray-50'}`}
               >
                 Unassigned
+              </button>
+              <button 
+                onClick={() => setFilterBy('assigned')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${filterBy === 'assigned' ? 'bg-[#FF7A00] text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              >
+                Assigned
               </button>
               <button 
                 onClick={() => setFilterBy('all')}
@@ -210,24 +217,25 @@ const AllocationPage = () => {
 
                   {/* Right: Assignment Action */}
                   <div className="flex-1 w-full lg:w-auto">
-                    <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Assign Field Manager</label>
+                    <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Assign Team</label>
                     <div className="flex gap-3">
                       <select 
                         className="flex-1 px-4 py-3 rounded-xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00] font-bold text-gray-700 text-sm"
-                        defaultValue={ben.fieldManagerId || ''}
+                        defaultValue={ben.teamId || ''}
                         onChange={(e) => handleAssign(ben.id, e.target.value)}
                         disabled={submitting === ben.id}
                       >
-                        <option value="">— Select Field Manager —</option>
-                        {fieldManagers.map(fm => (
-                          <option key={fm.id} value={fm.userId}>
-                            {fm.name} ({fm.beneficiaryCount}/{fm.maxCapacity}) — {fm.zone}
+                        <option value="">— Select Team —</option>
+                        {teams.map(t => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.beneficiaryCount}/{t.maxCapacity}) — FM: {t.fieldManagerName}
                           </option>
                         ))}
                       </select>
                       <button 
+                        onClick={() => navigate(`/beneficiaries/${ben.id}?tab=assign`)}
                         className="p-3 rounded-xl bg-gray-50 text-gray-400 hover:text-[#FF7A00] hover:bg-[#FFF5EE] transition-colors border border-[#E7DED6]"
-                        title="View Profile"
+                        title="Assign Staff"
                       >
                         <ChevronRight size={20} />
                       </button>
@@ -240,9 +248,9 @@ const AllocationPage = () => {
                             <CheckCircle2 size={12} /> High Priority Location
                          </div>
                        )}
-                       {ben.fieldManagerId && (
+                       {ben.teamId && (
                          <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600">
-                            <Info size={12} /> Currently assigned to {ben.fieldManager}
+                            <Info size={12} /> Currently assigned to {ben.teamName}
                          </div>
                        )}
                     </div>

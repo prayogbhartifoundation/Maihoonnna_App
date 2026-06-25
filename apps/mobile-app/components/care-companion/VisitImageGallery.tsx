@@ -172,7 +172,10 @@ export function VisitImageGallery({ visitId, token, isCompleted = false }: Visit
 
     try {
       const fileName = asset.fileName || `visit_photo_${Date.now()}.jpg`;
-      const mimeType = asset.mimeType || 'image/jpeg';
+      let mimeType = asset.mimeType || 'image/jpeg';
+      if (mimeType === 'image/jpg') {
+        mimeType = 'image/jpeg';
+      }
 
       const formData = new FormData();
       if (Platform.OS === 'web') {
@@ -189,7 +192,19 @@ export function VisitImageGallery({ visitId, token, isCompleted = false }: Visit
         body: formData,
       });
 
-      const json = await uploadRes.json();
+      const responseText = await uploadRes.text();
+      let json: any;
+      try {
+        json = JSON.parse(responseText);
+      } catch (parseErr) {
+        setImages(prev => prev.filter(i => !(i.url === asset.uri && i.uploading)));
+        console.error('[upload debug] Raw response not JSON:', responseText);
+        Alert.alert(
+          'Upload Failed',
+          `Server returned invalid response (Status ${uploadRes.status || 'unknown'}).`
+        );
+        return;
+      }
 
       if (!json.success) {
         // Remove the placeholder on failure

@@ -105,7 +105,7 @@ router.post('/', async (req, res) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // A. Create the Visit
+      // A. Create the Visit — store benefitId as a proper FK column
       const visit = await tx.visit.create({
         data: {
           encounterId: `V-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -115,6 +115,7 @@ router.post('/', async (req, res) => {
           scheduledTime: startTime,
           durationMinutes,
           status: 'scheduled',
+          benefitId: benefitId || null,   // ← stored as proper FK, not in notes
         },
         include: {
           beneficiary: { select: { name: true, userId: true, subscriberId: true } },
@@ -122,7 +123,7 @@ router.post('/', async (req, res) => {
         },
       });
 
-      // B. Deduct Benefit (only if benefitId provided + unitLabel = "visits")
+      // B. Deduct Benefit (only if benefitId provided)
       if (benefitId) {
         const benefit = await tx.benefit.findUnique({
           where: { id: benefitId },
@@ -131,15 +132,23 @@ router.post('/', async (req, res) => {
 
         if (!benefit) throw new Error('Benefit not found');
 
-        const isVisitBased = !benefit.unitLabel || benefit.unitLabel.toLowerCase() === 'visit' || benefit.unitLabel.toLowerCase() === 'visits';
-        const isHourBased = benefit.unitLabel?.toLowerCase() === 'hours' || benefit.unitLabel?.toLowerCase() === 'hour';
+        const unitLabelLower = (benefit.unitLabel || '').toLowerCase();
+        // Match "hour", "hours", "per hour", "hourly" etc.
+        const isHourBased = unitLabelLower.includes('hour');
+        // Match "visit", "visits", "per visit" etc. Or if no label at all → default visit-based
+        const isVisitBased = !benefit.unitLabel || unitLabelLower.includes('visit');
+
+        console.log(`[VISIT SCHEDULE] benefitId=${benefitId} name="${benefit.name}" unitLabel="${benefit.unitLabel}" → isVisitBased=${isVisitBased} isHourBased=${isHourBased}`);
+
 
         if (isVisitBased) {
-          // Find active subscription
+          // Deduct 1 unit immediately at scheduling for visit-count benefits
           const subscription = await tx.subscription.findFirst({
             where: { beneficiaryId, isActive: true, endDate: { gte: new Date() } },
           });
           if (!subscription) throw new Error('No active subscription found for this beneficiary');
+
+          console.log(`[VISIT SCHEDULE] Deducting 1 visit unit from benefit "${benefit.name}" (subscriptionId=${subscription.id})`);
 
           await deductBenefitBalance(tx, {
             subscriptionId: subscription.id,
@@ -148,19 +157,29 @@ router.post('/', async (req, res) => {
             visitId: visit.id,
             unitsToDeduct: 1,
             hoursConsumed: 0, // not hour-based
-            description: `Visit scheduled: ${visit.encounterId}`,
+            description: `Visit scheduled: ${visit.encounterId} — benefit: ${benefit.name}`,
           });
-        }
-        // If hour-based, deduction happens at checkout (PATCH /:id/complete)
-        // Store the benefitId on the visit so we know what to charge at checkout
-        // (We use visit notes for now — or you can add a benefitId field to Visit schema)
-        if (isHourBased) {
-          // Tag the visit with the benefit to charge on checkout via notes field
-          await tx.visit.update({
-            where: { id: visit.id },
-            data: { notes: `__benefitId:${benefitId}` },
+        } else if (isHourBased) {
+          console.log(`[VISIT SCHEDULE] Hour-based benefit — deferring deduction to checkout`);
+        } else {
+          console.log(`[VISIT SCHEDULE] Unknown unitLabel "${benefit.unitLabel}" — treating as visit-based, deducting 1 unit`);
+          const subscription = await tx.subscription.findFirst({
+            where: { beneficiaryId, isActive: true, endDate: { gte: new Date() } },
           });
+          if (subscription) {
+            await deductBenefitBalance(tx, {
+              subscriptionId: subscription.id,
+              beneficiaryId,
+              benefitId,
+              visitId: visit.id,
+              unitsToDeduct: 1,
+              hoursConsumed: 0,
+              description: `Visit scheduled: ${visit.encounterId} — benefit: ${benefit.name}`,
+            });
+          }
         }
+        // Hour-based benefits: deduction happens at checkout (PATCH /:id/complete)
+        // benefitId is already saved on the visit record above — no notes hack needed
       }
 
       // C. Send Notifications
@@ -269,15 +288,14 @@ router.patch('/:id/complete', async (req, res) => {
     if (!visit) return res.status(404).json({ success: false, message: 'Visit not found' });
     if (visit.status === 'completed') return res.status(400).json({ success: false, message: 'Visit is already completed' });
     if (visit.status === 'cancelled') return res.status(400).json({ success: false, message: 'Cannot complete a cancelled visit' });
+    if (visit.status === 'missed') return res.status(400).json({ success: false, message: 'Cannot complete a missed visit' });
 
-    // Determine which benefitId to charge for hours (from override or notes tag)
-    let hoursBenefitId = overrideBenefitId;
-    if (!hoursBenefitId && visit.notes?.startsWith('__benefitId:')) {
-      hoursBenefitId = visit.notes.replace('__benefitId:', '');
-    }
+    // Determine which benefitId to charge at checkout.
+    // Now stored as a proper FK on the visit record — no notes parsing needed.
+    let hoursBenefitId = overrideBenefitId || visit.benefitId || null;
 
     const result = await prisma.$transaction(async (tx) => {
-      // Update visit status
+      // Update visit status — never touch notes to extract benefitId anymore
       const updatedVisit = await tx.visit.update({
         where: { id },
         data: {
@@ -285,8 +303,7 @@ router.patch('/:id/complete', async (req, res) => {
           checkInTime: checkIn,
           checkOutTime: checkOut,
           durationMinutes: actualMinutes,
-          // Clear the benefit tag from notes if it was there, keep user notes
-          notes: visit.notes?.startsWith('__benefitId:') ? (notes || null) : (notes || visit.notes),
+          notes: notes || visit.notes,
           visitSummary: visitSummary || visit.visitSummary,
         },
         include: {
@@ -540,6 +557,24 @@ router.post('/:id/upload-image', uploadMemory.single('image'), async (req, res) 
 router.get('/', async (req, res) => {
   const { beneficiaryId, careCompanionId, date, fmUserId, visitCode } = req.query;
   try {
+    // Auto-update missed visits
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    try {
+      await prisma.visit.updateMany({
+        where: {
+          status: 'scheduled',
+          scheduledTime: {
+            lt: startOfToday,
+          },
+        },
+        data: {
+          status: 'missed',
+        },
+      });
+    } catch (err) {
+      console.error('Error auto-updating missed visits:', err);
+    }
     const where = {};
     if (beneficiaryId) where.beneficiaryId = beneficiaryId;
     if (careCompanionId) where.careCompanionId = careCompanionId;

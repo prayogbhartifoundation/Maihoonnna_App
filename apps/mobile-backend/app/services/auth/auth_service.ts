@@ -1,11 +1,22 @@
 import prisma from '../../core/database';
 import { createToken } from '../../core/security';
 import { generateUUID } from '../../utils/helpers';
+import { ApiError } from '../../utils/ApiError';
+
 
 import { OtpFactory } from '../../core/otp/OtpFactory';
 
 export const sendOtp = async (rawPhone: string) => {
   const phone = rawPhone.replace(/\D/g, '').slice(-10);
+  
+  const user = await prisma.user.findUnique({
+    where: { phone },
+  });
+  
+  if (!user) {
+    throw new ApiError(404, 'User not found, please signup first');
+  }
+
   const provider = OtpFactory.getProvider();
   return await provider.send(phone);
 };
@@ -173,7 +184,7 @@ export const registerWithPassword = async (rawPhone: string, name: string, age: 
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({ where: { phone } });
   if (existingUser) {
-    throw new Error('A user with this phone number already exists.');
+    throw new ApiError(400, 'A user with this phone number already exists.');
   }
 
   // Hash password

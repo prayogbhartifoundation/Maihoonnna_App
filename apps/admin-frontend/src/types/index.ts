@@ -460,3 +460,20 @@ export interface StaffOnboardingPayload {
   };
   documents: StaffOnboardingDocumentInput[];
 }
+
+// ============================================================================
+// CALLBACK REQUEST TYPES
+// ============================================================================
+
+export interface CallbackRequest {
+  id: string;
+  name: string;
+  phone: string;
+  status: 'pending' | 'called' | 'resolved';
+  notes: string | null;
+  subscriberId: string | null;
+  beneficiaryId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+

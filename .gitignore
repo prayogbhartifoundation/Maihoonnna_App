@@ -7,3 +7,4 @@ apps/mobile-backend/scratch_check_user.ts
 apps/mobile-backend/scratch_delete_user.ts
 apps/admin-backend/scratch/
 apps/mobile-backend/scratch_check_harshit.ts
+apps/mobile-backend/scratch/check_user.ts

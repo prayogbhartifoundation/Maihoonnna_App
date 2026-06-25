@@ -247,14 +247,16 @@ router.get('/beneficiaries', async (req, res) => {
       where = {
         isActive: true,
         OR: [
-          { fieldManagerId: req.user.id },
+          { teamId: { in: teamIds } },
           { primaryCcId: { in: ccIds } },
           { secondaryCcId: { in: ccIds } },
         ],
       };
     } else if ((isAdmin || isOM) && fmId) {
       // Admin / Ops Manager viewing a specific FM's beneficiaries
-      where = { isActive: true, fieldManagerId: fmId };
+      const targetProfileId = await getFmProfileId(fmId);
+      const targetTeamIds = targetProfileId ? await getFmTeamIds(targetProfileId) : [];
+      where = { isActive: true, teamId: { in: targetTeamIds } };
     }
 
     const beneficiaries = await prisma.beneficiary.findMany({
@@ -284,7 +286,7 @@ router.get('/beneficiaries', async (req, res) => {
       primaryCcName: b.primaryCC?.name || null,
       secondaryCcId: b.secondaryCcId,
       secondaryCcName: b.secondaryCC?.name || null,
-      fieldManagerId: b.fieldManagerId,
+      teamId: b.teamId,
       activePackage: b.subscriptions?.[0]?.package?.name || null,
       subscriptionId: b.subscriptions?.[0]?.id || null,
     }));
@@ -317,7 +319,7 @@ router.get('/beneficiaries/:id/benefit-usage', async (req, res) => {
       const ben = await prisma.beneficiary.findUnique({
         where: { id },
         select: {
-          fieldManagerId: true,
+          teamId: true,
           primaryCcId: true,
           secondaryCcId: true,
         },
@@ -329,7 +331,7 @@ router.get('/beneficiaries/:id/benefit-usage', async (req, res) => {
           .json({ success: false, message: 'Beneficiary not found' });
 
       const hasAccess =
-        ben.fieldManagerId === req.user.id ||
+        (ben.teamId && teamIds.includes(ben.teamId)) ||
         (ben.primaryCcId && ccIds.includes(ben.primaryCcId)) ||
         (ben.secondaryCcId && ccIds.includes(ben.secondaryCcId));
 
