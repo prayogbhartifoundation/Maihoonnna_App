@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -10,6 +10,10 @@ import { useLocationPermission } from '../../hooks/useLocationPermission';
 import { useSafeBack } from '@/hooks/useSafeBack';
 
 export default function RequestServiceScreen() {
+  const { width } = useWindowDimensions();
+  const MAX_CONTENT_WIDTH = 440;
+  const responsiveStyle = { width: '100%' as const, maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' as const };
+
   const safeBack = useSafeBack();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<{ id?: string, address: string, lat: number, lng: number } | null>(null);
@@ -132,7 +136,7 @@ export default function RequestServiceScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, responsiveStyle]}>
         <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
           <Feather name="arrow-left" size={24} color="#000" />
         </TouchableOpacity>
@@ -140,7 +144,7 @@ export default function RequestServiceScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={[styles.content, responsiveStyle]}>
         <Text style={styles.sectionTitle}>Where do you need care?</Text>
         
         {savedAddresses.map((addr) => (
@@ -188,7 +192,7 @@ export default function RequestServiceScreen() {
 
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, responsiveStyle]}>
         <TouchableOpacity 
           style={[styles.submitBtn, (!selectedAddress || loading) && styles.disabledBtn]} 
           onPress={handleConfirmRequest}

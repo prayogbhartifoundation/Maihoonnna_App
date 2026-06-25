@@ -28,6 +28,9 @@ export default function BeneficiaryLayout() {
                         shadowOpacity: 0.08,
                         shadowOffset: { width: 0, height: -4 },
                         shadowRadius: 12,
+                        width: '100%',
+                        maxWidth: 440,
+                        alignSelf: 'center',
                     },
                     tabBarLabelStyle: {
                         fontFamily: 'Poppins-Medium',

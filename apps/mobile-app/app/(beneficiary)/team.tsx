@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +17,10 @@ type TeamMember = {
 };
 
 export default function CareTeamScreen() {
+    const { width } = useWindowDimensions();
+    const MAX_CONTENT_WIDTH = 440;
+    const responsiveStyle = { width: '100%' as const, maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' as const };
+
     const [team, setTeam] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -76,12 +80,12 @@ export default function CareTeamScreen() {
             </View>
 
             {loading ? (
-                <View style={styles.centerContainer}>
+                <View style={[styles.centerContainer, responsiveStyle]}>
                     <ActivityIndicator size="large" color="#FE6700" />
                     <Text style={styles.loaderText}>Loading your care team...</Text>
                 </View>
             ) : error ? (
-                <View style={styles.centerContainer}>
+                <View style={[styles.centerContainer, responsiveStyle]}>
                     <Feather name="alert-triangle" size={48} color="#EF4444" />
                     <Text style={styles.errorText}>{error}</Text>
                     <TouchableOpacity style={styles.retryButton} onPress={fetchTeam}>
@@ -89,14 +93,14 @@ export default function CareTeamScreen() {
                     </TouchableOpacity>
                 </View>
             ) : team.length === 0 ? (
-                <View style={styles.centerContainer}>
+                <View style={[styles.centerContainer, responsiveStyle]}>
                     <Feather name="users" size={48} color="#9CA3AF" />
                     <Text style={styles.emptyText}>No care team assigned yet.</Text>
                 </View>
             ) : (
                 <ScrollView
                     style={styles.scroll}
-                    contentContainerStyle={styles.content}
+                    contentContainerStyle={[styles.content, responsiveStyle]}
                     showsVerticalScrollIndicator={false}
                 >
                     {team.map((member) => (

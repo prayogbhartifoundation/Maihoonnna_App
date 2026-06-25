@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Dimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -6,8 +7,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigationStack } from '@/contexts/NavigationStackContext';
-import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 interface VitalData {
     bp: string;
@@ -18,7 +17,6 @@ interface VitalData {
 
 interface Interaction {
     id: string;
-    visitCode?: string;
     title: string;
     rating: number;
     date: string;
@@ -31,8 +29,6 @@ interface Interaction {
 
 export default function InteractionsScreen() {
     const router = useRouter();
-    const { push, replace, pop } = useNavigationStack();
-    useAndroidBackHandler();
     const safeBack = useSafeBack();
     const { visitId } = useLocalSearchParams();
     const [interactions, setInteractions] = useState<Interaction[]>([]);
@@ -85,7 +81,6 @@ export default function InteractionsScreen() {
         const fallbacks: Interaction[] = [
             {
                 id: 'fallback-1',
-                visitCode: 'V1A2B3C4',
                 title: 'Medication Review',
                 rating: 5,
                 date: 'February 17',
@@ -102,7 +97,6 @@ export default function InteractionsScreen() {
             },
             {
                 id: 'fallback-2',
-                visitCode: 'V9D8E7F6',
                 title: 'Regular Check-up',
                 rating: 5,
                 date: 'February 10',
@@ -185,12 +179,7 @@ export default function InteractionsScreen() {
                                 <View key={v.id} style={styles.card}>
                                     {/* Card Header Row */}
                                     <View style={styles.cardHeader}>
-                                        <View style={{ flex: 1, marginRight: 10 }}>
-                                            <Text style={styles.cardTitle}>{v.title}</Text>
-                                            {v.visitCode ? (
-                                                <Text style={styles.cardSubtitle}>Visit ID: {v.visitCode}</Text>
-                                            ) : null}
-                                        </View>
+                                        <Text style={styles.cardTitle}>{v.title}</Text>
                                         {renderStars(v.rating)}
                                     </View>
 
@@ -292,6 +281,8 @@ export default function InteractionsScreen() {
     );
 }
 
+const { width: screenWidth } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
@@ -380,12 +371,8 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: '#111827',
         fontFamily: 'Poppins-Medium',
-    },
-    cardSubtitle: {
-        fontSize: 13,
-        color: '#FE6700',
-        fontFamily: 'Poppins-Medium',
-        marginTop: 2,
+        flex: 1,
+        marginRight: 10,
     },
     starsContainer: {
         flexDirection: 'row',
@@ -446,7 +433,7 @@ const styles = StyleSheet.create({
         gap: 12, // Modern spacing
     },
     vitalCard: {
-        width: '48%',
+        width: (screenWidth - 80 - 12) / 2,
         borderRadius: 12, // Match design
         padding: 16,
     },

@@ -9,6 +9,7 @@ import {
     ImageBackground,
     Platform,
     ActivityIndicator,
+    useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Feather, AntDesign } from '@expo/vector-icons';
@@ -57,6 +58,11 @@ interface DashboardData {
 }
 
 export default function BeneficiaryDashboard() {
+    const { width } = useWindowDimensions();
+    const MAX_CONTENT_WIDTH = 440;
+    const BASE_HORIZONTAL_PADDING = 16;
+    const contentWidth = Math.min(Math.max(width - BASE_HORIZONTAL_PADDING * 2, 0), MAX_CONTENT_WIDTH);
+    const responsiveContentStyle = { width: contentWidth, alignSelf: 'center' as const };
     useExitOnBack();
     const {
         data,
@@ -162,7 +168,7 @@ export default function BeneficiaryDashboard() {
                 resizeMode="cover"
             >
                 <SafeAreaView edges={['top']}>
-                    <View style={styles.headerContent}>
+                    <View style={[styles.headerContent, responsiveContentStyle]}>
                         <View>
                             <Text style={styles.greetingTitle}>{displayData.greeting}</Text>
                             <Text style={styles.greetingSubtitle}>
@@ -175,14 +181,14 @@ export default function BeneficiaryDashboard() {
                         </View>
                     </View>
 
-                    <TouchableOpacity style={styles.emergencyBtn} activeOpacity={0.85}>
+                    <TouchableOpacity style={[styles.emergencyBtn, responsiveContentStyle]} activeOpacity={0.85}>
                         <Feather name="alert-circle" size={28} color="#FFFFFF" />
                         <Text style={styles.emergencyText}>Emergency Support</Text>
                     </TouchableOpacity>
                 </SafeAreaView>
             </ImageBackground>
 
-            <View style={styles.mainContent}>
+            <View style={[styles.mainContent, responsiveContentStyle]}>
                 <View style={styles.statsRow}>
                     <View style={styles.statCard}>
                         <View style={[styles.statIconBadge, { backgroundColor: '#DBEAFE' }]}>
@@ -347,7 +353,7 @@ const styles = StyleSheet.create({
     headerBackground: {
         minHeight: 260,
         paddingBottom: 40,
-        paddingHorizontal: 16,
+        paddingHorizontal: 0,
         borderBottomLeftRadius: 15,
         borderBottomRightRadius: 15,
         overflow: 'hidden',
@@ -382,7 +388,7 @@ const styles = StyleSheet.create({
     },
     emergencyBtn: {
         height: 60,
-        marginHorizontal: 14,
+        marginHorizontal: 0,
         marginTop: 18,
         borderRadius: 16,
         backgroundColor: '#E7000B',
@@ -404,7 +410,7 @@ const styles = StyleSheet.create({
     },
 
     mainContent: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 0,
         marginTop: -40,
     },
 

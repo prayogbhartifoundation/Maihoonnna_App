@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +23,15 @@ export default function VisitDetailsScreen() {
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
     const scrollViewRef = useRef<ScrollView>(null);
+    const { width } = useWindowDimensions();
+
+    const MAX_CONTENT_WIDTH = 440;
+    const BASE_HORIZONTAL_PADDING = 20;
+    const contentWidth = Math.min(Math.max(width - BASE_HORIZONTAL_PADDING * 2, 0), MAX_CONTENT_WIDTH);
+    const responsiveContentStyle = {
+        width: contentWidth,
+        alignSelf: 'center' as const,
+    };
     const { visitId, editMode } = useLocalSearchParams<{ visitId: string; editMode?: string }>();
     const isEdit = editMode === 'true';
 
@@ -487,7 +496,7 @@ export default function VisitDetailsScreen() {
 
                     {/* Header */}
                     <View style={styles.deepOrangeHeader}>
-                        <View style={styles.headerRow}>
+                        <View style={[styles.headerRow, responsiveContentStyle]}>
                             <CompanionBackButton style={styles.backBtn} />
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.headerTitle}>{beneficiary?.name || 'Loading Patient...'}</Text>
@@ -502,7 +511,7 @@ export default function VisitDetailsScreen() {
                     </View>
 
                     {/* Content Area with adjusted overlap math */}
-                    <View style={styles.contentArea}>
+                    <View style={[styles.contentArea, responsiveContentStyle]}>
 
                         {/* 1. CHECK-IN CARD */}
                         <View style={styles.card}>
@@ -939,7 +948,7 @@ const styles = StyleSheet.create({
 
     deepOrangeHeader: {
         backgroundColor: DEEP_ORANGE,
-        paddingHorizontal: 20,
+        paddingHorizontal: 0,
         paddingTop: Platform.OS === 'ios' ? 10 : 30,
         paddingBottom: 24,
         borderBottomLeftRadius: 28,
@@ -953,7 +962,7 @@ const styles = StyleSheet.create({
     headerSub: { fontFamily: 'Poppins_400Regular', color: '#FFFFFF', fontSize: 13, opacity: 0.9 },
 
     contentArea: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 0,
         marginTop: 20,
         zIndex: 10,
         position: 'relative',

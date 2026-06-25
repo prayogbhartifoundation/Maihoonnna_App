@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSafeBack } from '@/hooks/useSafeBack';
@@ -8,6 +8,9 @@ import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function SettingsScreen() {
+    const { width } = useWindowDimensions();
+    const contentWidth = Math.min(Math.max(width - 24, 0), 440);
+    const responsiveContentStyle = { width: contentWidth, alignSelf: 'center' as const };
     const router = useRouter();
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
@@ -15,7 +18,7 @@ export default function SettingsScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
+            <View style={[styles.header, responsiveContentStyle]}>
                 <TouchableOpacity
                     onPress={() => safeBack()}
                     style={styles.backBtn}
@@ -31,7 +34,7 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.container}>
-                <View style={styles.aboutCard}>
+                <View style={[styles.aboutCard, responsiveContentStyle]}>
                     <Text style={styles.aboutTitle}>About</Text>
 
                     <View style={styles.aboutRows}>
@@ -47,7 +50,7 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
-                <View style={styles.linksCard}>
+                <View style={[styles.linksCard, responsiveContentStyle]}>
                     <TouchableOpacity style={styles.linkRow} activeOpacity={0.7}>
                         <Text style={styles.linkText}>Privacy Policy</Text>
                     </TouchableOpacity>
@@ -76,7 +79,7 @@ const styles = StyleSheet.create({
     },
     header: {
         height: Platform.OS === 'ios' ? 72 : 70,
-        paddingHorizontal: 21,
+        paddingHorizontal: 0,
         backgroundColor: '#FFFFFF',
         flexDirection: 'row',
         alignItems: 'center',
@@ -105,9 +108,6 @@ const styles = StyleSheet.create({
         paddingTop: 18,
     },
     aboutCard: {
-        width: 398,
-        height: 120,
-        marginLeft: 11,
         backgroundColor: '#FFFFFF',
         borderRadius: 16,
         paddingHorizontal: 16,
@@ -148,9 +148,6 @@ const styles = StyleSheet.create({
         textAlign: 'right',
     },
     linksCard: {
-        width: 398,
-        height: 170,
-        marginLeft: 11,
         marginTop: 46,
         backgroundColor: '#FFFFFF',
         borderRadius: 16,

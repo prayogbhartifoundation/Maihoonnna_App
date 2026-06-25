@@ -20,11 +20,10 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import * as Device from 'expo-device';
+import { API_URL } from '@/constants/api';
 
 // ─── Backend API Base ─────────────────────────────────────────────────────────
-const API_BASE =
-  process.env.EXPO_PUBLIC_PRODUCTION_API_URL ||
-  `http://${process.env.EXPO_PUBLIC_LOCAL_IP || 'localhost'}:3000/api`;
+const API_BASE = API_URL;
 
 // ─── Foreground notification handler ─────────────────────────────────────────
 // Note: setNotificationHandler was removed in expo-notifications SDK 55.

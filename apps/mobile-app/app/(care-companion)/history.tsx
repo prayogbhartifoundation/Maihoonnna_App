@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator, Modal, Pressable, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,8 +15,8 @@ import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 const DEEP_ORANGE = '#FE6700';
 const LIGHT_BEIGE = '#FAF3EB';
 const GRAY_BG = '#F9FAFB';
-const MAX_CONTENT_WIDTH = 398;
-const BASE_HORIZONTAL_PADDING = 16;
+const MAX_CONTENT_WIDTH = 440;
+const BASE_HORIZONTAL_PADDING = 20;
 
 export default function HistoryScreen() {
     const router = useRouter();
@@ -524,7 +524,6 @@ const styles = StyleSheet.create({
     },
     deepOrangeHeader: {
         backgroundColor: DEEP_ORANGE,
-        height: 80,
         paddingHorizontal: BASE_HORIZONTAL_PADDING,
         paddingTop: Platform.OS === 'ios' ? 10 : 16,
         paddingBottom: 16,

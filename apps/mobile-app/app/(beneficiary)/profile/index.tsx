@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Platform, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Platform, TextInput, Modal, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,6 +27,11 @@ interface ProfileData {
 }
 
 export default function ProfileScreen() {
+    const { width } = useWindowDimensions();
+    const MAX_CONTENT_WIDTH = 440;
+    const BASE_HORIZONTAL_PADDING = 20;
+    const contentWidth = Math.min(Math.max(width - BASE_HORIZONTAL_PADDING * 2, 0), MAX_CONTENT_WIDTH);
+    const responsiveContentStyle = { width: contentWidth, alignSelf: 'center' as const };
     const router = useRouter();
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
@@ -188,7 +193,7 @@ export default function ProfileScreen() {
                 {/* Gradient Header Banner (Figma Match) */}
                 <View style={styles.gradientHeader}>
                     {/* Top Action Row */}
-                    <View style={styles.topRow}>
+                    <View style={[styles.topRow, responsiveContentStyle]}>
                         <TouchableOpacity onPress={() => safeBack()} style={styles.headerBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                             <Feather name="arrow-left" size={22} color="#FFFFFF" />
                         </TouchableOpacity>
@@ -200,7 +205,7 @@ export default function ProfileScreen() {
                     </View>
 
                     {/* Avatar Wrap */}
-                    <View style={styles.avatarContainer}>
+                    <View style={[styles.avatarContainer, responsiveContentStyle]}>
                         <View style={styles.avatarFrame}>
                             <Image
                                 source={require('../../../assets/images/group4.png')}
@@ -217,7 +222,7 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Overlapping Stats Deck */}
-                <View style={styles.statsDeck}>
+                <View style={[styles.statsDeck, responsiveContentStyle]}>
                     {/* Stat Card 1: Blood Group */}
                     <View style={styles.statCard}>
                         <View style={[styles.statIconWrap, { backgroundColor: '#FEF2F2' }]}>
@@ -246,7 +251,7 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
-                <View style={styles.innerContent}>
+                <View style={[styles.innerContent, responsiveContentStyle]}>
                     {/* Contact Information Panel */}
                     <View style={styles.panel}>
                         <View style={styles.panelHeaderRow}>
@@ -373,7 +378,7 @@ export default function ProfileScreen() {
             {/* Quick Contact Editor Modal */}
             <Modal visible={editModalVisible} animationType="slide" transparent={true}>
                 <View style={styles.modalBackdrop}>
-                    <View style={styles.modalCard}>
+                    <View style={[styles.modalCard, responsiveContentStyle]}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Edit Profile Information</Text>
                             <TouchableOpacity onPress={() => setEditModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -457,7 +462,7 @@ const styles = StyleSheet.create({
     },
     gradientHeader: {
         backgroundColor: '#FE6700', // Figma Orange
-        paddingHorizontal: 20,
+        paddingHorizontal: 0,
         paddingTop: Platform.OS === 'ios' ? 10 : 20,
         paddingBottom: 60, // Extra padding to allow stats cards to overlap
         borderBottomLeftRadius: 40,
@@ -563,7 +568,7 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-Medium',
     },
     innerContent: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 0,
     },
     panel: {
         backgroundColor: '#FFFFFF',

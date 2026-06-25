@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Modal, TextInput, useWindowDimensions } from 'react-native';
 import Svg, { Line, Circle, Text as SvgText, Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
@@ -63,6 +63,10 @@ interface HistoryItem {
 }
 
 export default function MedicalRecordsScreen() {
+    const { width } = useWindowDimensions();
+    const MAX_CONTENT_WIDTH = 440;
+    const responsiveStyle = { width: '100%' as const, maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' as const };
+
     const router = useRouter();
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
@@ -119,7 +123,7 @@ export default function MedicalRecordsScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
+            <View style={[styles.header, responsiveStyle]}>
                 <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
@@ -128,12 +132,12 @@ export default function MedicalRecordsScreen() {
             </View>
 
             {loading ? (
-                <View style={styles.centerWrap}>
+                <View style={[styles.centerWrap, responsiveStyle]}>
                     <ActivityIndicator size="large" color="#FE6700" />
                     <Text style={styles.loadingText}>Loading health vitals & records...</Text>
                 </View>
             ) : error ? (
-                <View style={styles.centerWrap}>
+                <View style={[styles.centerWrap, responsiveStyle]}>
                     <Ionicons name="alert-circle-outline" size={48} color="#EF4444" style={{ marginBottom: 12 }} />
                     <Text style={styles.errorText}>{error}</Text>
                     <TouchableOpacity style={styles.retryBtn} onPress={fetchMedicalRecords}>
@@ -141,7 +145,7 @@ export default function MedicalRecordsScreen() {
                     </TouchableOpacity>
                 </View>
             ) : (
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <ScrollView contentContainerStyle={[styles.content, responsiveStyle]} showsVerticalScrollIndicator={false}>
                     <Text style={styles.subtitle}>Track your vitals</Text>
 
                     <View style={styles.sectionHeaderRow}>
