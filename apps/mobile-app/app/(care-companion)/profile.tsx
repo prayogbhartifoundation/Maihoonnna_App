@@ -153,7 +153,7 @@ export default function ProfileScreen() {
             </View>
         );
     }
-    const contentWidth = Math.min(Math.max(width - 32, 0), 440);
+    const contentWidth = Math.min(Math.max(width - 40, 0), 440);
 
     const responsiveContentStyle = {
         width: contentWidth,
@@ -332,8 +332,7 @@ const styles = StyleSheet.create({
 
     deepOrangeHeader: {
         backgroundColor: DEEP_ORANGE,
-        height: 80,
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         paddingTop: Platform.OS === 'ios' ? 10 : 16,
         paddingBottom: 16,
         borderBottomLeftRadius: 24,

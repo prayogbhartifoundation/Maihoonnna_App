@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import {
     Feather, MaterialCommunityIcons,
@@ -31,6 +31,10 @@ function MenuItem({ icon, label, iconBg, onPress }: MenuItemProps) {
 }
 
 export default function MoreOptionsScreen() {
+    const { width } = useWindowDimensions();
+    const MAX_CONTENT_WIDTH = 440;
+    const responsiveStyle = { width: '100%' as const, maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' as const };
+
     const [profileName, setProfileName] = useState('Margaret Williams');
     const safeBack = useSafeBack();
     const logoutWithConfirm = useLogoutWithConfirm();
@@ -113,7 +117,7 @@ export default function MoreOptionsScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             {/* Header - Centered perfectly per Figma */}
-            <View style={styles.header}>
+            <View style={[styles.header, responsiveStyle]}>
                 <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
@@ -122,7 +126,7 @@ export default function MoreOptionsScreen() {
 
             <ScrollView
                 style={styles.scrollContainer}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[styles.content, responsiveStyle]}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Orange Profile Card at the Top */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Modal, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -59,12 +59,17 @@ const messages: Message[] = [
 ];
 
 export default function InboxScreen() {
+    const { width } = useWindowDimensions();
+    const MAX_CONTENT_WIDTH = 440;
+    const BASE_HORIZONTAL_PADDING = 20;
+    const contentWidth = Math.min(Math.max(width - BASE_HORIZONTAL_PADDING * 2, 0), MAX_CONTENT_WIDTH);
+    const responsiveContentStyle = { width: contentWidth, alignSelf: 'center' as const };
     // State to hold the currently selected message for the popup
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
+            <View style={[styles.header, responsiveContentStyle]}>
                 <Text style={styles.headerTitle}>Inbox</Text>
 
                 {/* Keeping text exactly as requested, but hiding it visually to match Figma */}
@@ -79,7 +84,7 @@ export default function InboxScreen() {
 
             <ScrollView
                 style={styles.scroll}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[styles.content, responsiveContentStyle]}
                 showsVerticalScrollIndicator={false}
                 bounces={true}
             >
@@ -122,7 +127,7 @@ export default function InboxScreen() {
             {/* MESSAGE POPUP MODAL */}
             <Modal visible={selectedMessage !== null} animationType="fade" transparent={true}>
                 <View style={styles.modalBackdrop}>
-                    <View style={styles.modalCard}>
+                    <View style={[styles.modalCard, responsiveContentStyle]}>
                         {/* Modal Header */}
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalSubject} numberOfLines={2}>
@@ -201,7 +206,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flexGrow: 1,
-        padding: 20,
+        paddingHorizontal: 0, paddingVertical: 20,
         paddingBottom: Platform.OS === 'ios' ? 120 : 100,
     },
 

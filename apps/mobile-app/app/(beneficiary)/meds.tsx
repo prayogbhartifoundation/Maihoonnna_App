@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Platform, Animated, TouchableWithoutFeedback, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Platform, Animated, TouchableWithoutFeedback, Alert, Image, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path } from 'react-native-svg';
 import { API_URL } from '@/constants/api';
@@ -90,6 +90,10 @@ type Props = {
 };
 
 export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props) {
+    const { width } = useWindowDimensions();
+    const MAX_CONTENT_WIDTH = 440;
+    const responsiveStyle = { width: '100%' as const, maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' as const };
+
     const [schedule, setSchedule] = useState<MedScheduleItem[]>([]);
     const [metrics, setMetrics] = useState<Metrics>({ average: 100, taken: 0, missed: 0 });
     const [loading, setLoading] = useState(true);
@@ -252,7 +256,7 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
     if (loading) {
         return (
             <SafeAreaView style={styles.safeArea}>
-                <View style={styles.center}>
+                <View style={[styles.center, responsiveStyle]}>
                     <ActivityIndicator size="large" color="#FE6700" />
                     <Text style={styles.loadingText}>Loading Medications...</Text>
                 </View>
@@ -263,12 +267,12 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
     return (
         <SafeAreaView style={styles.safeArea}>
             {/* --- NEW WHITE TOP BANNER --- */}
-            <View style={styles.header}>
+            <View style={[styles.header, responsiveStyle]}>
                 <Text style={styles.headerTitle}>Medications</Text>
                 <Text style={styles.headerSub}>Today's medication schedule</Text>
             </View>
 
-            <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.container} contentContainerStyle={[styles.content, responsiveStyle]} showsVerticalScrollIndicator={false}>
 
                 {/* Top Row inside Peach Area */}
                 <View style={styles.topRow}>

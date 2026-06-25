@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,6 +22,8 @@ export default function DashboardScreen() {
     const router = useRouter();
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
+    const { width } = useWindowDimensions();
+
     const [loading, setLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState('');
     const [currentDate, setCurrentDate] = useState('');
@@ -32,6 +34,14 @@ export default function DashboardScreen() {
     let [fontsLoaded] = useFonts({
         Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold,
     });
+
+    const MAX_CONTENT_WIDTH = 440;
+    const BASE_HORIZONTAL_PADDING = 20;
+    const contentWidth = Math.min(Math.max(width - BASE_HORIZONTAL_PADDING * 2, 0), MAX_CONTENT_WIDTH);
+    const responsiveContentStyle = {
+        width: contentWidth,
+        alignSelf: 'center' as const,
+    };
 
     // Clock logic
     useEffect(() => {
@@ -130,7 +140,7 @@ export default function DashboardScreen() {
 
                 {/* 1. DYNAMIC HEADER */}
                 <View style={styles.deepOrangeHeader}>
-                    <View style={styles.headerTopRow}>
+                    <View style={[styles.headerTopRow, responsiveContentStyle]}>
                         <View>
                             <Text style={styles.headerTitle}>Care Companion</Text>
                             <Text style={styles.headerSub}>Welcome back, {dashboardData.user.firstName}</Text>
@@ -143,7 +153,7 @@ export default function DashboardScreen() {
                         </View>
                     </View>
 
-                    <View style={styles.dateTimeRow}>
+                    <View style={[styles.dateTimeRow, responsiveContentStyle]}>
                         <Ionicons name="time-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
                         <Text style={styles.dateTimeText}>{currentTime}</Text>
                         <Text style={styles.dotSeparator}>•</Text>
@@ -151,7 +161,7 @@ export default function DashboardScreen() {
                     </View>
 
                     {/* CHECK-IN CARD (inside header) */}
-                    <View style={styles.checkInCard}>
+                    <View style={[styles.checkInCard, responsiveContentStyle]}>
                         <View style={styles.checkInLeft}>
                             <Ionicons name="location-outline" size={24} color="#FFFFFF" />
                             <View style={{ marginLeft: 12 }}>
@@ -163,7 +173,7 @@ export default function DashboardScreen() {
                                 </Text>
                             </View>
                         </View>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={styles.checkInBtn}
                             onPress={handleStartVisit}
                         >
@@ -176,7 +186,7 @@ export default function DashboardScreen() {
                 </View>
 
                 {/* Main Content Area */}
-                <View style={styles.contentArea}>
+                <View style={[styles.contentArea, responsiveContentStyle]}>
 
                     {/* 2. DYNAMIC STATS ROW */}
                     <View style={styles.statsRow}>
@@ -310,7 +320,7 @@ const styles = StyleSheet.create({
     // --- Header ---
     deepOrangeHeader: {
         backgroundColor: DEEP_ORANGE,
-        paddingHorizontal: 20,
+        paddingHorizontal: 0,
         paddingTop: Platform.OS === 'ios' ? 10 : 30,
         paddingBottom: 24,
         borderBottomLeftRadius: 28,
@@ -344,7 +354,7 @@ const styles = StyleSheet.create({
 
     // --- Content Area ---
     contentArea: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 0,
         marginTop: 20,
         zIndex: 10,
         position: 'relative',

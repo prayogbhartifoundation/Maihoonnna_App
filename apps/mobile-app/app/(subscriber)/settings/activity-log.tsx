@@ -3,8 +3,20 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } f
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format } from 'date-fns';
 import { API_URL } from '@/constants/api';
+
+// Simple date formatting helper — replaces date-fns to avoid Hermes compilation
+// issues with date-fns v4.x JSDoc comments containing '//=>' patterns.
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function formatDate(date: Date, pattern: string): string {
+    if (pattern === 'MMM dd') {
+        return `${MONTHS_SHORT[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}`;
+    }
+    if (pattern === 'HH:mm') {
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+    return date.toLocaleDateString();
+}
 
 export default function ActivityLogScreen() {
     const [logs, setLogs] = useState<any[]>([]);
@@ -71,8 +83,8 @@ export default function ActivityLogScreen() {
                 )}
             </View>
             <View style={styles.timeBox}>
-                <Text style={styles.logTime}>{format(new Date(item.createdAt), 'MMM dd')}</Text>
-                <Text style={styles.logTimeSmall}>{format(new Date(item.createdAt), 'HH:mm')}</Text>
+                <Text style={styles.logTime}>{formatDate(new Date(item.createdAt), 'MMM dd')}</Text>
+                <Text style={styles.logTimeSmall}>{formatDate(new Date(item.createdAt), 'HH:mm')}</Text>
             </View>
         </View>
     );

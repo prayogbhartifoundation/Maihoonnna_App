@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeBack } from '@/hooks/useSafeBack';
@@ -8,6 +8,11 @@ import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 
 export default function NotificationsScreen() {
+    const { width } = useWindowDimensions();
+    const MAX_CONTENT_WIDTH = 440;
+    const BASE_HORIZONTAL_PADDING = 16;
+    const contentWidth = Math.min(Math.max(width - BASE_HORIZONTAL_PADDING * 2, 0), MAX_CONTENT_WIDTH);
+    const responsiveContentStyle = { width: contentWidth, alignSelf: 'center' as const };
     const router = useRouter();
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
@@ -54,7 +59,7 @@ export default function NotificationsScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.header}>
+            <View style={[styles.header, responsiveContentStyle]}>
                 <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}>
                     <Feather name="arrow-left" size={20} color="#000000" />
                 </TouchableOpacity>
@@ -176,7 +181,7 @@ const styles = StyleSheet.create({
     header: {
         height: Platform.OS === 'ios' ? 88 : 70,
         paddingTop: Platform.OS === 'ios' ? 18 : 0,
-        paddingHorizontal: 16,
+        paddingHorizontal: 0,
         backgroundColor: '#FFFFFF',
         flexDirection: 'row',
         alignItems: 'center',
@@ -201,7 +206,7 @@ const styles = StyleSheet.create({
         color: '#000000',
     },
     content: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 0,
         paddingTop: 16,
         paddingBottom: 96,
     },
