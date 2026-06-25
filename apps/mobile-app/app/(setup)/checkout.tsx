@@ -241,6 +241,12 @@ export default function CheckoutScreen() {
                     } else {
                         // Try native checkout, fallback to mock if running in Expo Go (missing native module)
                         try {
+                            console.log('[Razorpay] Opening with options:', JSON.stringify({
+                                key: options.key,
+                                amount: options.amount,
+                                order_id: options.order_id,
+                                currency: options.currency,
+                            }));
                             const paymentResponse = await RazorpayCheckout.open(options);
                             paymentDetails = {
                                 razorpay_payment_id: paymentResponse.razorpay_payment_id,
@@ -248,7 +254,10 @@ export default function CheckoutScreen() {
                                 razorpay_signature: paymentResponse.razorpay_signature
                             };
                         } catch (paymentErr: any) {
-                            if (paymentErr.message?.includes('Native module cannot be null') || paymentErr.message?.includes('RazorpayCheckout')) {
+                            const errMessage = paymentErr?.message || paymentErr?.description || '';
+                            const errCode = paymentErr?.code;
+
+                            if (errMessage.includes('Native module cannot be null') || errMessage.includes('RazorpayCheckout')) {
                                 // Missing native module (likely Expo Go)
                                 console.warn("Razorpay Native Module missing. Using Dev Mock.");
                                 paymentDetails = {
@@ -257,9 +266,16 @@ export default function CheckoutScreen() {
                                     razorpay_signature: "DEV_MOCK_SIGNATURE"
                                 };
                                 Alert.alert("Test Mode", "Razorpay native module not found (Expo Go). Simulating successful payment.");
-                            } else {
+                            } else if (errCode === 0 || errMessage.toLowerCase().includes('cancel')) {
+                                // User cancelled the payment — not an error, just exit gracefully
+                                console.log('[Razorpay] Payment cancelled by user.');
                                 setIsProcessing(false);
-                                console.log('[Razorpay Cancelled/Error]', paymentErr);
+                                return;
+                            } else {
+                                // Real payment error
+                                console.error('[Razorpay Error]', errCode, errMessage, JSON.stringify(paymentErr));
+                                setIsProcessing(false);
+                                Alert.alert('Payment Failed', errMessage || 'Payment could not be completed. Please try again.');
                                 return;
                             }
                         }
