@@ -16,15 +16,15 @@ export const createBeneficiarySchema = Joi.object({
 });
 
 export const updateBeneficiarySchema = Joi.object({
-  name: Joi.string().optional(),
-  photo: Joi.string().optional(),
+  name: Joi.string().allow('', null).optional(),
+  photo: Joi.string().allow('', null).optional(),
   age: Joi.number().integer().allow(null).optional(),
   gender: Joi.string().valid('male', 'female', 'other', 'prefer_not_to_say').allow('', null).optional(),
-  address: Joi.string().optional(),
-  relationship: Joi.string().optional(),
-  city: Joi.string().optional(),
-  state: Joi.string().optional(),
-  pincode: Joi.string().optional(),
+  address: Joi.string().allow('', null).optional(),
+  relationship: Joi.string().allow('', null).optional(),
+  city: Joi.string().allow('', null).optional(),
+  state: Joi.string().allow('', null).optional(),
+  pincode: Joi.string().allow('', null).optional(),
   
   // Physician info
   primaryPhysicianName: Joi.string().allow('', null).optional(),

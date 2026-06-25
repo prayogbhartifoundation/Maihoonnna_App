@@ -75,6 +75,13 @@ export default function EditBeneficiaryScreen() {
 
     const [vitalsConfig, setVitalsConfig] = useState<any[]>([]);
 
+    // Custom Alert State to ensure it looks like an App on both Web and Mobile
+    const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '' });
+
+    const showAlert = (title: string, message: string) => {
+        setAlertConfig({ visible: true, title, message });
+    };
+
     useEffect(() => {
         const init = async () => {
             try {
@@ -127,9 +134,6 @@ export default function EditBeneficiaryScreen() {
                     // Initialize from relational configs
                     if (beneficiary.vitalConfigs) {
                         beneficiary.vitalConfigs.forEach((config: any) => {
-                            // We need to find the code for this config
-                            // The config should have vitalDefinitionId, but we might need the code
-                            // If we fetched vitalsConfig first, we can map ID to code
                             vFlags[config.vitalDefinitionId] = !!config.isActive;
                         });
                     }
@@ -137,7 +141,7 @@ export default function EditBeneficiaryScreen() {
                 }
             } catch (e) {
                 console.error('Init error:', e);
-                Alert.alert('Error', 'Failed to load beneficiary data');
+                showAlert('Error', 'Failed to load beneficiary data');
             } finally {
                 setLoading(false);
             }
@@ -146,6 +150,19 @@ export default function EditBeneficiaryScreen() {
     }, [id]);
 
     const handleSave = async () => {
+        const missingFields: string[] = [];
+        if (!name?.trim()) missingFields.push('Full Name');
+        if (!age || isNaN(parseInt(age))) missingFields.push('Age');
+        if (!streetArea?.trim()) missingFields.push('Street / Area');
+        if (!city?.trim()) missingFields.push('City');
+        if (!state?.trim()) missingFields.push('State');
+        if (!pincode?.trim()) missingFields.push('Pincode');
+
+        if (missingFields.length > 0) {
+            showAlert('Missing Details', `Please fill in the following required fields:\n- ${missingFields.join('\n- ')}`);
+            return;
+        }
+
         setSaving(true);
         try {
             const token = await AsyncStorage.getItem('userToken');
@@ -184,16 +201,16 @@ export default function EditBeneficiaryScreen() {
 
             const result = await res.json();
             if (result.success) {
-                Alert.alert('Success', 'Profile updated successfully!');
+                showAlert('Success', 'Profile updated successfully!');
                 safeBack();
             } else if (result.errors) {
                 // Specific validation errors from Joi
-                Alert.alert('Validation Error', result.errors.join('\n'));
+                showAlert('Validation Error', result.errors.join('\n'));
             } else {
-                Alert.alert('Error', result.message || 'Failed to update details');
+                showAlert('Error', result.message || 'Failed to update details');
             }
         } catch (e) {
-            Alert.alert('Error', 'Connection error');
+            showAlert('Error', 'Connection error');
         } finally {
             setSaving(false);
         }
@@ -516,6 +533,24 @@ export default function EditBeneficiaryScreen() {
                         </ScrollView>
                         <TouchableOpacity style={styles.modalBtn} onPress={() => setShowHobbiesModal(false)}>
                             <Text style={styles.modalBtnText}>Done</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Custom UI Alert Modal */}
+            <Modal visible={alertConfig.visible} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{alertConfig.title}</Text>
+                        <Text style={{ fontSize: 15, color: '#4B5563', marginBottom: 24, lineHeight: 22 }}>
+                            {alertConfig.message}
+                        </Text>
+                        <TouchableOpacity 
+                            style={styles.modalBtn} 
+                            onPress={() => setAlertConfig({ visible: false, title: '', message: '' })}
+                        >
+                            <Text style={styles.modalBtnText}>OK</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
