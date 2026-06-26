@@ -247,17 +247,29 @@ export default function CheckoutScreen() {
                                 order_id: options.order_id,
                                 currency: options.currency,
                             }));
-                            const paymentResponse = await RazorpayCheckout.open(options);
-                            paymentDetails = {
-                                razorpay_payment_id: paymentResponse.razorpay_payment_id,
-                                razorpay_order_id: paymentResponse.razorpay_order_id,
-                                razorpay_signature: paymentResponse.razorpay_signature
-                            };
+
+                            // Expo Go: RazorpayCheckout native module is null — use dev mock
+                            if (!RazorpayCheckout) {
+                                console.warn("Razorpay Native Module is null (Expo Go). Using Dev Mock.");
+                                paymentDetails = {
+                                    razorpay_payment_id: "pay_test_" + Date.now(),
+                                    razorpay_order_id: orderData.data.order_id,
+                                    razorpay_signature: "DEV_MOCK_SIGNATURE"
+                                };
+                                Alert.alert("Test Mode 🧪", "Razorpay is not available in Expo Go.\n\nSimulating a successful payment so you can test the rest of the flow.");
+                            } else {
+                                const paymentResponse = await RazorpayCheckout.open(options);
+                                paymentDetails = {
+                                    razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                                    razorpay_order_id: paymentResponse.razorpay_order_id,
+                                    razorpay_signature: paymentResponse.razorpay_signature
+                                };
+                            }
                         } catch (paymentErr: any) {
                             const errMessage = paymentErr?.message || paymentErr?.description || '';
                             const errCode = paymentErr?.code;
 
-                            if (errMessage.includes('Native module cannot be null') || errMessage.includes('RazorpayCheckout')) {
+                            if (errMessage.includes('Native module cannot be null') || errMessage.includes('RazorpayCheckout') || errMessage.includes('null')) {
                                 // Missing native module (likely Expo Go)
                                 console.warn("Razorpay Native Module missing. Using Dev Mock.");
                                 paymentDetails = {
@@ -265,7 +277,7 @@ export default function CheckoutScreen() {
                                     razorpay_order_id: orderData.data.order_id,
                                     razorpay_signature: "DEV_MOCK_SIGNATURE"
                                 };
-                                Alert.alert("Test Mode", "Razorpay native module not found (Expo Go). Simulating successful payment.");
+                                Alert.alert("Test Mode 🧪", "Razorpay native module not found (Expo Go). Simulating successful payment.");
                             } else if (errCode === 0 || errMessage.toLowerCase().includes('cancel')) {
                                 // User cancelled the payment — not an error, just exit gracefully
                                 console.log('[Razorpay] Payment cancelled by user.');

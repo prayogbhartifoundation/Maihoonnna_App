@@ -22,6 +22,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import { API_URL } from '@/constants/api';
 
+// Expo Go SDK 53+ removed remote push notification support.
+// Detect if we're running inside Expo Go to skip token registration gracefully.
+const isRunningInExpoGo = Constants.appOwnership === 'expo';
+
 // ─── Backend API Base ─────────────────────────────────────────────────────────
 const API_BASE = API_URL;
 
@@ -39,6 +43,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
   // Expo push tokens are native-only; skip silently on web
   if (Platform.OS === 'web') {
     console.log('[Notifications] Skipping push registration on web.');
+    return null;
+  }
+
+  // Expo Go SDK 53+ removed remote push notification support — skip gracefully
+  if (isRunningInExpoGo) {
+    console.log('[Notifications] Skipping push registration in Expo Go (not supported in SDK 53+).');
     return null;
   }
 
@@ -96,7 +106,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     return expoPushToken;
   } catch (err: any) {
-    console.error('[Notifications] Registration error:', err.message ?? err);
+    console.warn('[Notifications] Registration error (safely skipped):', err.message ?? err);
     return null;
   }
 }

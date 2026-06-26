@@ -58,6 +58,13 @@ function RootNavigator() {
     resetStack();
   }, [isLoggedIn, resetStack]);
 
+  // Register for push notifications when logged in
+  useEffect(() => {
+    if (isLoggedIn) {
+      registerForPushNotifications();
+    }
+  }, [isLoggedIn]);
+
   // While we're checking AsyncStorage, show a native splash-compatible loader
   if (isLoading) {
     return (
@@ -67,35 +74,28 @@ function RootNavigator() {
     );
   }
 
-  // Register for push notifications when logged in
-  if (isLoggedIn) {
-    registerForPushNotifications();
-  }
-
   // ── CONDITIONAL STACK ──
   // By rendering screens conditionally, we ensure that back gestures
   // cannot traverse between auth and app boundaries.
+  // Note: Direct children of Stack must be Screen components or null (no Fragments).
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
       {!isLoggedIn ? (
-        // --- LOGGED OUT SCREENS ---
-        <>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          {/* Allow browsing packages while logged out */}
-          <Stack.Screen name="(setup)" />
-        </>
+        <Stack.Screen name="(auth)" />
       ) : (
-        // --- LOGGED IN SCREENS ---
-        <>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(subscriber)" options={{ gestureEnabled: false }} />
-          <Stack.Screen name="(beneficiary)" options={{ gestureEnabled: false }} />
-          <Stack.Screen name="(care-companion)" options={{ gestureEnabled: false }} />
-          <Stack.Screen name="(setup)" />
-          <Stack.Screen name="package-utilization" />
-        </>
+        <Stack.Screen name="(subscriber)" options={{ gestureEnabled: false }} />
       )}
+      {isLoggedIn ? (
+        <Stack.Screen name="(beneficiary)" options={{ gestureEnabled: false }} />
+      ) : null}
+      {isLoggedIn ? (
+        <Stack.Screen name="(care-companion)" options={{ gestureEnabled: false }} />
+      ) : null}
+      <Stack.Screen name="(setup)" />
+      {isLoggedIn ? (
+        <Stack.Screen name="package-utilization" />
+      ) : null}
     </Stack>
   );
 }
