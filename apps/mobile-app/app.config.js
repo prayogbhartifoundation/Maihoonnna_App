@@ -1,4 +1,9 @@
 export default ({ config }) => {
+  // ── Razorpay key resolution ─────────────────────────────────────────────────
+  // Strip any accidental surrounding quotes that some .env parsers leave in.
+  const rawRazorpayKey = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '';
+  const razorpayKeyId = rawRazorpayKey.replace(/^["']|["']$/g, '').trim();
+
   return {
     ...config,
 
@@ -26,5 +31,14 @@ export default ({ config }) => {
         },
       },
     },
+
+    // ── Bake env vars into the bundle so they work in ALL Expo environments ───
+    // (Expo Go dev builds, EAS preview APKs, and production builds)
+    // Read in checkout.tsx via: Constants.expoConfig?.extra?.razorpayKeyId
+    extra: {
+      ...config.extra,
+      razorpayKeyId,
+    },
   };
-}; 
+};
+

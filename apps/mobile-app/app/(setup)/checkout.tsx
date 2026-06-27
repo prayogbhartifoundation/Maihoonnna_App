@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
 import { useQueryClient } from '@tanstack/react-query';
+import Constants from 'expo-constants';
 
 // 🛑 BACKEND SETUP
 import { API_URL } from '@/constants/api';
@@ -13,6 +14,22 @@ import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 // @ts-ignore
 import RazorpayCheckout from 'react-native-razorpay';
+
+/**
+ * Resolves the Razorpay key in every Expo/EAS environment:
+ *  1. Constants.expoConfig.extra.razorpayKeyId  — baked in at EAS build time (most reliable)
+ *  2. process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID   — works in local `npx expo start`
+ *
+ * The quotes-stripped guard handles the common mistake of wrapping the value in
+ * double-quotes inside .env  (e.g. EXPO_PUBLIC_RAZORPAY_KEY_ID="rzp_test_...").
+ */
+const getRazorpayKey = (): string => {
+    const fromExtra: string = (Constants.expoConfig?.extra?.razorpayKeyId as string) || '';
+    const fromEnv: string = (process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID as string) || '';
+    // Strip accidental surrounding quotes some .env parsers add
+    const clean = (s: string) => s.replace(/^["']|["']$/g, '').trim();
+    return clean(fromExtra) || clean(fromEnv);
+};
 const UPI_APPS = ['Google Pay', 'PhonePe', 'Paytm', 'BHIM', 'Amazon Pay'];
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const FIGMA_WIDTH = 716;
@@ -213,11 +230,30 @@ export default function CheckoutScreen() {
                 }
 
                 // 3. Open Razorpay Checkout
+                const razorpayKey = getRazorpayKey();
+
+                // ── Safety guard: alert devs immediately if the key is missing ──────────
+                if (!razorpayKey) {
+                    console.error(
+                        '[Razorpay] KEY IS MISSING.\n' +
+                        '  • Local dev: check .env has EXPO_PUBLIC_RAZORPAY_KEY_ID (no quotes around value)\n' +
+                        '  • EAS build: check eas.json env block OR EAS Secrets dashboard'
+                    );
+                    Alert.alert(
+                        '⚠️ Payment Config Error',
+                        'Razorpay API key is not configured. Please contact support.\n\n(Dev: check console for details)'
+                    );
+                    setIsProcessing(false);
+                    return;
+                }
+
+                console.log('[Razorpay] Key resolved:', razorpayKey.substring(0, 12) + '...');
+
                 const options = {
                     description: `Mai-Hoonaa: ${pricing.packageName}`,
-                    image: 'https://maihoonna.com/logo.png', // Replace with your actual logo URL
+                    image: 'https://maihoonna.com/logo.png',
                     currency: orderData.data.currency,
-                    key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID,
+                    key: razorpayKey,
                     amount: orderData.data.amount,
                     name: 'Mai-Hoonaa',
                     order_id: orderData.data.order_id,
