@@ -233,7 +233,7 @@ export default function ScheduleScreen() {
                                         <Feather name="check-circle" size={16} color="#059669" style={{marginRight: 6}} />
                                         <Text style={styles.acceptedText}>Change Request Approved</Text>
                                     </View>
-                                ) : visit.changeRequestStatus === 'pending' || visit.changeRequestedAt ? (
+                                ) : (visit.changeRequestStatus === 'pending' && visit.changeRequestedAt) ? (
                                     <View style={styles.requestButtonDisabled}>
                                         <Feather name="clock" size={16} color="#9CA3AF" style={{marginRight: 6}} />
                                         <Text style={styles.requestButtonTextDisabled}>Change Pending</Text>
