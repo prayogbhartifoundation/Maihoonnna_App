@@ -45,59 +45,111 @@ export default function SubscriberDashboardScreen() {
         }
     }, [highlightBen]);
 
+    const [selectedBeneficiaryId, setSelectedBeneficiaryId] = useState<string | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
+
     useEffect(() => {
-        const loadUser = async () => {
+        const init = async () => {
             const storedUser = await AsyncStorage.getItem('userData');
-            if (storedUser) {
-                setUserData(JSON.parse(storedUser));
-            }
-            // No redirect to auth here — the root layout handles that.
+            if (storedUser) setUserData(JSON.parse(storedUser));
+            
+            const storedBenId = await AsyncStorage.getItem('selectedBeneficiaryId');
+            if (storedBenId) setSelectedBeneficiaryId(storedBenId);
+            
+            setIsInitialized(true);
         };
-        loadUser();
+        init();
     }, []);
 
-    /* ─── API (React Query) ─────────────────────────────────────────────── */
+    /* ─── API (React Query & Local Cache) ─────────────────────────────────────────────── */
     const {
         data: dashboard,
         isLoading: loading,
         refetch,
         isRefetching: refreshing
     } = useQuery({
-        queryKey: ['subscriberDashboard'],
+        queryKey: ['subscriberDashboard', selectedBeneficiaryId],
+        enabled: isInitialized,
+        staleTime: 5 * 60 * 1000,
         queryFn: async () => {
             const storedToken = await AsyncStorage.getItem('userToken');
+            if (!storedToken) throw new Error("Auth missing");
 
-            if (!storedToken) {
-                // Token missing — this should not happen if root layout works correctly,
-                // but we throw to prevent stale data from rendering.
-                throw new Error("Auth missing");
+            let url = `${API_URL}/subscriber/dashboard/me`;
+            if (selectedBeneficiaryId) {
+                url += `?beneficiaryId=${selectedBeneficiaryId}`;
             }
 
-            console.log(`[Dashboard] Fetching from /subscriber/dashboard/me`);
-            const res = await fetch(`${API_URL}/subscriber/dashboard/me`, {
+            // Check custom local cache first
+            const cacheKey = 'beneficiaryDashboardCache';
+            const cacheRaw = await AsyncStorage.getItem(cacheKey);
+            let cache = cacheRaw ? JSON.parse(cacheRaw) : {};
+
+            if (selectedBeneficiaryId && cache[selectedBeneficiaryId]) {
+                const cachedData = cache[selectedBeneficiaryId];
+                const ageMs = Date.now() - (cachedData.lastUpdated || 0);
+                
+                // If cache is under 5 minutes old, return instantly
+                if (ageMs < 5 * 60 * 1000) {
+                    return cachedData.response;
+                }
+            }
+
+            const res = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${storedToken}`,
                     'Content-Type': 'application/json'
                 }
             });
 
-            if (!res.ok) {
-                const errorData = await res.json();
-                console.error('[Dashboard] API Error:', errorData);
-                throw new Error("Failed to fetch");
-            }
-
+            if (!res.ok) throw new Error("Failed to fetch");
             const data = await res.json();
+            
             if (data.success) {
+                // Save to local cache
+                if (selectedBeneficiaryId) {
+                    cache[selectedBeneficiaryId] = {
+                        lastUpdated: Date.now(),
+                        response: data
+                    };
+                    await AsyncStorage.setItem(cacheKey, JSON.stringify(cache));
+                }
                 return data;
             } else {
-                console.warn('[Dashboard] Data returned success:false', data);
                 throw new Error("Failed to fetch data");
             }
         }
     });
 
-    const onRefresh = () => refetch();
+    // Fallback logic: Ensure valid selection
+    useEffect(() => {
+        if (dashboard?.beneficiaries?.length > 0) {
+            const isValid = dashboard.beneficiaries.some((b: any) => b.id === selectedBeneficiaryId);
+            if (!isValid) {
+                const sorted = [...dashboard.beneficiaries].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                const newId = sorted[0].id;
+                setSelectedBeneficiaryId(newId);
+                AsyncStorage.setItem('selectedBeneficiaryId', newId);
+            }
+        }
+    }, [dashboard?.beneficiaries, selectedBeneficiaryId]);
+
+    const onRefresh = () => {
+        // Manually invalidate custom cache on pull-to-refresh
+        if (selectedBeneficiaryId) {
+            AsyncStorage.getItem('beneficiaryDashboardCache').then(cacheRaw => {
+                if (cacheRaw) {
+                    let cache = JSON.parse(cacheRaw);
+                    delete cache[selectedBeneficiaryId];
+                    AsyncStorage.setItem('beneficiaryDashboardCache', JSON.stringify(cache)).then(() => refetch());
+                } else {
+                    refetch();
+                }
+            });
+        } else {
+            refetch();
+        }
+    };
 
     useFocusEffect(
         useCallback(() => {
@@ -246,24 +298,39 @@ export default function SubscriberDashboardScreen() {
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    beneficiaries.map((b: any, i: number) => (
-                        <TouchableOpacity
-                            key={b.id || i}
-                            style={styles.benCard}
-                            activeOpacity={0.85}
-                            onPress={() => router.push(`/(subscriber)/beneficiary-profile?id=${b.id}`)}
-                        >
-                            <Image
-                                source={{ uri: b.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.name || 'Beneficiary')}&background=FFE3D1&color=FE6700&bold=true` }}
-                                style={styles.benPhoto}
-                            />
-                            <View style={styles.benDetails}>
-                                <Text style={styles.benName}>{b.name}</Text>
-                                <Text style={styles.benMeta}>{b.age ? `${b.age} years` : ''}{b.relationship ? ` • ${b.relationship}` : ''}</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                        </TouchableOpacity>
-                    ))
+                    beneficiaries.map((b: any, i: number) => {
+                        const isSelected = b.id === selectedBeneficiaryId;
+                        return (
+                            <TouchableOpacity
+                                key={b.id || i}
+                                style={[styles.benCard, isSelected && styles.benCardActive]}
+                                activeOpacity={0.85}
+                                onPress={() => {
+                                    if (isSelected) {
+                                        router.push(`/(subscriber)/beneficiary-profile?id=${b.id}`);
+                                    } else {
+                                        setSelectedBeneficiaryId(b.id);
+                                        AsyncStorage.setItem('selectedBeneficiaryId', b.id);
+                                    }
+                                }}
+                            >
+                                <Image
+                                    source={{ uri: b.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.name || 'Beneficiary')}&background=FFE3D1&color=FE6700&bold=true` }}
+                                    style={styles.benPhoto}
+                                />
+                                <View style={styles.benDetails}>
+                                    <Text style={styles.benName}>{b.name}</Text>
+                                    <Text style={styles.benMeta}>{b.age ? `${b.age} years` : ''}{b.relationship ? ` • ${b.relationship}` : ''}</Text>
+                                </View>
+                                {isSelected && (
+                                    <View style={{ backgroundColor: '#FE6700', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 }}>
+                                        <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>Active</Text>
+                                    </View>
+                                )}
+                                <Ionicons name="chevron-forward" size={20} color={isSelected ? "#FE6700" : "#9CA3AF"} />
+                            </TouchableOpacity>
+                        );
+                    })
                 )}
                 </Animated.View>
 
@@ -492,6 +559,11 @@ const styles = StyleSheet.create({
             ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6 },
             android: { elevation: 2 },
         }),
+    },
+    benCardActive: {
+        backgroundColor: '#FFF5ED',
+        borderColor: '#FE6700',
+        borderWidth: 1,
     },
     benPhoto: { width: scale(52), height: scale(52), borderRadius: scale(26), marginRight: scale(14), backgroundColor: '#E5E7EB' },
     benDetails: { flex: 1 },

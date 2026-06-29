@@ -918,6 +918,12 @@ export const visitApi = {
   async editVisit(id: string, data: { notes?: string; visitSummary?: string; followUpRequired?: boolean; followUpNotes?: string; followUpDate?: string | null; escalateToManager?: boolean; escalationReason?: string; actorName?: string; imageUrls?: string[] }): Promise<any> {
     return apiJson(`/visits/${id}/edit`, { method: 'PATCH', body: JSON.stringify(data) });
   },
+  async resolveChangeRequest(id: string, status: 'accepted' | 'rejected', reason?: string): Promise<any> {
+    return apiJson(`/visits/${id}/resolve-change`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, reason })
+    });
+  },
   async uploadVisitImage(id: string, file: File): Promise<{ url: string; imageUrls: string[] }> {
     const form = new FormData();
     form.append('image', file);

@@ -1,7 +1,6 @@
 import prisma from '../../core/database';
 import { generateUUID, generateEncounterId, generateVisitCode } from '../../utils/helpers';
 import { Prisma } from '@prisma/client';
-import { Vitals } from '../../models/visit';
 
 // â”€â”€â”€ Geo-fencing Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -161,44 +160,10 @@ export const updateVisitDetails = async (data: {
 
     const visitUpdateData: any = {
       medicationAdherence: data.medicationAdherence,
-      extraVitals: data.vitals ? data.vitals : undefined,
       mood: data.mood as any,
       notes: existingVisit.notes?.startsWith('__benefitId:') ? data.notes : (data.notes || existingVisit.notes),
     };
 
-    if (data.vitals) {
-      if (data.vitals.bpSystolic !== undefined) visitUpdateData.bpSystolic = data.vitals.bpSystolic;
-      if (data.vitals.bpDiastolic !== undefined) visitUpdateData.bpDiastolic = data.vitals.bpDiastolic;
-      if (data.vitals.temperature !== undefined) visitUpdateData.temperature = data.vitals.temperature;
-      if (data.vitals.oxygenLevel !== undefined) visitUpdateData.oxygenLevel = data.vitals.oxygenLevel;
-      if (data.vitals.weight !== undefined) visitUpdateData.weight = data.vitals.weight;
-      if (data.vitals.heartRate !== undefined) visitUpdateData.heartRate = data.vitals.heartRate;
-    }
-
-    if (data.vitalsList && Array.isArray(data.vitalsList)) {
-      for (const reading of data.vitalsList) {
-        const def = await tx.vitalDefinition.findUnique({ where: { id: reading.vitalDefinitionId } });
-        if (def) {
-          const code = def.code.toUpperCase();
-          if ((code === 'BP' || code === 'BLOOD_PRESSURE') && reading.valueNumeric !== undefined && reading.valueNumeric2 !== undefined) {
-            visitUpdateData.bpSystolic = Math.round(reading.valueNumeric);
-            visitUpdateData.bpDiastolic = Math.round(reading.valueNumeric2);
-          } else if (code === 'BP_SYSTOLIC' && reading.valueNumeric !== undefined) {
-            visitUpdateData.bpSystolic = Math.round(reading.valueNumeric);
-          } else if (code === 'BP_DIASTOLIC' && reading.valueNumeric !== undefined) {
-            visitUpdateData.bpDiastolic = Math.round(reading.valueNumeric);
-          } else if ((code === 'SPO2' || code === 'OXYGEN_LEVEL') && reading.valueNumeric !== undefined) {
-            visitUpdateData.oxygenLevel = reading.valueNumeric;
-          } else if ((code === 'TEMP' || code === 'TEMPERATURE') && reading.valueNumeric !== undefined) {
-            visitUpdateData.temperature = reading.valueNumeric;
-          } else if ((code === 'PULSE' || code === 'HEART_RATE') && reading.valueNumeric !== undefined) {
-            visitUpdateData.heartRate = Math.round(reading.valueNumeric);
-          } else if ((code === 'WEIGHT' || code === 'BODY_WEIGHT') && reading.valueNumeric !== undefined) {
-            visitUpdateData.weight = reading.valueNumeric;
-          }
-        }
-      }
-    }
 
     const visit = await tx.visit.update({
       where: { id: data.visitId },
@@ -206,7 +171,7 @@ export const updateVisitDetails = async (data: {
     });
 
     if (data.vitalsList && Array.isArray(data.vitalsList)) {
-      await tx.vitalReading.deleteMany({ where: { encounterId: visit.id } });
+      await tx.vitalReading.deleteMany({ where: { visitId: visit.id } });
 
       const careCompanion = await tx.careCompanion.findUnique({
         where: { id: existingVisit.careCompanionId },
@@ -251,10 +216,11 @@ export const updateVisitDetails = async (data: {
             id: generateUUID(),
             beneficiaryId: visit.beneficiaryId,
             vitalDefinitionId: reading.vitalDefinitionId,
-            encounterId: visit.id,
+            visitId: visit.id,
             valueNumeric: reading.valueNumeric !== undefined ? reading.valueNumeric : null,
             valueNumeric2: reading.valueNumeric2 !== undefined ? reading.valueNumeric2 : null,
             valueText: reading.valueText || null,
+            valueBoolean: reading.valueText !== undefined && reading.valueText !== null ? (reading.valueText.toLowerCase() === 'true' || reading.valueText.toLowerCase() === 'yes') : null,
             isAbnormal,
             capturedById,
             captureMethod: 'manual',
@@ -340,7 +306,6 @@ export const checkOut = async (data: {
   latitude?: number;
   longitude?: number;
   manualCheckOutReason?: string | null;
-  vitals?: Vitals;
   vitalsList?: {
     vitalDefinitionId: string;
     valueNumeric?: number;
@@ -371,44 +336,10 @@ export const checkOut = async (data: {
       durationMinutes,
       status: 'completed',
       medicationAdherence: data.medicationAdherence,
-      extraVitals: data.vitals ? (data.vitals as Prisma.InputJsonValue) : undefined,
       mood: data.mood as any,
       notes: existingVisit.notes?.startsWith('__benefitId:') ? data.notes : (data.notes || existingVisit.notes),
     };
 
-    if (data.vitals) {
-      if (data.vitals.bpSystolic !== undefined) visitUpdateData.bpSystolic = data.vitals.bpSystolic;
-      if (data.vitals.bpDiastolic !== undefined) visitUpdateData.bpDiastolic = data.vitals.bpDiastolic;
-      if (data.vitals.temperature !== undefined) visitUpdateData.temperature = data.vitals.temperature;
-      if (data.vitals.oxygenLevel !== undefined) visitUpdateData.oxygenLevel = data.vitals.oxygenLevel;
-      if (data.vitals.weight !== undefined) visitUpdateData.weight = data.vitals.weight;
-      if (data.vitals.heartRate !== undefined) visitUpdateData.heartRate = data.vitals.heartRate;
-    }
-
-    if (data.vitalsList && Array.isArray(data.vitalsList)) {
-      for (const reading of data.vitalsList) {
-        const def = await tx.vitalDefinition.findUnique({ where: { id: reading.vitalDefinitionId } });
-        if (def) {
-          const code = def.code.toUpperCase();
-          if ((code === 'BP' || code === 'BLOOD_PRESSURE') && reading.valueNumeric !== undefined && reading.valueNumeric2 !== undefined) {
-            visitUpdateData.bpSystolic = Math.round(reading.valueNumeric);
-            visitUpdateData.bpDiastolic = Math.round(reading.valueNumeric2);
-          } else if (code === 'BP_SYSTOLIC' && reading.valueNumeric !== undefined) {
-            visitUpdateData.bpSystolic = Math.round(reading.valueNumeric);
-          } else if (code === 'BP_DIASTOLIC' && reading.valueNumeric !== undefined) {
-            visitUpdateData.bpDiastolic = Math.round(reading.valueNumeric);
-          } else if ((code === 'SPO2' || code === 'OXYGEN_LEVEL') && reading.valueNumeric !== undefined) {
-            visitUpdateData.oxygenLevel = reading.valueNumeric;
-          } else if ((code === 'TEMP' || code === 'TEMPERATURE') && reading.valueNumeric !== undefined) {
-            visitUpdateData.temperature = reading.valueNumeric;
-          } else if ((code === 'PULSE' || code === 'HEART_RATE') && reading.valueNumeric !== undefined) {
-            visitUpdateData.heartRate = Math.round(reading.valueNumeric);
-          } else if ((code === 'WEIGHT' || code === 'BODY_WEIGHT') && reading.valueNumeric !== undefined) {
-            visitUpdateData.weight = reading.valueNumeric;
-          }
-        }
-      }
-    }
 
     // 3. Update the Visit record
     const visit = await tx.visit.update({
@@ -419,7 +350,7 @@ export const checkOut = async (data: {
     // 4. Create Vital Readings if present
     if (data.vitalsList && Array.isArray(data.vitalsList)) {
       if (isEdit) {
-        await tx.vitalReading.deleteMany({ where: { encounterId: visit.id } });
+        await tx.vitalReading.deleteMany({ where: { visitId: visit.id } });
       }
 
       const careCompanion = await tx.careCompanion.findUnique({
@@ -466,10 +397,11 @@ export const checkOut = async (data: {
             id: generateUUID(),
             beneficiaryId: visit.beneficiaryId,
             vitalDefinitionId: reading.vitalDefinitionId,
-            encounterId: visit.id,
+            visitId: visit.id,
             valueNumeric: reading.valueNumeric !== undefined ? reading.valueNumeric : null,
             valueNumeric2: reading.valueNumeric2 !== undefined ? reading.valueNumeric2 : null,
             valueText: reading.valueText || null,
+            valueBoolean: reading.valueText !== undefined && reading.valueText !== null ? (reading.valueText.toLowerCase() === 'true' || reading.valueText.toLowerCase() === 'yes') : null,
             isAbnormal,
             capturedById,
             captureMethod: 'manual',

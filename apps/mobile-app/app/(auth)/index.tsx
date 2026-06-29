@@ -1,12 +1,15 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, Dimensions, Image } from 'react-native';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+import { useAuth } from '@/contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 const BASE_WIDTH = 390;
@@ -16,9 +19,63 @@ const vscale = (size: number) => Math.round((height / 844) * size);
 export default function AuthScreen() {
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
+    const { login } = useAuth();
+
+  useEffect(() => {
+    const checkAutoBiometric = async () => {
+      if (Platform.OS === 'web') return;
+      try {
+        const secureToken = await SecureStore.getItemAsync('secureUserToken');
+        if (secureToken) {
+          handleBiometricLogin(true);
+        }
+      } catch (e) {
+        console.warn('SecureStore not available:', e);
+      }
+    };
+    checkAutoBiometric();
+  }, []);
+
+  const handleBiometricLogin = async (silent = false) => {
+    if (Platform.OS === 'web') return;
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      if (!hasHardware) {
+        if (!silent) Alert.alert("Not Supported", "Your device does not support biometric authentication.");
+        return;
+      }
+      
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!isEnrolled) {
+        if (!silent) Alert.alert("Not Enrolled", "No biometrics enrolled on this device.");
+        return;
+      }
+
+      const secureToken = await SecureStore.getItemAsync('secureUserToken');
+      const secureUser = await SecureStore.getItemAsync('secureUserData');
+
+      if (!secureToken || !secureUser) {
+        if (!silent) Alert.alert("Setup Required", "Please login with your phone number or password first to enable biometric login.");
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Login to Mai-Hoonaa",
+        fallbackLabel: "Use Passcode",
+      });
+
+      if (result.success) {
+        await login(secureToken, JSON.parse(secureUser));
+      } else {
+        console.log("Biometric failed or cancelled");
+      }
+    } catch (error) {
+      console.error("Biometric error:", error);
+      if (!silent) Alert.alert("Error", "Biometric login failed. Please try again.");
+    }
+  };
 
   const handleLogin = async () => {
     if (phone.length !== 10) {
@@ -121,7 +178,7 @@ export default function AuthScreen() {
           </View>
 
           {/* Biometric Login */}
-          <TouchableOpacity style={styles.bioButton} disabled={isLoading} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.bioButton} disabled={isLoading} activeOpacity={0.85} onPress={() => handleBiometricLogin(false)}>
             <MaterialCommunityIcons name="fingerprint" size={scale(22)} color="#FFFFFF" />
             <Text style={styles.bioButtonText}>Biometric Login</Text>
           </TouchableOpacity>

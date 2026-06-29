@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderSpacer from '@/components/HeaderSpacer';
 // ⚠️ DEV ONLY — remove this import when done testing
 import { useState as useDevState } from 'react';
+import { API_URL } from '@/constants/api';
 
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
@@ -84,8 +85,25 @@ export default function BeneficiaryInfoScreen() {
 
     const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
 
+    const [dobError, setDobError] = useState<string | null>(null);
+
     const handleDobChange = (text: string) => {
         let cleaned = text.replace(/\D/g, '');
+        
+        // Prevent day > 31
+        if (cleaned.length >= 2) {
+            let day = parseInt(cleaned.substring(0, 2), 10);
+            if (day > 31) cleaned = '31' + cleaned.substring(2);
+            if (day === 0) cleaned = '01' + cleaned.substring(2);
+        }
+        
+        // Prevent month > 12
+        if (cleaned.length >= 4) {
+            let month = parseInt(cleaned.substring(2, 4), 10);
+            if (month > 12) cleaned = cleaned.substring(0, 2) + '12' + cleaned.substring(4);
+            if (month === 0) cleaned = cleaned.substring(0, 2) + '01' + cleaned.substring(4);
+        }
+
         let formatted = cleaned;
         if (cleaned.length > 2) {
             formatted = cleaned.substring(0, 2) + '/' + cleaned.substring(2);
@@ -97,6 +115,7 @@ export default function BeneficiaryInfoScreen() {
             formatted = formatted.substring(0, 10);
         }
         setBeneficiaryForm({ ...beneficiaryForm, dob: formatted });
+        if (dobError) setDobError(null);
     };
 
     const handleConfirmDate = (date: Date) => {
@@ -107,7 +126,60 @@ export default function BeneficiaryInfoScreen() {
         setBeneficiaryForm({ ...beneficiaryForm, dob: `${day}/${month}/${year}` });
     };
 
-    const handleNext = () => {
+    const [phoneError, setPhoneError] = useState<string | null>(null);
+
+    const validatePhone = async (phoneStr: string) => {
+        if (!phoneStr || phoneStr.length < 10) {
+            setPhoneError(null);
+            return true;
+        }
+        try {
+            const res = await fetch(`${API_URL}/public/check-enrollment?phone=${phoneStr}`);
+            const data = await res.json();
+            if (data.success && data.data.exists) {
+                setPhoneError("A user with this phone number already exists.");
+                return false;
+            }
+        } catch (e) {
+            console.error('Phone validation error:', e);
+        }
+        setPhoneError(null);
+        return true;
+    };
+
+    const handleNext = async () => {
+        if (!beneficiaryForm.dob) {
+            setDobError("Date of Birth is required");
+            return;
+        }
+
+        if (beneficiaryForm.dob.length === 10) {
+            const parts = beneficiaryForm.dob.split('/');
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10);
+            const year = parseInt(parts[2], 10);
+            
+            const currentYear = new Date().getFullYear();
+            if (year > currentYear || year < currentYear - 120) {
+                setDobError(`Year must be between ${currentYear - 120} and ${currentYear}`);
+                return;
+            }
+
+            const dateObj = new Date(year, month - 1, day);
+            if (dateObj.getFullYear() !== year || dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day) {
+                setDobError("Invalid date format (e.g. 31st of Feb)");
+                return;
+            }
+        } else {
+            setDobError("Date must be in DD/MM/YYYY format");
+            return;
+        }
+
+        if (beneficiaryForm.phone && beneficiaryForm.phone.length === 10) {
+            const isPhoneValid = await validatePhone(beneficiaryForm.phone);
+            if (!isPhoneValid) return;
+        }
+
         push('/(setup)/medical-info', {
             packageId: params.packageId,
             subscriberData: params.subscriberData,
@@ -209,7 +281,7 @@ export default function BeneficiaryInfoScreen() {
                         {/* Date of Birth */}
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Date of Birth *</Text>
-                            <View style={styles.inputWithIcon}>
+                            <View style={[styles.inputWithIcon, dobError ? { borderColor: '#EF4444' } : null]}>
                                 <TextInput
                                     style={styles.flexInput}
                                     placeholder="dd/mm/yyyy"
@@ -228,6 +300,11 @@ export default function BeneficiaryInfoScreen() {
                                     <Ionicons name="calendar-outline" size={20} color="#4B5563" />
                                 </TouchableOpacity>
                             </View>
+                            {dobError && (
+                                <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, fontFamily: 'Poppins_400Regular' }}>
+                                    {dobError}
+                                </Text>
+                            )}
                         </View>
 
                         {/* Gender Segmented Selection */}
@@ -296,14 +373,31 @@ export default function BeneficiaryInfoScreen() {
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Phone Number</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, phoneError ? { borderColor: '#EF4444' } : null]}
                                 placeholder="10-digit mobile number"
                                 placeholderTextColor="#9CA3AF"
                                 keyboardType="numeric"
                                 maxLength={10}
                                 value={beneficiaryForm.phone}
-                                onChangeText={(t) => setBeneficiaryForm({ ...beneficiaryForm, phone: t.replace(/[^0-9]/g, '').slice(0, 10) })}
+                                onChangeText={(t) => {
+                                    const cleaned = t.replace(/[^0-9]/g, '').slice(0, 10);
+                                    setBeneficiaryForm({ ...beneficiaryForm, phone: cleaned });
+                                    if (phoneError) setPhoneError(null);
+                                    if (cleaned.length === 10) {
+                                        validatePhone(cleaned);
+                                    }
+                                }}
+                                onBlur={() => {
+                                    if (beneficiaryForm.phone.length === 10) {
+                                        validatePhone(beneficiaryForm.phone);
+                                    }
+                                }}
                             />
+                            {phoneError && (
+                                <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, fontFamily: 'Poppins_400Regular' }}>
+                                    {phoneError}
+                                </Text>
+                            )}
                         </View>
 
                         {/* ⚠️ DEV ONLY — inline test password field — remove this block when done testing */}

@@ -5,8 +5,8 @@ export const getSubscriberProfile = async (req: Request, res: Response) => {
   try {
     const subscriberId = (req as any).userId;
     if (!subscriberId) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    const profile = await subscriberService.getSubscriberProfile(subscriberId);
+    const beneficiaryId = req.query.beneficiaryId as string | undefined;
+    const profile = await subscriberService.getSubscriberProfile(subscriberId, beneficiaryId);
     res.json({ success: true, data: profile });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });

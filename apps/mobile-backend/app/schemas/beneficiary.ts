@@ -34,16 +34,6 @@ export const updateBeneficiarySchema = Joi.object({
   // Social
   hobbiesInterests: Joi.array().items(Joi.string()).optional(),
   
-  // Vitals Tracking Flags
-  trackBloodPressure: Joi.boolean().optional(),
-  trackHeartRate: Joi.boolean().optional(),
-  trackBloodSugar: Joi.boolean().optional(),
-  trackTemperature: Joi.boolean().optional(),
-  trackOxygenSaturation: Joi.boolean().optional(),
-  trackWeight: Joi.boolean().optional(),
-  trackPainLevel: Joi.boolean().optional(),
-  trackRespiratoryRate: Joi.boolean().optional(),
-
   // Nested Data
   medicalConditions: Joi.array().items(Joi.string()).optional(),
   medications: Joi.array().items(Joi.object({

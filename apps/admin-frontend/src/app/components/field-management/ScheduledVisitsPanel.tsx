@@ -40,6 +40,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
   const [selectedCcId, setSelectedCcId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [visitCodeFilter, setVisitCodeFilter] = useState<string>(''); // human-readable code filter
+  const [showChangeRequestedOnly, setShowChangeRequestedOnly] = useState<boolean>(false);
 
   // ── Edit modal state ────────────────────────────────────────────────────────
   const [editingVisit, setEditingVisit] = useState<any | null>(null);
@@ -160,6 +161,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
       if (selectedCcId) params.careCompanionId = selectedCcId;
       if (selectedDate) params.date = selectedDate;
       if (visitCodeFilter.trim()) params.visitCode = visitCodeFilter.trim().toUpperCase();
+      if (showChangeRequestedOnly) params.hasChangeRequest = true;
       const response = await visitApi.getAll(params);
       setVisits(Array.isArray(response) ? response : []);
     } catch (e: any) {
@@ -167,7 +169,7 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
     } finally {
       setLoading(false);
     }
-  }, [selectedFmUserId, selectedCcId, selectedDate, visitCodeFilter]);
+  }, [selectedFmUserId, selectedCcId, selectedDate, visitCodeFilter, showChangeRequestedOnly]);
 
   useEffect(() => {
     fetchVisits();
@@ -413,6 +415,21 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
             </div>
           </div>
         </div>
+
+        {/* ── Change Request Filter Toggle ─────────────────────────────────────────────────────────── */}
+        <div className="mt-4 pt-3 border-t border-[#E7DED6]">
+          <label className="flex items-center gap-2 cursor-pointer w-max group">
+            <input 
+              type="checkbox"
+              checked={showChangeRequestedOnly}
+              onChange={(e) => setShowChangeRequestedOnly(e.target.checked)}
+              className="w-4 h-4 text-[#FF7A00] rounded border-gray-300 focus:ring-[#FF7A00]"
+            />
+            <span className={`text-xs font-bold transition-colors ${showChangeRequestedOnly ? 'text-[#FF7A00]' : 'text-gray-600 group-hover:text-gray-800'}`}>
+              Show visits with change requests only
+            </span>
+          </label>
+        </div>
       </div>
 
       {/* ── Visit Cards ────────────────────────────────────────────────────── */}
@@ -578,6 +595,28 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
                       );
                     }
                   })()}
+
+                  {/* Change Request Banner */}
+                  {visit.changeRequestedAt && (
+                    <div className="mt-3 px-3 py-2 rounded-lg bg-[#FFF5EE] border border-[#FF7A00]/20 flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-[#FF7A00]">
+                        <AlertCircle size={13} className="flex-shrink-0" />
+                        <span className="text-[10px] font-black uppercase tracking-widest leading-none">
+                          Change Requested
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        <p className="text-xs font-bold text-gray-800">
+                          Prefers: {visit.changePreferredDate} {visit.changePreferredTime}
+                        </p>
+                        {visit.changeReason && (
+                          <p className="text-[10px] font-semibold text-gray-500 line-clamp-1 italic">
+                            "{visit.changeReason}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -613,11 +652,29 @@ export default function ScheduledVisitsPanel({ defaultFmUserId, hideFmSelector }
               {/* Beneficiary read-only display */}
               <div className="bg-[#FFF5EE] border border-[#FFE4D3] rounded-2xl p-4 flex items-center gap-3">
                 <User size={18} className="text-[#FF7A00]" />
-                <div>
+                <div className="flex-1">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Beneficiary</p>
                   <p className="text-sm font-black text-gray-800">{editingVisit.beneficiary?.name || 'Unknown'}</p>
                 </div>
               </div>
+
+              {editingVisit.changeRequestedAt && (
+                <div className="bg-[#FFF5EE] border border-[#FF7A00]/20 rounded-xl p-4 flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-[#FF7A00]">
+                    <AlertCircle size={14} />
+                    <span className="text-[11px] font-black uppercase tracking-widest">Change Requested</span>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    <span className="font-bold">Preferred:</span> {editingVisit.changePreferredDate} {editingVisit.changePreferredTime}
+                  </div>
+                  {editingVisit.changeReason && (
+                    <div className="text-sm text-gray-700 italic">
+                      "{editingVisit.changeReason}"
+                    </div>
+                  )}
+                </div>
+              )}
+
 
               {/* Date & Time Input */}
               <div>

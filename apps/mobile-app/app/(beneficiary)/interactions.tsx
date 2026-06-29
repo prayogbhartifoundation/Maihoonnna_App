@@ -1,153 +1,201 @@
-
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Dimensions } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+    View, Text, StyleSheet, ScrollView, TouchableOpacity,
+    ActivityIndicator, Platform, Dimensions, TextInput, Alert,
+} from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-interface VitalData {
-    bp: string;
-    heart: string;
-    temp: string;
-    o2: string;
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface VitalReading {
+    code: string;
+    name: string;
+    dataType: string;
+    value: string;
+    unit: string;
+    isAbnormal: boolean;
 }
 
 interface Interaction {
     id: string;
     title: string;
-    rating: number;
+    rating: number | null;
+    beneficiaryRating: number | null;
     date: string;
     time: string;
     companionName: string;
-    vitals: VitalData;
+    vitals: VitalReading[];   // dynamic — all readings captured during this visit
     notes: string;
     feedback: string;
 }
 
+// ── Vital icon/colour palette ─────────────────────────────────────────────────
+const VITAL_PALETTE = [
+    { bg: '#FEF2F2', icon: '#EF4444' },
+    { bg: '#FDF2F8', icon: '#EC4899' },
+    { bg: '#FFF7ED', icon: '#F97316' },
+    { bg: '#EFF6FF', icon: '#3B82F6' },
+    { bg: '#F0FDF4', icon: '#22C55E' },
+    { bg: '#FAF5FF', icon: '#A855F7' },
+];
+
+// ── StarRating component ─────────────────────────────────────────────────────
+
+const StarRating = ({
+    rating,
+    onRate,
+    size = 24,
+    readonly = false,
+}: {
+    rating: number | null;
+    onRate?: (r: number) => void;
+    size?: number;
+    readonly?: boolean;
+}) => {
+    const [hovered, setHovered] = useState(0);
+    const display = hovered || rating || 0;
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {[1, 2, 3, 4, 5].map((s) => (
+                <TouchableOpacity
+                    key={s}
+                    onPress={() => !readonly && onRate?.(s)}
+                    onPressIn={() => !readonly && setHovered(s)}
+                    onPressOut={() => !readonly && setHovered(0)}
+                    activeOpacity={readonly ? 1 : 0.7}
+                    disabled={readonly}
+                    hitSlop={{ top: 8, bottom: 8, left: 3, right: 3 }}
+                >
+                    <Ionicons
+                        name={s <= display ? 'star' : 'star-outline'}
+                        size={size}
+                        color={s <= display ? '#FBBF24' : '#D1D5DB'}
+                        style={{ marginRight: 2 }}
+                    />
+                </TouchableOpacity>
+            ))}
+        </View>
+    );
+};
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+
 export default function InteractionsScreen() {
-    const router = useRouter();
     const safeBack = useSafeBack();
-    const { visitId } = useLocalSearchParams();
+    const { visitId: paramVisitId } = useLocalSearchParams();
+
     const [interactions, setInteractions] = useState<Interaction[]>([]);
     const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [submittingRatingId, setSubmittingRatingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchInteractions();
-    }, []);
+    // Per-visit feedback drafts and saving state
+    const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
+    const [savingFeedbackId, setSavingFeedbackId] = useState<string | null>(null);
+
+    useEffect(() => { fetchInteractions(); }, []);
 
     const fetchInteractions = async () => {
         try {
             setLoading(true);
             const token = await AsyncStorage.getItem('userToken');
+            if (!token) return;
 
-            if (!token) {
-                // High-fidelity fallback when backend is offline
-                useFallbackData();
-                return;
-            }
-
-            const response = await fetch(`${API_URL}/beneficiary/interactions/me`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+            const res = await fetch(`${API_URL}/beneficiary/interactions/me`, {
+                headers: { Authorization: `Bearer ${token}` },
             });
+            const data = await res.json();
 
-            const data = await response.json();
-            if (data.success && data.data && data.data.length > 0) {
+            if (data.success && data.data?.length > 0) {
                 setInteractions(data.data);
-                // Expand the interaction matching visitId, or the first one by default
-                if (visitId) {
-                    setExpandedIds({ [visitId as string]: true });
+                // Seed feedback drafts from server values
+                const drafts: Record<string, string> = {};
+                data.data.forEach((item: Interaction) => { drafts[item.id] = item.feedback || ''; });
+                setFeedbackDrafts(drafts);
+
+                // Auto-expand the target visit (or first one)
+                if (paramVisitId) {
+                    setExpandedIds({ [paramVisitId as string]: true });
                 } else if (data.data[0]?.id) {
                     setExpandedIds({ [data.data[0].id]: true });
                 }
-            } else {
-                useFallbackData();
             }
         } catch (e) {
             console.error('Fetch Interactions Error:', e);
-            useFallbackData();
         } finally {
             setLoading(false);
         }
     };
 
-    const useFallbackData = () => {
-        const fallbacks: Interaction[] = [
-            {
-                id: 'fallback-1',
-                title: 'Medication Review',
-                rating: 5,
-                date: 'February 17',
-                time: '2:00 PM - 3:00 PM',
-                companionName: 'Mark Thompson',
-                vitals: {
-                    bp: '120/80',
-                    heart: '72 bpm',
-                    temp: '98.6°F',
-                    o2: '98%',
-                },
-                notes: 'Reviewed all current medications. Patient is adhering well to medication schedule.',
-                feedback: 'Very thorough and caring. Answered all my questions.'
-            },
-            {
-                id: 'fallback-2',
-                title: 'Regular Check-up',
-                rating: 5,
-                date: 'February 10',
-                time: '10:00 AM - 12:00 PM',
-                companionName: 'Dr. Sarah Johnson',
-                vitals: {
-                    bp: '118/78',
-                    heart: '70 bpm',
-                    temp: '98.4°F',
-                    o2: '99%',
-                },
-                notes: 'General health check-out. Vitals remain perfectly stable. Conducted light respiratory and cardiac evaluations.',
-                feedback: 'Always delightful to have Sarah check in. She is extremely precise.'
+    const toggleExpand = (id: string) =>
+        setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
+
+    // ── Rating ────────────────────────────────────────────────────────────────
+    const handleRate = async (interactionId: string, rating: number) => {
+        setInteractions(prev =>
+            prev.map(i => i.id === interactionId ? { ...i, beneficiaryRating: rating } : i)
+        );
+        try {
+            setSubmittingRatingId(interactionId);
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) return;
+
+            const res = await fetch(`${API_URL}/beneficiary/interactions/${interactionId}/rate`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rating }),
+            });
+            const data = await res.json();
+            if (!data.success) {
+                setInteractions(prev =>
+                    prev.map(i => i.id === interactionId ? { ...i, beneficiaryRating: null } : i)
+                );
             }
-        ];
-        setInteractions(fallbacks);
-        if (visitId) {
-            setExpandedIds({ [visitId as string]: true });
-        } else {
-            setExpandedIds({ 'fallback-1': true }); // Expand first item by default
+        } catch (e) {
+            console.error('Rating error:', e);
+        } finally {
+            setSubmittingRatingId(null);
         }
     };
 
-    const toggleExpand = (id: string) => {
-        setExpandedIds(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }));
-    };
+    // ── Feedback ──────────────────────────────────────────────────────────────
+    const handleSaveFeedback = async (interactionId: string) => {
+        const text = feedbackDrafts[interactionId] ?? '';
+        try {
+            setSavingFeedbackId(interactionId);
+            const token = await AsyncStorage.getItem('userToken');
+            if (!token) return;
 
-    const renderStars = (rating: number) => {
-        const stars = [];
-        for (let i = 1; i <= 5; i++) {
-            stars.push(
-                <Ionicons
-                    key={i}
-                    name={i <= rating ? 'star' : 'star-outline'}
-                    size={16}
-                    color="#FBBF24" // Figma exact yellow
-                    style={{ marginRight: 2 }}
-                />
-            );
+            const res = await fetch(`${API_URL}/beneficiary/interactions/${interactionId}/feedback`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ feedback: text }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setInteractions(prev =>
+                    prev.map(i => i.id === interactionId ? { ...i, feedback: text } : i)
+                );
+                Alert.alert('Saved', 'Your feedback has been saved.');
+            }
+        } catch (e) {
+            console.error('Feedback save error:', e);
+        } finally {
+            setSavingFeedbackId(null);
         }
-        return <View style={styles.starsContainer}>{stars}</View>;
     };
 
+    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* Header - Centered Perfectly */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.backBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Feather name="arrow-left" size={22} color="#111827" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Interactions</Text>
@@ -156,7 +204,7 @@ export default function InteractionsScreen() {
             {loading ? (
                 <View style={styles.loadingWrap}>
                     <ActivityIndicator size="large" color="#FE6700" />
-                    <Text style={styles.loadingText}>Retrieving interaction history...</Text>
+                    <Text style={styles.loadingText}>Retrieving interaction history…</Text>
                 </View>
             ) : (
                 <ScrollView
@@ -174,32 +222,59 @@ export default function InteractionsScreen() {
                     ) : (
                         interactions.map((v) => {
                             const isExpanded = !!expandedIds[v.id];
+                            const hasRated = v.beneficiaryRating !== null && v.beneficiaryRating !== undefined;
+                            const isSubmittingRating = submittingRatingId === v.id;
+                            const isSavingFeedback = savingFeedbackId === v.id;
+                            const draft = feedbackDrafts[v.id] ?? '';
+                            const feedbackChanged = draft !== (v.feedback ?? '');
 
                             return (
                                 <View key={v.id} style={styles.card}>
-                                    {/* Card Header Row */}
+
+                                    {/* ── Card Header: title + interactive star rating ── */}
                                     <View style={styles.cardHeader}>
                                         <Text style={styles.cardTitle}>{v.title}</Text>
-                                        {renderStars(v.rating)}
+                                        <View style={styles.headerRight}>
+                                            <StarRating
+                                                rating={v.beneficiaryRating}
+                                                onRate={(r) => handleRate(v.id, r)}
+                                                size={22}
+                                                readonly={false}
+                                            />
+                                            {isSubmittingRating && (
+                                                <ActivityIndicator size="small" color="#FBBF24" style={{ marginLeft: 6 }} />
+                                            )}
+                                        </View>
                                     </View>
 
-                                    {/* Quick Details */}
+                                    {/* ── Rate prompt if not yet rated ── */}
+                                    {!hasRated && (
+                                        <Text style={styles.tapToRate}>
+                                            ★ Tap the stars above to rate {v.companionName}
+                                        </Text>
+                                    )}
+
+                                    {/* ── Quick details ── */}
                                     <View style={styles.detailsGrid}>
+                                        {v.date ? (
+                                            <View style={styles.detailRow}>
+                                                <Feather name="calendar" size={15} color="#6B7280" style={styles.detailIcon} />
+                                                <Text style={styles.detailText}>{v.date}</Text>
+                                            </View>
+                                        ) : null}
+                                        {v.time ? (
+                                            <View style={styles.detailRow}>
+                                                <Feather name="clock" size={15} color="#6B7280" style={styles.detailIcon} />
+                                                <Text style={styles.detailText}>{v.time}</Text>
+                                            </View>
+                                        ) : null}
                                         <View style={styles.detailRow}>
-                                            <Feather name="calendar" size={16} color="#6B7280" style={styles.detailIcon} />
-                                            <Text style={styles.detailText}>{v.date}</Text>
-                                        </View>
-                                        <View style={styles.detailRow}>
-                                            <Feather name="clock" size={16} color="#6B7280" style={styles.detailIcon} />
-                                            <Text style={styles.detailText}>{v.time}</Text>
-                                        </View>
-                                        <View style={styles.detailRow}>
-                                            <Feather name="user" size={16} color="#6B7280" style={styles.detailIcon} />
+                                            <Feather name="user" size={15} color="#6B7280" style={styles.detailIcon} />
                                             <Text style={styles.detailText}>{v.companionName}</Text>
                                         </View>
                                     </View>
 
-                                    {/* View / Hide Toggle Button */}
+                                    {/* ── Toggle button ── */}
                                     <TouchableOpacity
                                         onPress={() => toggleExpand(v.id)}
                                         style={styles.toggleBtn}
@@ -210,65 +285,96 @@ export default function InteractionsScreen() {
                                         </Text>
                                         <Feather
                                             name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                                            size={16}
-                                            color="#111827"
-                                            style={{ marginLeft: 6 }}
+                                            size={16} color="#111827" style={{ marginLeft: 6 }}
                                         />
                                     </TouchableOpacity>
 
-                                    {/* Expanded Segment */}
+                                    {/* ── Expanded detail section ── */}
                                     {isExpanded && (
                                         <View style={styles.expandedSection}>
-                                            {/* Divider */}
                                             <View style={styles.divider} />
 
-                                            {/* Vitals Grid */}
+                                            {/* ── Dynamic Vitals ── */}
                                             <Text style={styles.sectionHeading}>Vitals Recorded</Text>
-                                            <View style={styles.vitalsGrid}>
-                                                <View style={[styles.vitalCard, { backgroundColor: '#FEF2F2' }]}>
-                                                    <View style={styles.vitalHeader}>
-                                                        <MaterialCommunityIcons name="heart-pulse" size={18} color="#EF4444" />
-                                                        <Text style={styles.vitalLabel}>BP</Text>
-                                                    </View>
-                                                    <Text style={styles.vitalValue}>{v.vitals.bp}</Text>
+                                            {v.vitals.length === 0 ? (
+                                                <View style={styles.noVitalsBox}>
+                                                    <MaterialCommunityIcons name="heart-off-outline" size={20} color="#9CA3AF" />
+                                                    <Text style={styles.noVitalsText}>No vitals recorded for this visit.</Text>
                                                 </View>
-
-                                                <View style={[styles.vitalCard, { backgroundColor: '#FDF2F8' }]}>
-                                                    <View style={styles.vitalHeader}>
-                                                        <Ionicons name="heart-outline" size={18} color="#EC4899" />
-                                                        <Text style={styles.vitalLabel}>Heart</Text>
-                                                    </View>
-                                                    <Text style={styles.vitalValue}>{v.vitals.heart}</Text>
+                                            ) : (
+                                                <View style={styles.vitalsGrid}>
+                                                    {v.vitals.map((vital, idx) => {
+                                                        const palette = VITAL_PALETTE[idx % VITAL_PALETTE.length];
+                                                        return (
+                                                            <View
+                                                                key={`${vital.code}-${idx}`}
+                                                                style={[styles.vitalCard, { backgroundColor: palette.bg }]}
+                                                            >
+                                                                <View style={styles.vitalHeader}>
+                                                                    <MaterialCommunityIcons
+                                                                        name="heart-pulse"
+                                                                        size={16}
+                                                                        color={palette.icon}
+                                                                    />
+                                                                    <Text style={styles.vitalLabel} numberOfLines={1}>
+                                                                        {vital.name}
+                                                                    </Text>
+                                                                    {vital.isAbnormal && (
+                                                                        <View style={styles.abnormalBadge}>
+                                                                            <Text style={styles.abnormalText}>!</Text>
+                                                                        </View>
+                                                                    )}
+                                                                </View>
+                                                                <Text style={[
+                                                                    styles.vitalValue,
+                                                                    vital.isAbnormal && { color: '#EF4444' }
+                                                                ]}>
+                                                                    {vital.value}
+                                                                </Text>
+                                                            </View>
+                                                        );
+                                                    })}
                                                 </View>
+                                            )}
 
-                                                <View style={[styles.vitalCard, { backgroundColor: '#FFF7ED' }]}>
-                                                    <View style={styles.vitalHeader}>
-                                                        <FontAwesome5 name="thermometer-half" size={16} color="#F97316" />
-                                                        <Text style={styles.vitalLabel}>Temp</Text>
-                                                    </View>
-                                                    <Text style={styles.vitalValue}>{v.vitals.temp}</Text>
-                                                </View>
-
-                                                <View style={[styles.vitalCard, { backgroundColor: '#EFF6FF' }]}>
-                                                    <View style={styles.vitalHeader}>
-                                                        <MaterialCommunityIcons name="weather-windy" size={18} color="#3B82F6" />
-                                                        <Text style={styles.vitalLabel}>O2</Text>
-                                                    </View>
-                                                    <Text style={styles.vitalValue}>{v.vitals.o2}</Text>
-                                                </View>
-                                            </View>
-
-                                            {/* Clinical Notes */}
+                                            {/* ── Clinical Notes ── */}
                                             <Text style={styles.sectionHeading}>Clinical Notes</Text>
                                             <View style={styles.notesBox}>
-                                                <Text style={styles.notesText}>{v.notes}</Text>
+                                                <Text style={styles.notesText}>
+                                                    {v.notes || 'No clinical notes recorded.'}
+                                                </Text>
                                             </View>
 
-                                            {/* Your Feedback */}
+                                            {/* ── Feedback (active TextInput) ── */}
                                             <Text style={styles.sectionHeading}>Your Feedback</Text>
-                                            <View style={styles.feedbackBox}>
-                                                <Text style={styles.feedbackText}>"{v.feedback}"</Text>
+                                            <View style={styles.feedbackInputWrap}>
+                                                <TextInput
+                                                    style={styles.feedbackInput}
+                                                    value={draft}
+                                                    onChangeText={(txt) =>
+                                                        setFeedbackDrafts(prev => ({ ...prev, [v.id]: txt }))
+                                                    }
+                                                    placeholder={`Share your experience with ${v.companionName}…`}
+                                                    placeholderTextColor="#9CA3AF"
+                                                    multiline
+                                                    textAlignVertical="top"
+                                                    returnKeyType="default"
+                                                />
                                             </View>
+                                            {feedbackChanged && (
+                                                <TouchableOpacity
+                                                    style={styles.saveFeedbackBtn}
+                                                    onPress={() => handleSaveFeedback(v.id)}
+                                                    activeOpacity={0.8}
+                                                    disabled={isSavingFeedback}
+                                                >
+                                                    {isSavingFeedback ? (
+                                                        <ActivityIndicator size="small" color="#FFFFFF" />
+                                                    ) : (
+                                                        <Text style={styles.saveFeedbackText}>Save Feedback</Text>
+                                                    )}
+                                                </TouchableOpacity>
+                                            )}
                                         </View>
                                     )}
                                 </View>
@@ -281,35 +387,23 @@ export default function InteractionsScreen() {
     );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const { width: screenWidth } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: '#FFFFFF', // Clean white notch to match header
-    },
+    safeArea:       { flex: 1, backgroundColor: '#FFFFFF' },
     header: {
         height: 60,
         backgroundColor: '#FFFFFF',
         justifyContent: 'center',
-        alignItems: 'center', // Perfect centering
+        alignItems: 'center',
         borderBottomWidth: 1,
         borderBottomColor: '#F3F4F6',
     },
-    backBtn: {
-        position: 'absolute',
-        left: 20,
-        zIndex: 1,
-    },
-    headerTitle: {
-        fontSize: 18,
-        color: '#111827',
-        fontFamily: 'Poppins-Medium', // Match globally
-    },
-    scrollContainer: {
-        flex: 1,
-        backgroundColor: '#FFF0E6', // Strict Figma peach match
-    },
+    backBtn:       { position: 'absolute', left: 20, zIndex: 1 },
+    headerTitle:   { fontSize: 18, color: '#111827', fontFamily: 'Poppins-Medium' },
+    scrollContainer: { flex: 1, backgroundColor: '#FFF0E6' },
     content: {
         padding: 20,
         paddingBottom: Platform.OS === 'ios' ? 120 : 100,
@@ -342,20 +436,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#F3F4F6',
     },
-    emptyText: {
-        marginTop: 12,
-        color: '#9CA3AF',
-        fontFamily: 'Poppins-Medium',
-        fontSize: 15,
-    },
+    emptyText: { marginTop: 12, color: '#9CA3AF', fontFamily: 'Poppins-Medium', fontSize: 15 },
+
+    // Card
     card: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 16, // Softer radius from Figma
-        padding: 20, // Breathing room
+        borderRadius: 16,
+        padding: 20,
         marginBottom: 16,
-        shadowColor: '#000000',
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
+        shadowOpacity: 0.04,
         shadowRadius: 8,
         elevation: 2,
         borderWidth: 1,
@@ -365,77 +456,72 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 16,
+        marginBottom: 6,
     },
     cardTitle: {
-        fontSize: 18,
+        fontSize: 17,
         color: '#111827',
         fontFamily: 'Poppins-Medium',
         flex: 1,
         marginRight: 10,
     },
-    starsContainer: {
+    headerRight: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 4,
+        paddingTop: 2,
     },
-    detailsGrid: {
-        marginBottom: 20,
-        gap: 10, // Spacing between rows
-    },
-    detailRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    detailIcon: {
-        marginRight: 10,
-        width: 18,
-    },
-    detailText: {
-        fontSize: 14,
-        color: '#4B5563',
+    tapToRate: {
+        fontSize: 12,
+        color: '#9CA3AF',
         fontFamily: 'Poppins-Regular',
+        marginBottom: 12,
     },
+
+    // Details
+    detailsGrid:  { marginBottom: 18, gap: 8 },
+    detailRow:    { flexDirection: 'row', alignItems: 'center' },
+    detailIcon:   { marginRight: 10, width: 18 },
+    detailText:   { fontSize: 14, color: '#4B5563', fontFamily: 'Poppins-Regular' },
+
+    // Toggle
     toggleBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: '#E5E7EB',
-        borderRadius: 12, // More pill-like
+        borderRadius: 12,
         paddingVertical: 12,
         backgroundColor: '#FFFFFF',
     },
-    toggleBtnText: {
-        fontSize: 15,
-        color: '#111827',
-        fontFamily: 'Poppins-Medium',
-    },
-    expandedSection: {
-        marginTop: 16,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#F3F4F6',
+    toggleBtnText: { fontSize: 15, color: '#111827', fontFamily: 'Poppins-Medium' },
+
+    // Expanded
+    expandedSection: { marginTop: 16 },
+    divider:         { height: 1, backgroundColor: '#F3F4F6', marginBottom: 20 },
+    sectionHeading:  { fontSize: 15, color: '#111827', fontFamily: 'Poppins-Medium', marginBottom: 12 },
+
+    // Vitals
+    noVitalsBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F9FAFB',
+        borderRadius: 12,
+        padding: 14,
         marginBottom: 20,
+        gap: 8,
     },
-    sectionHeading: {
-        fontSize: 15,
-        color: '#111827',
-        fontFamily: 'Poppins-Medium',
-        marginBottom: 12,
-    },
+    noVitalsText: { fontSize: 14, color: '#9CA3AF', fontFamily: 'Poppins-Regular' },
     vitalsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-between',
+        gap: 10,
         marginBottom: 20,
-        gap: 12, // Modern spacing
     },
     vitalCard: {
-        width: (screenWidth - 80 - 12) / 2,
-        borderRadius: 12, // Match design
-        padding: 16,
+        width: (screenWidth - 80 - 10) / 2,
+        borderRadius: 12,
+        padding: 14,
     },
     vitalHeader: {
         flexDirection: 'row',
@@ -443,37 +529,60 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     vitalLabel: {
-        fontSize: 13,
+        fontSize: 12,
         color: '#374151',
         fontFamily: 'Poppins-Regular',
-        marginLeft: 8,
+        marginLeft: 6,
+        flex: 1,
     },
-    vitalValue: {
-        fontSize: 18,
-        color: '#111827',
-        fontFamily: 'Poppins-Medium',
+    vitalValue:  { fontSize: 17, color: '#111827', fontFamily: 'Poppins-Medium' },
+    abnormalBadge: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: '#EF4444',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 4,
     },
+    abnormalText: { fontSize: 10, color: '#FFFFFF', fontFamily: 'Poppins-Medium' },
+
+    // Notes
     notesBox: {
         backgroundColor: '#F9FAFB',
         borderRadius: 12,
         padding: 16,
         marginBottom: 20,
     },
-    notesText: {
-        fontSize: 14,
-        color: '#4B5563',
-        fontFamily: 'Poppins-Regular',
-        lineHeight: 22,
-    },
-    feedbackBox: {
-        backgroundColor: '#EFF6FF',
+    notesText: { fontSize: 14, color: '#4B5563', fontFamily: 'Poppins-Regular', lineHeight: 22 },
+
+    // Feedback
+    feedbackInputWrap: {
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
         borderRadius: 12,
-        padding: 16,
+        backgroundColor: '#FAFAFA',
+        marginBottom: 10,
+        overflow: 'hidden',
     },
-    feedbackText: {
+    feedbackInput: {
         fontSize: 14,
-        color: '#374151',
+        color: '#111827',
         fontFamily: 'Poppins-Regular',
+        padding: 14,
+        minHeight: 90,
         lineHeight: 22,
+    },
+    saveFeedbackBtn: {
+        backgroundColor: '#FE6700',
+        borderRadius: 12,
+        paddingVertical: 13,
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    saveFeedbackText: {
+        fontSize: 15,
+        color: '#FFFFFF',
+        fontFamily: 'Poppins-Medium',
     },
 });

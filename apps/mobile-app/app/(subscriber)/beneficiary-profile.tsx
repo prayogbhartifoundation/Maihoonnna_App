@@ -91,6 +91,12 @@ export default function BeneficiaryProfileScreen() {
         enabled: !!id,
     });
 
+    useFocusEffect(
+        useCallback(() => {
+            refetch();
+        }, [refetch])
+    );
+
     useEffect(() => {
     // no-op: we no longer show a default-data alert since vitals are fully
     // filtered server-side based on the beneficiary's tracked selections.
@@ -261,7 +267,7 @@ export default function BeneficiaryProfileScreen() {
                 {/* ── Tab Content ── */}
                 {activeTab === 'Timeline' && <TimelineTab visits={beneficiary.timeline || []} />}
                 {activeTab === 'Vitals' && <VitalsTab beneficiary={beneficiary} />}
-                {activeTab === 'Medical' && <MedicalTab beneficiary={beneficiary} conditions={conditions} />}
+                {activeTab === 'Medical' && <MedicalTab beneficiary={beneficiary} conditions={conditions} onRefresh={refetch} />}
 
                 {/* ── Assistance Card ── */}
                 <View style={styles.assistanceCard}>

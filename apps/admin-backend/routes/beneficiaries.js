@@ -549,6 +549,7 @@ router.get('/:id', async (req, res) => {
         medicationList: { where: { isActive: true } },
         conditions: { include: { condition: true }, where: { isActive: true } },
         vitalReadings: { include: { vitalDefinition: true } },
+        medicalRecords: { orderBy: { createdAt: 'desc' } },
       },
     });
     if (!b)
@@ -604,9 +605,7 @@ router.put('/:id', async (req, res) => {
     const { 
       name, age, gender, address, city, state, pincode, relationship, 
       primaryPhysicianName, primaryPhysicianPhone, primaryPhysicianSpec, 
-      emotionalScore, trackBloodPressure, trackHeartRate, trackBloodSugar,
-      trackTemperature, trackOxygenSaturation, trackWeight, trackPainLevel,
-      trackRespiratoryRate, medicalConditions, medications, isActive, dateOfBirth,
+      emotionalScore, medicalConditions, medications, isActive, dateOfBirth,
       emergencyContactName, emergencyContactPhone, emergencyContactRelationship
     } = req.body;
 
@@ -636,14 +635,6 @@ router.put('/:id', async (req, res) => {
     if (primaryPhysicianPhone !== undefined) dataToUpdate.primaryPhysicianPhone = primaryPhysicianPhone;
     if (primaryPhysicianSpec !== undefined) dataToUpdate.primaryPhysicianSpec = primaryPhysicianSpec;
     if (emotionalScore !== undefined) dataToUpdate.emotionalScore = Number(emotionalScore);
-    if (trackBloodPressure !== undefined) dataToUpdate.trackBloodPressure = Boolean(trackBloodPressure);
-    if (trackHeartRate !== undefined) dataToUpdate.trackHeartRate = Boolean(trackHeartRate);
-    if (trackBloodSugar !== undefined) dataToUpdate.trackBloodSugar = Boolean(trackBloodSugar);
-    if (trackTemperature !== undefined) dataToUpdate.trackTemperature = Boolean(trackTemperature);
-    if (trackOxygenSaturation !== undefined) dataToUpdate.trackOxygenSaturation = Boolean(trackOxygenSaturation);
-    if (trackWeight !== undefined) dataToUpdate.trackWeight = Boolean(trackWeight);
-    if (trackPainLevel !== undefined) dataToUpdate.trackPainLevel = Boolean(trackPainLevel);
-    if (trackRespiratoryRate !== undefined) dataToUpdate.trackRespiratoryRate = Boolean(trackRespiratoryRate);
     // Don't include relational fields in the core update — handle them separately
     if (isActive !== undefined) dataToUpdate.isActive = Boolean(isActive);
 
@@ -765,47 +756,6 @@ router.put('/:id', async (req, res) => {
 
       return ben;
     });
-
-    // Sync Vitals Configuration (New Relational System)
-    const vitalFields = Object.keys(dataToUpdate).filter(k => k.startsWith('track'));
-    if (vitalFields.length > 0) {
-      const vitalDefs = await prisma.vitalDefinition.findMany();
-      for (const field of vitalFields) {
-        const isActive = dataToUpdate[field];
-        let code = '';
-        if (field === 'trackBloodPressure') code = 'BP'; 
-        if (field === 'trackHeartRate') code = 'PULSE';
-        if (field === 'trackBloodSugar') code = 'BLOOD_GLUCOSE';
-        if (field === 'trackTemperature') code = 'TEMP';
-        if (field === 'trackOxygenSaturation') code = 'SPO2';
-        if (field === 'trackWeight') code = 'WEIGHT';
-        if (field === 'trackPainLevel') code = 'PAIN';
-        if (field === 'trackRespiratoryRate') code = 'RESP';
-        
-        if (code) {
-          const def = vitalDefs.find(d => d.code === code);
-          if (def) {
-            await prisma.beneficiaryVitalConfig.upsert({
-              where: {
-                beneficiaryId_vitalDefinitionId_effectiveFrom: {
-                  beneficiaryId: id,
-                  vitalDefinitionId: def.id,
-                  effectiveFrom: new Date(new Date().setHours(0,0,0,0))
-                }
-              },
-              update: { isActive },
-              create: {
-                beneficiaryId: id,
-                vitalDefinitionId: def.id,
-                isActive,
-                frequency: 'every_visit',
-                effectiveFrom: new Date(new Date().setHours(0,0,0,0))
-              }
-            });
-          }
-        }
-      }
-    }
 
     res.json({ success: true, data: updated });
   } catch (err) {

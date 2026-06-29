@@ -1,17 +1,39 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Platform, Dimensions, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { VitalsCharts } from './VitalsCharts';
+import { useQuery } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '@/constants/api';
 
 const { width } = Dimensions.get('window');
 
 export const VitalsTab = ({ beneficiary }: { beneficiary: any }) => {
     const vitals = beneficiary.vitalsData || [];
-    const trends = beneficiary.vitalsTrends;
+
+    const { data: trends, isLoading } = useQuery({
+        queryKey: ['vitals-trends', beneficiary.id],
+        queryFn: async () => {
+            const token = await AsyncStorage.getItem('userToken');
+            const res = await fetch(`${API_URL}/subscriber/vitals/trends/${beneficiary.id}?days=30`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.success) return data.data;
+            return [];
+        },
+        enabled: !!beneficiary?.id
+    });
 
     return (
         <View style={styles.container}>
-            <VitalsCharts trends={trends} />
+            {isLoading ? (
+                <View style={{ padding: 40, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#F97316" />
+                </View>
+            ) : (
+                <VitalsCharts trends={trends || []} />
+            )}
 
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Current Readings</Text>

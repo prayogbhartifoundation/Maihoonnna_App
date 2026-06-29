@@ -222,10 +222,9 @@ export const updateBeneficiary = async (beneficiaryId: string, updates: any) => 
         
         await tx.beneficiaryVitalConfig.upsert({
           where: {
-            beneficiaryId_vitalDefinitionId_effectiveFrom: {
+            beneficiaryId_vitalDefinitionId: {
               beneficiaryId,
               vitalDefinitionId: vitalDefId,
-              effectiveFrom: new Date(new Date().setHours(0,0,0,0))
             }
           },
           update: { isActive },
@@ -234,32 +233,8 @@ export const updateBeneficiary = async (beneficiaryId: string, updates: any) => 
             vitalDefinitionId: vitalDefId,
             isActive,
             frequency: 'every_visit',
-            effectiveFrom: new Date(new Date().setHours(0,0,0,0))
           }
         });
-
-        // Also sync back to legacy boolean flags for backward compatibility if needed
-        // (Optional: identify the code and update the core tracking flag)
-        const def = await tx.vitalDefinition.findUnique({ where: { id: vitalDefId } });
-        if (def) {
-          const fieldMap: Record<string, string> = {
-            'BP': 'trackBloodPressure',
-            'PULSE': 'trackHeartRate',
-            'BLOOD_GLUCOSE': 'trackBloodSugar',
-            'TEMP': 'trackTemperature',
-            'SPO2': 'trackOxygenSaturation',
-            'WEIGHT': 'trackWeight',
-            'PAIN': 'trackPainLevel',
-            'RESP': 'trackRespiratoryRate'
-          };
-          const legacyField = fieldMap[def.code];
-          if (legacyField) {
-            await tx.beneficiary.update({
-              where: { id: beneficiaryId },
-              data: { [legacyField]: isActive }
-            });
-          }
-        }
       }
     }
 
@@ -310,9 +285,11 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
         where: { isActive: true },
         orderBy: { recordDate: 'desc' }
       },
-      vitalHistory: {
-        orderBy: { recordedAt: 'desc' },
-        take: 30 // To get enough data for 7-day trend
+      vitalConfigs: {
+        where: { isActive: true },
+        include: {
+          vitalDefinition: true
+        }
       },
       subscriptions: {
         where: { isActive: true },
@@ -325,12 +302,6 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
         },
         orderBy: { createdAt: 'desc' },
         take: 1
-      },
-      vitalConfigs: {
-        where: { isActive: true },
-        include: {
-          vitalDefinition: true
-        }
       }
     }
   });
@@ -390,56 +361,44 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
     take: 10
   });
 
-  // Query visits with vitals separately (no joins required, extremely lightweight)
-  const visitsWithVitals = await prisma.visit.findMany({
-    where: {
-      beneficiaryId: beneficiary.id,
-      OR: [
-        { bpSystolic: { not: null } },
-        { heartRate: { not: null } },
-        { bloodSugarFasting: { not: null } },
-        { temperature: { not: null } },
-        { oxygenLevel: { not: null } },
-        { weight: { not: null } }
-      ]
-    },
-    orderBy: { scheduledTime: 'asc' }
+  // Get latest vital readings from VitalReading table efficiently using Postgres DISTINCT ON
+  const latestReadingRows = await prisma.vitalReading.findMany({
+    where: { beneficiaryId: beneficiary.id },
+    include: { vitalDefinition: true },
+    orderBy: { capturedAt: 'desc' },
+    distinct: ['vitalDefinitionId'],
   });
 
-  const latestVisitWithVitals = visitsWithVitals[visitsWithVitals.length - 1] || null;
-
-  const latestReadings = latestVisitWithVitals 
-    ? {
-        heartRate: latestVisitWithVitals.heartRate,
-        bpSystolic: latestVisitWithVitals.bpSystolic,
-        bpDiastolic: latestVisitWithVitals.bpDiastolic,
-        bloodSugarFasting: latestVisitWithVitals.bloodSugarFasting,
-        bloodSugarPostMeal: latestVisitWithVitals.bloodSugarPostMeal,
-        temperature: latestVisitWithVitals.temperature,
-        oxygenLevel: latestVisitWithVitals.oxygenLevel,
-        weight: latestVisitWithVitals.weight
-      }
-    : (beneficiary.vitalHistory[0] || null);
+  // Build a lookup: code -> latest VitalReading value
+  const latestByCode: Record<string, { v1: number | null; v2: number | null; text: string | null }> = {};
+  for (const r of latestReadingRows) {
+    const code = r.vitalDefinition?.code?.toUpperCase();
+    if (code && !latestByCode[code]) {
+      latestByCode[code] = { v1: r.valueNumeric, v2: r.valueNumeric2, text: r.valueText };
+    }
+  }
 
   const vitalsData = [];
 
-  const hasVisitsOrVitals = visitsWithVitals.length > 0 || beneficiary.vitalHistory.length > 0 || pastVisits.length > 0 || !!nextVisit;
+  const hasVisitsOrVitals = latestReadingRows.length > 0 || pastVisits.length > 0 || !!nextVisit;
   const isDefaultData = !hasVisitsOrVitals;
 
   // ── Mapping tables for known system vital codes ──────────────────────────────
   // icon, color, and the function to get the current reading value string
-  const VITAL_META: Record<string, { icon: string; color: string; getValue: (r: any) => string | null; trend: string }> = {
-    'PULSE':         { icon: 'heart-pulse',      color: '#EF4444', trend: 'Normal', getValue: r => r?.heartRate        ? `${r.heartRate} bpm`            : null },
-    'BP':            { icon: 'blood-bag',         color: '#8B5CF6', trend: 'Normal', getValue: r => r?.bpSystolic       ? `${r.bpSystolic}/${r.bpDiastolic}` : null },
-    'BLOOD_GLUCOSE': { icon: 'water',             color: '#F59E0B', trend: 'Normal', getValue: r => r?.bloodSugarFasting ? `${r.bloodSugarFasting} mg/dL`   : null },
-    'TEMP':          { icon: 'thermometer',       color: '#06B6D4', trend: 'Normal', getValue: r => r?.temperature      ? `${r.temperature} °F`             : null },
-    'SPO2':          { icon: 'air-humidifier',    color: '#10B981', trend: 'Good',   getValue: r => r?.oxygenLevel      ? `${r.oxygenLevel}%`               : null },
-    'WEIGHT':        { icon: 'scale-bathroom',    color: '#3B82F6', trend: 'Stable', getValue: r => r?.weight           ? `${r.weight} kg`                  : null },
+  const VITAL_META: Record<string, { icon: string; color: string; getValue: (r: typeof latestByCode) => string | null; trend: string }> = {
+    'PULSE':         { icon: 'heart-pulse',      color: '#EF4444', trend: 'Normal', getValue: r => r['PULSE']?.v1        != null ? `${r['PULSE'].v1} bpm`                            : null },
+    'HEART_RATE':    { icon: 'heart-pulse',      color: '#EF4444', trend: 'Normal', getValue: r => r['HEART_RATE']?.v1   != null ? `${r['HEART_RATE'].v1} bpm`                       : null },
+    'BP':            { icon: 'blood-bag',         color: '#8B5CF6', trend: 'Normal', getValue: r => r['BP']?.v1           != null ? `${r['BP'].v1}/${r['BP'].v2 ?? '?'}`              : null },
+    'BLOOD_GLUCOSE': { icon: 'water',             color: '#F59E0B', trend: 'Normal', getValue: r => r['BLOOD_GLUCOSE']?.v1 != null ? `${r['BLOOD_GLUCOSE'].v1} mg/dL`               : null },
+    'TEMP':          { icon: 'thermometer',       color: '#06B6D4', trend: 'Normal', getValue: r => r['TEMP']?.v1         != null ? `${r['TEMP'].v1} °C`                             : null },
+    'TEMPERATURE':   { icon: 'thermometer',       color: '#06B6D4', trend: 'Normal', getValue: r => r['TEMPERATURE']?.v1  != null ? `${r['TEMPERATURE'].v1} °C`                    : null },
+    'SPO2':          { icon: 'air-humidifier',    color: '#10B981', trend: 'Good',   getValue: r => r['SPO2']?.v1         != null ? `${r['SPO2'].v1}%`                              : null },
+    'OXYGEN_LEVEL':  { icon: 'air-humidifier',    color: '#10B981', trend: 'Good',   getValue: r => r['OXYGEN_LEVEL']?.v1 != null ? `${r['OXYGEN_LEVEL'].v1}%`                     : null },
+    'WEIGHT':        { icon: 'scale-bathroom',    color: '#3B82F6', trend: 'Stable', getValue: r => r['WEIGHT']?.v1       != null ? `${r['WEIGHT'].v1} kg`                          : null },
     'PAIN':          { icon: 'emoticon-sad',      color: '#F97316', trend: 'Normal', getValue: _r => null },
     'RESP':          { icon: 'lungs',             color: '#14B8A6', trend: 'Normal', getValue: _r => null },
-    // Legacy sub-codes from dual BP — only shown if explicitly in vitalConfigs
-    'BP_SYSTOLIC':   { icon: 'arrow-up-bold',     color: '#8B5CF6', trend: 'Normal', getValue: r => r?.bpSystolic   ? `${r.bpSystolic} mmHg`   : null },
-    'BP_DIASTOLIC':  { icon: 'arrow-down-bold',   color: '#7C3AED', trend: 'Normal', getValue: r => r?.bpDiastolic  ? `${r.bpDiastolic} mmHg`  : null },
+    'BP_SYSTOLIC':   { icon: 'arrow-up-bold',     color: '#8B5CF6', trend: 'Normal', getValue: r => r['BP']?.v1           != null ? `${r['BP'].v1} mmHg`                            : null },
+    'BP_DIASTOLIC':  { icon: 'arrow-down-bold',   color: '#7C3AED', trend: 'Normal', getValue: r => r['BP']?.v2           != null ? `${r['BP'].v2} mmHg`                            : null },
   };
 
   // Build vitalsData from the relational vitalConfigs (covers system vitals + custom admin vitals)
@@ -450,7 +409,22 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
     (a.vitalDefinition?.displayOrder ?? 99) - (b.vitalDefinition?.displayOrder ?? 99)
   );
 
-  for (const config of activeConfigs) {
+  const uniqueCodes = new Set<string>();
+  const uniqueNames = new Set<string>();
+  const deduplicatedConfigs = activeConfigs.filter((config: any) => {
+    const code = config.vitalDefinition?.code;
+    const name = config.vitalDefinition?.name;
+    if (!code || !name) return false;
+    
+    // If we already saw this exact code or this exact visual name, it's a duplicate
+    if (uniqueCodes.has(code) || uniqueNames.has(name.toLowerCase())) return false;
+    
+    uniqueCodes.add(code);
+    uniqueNames.add(name.toLowerCase());
+    return true;
+  });
+
+  for (const config of deduplicatedConfigs) {
     const def = config.vitalDefinition;
     if (!def) continue;
 
@@ -458,10 +432,17 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
       icon: 'clipboard-pulse',   // generic fallback for custom vitals
       color: '#6B7280',
       trend: 'Normal',
-      getValue: (_r: any) => null,
+      getValue: (r: any) => {
+        const reading = r[def.code?.toUpperCase()];
+        if (!reading) return null;
+        if (reading.v1 != null && reading.v2 != null) return `${reading.v1}/${reading.v2} ${def.unit || ''}`.trim();
+        if (reading.v1 != null) return `${reading.v1} ${def.unit || ''}`.trim();
+        if (reading.text) return reading.text;
+        return null;
+      },
     };
 
-    const rawValue = meta.getValue(latestReadings);
+    const rawValue = meta.getValue(latestByCode);
     const displayValue = rawValue ?? `-- ${def.unit || ''}`.trim();
 
     vitalsData.push({
@@ -474,68 +455,24 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
     });
   }
 
-  // ── Fallback: if no relational configs exist yet (legacy enrollments), use boolean flags ──
+  // ── Fallback: if no relational configs exist yet, show any vitals we have readings for ──
   if (activeConfigs.length === 0) {
-    if (beneficiary.trackHeartRate || latestReadings?.heartRate) {
-      vitalsData.push({ label: 'Heart Rate', value: latestReadings?.heartRate ? `${latestReadings.heartRate} bpm` : '-- bpm', icon: 'heart-pulse', color: '#EF4444', trend: 'Normal', code: 'PULSE' });
-    }
-    if (beneficiary.trackBloodPressure || latestReadings?.bpSystolic) {
-      vitalsData.push({ label: 'Blood Pressure', value: latestReadings?.bpSystolic ? `${latestReadings.bpSystolic}/${latestReadings.bpDiastolic}` : '--', icon: 'blood-bag', color: '#8B5CF6', trend: 'Normal', code: 'BP' });
-    }
-    if (beneficiary.trackBloodSugar || latestReadings?.bloodSugarFasting) {
-      vitalsData.push({ label: 'Blood Sugar', value: latestReadings?.bloodSugarFasting ? `${latestReadings.bloodSugarFasting} mg/dL` : '-- mg/dL', icon: 'water', color: '#F59E0B', trend: 'Normal', code: 'BLOOD_GLUCOSE' });
-    }
-    if (beneficiary.trackTemperature || latestReadings?.temperature) {
-      vitalsData.push({ label: 'Temperature', value: latestReadings?.temperature ? `${latestReadings.temperature} °F` : '-- °F', icon: 'thermometer', color: '#06B6D4', trend: 'Normal', code: 'TEMP' });
-    }
-    if (beneficiary.trackOxygenSaturation || latestReadings?.oxygenLevel) {
-      vitalsData.push({ label: 'Oxygen Saturation', value: latestReadings?.oxygenLevel ? `${latestReadings.oxygenLevel}%` : '--%', icon: 'air-humidifier', color: '#10B981', trend: 'Good', code: 'SPO2' });
-    }
-    if (beneficiary.trackWeight || latestReadings?.weight) {
-      vitalsData.push({ label: 'Weight', value: latestReadings?.weight ? `${latestReadings.weight} kg` : '-- kg', icon: 'scale-bathroom', color: '#3B82F6', trend: 'Stable', code: 'WEIGHT' });
+    for (const code of Object.keys(latestByCode)) {
+      const meta = VITAL_META[code] ?? {
+        icon: 'clipboard-pulse', color: '#6B7280', trend: 'Normal', getValue: (_r: any) => null
+      };
+      const reading = latestByCode[code];
+      let displayValue = `-- `;
+      if (reading.v1 != null && reading.v2 != null) displayValue = `${reading.v1}/${reading.v2}`;
+      else if (reading.v1 != null) displayValue = `${reading.v1}`;
+      else if (reading.text) displayValue = reading.text;
+      vitalsData.push({ label: code, value: displayValue, icon: meta.icon, color: meta.color, trend: meta.trend, code });
     }
   }
 
 
-  // Populate trendData from the last 7 visits with vitals
-  let trendData: { date: Date | null; bpSystolic: number | null; heartRate: number | null; bloodSugar: number | null }[] = [];
-  
-  if (visitsWithVitals.length > 0) {
-    const lastVisits = visitsWithVitals.slice(-7);
-    trendData = lastVisits.map(v => ({
-      date: v.scheduledTime,
-      bpSystolic: v.bpSystolic || 120,
-      heartRate: v.heartRate || 72,
-      bloodSugar: v.bloodSugarFasting || v.bloodSugarPostMeal || 110,
-    }));
-  } else if (beneficiary.vitalHistory.length > 0) {
-    const lastHistory = beneficiary.vitalHistory
-      .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime())
-      .slice(-7);
-    trendData = lastHistory.map(v => ({
-      date: v.recordedAt,
-      bpSystolic: v.bpSystolic || 120,
-      heartRate: v.heartRate || 72,
-      bloodSugar: v.bloodSugarFasting || v.bloodSugarPostMeal || 110,
-    }));
-  }
-
-  // Pad the array to exactly 7 slots if there is at least one data point
-  while (trendData.length > 0 && trendData.length < 7) {
-    trendData.push({
-      date: null,
-      bpSystolic: null,
-      heartRate: null,
-      bloodSugar: null,
-    });
-  }
-
-  const vitalsTrends = {
-    labels: trendData.map(t => t.date ? t.date.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''),
-    bpSystolic: trendData.map(t => t.bpSystolic),
-    heartRate: trendData.map(t => t.heartRate),
-    bloodSugar: trendData.map(t => t.bloodSugar),
-  };
+  // trendData is now empty — chart trends are served by GET /subscriber/vitals/trends/:beneficiaryId
+  const vitalsTrends: any[] = [];
 
   const computedEmotionalScore = isDefaultData ? 100 : (beneficiary.emotionalScore === 8.0 ? 85 : beneficiary.emotionalScore);
 
@@ -555,7 +492,7 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
       dateStr: nextVisit.scheduledTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }),
       timeStr: nextVisit.scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     } : null,
-    timeline: pastVisits.map(v => {
+    timeline: pastVisits.map((v: any) => {
       const startTime = v.scheduledTime;
       const endTime = new Date(startTime.getTime() + (v.durationMinutes || 90) * 60000);
       const datePart = startTime.toISOString().split('T')[0];
@@ -570,12 +507,13 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
         companionPhone: v.careCompanion?.user?.phone || null,
         dateStr: `${datePart} • ${startStr} - ${endStr}`,
         duration: `Duration: ${durationHours} hours`,
-        rated: v.rating !== null,
-        rating: v.rating,
+        rated: v.subscriberRating !== null && v.subscriberRating !== undefined,
+        rating: v.subscriberRating ?? null,          // subscriber's rating of the CC
+        beneficiaryRating: v.beneficiaryRating ?? null, // beneficiary's rating of the CC
         activities: v.activitiesDone || [],
-        bp: v.bpSystolic ? `${v.bpSystolic}/${v.bpDiastolic}` : null,
-        heartRate: v.heartRate ? `${v.heartRate} bpm` : null,
-        bloodSugar: v.bloodSugarFasting ? `${v.bloodSugarFasting} mg/dL` : null,
+        bp: null,
+        heartRate: null,
+        bloodSugar: null,
         notes: v.visitSummary || v.notes
       };
     })
@@ -593,5 +531,29 @@ export const deleteMedicalRecord = async (recordId: string) => {
   return prisma.medicalRecord.update({
     where: { id: recordId },
     data: { isActive: false } // Soft delete
+  });
+};
+
+export const createMedicalRecord = async (
+  subscriberId: string,
+  beneficiaryId: string,
+  data: {
+    title: string;
+    fileUrl: string;
+    mimeType: string;
+    fileSizeBytes: number;
+  }
+) => {
+  return prisma.medicalRecord.create({
+    data: {
+      id: generateUUID(),
+      beneficiaryId,
+      uploadedBy: subscriberId,
+      title: data.title,
+      fileUrl: data.fileUrl,
+      mimeType: data.mimeType,
+      fileSizeBytes: data.fileSizeBytes,
+      recordType: 'prescription', // default to prescription as in schema
+    }
   });
 };

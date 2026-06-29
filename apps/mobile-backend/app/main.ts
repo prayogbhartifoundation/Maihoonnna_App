@@ -18,6 +18,7 @@ import couponsRouter from './api/subscriber/coupons.routes';
 import subscriberRouter from './api/subscriber/subscriber.routes';
 import serviceRequestsRouter from './api/subscriber/service-requests.routes';
 import addressesRouter from './api/subscriber/addresses.routes';
+import subscriberVitalsRouter from './api/subscriber/vitals.routes';
 
 // Care Companion Routes
 import visitsRouter from './api/care_companion/visits.routes';
@@ -39,6 +40,10 @@ import sharedUsersRouter from './api/shared/users.routes';
 
 // Beneficiary Routes
 import beneficiaryDashboardRouter from './api/beneficiary/dashboard.routes';
+import beneficiaryInteractionsRouter from './api/beneficiary/interactions.routes';
+
+// Subscriber Visits (rating)
+import subscriberVisitsRouter from './api/subscriber/visits.routes';
 
 // Public Routes
 import publicVitalsRouter from './api/public/vitals.routes';
@@ -108,6 +113,7 @@ app.use(`${API}/subscriber/beneficiaries`, beneficiariesRouter);
 app.use(`${API}/subscriber/coupons`, couponsRouter);
 app.use(`${API}/subscriber/service-requests`, serviceRequestsRouter);
 app.use(`${API}/subscriber/addresses`, addressesRouter);
+app.use(`${API}/subscriber/vitals`, subscriberVitalsRouter);
 app.use(`${API}/subscriber`, subscriberRouter);
 
 // Role: Care Companion endpoints
@@ -122,7 +128,11 @@ app.use(`${API}/admin/users`, usersRouter);
 
 // Role: Beneficiary endpoints
 app.use(`${API}/beneficiary/dashboard`, beneficiaryDashboardRouter);
+app.use(`${API}/beneficiary/interactions`, beneficiaryInteractionsRouter);
 app.use(`${API}/beneficiary`, beneficiaryDashboardRouter);
+
+// Subscriber Visits rating
+app.use(`${API}/subscriber/visits`, subscriberVisitsRouter);
 
 // Shared endpoints
 app.use(`${API}/shared/medications`, medicationsRouter);

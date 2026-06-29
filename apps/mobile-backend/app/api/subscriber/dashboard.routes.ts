@@ -101,8 +101,10 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
       // return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
+    const targetBeneficiaryId = req.query.beneficiaryId as string | undefined;
+
     // Core data
-    const activeSubscriptions = await prisma.subscription.findMany({
+    const allActiveSubscriptions = await prisma.subscription.findMany({
       where: { subscriberId: userId, isActive: true },
       include: { package: true }
     });
@@ -111,7 +113,14 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
       where: { subscriberId: userId }
     });
 
-    const benIds = beneficiaries.map((b: any) => b.id);
+    let benIds = beneficiaries.map((b: any) => b.id);
+    if (targetBeneficiaryId && benIds.includes(targetBeneficiaryId)) {
+      benIds = [targetBeneficiaryId];
+    }
+
+    const activeSubscriptions = targetBeneficiaryId 
+      ? allActiveSubscriptions.filter((s: any) => s.beneficiaryId === targetBeneficiaryId)
+      : allActiveSubscriptions;
 
     // Calculate visits this week
     const oneWeekAgo = new Date();
@@ -143,11 +152,12 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
       emotionalScore: b.emotionalScore === 8.0 ? 85 : (b.emotionalScore || 85)
     }));
 
-    // Average Happiness
+    // Average Happiness (Scoped)
+    const scopedBeneficiaries = mappedBeneficiaries.filter((b: any) => benIds.includes(b.id));
     let avgHappiness = 85;
-    if (mappedBeneficiaries.length > 0) {
-      const totalScore = mappedBeneficiaries.reduce((sum: any, b: any) => sum + b.emotionalScore, 0);
-      avgHappiness = Math.round(totalScore / mappedBeneficiaries.length);
+    if (scopedBeneficiaries.length > 0) {
+      const totalScore = scopedBeneficiaries.reduce((sum: any, b: any) => sum + b.emotionalScore, 0);
+      avgHappiness = Math.round(totalScore / scopedBeneficiaries.length);
     }
 
     // Active Hours (Actual aggregation from subscriptions)
@@ -190,7 +200,7 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
         happinessScore: avgHappiness,
         visitsThisWeek: { total: visitsThisWeek, completed: completedVisitsThisWeek },
         activeHours: { used: activeHours || 24, remaining: remainingHours || 36 },
-        totalCarePlans: activeSubscriptions.length || 0
+        totalCarePlans: allActiveSubscriptions.length || 0
       },
       recentUpdates
     });

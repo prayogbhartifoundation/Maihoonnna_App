@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import {
   X, CalendarClock, User, UserCheck, Activity, Brain, Image as ImageIcon,
   CheckCircle, XCircle, MapPin, Loader2, Pill, Clock, Edit3, Save, RotateCcw,
-  AlertTriangle, ChevronRight, Trash2, Plus, Upload
+  AlertTriangle, ChevronRight, Trash2, Plus, Upload, Star, AlertCircle
 } from 'lucide-react';
 import { visitApi } from '../../../services/api';
 import { toast } from 'sonner';
@@ -23,6 +23,9 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [resolvingChange, setResolvingChange] = useState(false);
+  const [rejectingChange, setRejectingChange] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
   const [editImages, setEditImages] = useState<string[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -99,8 +102,30 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
     }
   };
 
-  const handleDeleteImage = (url: string) => {
-    setEditImages(prev => prev.filter(u => u !== url));
+  const handleRemoveImage = (indexToRemove: number) => {
+    setEditImages(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleResolveChange = async (status: 'accepted' | 'rejected') => {
+    if (status === 'rejected' && !rejectReason.trim()) {
+      alert('Please provide a reason for rejection.');
+      return;
+    }
+
+    setResolvingChange(true);
+    try {
+      await visitApi.resolveChangeRequest(visit.id, status, rejectReason.trim() || undefined);
+      const fresh = await visitApi.getById(visitId);
+      setVisit(fresh);
+      toast.success(`Change request ${status}.`);
+    } catch (error: any) {
+      console.error('Error resolving change request:', error);
+      alert(error.message || 'An error occurred');
+    } finally {
+      setResolvingChange(false);
+      setRejectingChange(false);
+      setRejectReason('');
+    }
   };
 
   const handleUploadImage = async (file: File) => {
@@ -245,6 +270,79 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 custom-scrollbar">
+          
+          {visit.changeRequestedAt && visit.changeRequestStatus === 'pending' && (
+            <div className="mb-6 bg-[#FFF5EE] border border-[#FF7A00]/30 rounded-2xl p-5 flex flex-col gap-4">
+              <div className="flex items-start gap-3 justify-between">
+                <div className="flex gap-3 items-start">
+                  <div className="w-10 h-10 bg-[#FF7A00]/10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <AlertCircle size={20} className="text-[#FF7A00]" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-[#FF7A00] uppercase tracking-widest mb-1">Beneficiary Requested Reschedule</h4>
+                    <p className="text-sm text-gray-800">
+                      <span className="font-bold">Preferred:</span> {visit.changePreferredDate} at {visit.changePreferredTime}
+                    </p>
+                    {visit.changeReason && (
+                      <p className="text-sm text-gray-600 italic mt-1 bg-white/50 px-3 py-2 rounded-lg border border-[#FF7A00]/10">
+                        "{visit.changeReason}"
+                      </p>
+                    )}
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">
+                      Requested on {format(new Date(visit.changeRequestedAt), 'MMM d, h:mm a')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {!rejectingChange ? (
+                    <>
+                      <button 
+                        onClick={() => handleResolveChange('accepted')}
+                        disabled={resolvingChange}
+                        className="px-4 py-2 bg-[#10B981] text-white text-xs font-bold rounded-xl hover:bg-[#059669] transition-colors shadow-sm disabled:opacity-50"
+                      >
+                        {resolvingChange ? 'Processing...' : 'Accept'}
+                      </button>
+                      <button 
+                        onClick={() => setRejectingChange(true)}
+                        disabled={resolvingChange}
+                        className="px-4 py-2 bg-white text-[#EF4444] border border-[#EF4444]/30 text-xs font-bold rounded-xl hover:bg-[#FEF2F2] transition-colors shadow-sm disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-2 min-w-[200px]">
+                      <input
+                        type="text"
+                        placeholder="Reason for rejection..."
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        className="text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#EF4444]/50"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => setRejectingChange(false)}
+                          className="flex-1 px-2 py-1.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-200"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          onClick={() => handleResolveChange('rejected')}
+                          disabled={resolvingChange || !rejectReason.trim()}
+                          className="flex-1 px-2 py-1.5 bg-[#EF4444] text-white text-xs font-bold rounded-lg hover:bg-[#DC2626] disabled:opacity-50"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {/* ── Left Column ─────────────────────────────────────────────── */}
@@ -428,6 +526,49 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
                 </div>
               </div>
 
+              {/* Ratings */}
+              <div>
+                <h4 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
+                  <Star size={16} className="text-gray-400" /> Ratings
+                </h4>
+                <div className="bg-white border border-[#E7DED6] rounded-2xl p-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subscriber Rating</p>
+                    {visit.subscriberRating ? (
+                      <div className="flex items-center gap-1 mt-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={16}
+                            className={s <= visit.subscriberRating ? "fill-amber-400 text-amber-400" : "text-gray-300"}
+                          />
+                        ))}
+                        <span className="text-xs font-bold text-gray-600 ml-1">{visit.subscriberRating}/5</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic mt-1">Not rated yet</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Beneficiary Rating</p>
+                    {visit.beneficiaryRating ? (
+                      <div className="flex items-center gap-1 mt-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={16}
+                            className={s <= visit.beneficiaryRating ? "fill-amber-400 text-amber-400" : "text-gray-300"}
+                          />
+                        ))}
+                        <span className="text-xs font-bold text-gray-600 ml-1">{visit.beneficiaryRating}/5</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic mt-1">Not rated yet</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Follow-Up & Escalation — always editable */}
               <div>
                 <h4 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
@@ -558,7 +699,7 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
                             <ImageIcon size={14} />
                           </a>
                           <button
-                            onClick={() => handleDeleteImage(url)}
+                            onClick={() => handleRemoveImage(idx)}
                             className="p-2 bg-red-500/80 rounded-lg backdrop-blur-sm text-white hover:bg-red-600 transition-colors"
                             title="Delete photo"
                           >

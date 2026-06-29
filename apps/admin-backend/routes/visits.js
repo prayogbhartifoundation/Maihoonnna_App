@@ -426,6 +426,49 @@ router.get('/:id', async (req, res) => {
 // Body: { notes?, visitSummary?, followUpRequired?, followUpNotes?, followUpDate?,
 //         escalateToManager?, escalationReason?, actorName? }
 // ─────────────────────────────────────────────────────────────────────────────
+router.patch('/:id/resolve-change', async (req, res) => {
+  const { id } = req.params;
+  const { status, reason } = req.body;
+
+  if (!['accepted', 'rejected'].includes(status)) {
+    return res.status(400).json({ success: false, message: 'Invalid status' });
+  }
+
+  try {
+    const visit = await prisma.visit.findUnique({ where: { id } });
+    if (!visit) return res.status(404).json({ success: false, message: 'Visit not found' });
+    
+    let updateData = {
+      changeRequestStatus: status,
+      changeResolutionReason: reason || null,
+    };
+
+    if (status === 'accepted') {
+      try {
+        if (visit.changePreferredDate && visit.changePreferredTime) {
+          const newDateStr = `${visit.changePreferredDate} ${visit.changePreferredTime}`;
+          const newScheduledTime = new Date(newDateStr);
+          if (!isNaN(newScheduledTime.getTime())) {
+            updateData.scheduledTime = newScheduledTime;
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing new scheduled time", e);
+      }
+    }
+
+    const updatedVisit = await prisma.visit.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json({ success: true, visit: updatedVisit });
+  } catch (error) {
+    console.error('Error resolving visit change:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.patch('/:id/edit', async (req, res) => {
   const { id } = req.params;
   const {
@@ -555,7 +598,7 @@ router.post('/:id/upload-image', uploadMemory.single('image'), async (req, res) 
 // GET /api/visits - Get all visits (optionally filtered)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
-  const { beneficiaryId, careCompanionId, date, fmUserId, visitCode } = req.query;
+  const { beneficiaryId, careCompanionId, date, fmUserId, visitCode, hasChangeRequest } = req.query;
   try {
     // Auto-update missed visits
     const now = new Date();
@@ -597,6 +640,9 @@ router.get('/', async (req, res) => {
         end.setHours(23, 59, 59, 999);
         where.scheduledTime = { gte: start, lte: end };
       }
+    }
+    if (hasChangeRequest === 'true') {
+      where.changeRequestedAt = { not: null };
     }
     if (fmUserId) {
       where.careCompanion = {

@@ -50,7 +50,13 @@ export default function ProfileScreen() {
                 return;
             }
 
-            const res = await fetch(`${API_URL}/subscriber/profile`, {
+            const storedBenId = await AsyncStorage.getItem('selectedBeneficiaryId');
+            let url = `${API_URL}/subscriber/profile`;
+            if (storedBenId) {
+                url += `?beneficiaryId=${storedBenId}`;
+            }
+
+            const res = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'

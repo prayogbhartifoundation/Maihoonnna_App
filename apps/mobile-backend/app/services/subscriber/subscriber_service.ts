@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { OtpFactory } from '../../core/otp/OtpFactory';
 
-export const getSubscriberProfile = async (subscriberId: string) => {
+export const getSubscriberProfile = async (subscriberId: string, beneficiaryId?: string) => {
   const user = await prisma.user.findUnique({
     where: { id: subscriberId },
     select: {
@@ -56,19 +56,24 @@ export const getSubscriberProfile = async (subscriberId: string) => {
     }
   });
 
+  let scopedSubscriptions = activeSubscriptions;
+  if (beneficiaryId) {
+    scopedSubscriptions = activeSubscriptions.filter(sub => sub.beneficiaryId === beneficiaryId);
+  }
+
   let totalHours = 0;
   let usedHours = 0;
   let currentPlan = null;
 
-  if (activeSubscriptions.length > 0) {
-    // For "Quick Stats", we sum across all active plans
-    activeSubscriptions.forEach(sub => {
+  if (scopedSubscriptions.length > 0) {
+    // For "Quick Stats", we sum across scoped plans
+    scopedSubscriptions.forEach(sub => {
       totalHours += sub.hoursTotal || 0;
       usedHours += sub.hoursUsed || 0;
     });
 
     // For the "Subscription Tab" details, we pick the most recent/primary one
-    const latest = activeSubscriptions[0];
+    const latest = scopedSubscriptions[0];
     currentPlan = {
         name: latest.package.name,
         hoursTotal: latest.hoursTotal,

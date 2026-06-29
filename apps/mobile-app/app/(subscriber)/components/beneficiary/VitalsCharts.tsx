@@ -3,26 +3,35 @@ import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-interface TrendData {
-    labels: string[];
-    bpSystolic: number[];
-    heartRate: number[];
-    bloodSugar: number[];
+interface DataPoint {
+    date: string;
+    fullDate: string;
+    value: number;
 }
 
-export const VitalsCharts = ({ trends }: { trends: TrendData }) => {
+export interface VitalTrend {
+    name: string;
+    code: string;
+    unit: string;
+    dataType: string;
+    gridMax: number;
+    gridValues: number[];
+    color: string;
+    v1: DataPoint[];
+    v2?: DataPoint[];
+}
+
+export const VitalsCharts = ({ trends }: { trends: VitalTrend[] }) => {
     const [chartWidth, setChartWidth] = useState(screenWidth - 40 - 45); // fallback default
     const chartHeight = 120;
 
-    if (!trends || !trends.labels || trends.labels.length === 0) {
+    if (!trends || trends.length === 0) {
         return (
             <View style={styles.empty}>
                 <Text style={styles.emptyText}>Not enough data for vitals trends.</Text>
             </View>
         );
     }
-
-    const labels = trends.labels;
 
     // Helper to render segment line between two points
     const renderLineSegment = (
@@ -59,28 +68,62 @@ export const VitalsCharts = ({ trends }: { trends: TrendData }) => {
     };
 
     const renderChart = (
-        title: string,
-        data: number[],
-        gridValues: number[],
-        maxVal: number,
-        lineColor: string,
-        dotBorderColor: string,
-        dotFillColor: string,
-        dotSize = 8
+        vital: VitalTrend
     ) => {
-        // Calculate point coordinates (filtering out nulls while keeping correct chronological X positions)
-        const points = data
-            .map((val, i) => {
-                if (val === null || val === undefined) return null;
-                const x = data.length === 1 ? chartWidth / 2 : (i / (data.length - 1)) * chartWidth;
-                const y = chartHeight - (Math.min(val, maxVal) / maxVal) * chartHeight;
-                return { x, y, val };
-            })
-            .filter((p): p is { x: number; y: number; val: number } => p !== null);
+        const hasV1 = vital.v1 && vital.v1.length > 0;
+        const hasV2 = vital.v2 && vital.v2.length > 0;
+        
+        if (!hasV1 && !hasV2) return null;
+
+        // Use v1 or v2 to extract common labels depending on what's available
+        const labels = hasV1 ? vital.v1.map(p => p.date) : (hasV2 ? vital.v2!.map(p => p.date) : []);
+        const gridValues = [...vital.gridValues].reverse(); // high to low for display
+
+        const renderPoints = (data: DataPoint[], lineColor: string, dotColor: string) => {
+            const points = data
+                .map((pt, i) => {
+                    const val = pt.value;
+                    const x = data.length === 1 ? chartWidth / 2 : (i / (data.length - 1)) * chartWidth;
+                    const y = chartHeight - (Math.min(val, vital.gridMax) / vital.gridMax) * chartHeight;
+                    return { x, y, val };
+                });
+
+            const dotSize = 8;
+
+            return (
+                <React.Fragment key={lineColor}>
+                    {/* Connecting Line Segments */}
+                    {points.map((p, i) => {
+                        if (i === points.length - 1) return null;
+                        const next = points[i + 1];
+                        return renderLineSegment(p.x, p.y, next.x, next.y, lineColor, `line-${lineColor}-${i}`);
+                    })}
+
+                    {/* Data Point Dots */}
+                    {points.map((p, i) => (
+                        <View
+                            key={`dot-${lineColor}-${i}`}
+                            style={[
+                                styles.dot,
+                                {
+                                    left: p.x - dotSize / 2,
+                                    top: p.y - dotSize / 2,
+                                    width: dotSize,
+                                    height: dotSize,
+                                    borderRadius: dotSize / 2,
+                                    borderColor: lineColor,
+                                    backgroundColor: dotColor,
+                                }
+                            ]}
+                        />
+                    ))}
+                </React.Fragment>
+            );
+        };
 
         return (
-            <View style={styles.chartWrap}>
-                <Text style={styles.chartTitle}>{title}</Text>
+            <View key={vital.code} style={styles.chartWrap}>
+                <Text style={styles.chartTitle}>{vital.name} {vital.unit ? `(${vital.unit})` : ''}</Text>
                 
                 <View style={styles.chartRow}>
                     {/* Y-Axis Labels */}
@@ -114,31 +157,8 @@ export const VitalsCharts = ({ trends }: { trends: TrendData }) => {
                             );
                         })}
 
-                        {/* Connecting Line Segments */}
-                        {points.map((p, i) => {
-                            if (i === points.length - 1) return null;
-                            const next = points[i + 1];
-                            return renderLineSegment(p.x, p.y, next.x, next.y, lineColor, `line-${i}`);
-                        })}
-
-                        {/* Data Point Dots */}
-                        {points.map((p, i) => (
-                            <View
-                                key={`dot-${i}`}
-                                style={[
-                                    styles.dot,
-                                    {
-                                        left: p.x - dotSize / 2,
-                                        top: p.y - dotSize / 2,
-                                        width: dotSize,
-                                        height: dotSize,
-                                        borderRadius: dotSize / 2,
-                                        borderColor: dotBorderColor,
-                                        backgroundColor: dotFillColor,
-                                    }
-                                ]}
-                            />
-                        ))}
+                        {hasV1 && renderPoints(vital.v1, vital.color, '#FFF')}
+                        {hasV2 && renderPoints(vital.v2!, '#6B7280', '#FFF')}
                     </View>
                 </View>
 
@@ -160,48 +180,13 @@ export const VitalsCharts = ({ trends }: { trends: TrendData }) => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                {/* Visual Line Chart Icon Trend */}
                 <View style={styles.trendIconContainer}>
                     <Text style={{ fontSize: 16 }}>📈</Text>
                 </View>
-                <Text style={styles.title}>Vitals Trends (Last 7 Visits)</Text>
+                <Text style={styles.title}>Vitals Trends (Last 7 Data Points)</Text>
             </View>
 
-            {/* 1. Blood Pressure Chart: Orange theme matching Ramesh Kumar mockup */}
-            {renderChart(
-                'Blood Pressure (Systolic)',
-                trends.bpSystolic,
-                [140, 105, 70, 35, 0],
-                140,
-                '#F97316', // Orange line
-                '#F97316', // Orange border
-                '#FFF',    // White inner fill
-                10         // Larger, highly visible dots
-            )}
-
-            {/* 2. Heart Rate Chart: Dark Grey/Black theme matching mockup */}
-            {renderChart(
-                'Heart Rate (BPM)',
-                trends.heartRate,
-                [80, 60, 40, 20, 0],
-                80,
-                '#1F2937', // Dark charcoal/black line
-                '#1F2937', // Dark charcoal border
-                '#FFF',    // White inner fill
-                8
-            )}
-
-            {/* 3. Blood Sugar Chart: Emerald/Cyan theme matching mockup */}
-            {renderChart(
-                'Blood Sugar (mg/dL)',
-                trends.bloodSugar,
-                [140, 105, 70, 35, 0],
-                140,
-                '#10B981', // Emerald green line
-                '#10B981', // Emerald border
-                '#FFF',    // White inner fill
-                8
-            )}
+            {trends.map(vital => renderChart(vital))}
         </View>
     );
 };

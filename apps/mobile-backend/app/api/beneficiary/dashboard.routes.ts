@@ -297,6 +297,10 @@ router.get('/:userId/visits', authenticate, async (req: AuthRequest, res: Respon
                 companionName: v.careCompanion?.name || 'Care Companion',
                 type: 'Home Visit',
                 status: v.status,
+                changeRequestedAt: v.changeRequestedAt,
+                changeRequestStatus: v.changeRequestStatus,
+                changeResolutionReason: v.changeResolutionReason,
+                rawScheduledTime: v.scheduledTime,
             };
         };
 
@@ -307,6 +311,42 @@ router.get('/:userId/visits', authenticate, async (req: AuthRequest, res: Respon
             success: true, 
             data: { upcoming, past } 
         });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post('/visits/:visitId/request-change', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const visitId = req.params.visitId as string;
+        const { preferredDate, preferredTime, reason } = req.body;
+        
+        const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+        if (!visit) {
+            return res.status(404).json({ success: false, message: 'Visit not found' });
+        }
+        
+        const now = new Date();
+        const scheduled = new Date(visit.scheduledTime);
+        const diffHours = (scheduled.getTime() - now.getTime()) / (1000 * 60 * 60);
+        
+        if (diffHours < 48) {
+            return res.status(400).json({ success: false, message: 'Changes can only be requested at least 48 hours before the scheduled time.' });
+        }
+        
+        await prisma.visit.update({
+            where: { id: visitId },
+            data: {
+                changeRequestedAt: new Date(),
+                changePreferredDate: preferredDate,
+                changePreferredTime: preferredTime,
+                changeReason: reason,
+                changeRequestStatus: 'pending',
+                changeResolutionReason: null
+            }
+        });
+        
+        res.json({ success: true, message: 'Change request submitted successfully.' });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }

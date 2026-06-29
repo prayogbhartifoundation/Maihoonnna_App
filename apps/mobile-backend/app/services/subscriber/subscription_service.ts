@@ -218,16 +218,7 @@ export const purchaseSubscription = async (
   // 'BLOOD_GLUCOSE', 'TEMP', 'WEIGHT', 'PAIN', 'RESP'). Legacy aliases (HR, SUGAR, RR) are also
   // handled for backward compatibility.
   const vitalsInput = medicalData?.vitals || {};
-  const mappedVitals = {
-    trackBloodPressure:    !!(vitalsInput.BP    || vitalsInput.trackBloodPressure),
-    trackHeartRate:        !!(vitalsInput.PULSE || vitalsInput.HR || vitalsInput.trackHeartRate),
-    trackBloodSugar:       !!(vitalsInput.BLOOD_GLUCOSE || vitalsInput.SUGAR || vitalsInput.trackBloodSugar),
-    trackTemperature:      !!(vitalsInput.TEMP  || vitalsInput.trackTemperature),
-    trackOxygenSaturation: !!(vitalsInput.SPO2  || vitalsInput.trackOxygenSaturation),
-    trackWeight:           !!(vitalsInput.WEIGHT || vitalsInput.trackWeight),
-    trackPainLevel:        !!(vitalsInput.PAIN  || vitalsInput.trackPainLevel),
-    trackRespiratoryRate:  !!(vitalsInput.RESP  || vitalsInput.RR || vitalsInput.trackRespiratoryRate),
-  };
+
 
   // 1b. Create Beneficiary mapped to the logged-in User
   const beneficiary = await prisma.beneficiary.create({
@@ -254,9 +245,6 @@ export const purchaseSubscription = async (
       primaryPhysicianName: medicalData?.physicianName || null,
       primaryPhysicianPhone: medicalData?.physicianPhone || null,
       hobbiesInterests: medicalData?.hobbies || [],
-
-      // Spread mapped vitals
-      ...mappedVitals,
 
       emergencyContacts: {
         create: finalEmergencyContacts.map((c: any) => ({
@@ -297,10 +285,9 @@ export const purchaseSubscription = async (
       vitalDefs.map((def: any) =>
         prisma.beneficiaryVitalConfig.upsert({
           where: {
-            beneficiaryId_vitalDefinitionId_effectiveFrom: {
+            beneficiaryId_vitalDefinitionId: {
               beneficiaryId: beneficiary.id,
               vitalDefinitionId: def.id,
-              effectiveFrom: today,
             }
           },
           update: { isActive: true },
@@ -310,7 +297,6 @@ export const purchaseSubscription = async (
             vitalDefinitionId: def.id,
             isActive: true,
             frequency: 'every_visit',
-            effectiveFrom: today,
           }
         })
       )

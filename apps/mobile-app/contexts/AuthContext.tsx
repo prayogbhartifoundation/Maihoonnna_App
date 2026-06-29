@@ -11,7 +11,9 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,10 +85,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Called after successful OTP verify or password login
   const login = useCallback(async (token: string, userData: UserData) => {
-    await Promise.all([
+    const promises: Promise<any>[] = [
       AsyncStorage.setItem('userToken', token),
       AsyncStorage.setItem('userData', JSON.stringify(userData)),
-    ]);
+    ];
+    if (Platform.OS !== 'web') {
+      promises.push(
+        SecureStore.setItemAsync('secureUserToken', token),
+        SecureStore.setItemAsync('secureUserData', JSON.stringify(userData))
+      );
+    }
+    await Promise.all(promises);
     setState({
       isLoading: false,
       isLoggedIn: true,

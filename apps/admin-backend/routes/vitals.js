@@ -24,7 +24,7 @@ const { prisma } = require('../lib/prisma');
 router.get('/', async (req, res) => {
   const { activeOnly } = req.query;
   try {
-    const where = {};
+    const where = { isLatestVersion: true };
     if (activeOnly === 'true') where.isActive = true;
     const vitals = await prisma.vitalDefinition.findMany({
       where,
@@ -40,7 +40,7 @@ router.get('/', async (req, res) => {
 // ─── POST /api/vitals ───────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   const {
-    code, name, unit, dataType, normalMin, normalMax, description, displayOrder,
+    code, name, category, unit, dataType, normalMin, normalMax, description, displayOrder,
     inputMin, inputMax,
     value1Label, value2Label, normalMin2, normalMax2,
     textOptions, alertOptions,
@@ -54,6 +54,7 @@ router.post('/', async (req, res) => {
       data: {
         code: code.trim().toUpperCase(),
         name: name.trim(),
+        category: category || null,
         unit: unit || null,
         dataType,
         inputMin: inputMin != null && inputMin !== '' ? parseFloat(inputMin) : null,
@@ -76,6 +77,8 @@ router.post('/', async (req, res) => {
         booleanAlertValue: booleanAlertValue != null ? Boolean(booleanAlertValue) : null,
         isActive: true,
         isSystemVital: false,
+        version: 1,
+        isLatestVersion: true,
       },
     });
     // Normalize response field name for frontend
@@ -291,10 +294,44 @@ router.patch('/:id', async (req, res) => {
   if (data.displayOrder !== undefined) data.displayOrder = parseInt(data.displayOrder) || 0;
 
   try {
-    const vital = await prisma.vitalDefinition.update({ where: { id }, data });
-    res.json({ success: true, data: { ...vital, isSystem: vital.isSystemVital } });
+    const existing = await prisma.vitalDefinition.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Vital not found' });
+    
+    const newVital = await prisma.$transaction(async (tx) => {
+      // 1. Mark existing as not latest
+      await tx.vitalDefinition.update({
+        where: { id },
+        data: { isLatestVersion: false }
+      });
+      
+      // 2. Find max version for this code
+      const maxVersionVital = await tx.vitalDefinition.findFirst({
+        where: { code: existing.code },
+        orderBy: { version: 'desc' }
+      });
+      
+      const newVersion = (maxVersionVital?.version || existing.version || 1) + 1;
+      
+      // 3. Create new row
+      const parentId = existing.parentDefinitionId || existing.id; // anchor to original
+      
+      // construct new data merging existing and updates
+      const newRowData = { ...existing, ...data };
+      delete newRowData.id;
+      delete newRowData.createdAt;
+      delete newRowData.updatedAt;
+      
+      newRowData.version = newVersion;
+      newRowData.isLatestVersion = true;
+      newRowData.parentDefinitionId = parentId;
+      
+      return await tx.vitalDefinition.create({
+        data: newRowData
+      });
+    });
+
+    res.json({ success: true, data: { ...newVital, isSystem: newVital.isSystemVital } });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ success: false, message: 'Vital not found' });
     console.error('PATCH /vitals/:id error:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }

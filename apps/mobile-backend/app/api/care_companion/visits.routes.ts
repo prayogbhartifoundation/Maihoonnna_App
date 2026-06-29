@@ -50,6 +50,11 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
           include: {
             medication: true
           }
+        },
+        vitalReadings: {
+          include: {
+            vitalDefinition: true
+          }
         }
       },
       orderBy: {
@@ -78,10 +83,21 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
       const dateObj = v.checkOutTime || v.scheduledTime || new Date();
       const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
 
-      const bp = v.bpSystolic && v.bpDiastolic ? `${v.bpSystolic}/${v.bpDiastolic}` : 'N/A';
-      const weight = v.weight ? `${v.weight} kg` : 'N/A';
-      const temp = v.temperature ? `${v.temperature}°C` : 'N/A';
-      const o2 = v.oxygenLevel ? `${v.oxygenLevel}%` : 'N/A';
+      let bp = 'N/A', weight = 'N/A', temp = 'N/A', o2 = 'N/A';
+      if ((v as any).vitalReadings) {
+        (v as any).vitalReadings.forEach((r: any) => {
+          const code = r.vitalDefinition?.code?.toUpperCase();
+          if ((code === 'BP' || code === 'BLOOD_PRESSURE') && r.valueNumeric !== null && r.valueNumeric2 !== null) {
+            bp = `${r.valueNumeric}/${r.valueNumeric2}`;
+          } else if ((code === 'WEIGHT' || code === 'BODY_WEIGHT') && r.valueNumeric !== null) {
+            weight = `${r.valueNumeric} kg`;
+          } else if ((code === 'TEMP' || code === 'TEMPERATURE') && r.valueNumeric !== null) {
+            temp = `${r.valueNumeric}°C`;
+          } else if ((code === 'SPO2' || code === 'OXYGEN_LEVEL') && r.valueNumeric !== null) {
+            o2 = `${r.valueNumeric}%`;
+          }
+        });
+      }
 
       const meds = v.medicationAdherenceRecords
         .filter(m => m.taken)
@@ -207,8 +223,26 @@ router.get('/:visitId/details', authenticate, async (req: Request, res: Response
       }
     });
 
-    const requiredVitalsRaw = configs.map(c => {
-      const def = c.vitalDefinition;
+    const configCodes = [...new Set(configs.map(c => c.vitalDefinition.code))];
+    const latestDefinitions = await prisma.vitalDefinition.findMany({
+      where: {
+        code: { in: configCodes },
+        isLatestVersion: true
+      }
+    });
+
+    const latestDefMap = new Map();
+    latestDefinitions.forEach(def => latestDefMap.set(def.code, def));
+
+    const uniqueCodes = new Set();
+    const deduplicatedConfigs = configs.filter(c => {
+      if (uniqueCodes.has(c.vitalDefinition.code)) return false;
+      uniqueCodes.add(c.vitalDefinition.code);
+      return true;
+    });
+
+    const requiredVitalsRaw = deduplicatedConfigs.map(c => {
+      const def = latestDefMap.get(c.vitalDefinition.code) || c.vitalDefinition;
       return {
         id: def.id,
         code: def.code,

@@ -1,6 +1,9 @@
 /**
- * Backfill script: creates BeneficiaryVitalConfig rows for legacy beneficiaries
- * who were enrolled before the relational vitals system was wired up during checkout.
+ * Backfill script: creates BeneficiaryVitalConfig rows for existing beneficiaries
+ * who were enrolled before the relational vitals system was introduced.
+ * Since all legacy track* boolean fields have been removed from the schema,
+ * this script now assigns ALL active vital definitions to every active beneficiary
+ * that does not already have a vitalConfig row.
  *
  * Run with:
  *   npx ts-node --transpile-only prisma/backfill_vital_configs.ts
@@ -8,88 +11,55 @@
 import prisma from '../app/core/database';
 
 async function main() {
-  console.log('🔄 Backfilling BeneficiaryVitalConfig for legacy beneficiaries...');
+  console.log('🔄 Backfilling BeneficiaryVitalConfig for existing beneficiaries...');
 
-  // Map legacy boolean flag → VitalDefinition code
-  const FLAG_TO_CODE: Record<string, string> = {
-    trackBloodPressure:    'BP',
-    trackHeartRate:        'PULSE',
-    trackBloodSugar:       'BLOOD_GLUCOSE',
-    trackTemperature:      'TEMP',
-    trackOxygenSaturation: 'SPO2',
-    trackWeight:           'WEIGHT',
-    trackPainLevel:        'PAIN',
-    trackRespiratoryRate:  'RESP',
-  };
+  // Fetch all active vital definitions once (latest versions only)
+  const vitalDefs = await prisma.vitalDefinition.findMany({
+    where: { isActive: true, isLatestVersion: true }
+  });
 
-  // Fetch all active vital definitions once
-  const vitalDefs = await prisma.vitalDefinition.findMany({ where: { isActive: true } });
-  const codeToId: Record<string, string> = {};
-  for (const def of vitalDefs) {
-    codeToId[def.code] = def.id;
+  if (vitalDefs.length === 0) {
+    console.log('⚠️  No active vital definitions found. Create some vitals in the admin panel first.');
+    return;
   }
 
-  // Fetch all beneficiaries with at least one track flag = true
+  // Fetch all active beneficiaries
   const beneficiaries = await prisma.beneficiary.findMany({
-    where: {
-      isActive: true,
-      OR: [
-        { trackBloodPressure: true },
-        { trackHeartRate: true },
-        { trackBloodSugar: true },
-        { trackTemperature: true },
-        { trackOxygenSaturation: true },
-        { trackWeight: true },
-        { trackPainLevel: true },
-        { trackRespiratoryRate: true },
-      ],
-    },
+    where: { isActive: true },
     include: {
       vitalConfigs: { select: { vitalDefinitionId: true } },
     },
   });
 
-  const today = new Date(new Date().setHours(0, 0, 0, 0));
   let created = 0;
   let skipped = 0;
 
   for (const b of beneficiaries) {
     const existingDefIds = new Set(b.vitalConfigs.map((c: any) => c.vitalDefinitionId));
 
-    for (const [flag, code] of Object.entries(FLAG_TO_CODE)) {
-      const isTracked = (b as any)[flag] === true;
-      if (!isTracked) continue;
-
-      const defId = codeToId[code];
-      if (!defId) {
-        console.warn(`  ⚠️  No VitalDefinition found for code "${code}" — skipping`);
-        continue;
-      }
-
-      if (existingDefIds.has(defId)) {
+    for (const def of vitalDefs) {
+      if (existingDefIds.has(def.id)) {
         skipped++;
-        continue; // already has a relational config
+        continue;
       }
 
       await prisma.beneficiaryVitalConfig.upsert({
         where: {
-          beneficiaryId_vitalDefinitionId_effectiveFrom: {
+          beneficiaryId_vitalDefinitionId: {
             beneficiaryId: b.id,
-            vitalDefinitionId: defId,
-            effectiveFrom: today,
+            vitalDefinitionId: def.id,
           },
         },
         update: { isActive: true },
         create: {
           beneficiaryId: b.id,
-          vitalDefinitionId: defId,
+          vitalDefinitionId: def.id,
           isActive: true,
           frequency: 'every_visit',
-          effectiveFrom: today,
         },
       });
       created++;
-      console.log(`  ✅  ${b.name} → ${code}`);
+      console.log(`  ✅  ${b.name} → ${def.code}`);
     }
   }
 

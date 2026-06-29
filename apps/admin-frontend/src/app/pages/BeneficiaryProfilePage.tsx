@@ -10,6 +10,7 @@ import { StatusChip } from '../components/common/StatusChip';
 import { ProfilePhotoUploader } from '../components/common/ProfilePhotoUploader';
 import { RefreshButton } from '../components/common/RefreshButton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { Switch } from '../components/ui/switch';
@@ -47,6 +48,7 @@ export default function BeneficiaryProfilePage() {
   const [visits, setVisits] = useState<any[]>([]);
   const [visitsLoading, setVisitsLoading] = useState(false);
   const [openModalVisitId, setOpenModalVisitId] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<any>(null);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const [activeTab, setActiveTab] = useState(queryParams.get('tab') || 'profile');
@@ -444,6 +446,57 @@ export default function BeneficiaryProfilePage() {
                       </div>
                    </div>
                 </div>
+
+                {/* Medical Records Section */}
+                <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#E7DED6]">
+                   <h3 className="text-lg font-black text-gray-800 mb-2">Medical Records</h3>
+                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Uploaded medical documents by the subscriber</p>
+                   
+                   {!details.medicalRecords || details.medicalRecords.length === 0 ? (
+                      <div className="py-12 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                         <p className="text-sm font-bold text-gray-400 uppercase">No documents uploaded yet</p>
+                      </div>
+                   ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {details.medicalRecords.map((doc: any) => (
+                          <div 
+                            key={doc.id} 
+                            className={`p-5 rounded-[24px] border flex items-center justify-between transition-all ${
+                              doc.isActive 
+                                ? 'bg-white border-orange-100 hover:border-[#FF7A00]/40' 
+                                : 'bg-gray-50/50 border-gray-100 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-4 min-w-0">
+                              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${doc.isActive ? 'bg-orange-50 text-[#FF7A00]' : 'bg-gray-200 text-gray-400'}`}>
+                                <Activity size={20} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className={`font-bold text-sm truncate ${doc.isActive ? 'text-gray-800' : 'text-gray-500 line-through'}`}>{doc.title}</p>
+                                  {!doc.isActive && (
+                                    <span className="text-[9px] font-black px-1.5 py-0.5 bg-red-100 text-red-600 rounded">REMOVED</span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] font-black text-gray-400 uppercase mt-1">
+                                  Uploaded: {new Date(doc.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {doc.fileUrl && (
+                              <button 
+                                onClick={() => setPreviewDoc(doc)}
+                                className="inline-flex items-center justify-center p-2 rounded-xl bg-orange-50 text-[#FF7A00] hover:bg-orange-100 transition-colors"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                   )}
+                </div>
               </TabsContent>
 
               {/* ──────────────── MEMBERSHIP & PACKAGE USAGE TAB ──────────────── */}
@@ -819,6 +872,37 @@ export default function BeneficiaryProfilePage() {
           refreshDetailsBackground();
         }} 
       />
+
+      {/* Document Preview Overlay */}
+      {previewDoc && (
+        <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
+          <DialogContent className="sm:max-w-4xl w-full h-[85vh] flex flex-col p-6 bg-white border border-[#E7DED6]">
+            <DialogHeader className="mb-4">
+              <DialogTitle className="text-lg font-black text-gray-800 uppercase tracking-wide">
+                Preview Document: {previewDoc.title}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Document preview window
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 w-full bg-gray-50 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-100">
+              {previewDoc.mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(previewDoc.fileUrl) ? (
+                <img 
+                  src={previewDoc.fileUrl} 
+                  alt={previewDoc.title} 
+                  className="max-w-full max-h-full object-contain" 
+                />
+              ) : (
+                <iframe 
+                  src={previewDoc.fileUrl} 
+                  title={previewDoc.title} 
+                  className="w-full h-full border-0"
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

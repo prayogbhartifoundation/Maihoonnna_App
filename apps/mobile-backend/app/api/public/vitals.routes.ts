@@ -9,7 +9,7 @@ router.get('/', async (req: Request, res: Response) => {
   const { activeOnly } = req.query;
   
   try {
-    const where: any = {};
+    const where: any = { isLatestVersion: true };
     if (activeOnly === 'true') {
       where.isActive = true;
     }
