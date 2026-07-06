@@ -35,55 +35,7 @@ export const getSubscriberProfile = async (subscriberId: string, beneficiaryId?:
     pincode: '',
   };
 
-  // 1. Get Beneficiary Count
-  const beneficiaryCount = await prisma.beneficiary.count({
-    where: { subscriberId }
-  });
-
-  // 2. Get Active Subscriptions & Aggregate Hours
-  const activeSubscriptions = await prisma.subscription.findMany({
-    where: {
-      subscriberId,
-      isActive: true
-    },
-    include: {
-      package: true,
-      benefitBalances: {
-        include: {
-          benefit: true
-        }
-      }
-    }
-  });
-
-  let scopedSubscriptions = activeSubscriptions;
-  if (beneficiaryId) {
-    scopedSubscriptions = activeSubscriptions.filter(sub => sub.beneficiaryId === beneficiaryId);
-  }
-
-  let totalHours = 0;
-  let usedHours = 0;
-  let currentPlan = null;
-
-  if (scopedSubscriptions.length > 0) {
-    // For "Quick Stats", we sum across scoped plans
-    scopedSubscriptions.forEach(sub => {
-      totalHours += sub.hoursTotal || 0;
-      usedHours += sub.hoursUsed || 0;
-    });
-
-    // For the "Subscription Tab" details, we pick the most recent/primary one
-    const latest = scopedSubscriptions[0];
-    currentPlan = {
-        name: latest.package.name,
-        hoursTotal: latest.hoursTotal,
-        hoursUsed: latest.hoursUsed,
-        nextBillingDate: latest. renewalDate || latest.endDate,
-        isActive: latest.isActive
-    };
-  }
-
-  // 3. Get Beneficiaries List for management
+  // 1. Get Beneficiary List and Count
   const beneficiaries = await prisma.beneficiary.findMany({
     where: { subscriberId },
     select: {
@@ -94,6 +46,76 @@ export const getSubscriberProfile = async (subscriberId: string, beneficiaryId?:
         photo: true
     }
   });
+  const beneficiaryCount = beneficiaries.length;
+
+  // 2. Get Active Subscriptions & Aggregate Hours
+  const activeSubscriptions = await prisma.subscription.findMany({
+    where: {
+      subscriberId,
+      isActive: true
+    },
+    include: {
+      package: true,
+      packageVersion: true,
+      benefitBalances: {
+        include: {
+          benefit: true
+        }
+      }
+    }
+  });
+
+  let effectiveBeneficiaryId = beneficiaryId;
+  if (!effectiveBeneficiaryId && beneficiaries.length === 1) {
+    effectiveBeneficiaryId = beneficiaries[0].id;
+  }
+
+  let scopedSubscriptions = activeSubscriptions;
+  if (effectiveBeneficiaryId) {
+    scopedSubscriptions = activeSubscriptions.filter(sub => sub.beneficiaryId === effectiveBeneficiaryId);
+  }
+
+  let totalHours = 0;
+  let usedHours = 0;
+  let currentPlan = null;
+
+  if (scopedSubscriptions.length > 0) {
+    // For "Quick Stats", we sum across scoped plans
+    scopedSubscriptions.forEach(sub => {
+      const hourBalances = sub.benefitBalances.filter(
+        b => b.benefit.unitLabel?.toLowerCase().includes('hour')
+      );
+      if (hourBalances.length > 0) {
+        totalHours += hourBalances.reduce((sum, b) => sum + (b.totalUnits || 0), 0);
+        usedHours += hourBalances.reduce((sum, b) => sum + (b.usedUnits || 0), 0);
+      } else {
+        totalHours += sub.hoursTotal || 0;
+        usedHours += sub.hoursUsed || 0;
+      }
+    });
+
+    // For the "Subscription Tab" details, we pick the most recent/primary one
+    const latest = scopedSubscriptions[0];
+    const latestHourBalances = latest.benefitBalances.filter(
+      b => b.benefit.unitLabel?.toLowerCase().includes('hour')
+    );
+    let latestTotalHours = latest.hoursTotal;
+    let latestUsedHours = latest.hoursUsed;
+    if (latestHourBalances.length > 0) {
+      latestTotalHours = latestHourBalances.reduce((sum, b) => sum + (b.totalUnits || 0), 0);
+      latestUsedHours = latestHourBalances.reduce((sum, b) => sum + (b.usedUnits || 0), 0);
+    }
+
+    currentPlan = {
+        name: latest.packageVersion?.name || latest.package?.name,
+        hoursTotal: latestTotalHours,
+        hoursUsed: latestUsedHours,
+        nextBillingDate: latest.renewalDate || latest.endDate,
+        isActive: latest.isActive
+    };
+  }
+
+  // Beneficiaries list already loaded at the top
 
   return {
     user: userWithFallbackAddress,

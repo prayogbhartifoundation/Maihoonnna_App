@@ -45,8 +45,8 @@ router.get('/check-pincode', async (req: Request, res: Response) => {
           available: true,
           location: `${zone.city}, ${zone.state}`,
           stats: {
-            companions: careCompanionCount > 0 ? careCompanionCount : 15,
-            centers: centersCount > 0 ? centersCount : 2,
+            companions: careCompanionCount,
+            centers: centersCount,
           }
         }
       });

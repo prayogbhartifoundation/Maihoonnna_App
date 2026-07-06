@@ -123,63 +123,14 @@ router.post('/', async (req, res) => {
         },
       });
 
-      // B. Deduct Benefit (only if benefitId provided)
+      // B. Benefit is stored on the visit (above) but NOT deducted here.
+      //    Deduction happens at CHECKOUT (PATCH /:id/complete) ONLY after the CC actually
+      //    completed the visit. This means:
+      //      • Missed visits (CC no-show) → benefit is never touched → no refund needed
+      //      • Cancelled visits           → benefit is never touched → no refund needed
+      //      • Completed visits           → deducted at checkout exactly
       if (benefitId) {
-        const benefit = await tx.benefit.findUnique({
-          where: { id: benefitId },
-          select: { id: true, name: true, unitLabel: true },
-        });
-
-        if (!benefit) throw new Error('Benefit not found');
-
-        const unitLabelLower = (benefit.unitLabel || '').toLowerCase();
-        // Match "hour", "hours", "per hour", "hourly" etc.
-        const isHourBased = unitLabelLower.includes('hour');
-        // Match "visit", "visits", "per visit" etc. Or if no label at all → default visit-based
-        const isVisitBased = !benefit.unitLabel || unitLabelLower.includes('visit');
-
-        console.log(`[VISIT SCHEDULE] benefitId=${benefitId} name="${benefit.name}" unitLabel="${benefit.unitLabel}" → isVisitBased=${isVisitBased} isHourBased=${isHourBased}`);
-
-
-        if (isVisitBased) {
-          // Deduct 1 unit immediately at scheduling for visit-count benefits
-          const subscription = await tx.subscription.findFirst({
-            where: { beneficiaryId, isActive: true, endDate: { gte: new Date() } },
-          });
-          if (!subscription) throw new Error('No active subscription found for this beneficiary');
-
-          console.log(`[VISIT SCHEDULE] Deducting 1 visit unit from benefit "${benefit.name}" (subscriptionId=${subscription.id})`);
-
-          await deductBenefitBalance(tx, {
-            subscriptionId: subscription.id,
-            beneficiaryId,
-            benefitId,
-            visitId: visit.id,
-            unitsToDeduct: 1,
-            hoursConsumed: 0, // not hour-based
-            description: `Visit scheduled: ${visit.encounterId} — benefit: ${benefit.name}`,
-          });
-        } else if (isHourBased) {
-          console.log(`[VISIT SCHEDULE] Hour-based benefit — deferring deduction to checkout`);
-        } else {
-          console.log(`[VISIT SCHEDULE] Unknown unitLabel "${benefit.unitLabel}" — treating as visit-based, deducting 1 unit`);
-          const subscription = await tx.subscription.findFirst({
-            where: { beneficiaryId, isActive: true, endDate: { gte: new Date() } },
-          });
-          if (subscription) {
-            await deductBenefitBalance(tx, {
-              subscriptionId: subscription.id,
-              beneficiaryId,
-              benefitId,
-              visitId: visit.id,
-              unitsToDeduct: 1,
-              hoursConsumed: 0,
-              description: `Visit scheduled: ${visit.encounterId} — benefit: ${benefit.name}`,
-            });
-          }
-        }
-        // Hour-based benefits: deduction happens at checkout (PATCH /:id/complete)
-        // benefitId is already saved on the visit record above — no notes hack needed
+        console.log(`[VISIT SCHEDULE] benefitId=${benefitId} stored on visit. Deduction deferred to checkout.`);
       }
 
       // C. Send Notifications
@@ -312,7 +263,9 @@ router.patch('/:id/complete', async (req, res) => {
         },
       });
 
-      // Deduct hours benefit if applicable
+      // ── Deduct benefit at CHECKOUT (the only place deduction happens) ──────────
+      // Deduction was intentionally NOT done at scheduling.
+      // This ensures missed visits (CC no-show) never consume the user's benefit.
       if (hoursBenefitId) {
         const benefit = await tx.benefit.findUnique({
           where: { id: hoursBenefitId },
@@ -320,36 +273,58 @@ router.patch('/:id/complete', async (req, res) => {
         });
 
         if (benefit) {
-          const isHourBased = benefit.unitLabel?.toLowerCase() === 'hours' || benefit.unitLabel?.toLowerCase() === 'hour';
-          if (isHourBased) {
-            // Billing rule:
-            //   < 60 min  → charge exactly 1h  (e.g. 50 min → 1.0h)
-            //   >= 60 min → charge actual time  (e.g. 65 min → 1.0833h = "1h 5min")
-            const billableMinutes = Math.max(60, actualMinutes);
-            const hoursConsumed = billableMinutes / 60;   // exact float, minimum 1.0
-            const unitsToDeduct = hoursConsumed;          // float stored; formatHours() displays it cleanly
+          const unitLabelLower = (benefit.unitLabel || '').toLowerCase();
+          const isHourBased = unitLabelLower.includes('hour') || unitLabelLower.includes('hr');
+          // Session/visit-count: anything not hour-based (includes 'visit', 'session', or no label)
+          const isSessionBased = !isHourBased;
 
-            const subscription = await tx.subscription.findFirst({
-              where: { beneficiaryId: visit.beneficiaryId, isActive: true, endDate: { gte: new Date() } },
+          console.log(`[COMPLETE] benefitId=${hoursBenefitId} name="${benefit.name}" unitLabel="${benefit.unitLabel}" → isHourBased=${isHourBased} isSessionBased=${isSessionBased}`);
+
+          const subscription = await tx.subscription.findFirst({
+            where: { beneficiaryId: visit.beneficiaryId, isActive: true, endDate: { gte: new Date() } },
+          });
+
+          if (!subscription) {
+            console.warn(`[COMPLETE] No active subscription found for beneficiary ${visit.beneficiaryId} — skipping deduction.`);
+          } else if (isHourBased) {
+            // HOUR-BASED: charge actual duration (min 1h billing rule)
+            //   < 60 min  → charge exactly 1h
+            //   >= 60 min → charge actual time
+            const billableMinutes = Math.max(60, actualMinutes);
+            const hoursConsumed = billableMinutes / 60;
+
+            console.log(`[COMPLETE] Hour-based — deducting ${hoursConsumed}h from "${benefit.name}" (sub=${subscription.id})`);
+            await deductBenefitBalance(tx, {
+              subscriptionId: subscription.id,
+              beneficiaryId: visit.beneficiaryId,
+              benefitId: hoursBenefitId,
+              visitId: id,
+              unitsToDeduct: hoursConsumed,
+              hoursConsumed,
+              description: `Visit completed: ${visit.encounterId} — ${actualMinutes} min, billed as ${hoursConsumed.toFixed(2)}h`,
             });
 
-            if (subscription) {
-              await deductBenefitBalance(tx, {
-                subscriptionId: subscription.id,
-                beneficiaryId: visit.beneficiaryId,
-                benefitId: hoursBenefitId,
-                visitId: id,
-                unitsToDeduct,
-                hoursConsumed: hoursConsumed,
-                description: `Visit completed: ${visit.encounterId} — actual ${actualMinutes} min, billed as ${hoursConsumed}h (min 1h rule)`,
-              });
+            await tx.subscription.update({
+              where: { id: subscription.id },
+              data: { hoursUsed: { increment: hoursConsumed } },
+            });
+          } else {
+            // SESSION/VISIT-COUNT: charge 1 unit for completing this visit
+            console.log(`[COMPLETE] Session-based — deducting 1 unit from "${benefit.name}" (sub=${subscription.id})`);
+            await deductBenefitBalance(tx, {
+              subscriptionId: subscription.id,
+              beneficiaryId: visit.beneficiaryId,
+              benefitId: hoursBenefitId,
+              visitId: id,
+              unitsToDeduct: 1,
+              hoursConsumed: actualMinutes / 60,
+              description: `Visit completed: ${visit.encounterId} — session benefit "${benefit.name}" consumed`,
+            });
 
-              // Also update subscription.hoursUsed for quick access (whole hours only)
-              await tx.subscription.update({
-                where: { id: subscription.id },
-                data: { hoursUsed: { increment: hoursConsumed } },
-              });
-            }
+            await tx.subscription.update({
+              where: { id: subscription.id },
+              data: { visitsCompleted: { increment: 1 } },
+            });
           }
         }
       }
@@ -728,6 +703,18 @@ router.delete('/:id', async (req, res) => {
 
     await prisma.$transaction(async (tx) => {
       await tx.visit.update({ where: { id }, data: { status: 'cancelled' } });
+
+      // No benefit refund needed on cancel:
+      // Deduction only happens at checkout (visit completion), NOT at scheduling.
+      // If the visit never completed (being cancelled now), no balance was ever touched.
+      // Idempotency safety: if somehow a log exists (e.g. completed then re-cancelled), remove it.
+      const log = await tx.packageHoursLog.findUnique({ where: { visitId: id } });
+      if (log) {
+        console.warn(`[CANCEL VISIT] Found unexpected log for visit ${id} — removing orphan log (no balance change).`);
+        await tx.packageHoursLog.delete({ where: { id: log.id } });
+      }
+
+      console.log(`[CANCEL VISIT] Visit ${id} cancelled. No benefit deduction had occurred — no refund needed.`);
 
       const formattedTime = visit.scheduledTime.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 

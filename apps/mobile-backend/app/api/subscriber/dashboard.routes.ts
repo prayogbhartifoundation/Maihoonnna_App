@@ -106,20 +106,32 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
     // Core data
     const allActiveSubscriptions = await prisma.subscription.findMany({
       where: { subscriberId: userId, isActive: true },
-      include: { package: true }
+      include: {
+        package: true,
+        benefitBalances: {
+          include: {
+            benefit: true
+          }
+        }
+      }
     });
 
     const beneficiaries = await prisma.beneficiary.findMany({
       where: { subscriberId: userId }
     });
 
-    let benIds = beneficiaries.map((b: any) => b.id);
-    if (targetBeneficiaryId && benIds.includes(targetBeneficiaryId)) {
-      benIds = [targetBeneficiaryId];
+    let effectiveBeneficiaryId = targetBeneficiaryId;
+    if (!effectiveBeneficiaryId && beneficiaries.length === 1) {
+      effectiveBeneficiaryId = beneficiaries[0].id;
     }
 
-    const activeSubscriptions = targetBeneficiaryId 
-      ? allActiveSubscriptions.filter((s: any) => s.beneficiaryId === targetBeneficiaryId)
+    let benIds = beneficiaries.map((b: any) => b.id);
+    if (effectiveBeneficiaryId && benIds.includes(effectiveBeneficiaryId)) {
+      benIds = [effectiveBeneficiaryId];
+    }
+
+    const activeSubscriptions = effectiveBeneficiaryId 
+      ? allActiveSubscriptions.filter((s: any) => s.beneficiaryId === effectiveBeneficiaryId)
       : allActiveSubscriptions;
 
     // Calculate visits this week
@@ -160,9 +172,24 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
       avgHappiness = Math.round(totalScore / scopedBeneficiaries.length);
     }
 
-    // Active Hours (Actual aggregation from subscriptions)
-    const activeHours = activeSubscriptions.reduce((sum: any, sub: any) => sum + (sub.hoursUsed || 0), 0);
-    const remainingHours = activeSubscriptions.reduce((sum: any, sub: any) => sum + (Math.max(0, (sub.hoursTotal || 0) - (sub.hoursUsed || 0))), 0);
+    // Active Hours (Actual aggregation from hourly benefit balances if available, fallback to subscription columns)
+    let activeHours = 0;
+    let totalHours = 0;
+
+    activeSubscriptions.forEach((sub: any) => {
+      const hourBalances = (sub.benefitBalances || []).filter(
+        (b: any) => b.benefit.unitLabel?.toLowerCase().includes('hour')
+      );
+      if (hourBalances.length > 0) {
+        activeHours += hourBalances.reduce((sum: number, b: any) => sum + (b.usedUnits || 0), 0);
+        totalHours += hourBalances.reduce((sum: number, b: any) => sum + (b.totalUnits || 0), 0);
+      } else {
+        activeHours += sub.hoursUsed || 0;
+        totalHours += sub.hoursTotal || 0;
+      }
+    });
+
+    const remainingHours = Math.max(0, totalHours - activeHours);
 
     // Recent Updates (Last 3 notes filled by Care Companions)
     let recentUpdates: any[] = [];

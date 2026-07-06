@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { addNotificationReceivedListener } from '@/services/notifications';
 import { API_URL } from '@/constants/api';
 
 export default function NotificationsScreen() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -94,7 +95,23 @@ export default function NotificationsScreen() {
     <View style={styles.container}>
       <Stack.Screen 
         options={{ 
+          headerShown: true,
           title: 'Notifications',
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/');
+                }
+              }} 
+              style={styles.backButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          ),
           headerRight: () => (
             <TouchableOpacity onPress={markAllAsRead} style={styles.headerButton}>
               <Text style={styles.headerButtonText}>Mark all read</Text>
@@ -132,6 +149,9 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 40,
+  },
+  backButton: {
+    marginLeft: 16,
   },
   headerButton: {
     marginRight: 16,

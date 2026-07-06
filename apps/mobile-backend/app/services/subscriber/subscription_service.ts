@@ -39,6 +39,85 @@ function parseDob(dobStr: string | null | undefined): Date | null {
   return isNaN(parsed.getTime()) ? null : parsed;
 }
 
+async function publishPackageVersion(tx: any, packageId: string): Promise<any> {
+  const pkg = await tx.subscriptionPackage.findUnique({
+    where: { id: packageId },
+    include: {
+      packageBenefits: {
+        include: {
+          benefit: true,
+        },
+      },
+    },
+  });
+
+  if (!pkg) {
+    throw new Error(`SubscriptionPackage not found with id: ${packageId}`);
+  }
+
+  const packageCode = pkg.type;
+
+  const maxVersionRecord = await tx.packageVersion.findFirst({
+    where: { packageCode },
+    orderBy: { version: 'desc' },
+    select: { version: true },
+  });
+
+  const nextVersion = maxVersionRecord ? maxVersionRecord.version + 1 : 1;
+
+  await tx.packageVersion.updateMany({
+    where: { packageCode, isLatest: true },
+    data: { isLatest: false },
+  });
+
+  const newVersion = await tx.packageVersion.create({
+    data: {
+      packageCode,
+      version: nextVersion,
+      name: pkg.name,
+      tagline: pkg.tagline,
+      description: pkg.description,
+      basePrice: pkg.basePrice,
+      mrp: pkg.mrp,
+      currency: pkg.currency,
+      billingCycle: pkg.billingCycle,
+      durationMonths: pkg.durationMonths,
+      isFreeTrial: pkg.isFreeTrial,
+      trialDurationDays: pkg.trialDurationDays,
+      visitsPerWeek: pkg.visitsPerWeek,
+      hoursPerMonth: pkg.hoursPerMonth,
+      maxBeneficiaries: pkg.maxBeneficiaries,
+      features: pkg.features,
+      highlightFeatures: pkg.highlightFeatures,
+      color: pkg.color,
+      isPopular: pkg.isPopular,
+      isLatest: true,
+      isActive: pkg.isActive,
+      sortOrder: pkg.sortOrder,
+      discountPercentage: pkg.discountPercentage,
+      miscellaneousCost: pkg.miscellaneousCost,
+    },
+  });
+
+  if (pkg.packageBenefits.length > 0) {
+    await tx.packageVersionBenefit.createMany({
+      data: pkg.packageBenefits.map((pb: any) => ({
+        packageVersionId: newVersion.id,
+        benefitId: pb.benefitId,
+        snapshotName: pb.benefit?.name || 'Benefit',
+        snapshotUnitLabel: pb.benefit?.unitLabel || 'visits',
+        unitsIncluded: pb.unitsIncluded,
+        unitsPeriod: pb.unitsPeriod,
+        isUnlimited: pb.isUnlimited,
+        displayOrder: pb.displayOrder,
+        notes: pb.notes,
+      })),
+    });
+  }
+
+  return newVersion;
+}
+
 export const purchaseSubscription = async (
   userId: string,
   packageId: string, // We map this to the package type string
@@ -137,7 +216,6 @@ export const purchaseSubscription = async (
     appliedCouponId = validation.couponId || null;
   }
 
-
   // --- Start Medical Data Parsing ---
   const conditionIds: string[] = [];
   if (medicalData?.conditions && Array.isArray(medicalData.conditions)) {
@@ -159,7 +237,7 @@ export const purchaseSubscription = async (
       }
   }
 
-  const mappedMedications = [];
+  const mappedMedications: any[] = [];
   if (medicalData?.medications && Array.isArray(medicalData.medications)) {
       for (const med of medicalData.medications) {
           // Map frequency string to enum (basic fallback)
@@ -182,108 +260,145 @@ export const purchaseSubscription = async (
   }
   // --- End Medical Data Parsing ---
 
-  let finalEmergencyContacts: any[] = [];
+  const finalEmergencyContacts: any[] = [];
+
+  // 1. Check direct emergencyContactsRaw object (primary/secondary properties)
   if (emergencyContactsRaw) {
-      if (emergencyContactsRaw.primaryName || emergencyContactsRaw.primaryPhone) {
-          finalEmergencyContacts.push({
-              name: emergencyContactsRaw.primaryName || "Primary Contact",
-              phone: emergencyContactsRaw.primaryPhone || "",
-              relation: "Primary Contact",
-              email: emergencyContactsRaw.primaryEmail || ""
-          });
-      }
-      if (emergencyContactsRaw.secondaryName || emergencyContactsRaw.secondaryPhone) {
-          finalEmergencyContacts.push({
-              name: emergencyContactsRaw.secondaryName || "Secondary Contact",
-              phone: emergencyContactsRaw.secondaryPhone || "",
-              relation: "Secondary Contact",
-              email: emergencyContactsRaw.secondaryEmail || ""
-          });
-      }
+    if (emergencyContactsRaw.primaryName || emergencyContactsRaw.primaryPhone) {
+      finalEmergencyContacts.push({
+        name: emergencyContactsRaw.primaryName || 'Primary Contact',
+        phone: String(emergencyContactsRaw.primaryPhone || '').replace(/\D/g, '').slice(-10) || '0000000000',
+        relation: emergencyContactsRaw.primaryRelation || 'Primary Contact',
+        email: emergencyContactsRaw.primaryEmail || '',
+      });
+    }
+    if (emergencyContactsRaw.secondaryName || emergencyContactsRaw.secondaryPhone) {
+      finalEmergencyContacts.push({
+        name: emergencyContactsRaw.secondaryName || 'Secondary Contact',
+        phone: String(emergencyContactsRaw.secondaryPhone || '').replace(/\D/g, '').slice(-10) || '0000000000',
+        relation: emergencyContactsRaw.secondaryRelation || 'Secondary Contact',
+        email: emergencyContactsRaw.secondaryEmail || '',
+      });
+    }
   }
 
-  if (finalEmergencyContacts.length === 0) {
-      const subscriberUser = await prisma.user.findUnique({
-          where: { id: userId }
-      });
+  // 2. Check beneficiaryData.emergencyContacts array format
+  const bDataAny = beneficiaryData as any;
+  if (finalEmergencyContacts.length === 0 && bDataAny.emergencyContacts && Array.isArray(bDataAny.emergencyContacts)) {
+    for (const ec of bDataAny.emergencyContacts) {
+      if (ec.name && ec.phone) {
+        finalEmergencyContacts.push({
+          name: ec.name,
+          phone: String(ec.phone).replace(/\D/g, '').slice(-10),
+          relation: ec.relation || 'Emergency',
+          email: ec.email || '',
+        });
+      }
+    }
+  }
+
+  // 3. Fallback to subscriber contact details if none are supplied
+  if (finalEmergencyContacts.length === 0 && medicalData && (medicalData as any).emergencyContacts && Array.isArray((medicalData as any).emergencyContacts)) {
+    const rawEC = (medicalData as any).emergencyContacts[0];
+    if (rawEC && rawEC.name && rawEC.phone) {
       finalEmergencyContacts.push({
-          name: subscriberUser?.name || "Subscriber",
-          phone: subscriberUser?.phone || "0000000000",
-          relation: beneficiaryData.relationship || "Subscriber"
+        name: rawEC.name,
+        phone: String(rawEC.phone).replace(/\D/g, '').slice(-10),
+        relation: rawEC.relation || 'Emergency',
+        email: rawEC.secondaryEmail || '',
       });
+    }
+  }
+
+  // 4. Default fallback: subscriber profile
+  if (finalEmergencyContacts.length === 0) {
+    const subscriberUser = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    finalEmergencyContacts.push({
+      name: subscriberUser?.name || 'Subscriber',
+      phone: subscriberUser?.phone || '0000000000',
+      relation: beneficiaryData.relationship || 'Subscriber',
+    });
   }
 
   // Map Vitals to model fields
-  // The enrollment form sends vitals keyed by vitalDefinition.code (e.g. 'PULSE', 'BP', 'SPO2',
-  // 'BLOOD_GLUCOSE', 'TEMP', 'WEIGHT', 'PAIN', 'RESP'). Legacy aliases (HR, SUGAR, RR) are also
-  // handled for backward compatibility.
   const vitalsInput = medicalData?.vitals || {};
 
-
-  // 1b. Create Beneficiary mapped to the logged-in User
-  const beneficiary = await prisma.beneficiary.create({
-    data: {
-      id: generateUUID(),
-      userId: newBeneficiaryUser.id,
-      subscriberId: userId,
-      name: beneficiaryData.name,
-      age: parseInt(String(beneficiaryData.age || 65), 10),
-      dateOfBirth: dobDate,
-      gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
-      address: beneficiaryData.address || "Not provided",
-      flatPlot: beneficiaryData.flatPlot || null,
-      streetArea: beneficiaryData.streetArea || null,
-      landmark: beneficiaryData.landmark || null,
-      city: beneficiaryData.city || null,
-      state: beneficiaryData.state || null,
-      pincode: beneficiaryData.pincode || null,
-      latitude: beneficiaryData.latitude || null,
-      longitude: beneficiaryData.longitude || null,
-      relationship: beneficiaryData.relationship || null,
-      
-      // Hook up parsed medical fields
-      primaryPhysicianName: medicalData?.physicianName || null,
-      primaryPhysicianPhone: medicalData?.physicianPhone || null,
-      hobbiesInterests: medicalData?.hobbies || [],
-
-      emergencyContacts: {
-        create: finalEmergencyContacts.map((c: any) => ({
-          id: generateUUID(),
-          name: c.name,
-          phone: c.phone,
-          relationship: c.relation || 'Emergency',
-          email: c.email || '',
-        })),
-      },
-      conditions: conditionIds.length > 0 ? {
-          create: conditionIds.map(cid => ({
-              id: generateUUID(),
-              conditionId: cid,
-              severity: 'moderate' as any
-          }))
-      } : undefined,
-      medicationList: mappedMedications.length > 0 ? {
-          create: mappedMedications
-      } : undefined
-    }
-  });
-
-  // 1c. Create BeneficiaryVitalConfig rows for EVERY vital the subscriber checked.
-  //     This covers both the 8 system vitals AND any custom vitals added via the admin module.
-  //     Without this step, custom vitals are silently ignored.
-  const checkedVitalCodes = Object.entries(vitalsInput)
-    .filter(([, checked]) => !!checked)
-    .map(([code]) => code.trim().toUpperCase());
-
-  if (checkedVitalCodes.length > 0) {
-    const vitalDefs = await prisma.vitalDefinition.findMany({
-      where: { code: { in: checkedVitalCodes }, isActive: true }
+  // Run the creation flow inside a single database transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // 1a. Create User record for beneficiary
+    const newBeneficiaryUser = await tx.user.create({
+      data: {
+        id: generateUUID(),
+        phone: beneficiaryPhone,
+        name: beneficiaryData.name,
+        role: 'beneficiary',
+        age: parseInt(String(beneficiaryData.age || 65), 10),
+        dateOfBirth: dobDate
+      }
     });
 
-    const today = new Date(new Date().setHours(0, 0, 0, 0));
-    await Promise.all(
-      vitalDefs.map((def: any) =>
-        prisma.beneficiaryVitalConfig.upsert({
+    // 1b. Create Beneficiary record
+    const beneficiary = await tx.beneficiary.create({
+      data: {
+        id: generateUUID(),
+        userId: newBeneficiaryUser.id,
+        subscriberId: userId,
+        name: beneficiaryData.name,
+        age: parseInt(String(beneficiaryData.age || 65), 10),
+        dateOfBirth: dobDate,
+        gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
+        address: beneficiaryData.address || "Not provided",
+        flatPlot: beneficiaryData.flatPlot || null,
+        streetArea: beneficiaryData.streetArea || null,
+        landmark: beneficiaryData.landmark || null,
+        city: beneficiaryData.city || null,
+        state: beneficiaryData.state || null,
+        pincode: beneficiaryData.pincode || null,
+        latitude: beneficiaryData.latitude || null,
+        longitude: beneficiaryData.longitude || null,
+        relationship: beneficiaryData.relationship || null,
+        
+        // Hook up parsed medical fields
+        primaryPhysicianName: medicalData?.physicianName || null,
+        primaryPhysicianPhone: medicalData?.physicianPhone || null,
+        hobbiesInterests: medicalData?.hobbies || [],
+
+        emergencyContacts: {
+          create: finalEmergencyContacts.map((c: any) => ({
+            id: generateUUID(),
+            name: c.name,
+            phone: c.phone,
+            relationship: c.relation || 'Emergency',
+            email: c.email || '',
+          })),
+        },
+        conditions: conditionIds.length > 0 ? {
+            create: conditionIds.map(cid => ({
+                id: generateUUID(),
+                conditionId: cid,
+                severity: 'moderate' as any
+            }))
+        } : undefined,
+        medicationList: mappedMedications.length > 0 ? {
+            create: mappedMedications
+        } : undefined
+      }
+    });
+
+    // 1c. Upsert BeneficiaryVitalConfigs
+    const checkedVitalCodes = Object.entries(vitalsInput)
+      .filter(([, checked]) => !!checked)
+      .map(([code]) => code.trim().toUpperCase());
+
+    if (checkedVitalCodes.length > 0) {
+      const vitalDefs = await tx.vitalDefinition.findMany({
+        where: { code: { in: checkedVitalCodes }, isActive: true }
+      });
+
+      for (const def of vitalDefs) {
+        await tx.beneficiaryVitalConfig.upsert({
           where: {
             beneficiaryId_vitalDefinitionId: {
               beneficiaryId: beneficiary.id,
@@ -298,87 +413,122 @@ export const purchaseSubscription = async (
             isActive: true,
             frequency: 'every_visit',
           }
-        })
-      )
-    );
-  }
-
-  // 2. Create the Subscription record
-  const subscription = await prisma.subscription.create({
-    data: {
-      id: generateUUID(),
-      subscriberId: userId,
-      beneficiaryId: beneficiary.id,
-      packageType: mappedType,
-      startDate: new Date(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-      visitsTotal: subPackage.visitsPerWeek * 4,
-      hoursTotal: subPackage.hoursPerMonth || 0,
-    },
-    include: {
-      package: true,
+        });
+      }
     }
-  });
 
-  // Initialize benefit balances
-  const packageBenefits = (subPackage as any).packageBenefits || [];
-  if (packageBenefits.length > 0) {
-    await prisma.subscriptionBenefitBalance.createMany({
-      data: packageBenefits.map((pb: any) => ({
-        id: generateUUID(),
-        subscriptionId: subscription.id,
-        benefitId: pb.benefitId,
-        totalUnits: pb.unitsIncluded,
-        usedUnits: 0,
-        unit: pb.unit || (pb.benefit?.unitLabel ? normalizeUnit(pb.benefit.unitLabel) : 'visits'),
-      })),
-      skipDuplicates: true,
+    let pVersion = await tx.packageVersion.findFirst({
+      where: { packageCode: subPackage.type, isLatest: true },
+      include: { versionBenefits: true },
     });
-  }
-
-  // 3. Create a Payment record to track this enrollment
-  await prisma.payment.create({
-    data: {
-      id: generateUUID(),
-      subscriberId: userId,
-      beneficiaryId: beneficiary.id,
-      subscriptionId: subscription.id,
-      packageType: mappedType,
-      baseAmount: subPackage.basePrice,
-      discountAmount: discountAmount,
-      couponCode: couponCode || null,
-      amountPaid: finalAmountPaid,
-      currency: 'INR',
-      paymentMethod: 'UPI',           // Mock for now — will be dynamic when real gateway is added
-      paymentStatus: 'success',       // Mock success — will depend on gateway response later
-      transactionId: `TXN-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      planStartDate: subscription.startDate,
-      planEndDate: subscription.endDate,
-      isSubscriptionActive: true,
-      enrolledAt: new Date(),
-      paidAt: new Date(),
+    if (!pVersion) {
+      pVersion = await publishPackageVersion(tx, subPackage.id);
     }
+    const versionObj = pVersion!;
+
+    // 2b. Create active Subscription record
+    const subscription = await tx.subscription.create({
+      data: {
+        id: generateUUID(),
+        subscriberId: userId,
+        beneficiaryId: beneficiary.id,
+        packageType: mappedType,
+        packageVersionId: versionObj.id,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        visitsTotal: subPackage.visitsPerWeek * 4,
+        hoursTotal: subPackage.hoursPerMonth || 0,
+      },
+      include: {
+        package: true,
+      }
+    });
+
+    // 2c. Initialize snapshot benefit balances
+    if (versionObj.versionBenefits && versionObj.versionBenefits.length > 0) {
+      await tx.subscriptionBenefitBalance.createMany({
+        data: versionObj.versionBenefits.map((vb: any) => ({
+          id: generateUUID(),
+          subscriptionId: subscription.id,
+          benefitId: vb.benefitId,
+          snapshotBenefitName: vb.snapshotName,
+          snapshotUnitLabel: vb.snapshotUnitLabel,
+          totalUnits: vb.unitsIncluded,
+          usedUnits: 0,
+          unit: vb.snapshotUnitLabel ? normalizeUnit(vb.snapshotUnitLabel) : 'visits',
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // 3. Create a Payment record snapshotting details at enrollment
+    await tx.payment.create({
+      data: {
+        id: generateUUID(),
+        subscriberId: userId,
+        beneficiaryId: beneficiary.id,
+        subscriptionId: subscription.id,
+        packageType: mappedType,
+        packageVersionId: versionObj.id,
+        snapshotPackageName: versionObj.name,
+        snapshotBasePrice: versionObj.basePrice,
+        snapshotBenefits: versionObj.versionBenefits.map((vb: any) => ({
+          name: vb.snapshotName,
+          units: vb.unitsIncluded,
+          unitLabel: vb.snapshotUnitLabel
+        })),
+        baseAmount: subPackage.basePrice,
+        discountAmount: discountAmount,
+        couponCode: couponCode || null,
+        amountPaid: finalAmountPaid,
+        currency: 'INR',
+        paymentMethod: 'UPI',
+        paymentStatus: 'success',
+        transactionId: `TXN-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        planStartDate: subscription.startDate,
+        planEndDate: subscription.endDate,
+        isSubscriptionActive: true,
+        enrolledAt: new Date(),
+        paidAt: new Date(),
+      }
+    });
+
+    // 4. Record Coupon Usage (if a coupon was successfully applied)
+    if (appliedCouponId && couponCode) {
+      await tx.couponUsage.create({
+        data: {
+          id: generateUUID(),
+          couponId: appliedCouponId,
+          userId,
+          subscriptionId: subscription.id,
+          orderAmount: subPackage.basePrice,
+          discountApplied: discountAmount
+        }
+      });
+
+      await tx.coupon.update({
+        where: { id: appliedCouponId },
+        data: {
+          usedCount: { increment: 1 }
+        }
+      });
+    }
+
+    return {
+      subscriptionId: subscription.id,
+      packageName: subscription.package.name,
+      beneficiaryName: beneficiary.name,
+      beneficiaryId: beneficiary.id
+    };
   });
-
-  // 4. Record Coupon Usage (if a coupon was successfully applied)
-  if (appliedCouponId && couponCode) {
-    await applyCoupon(
-      appliedCouponId,
-      userId,
-      subscription.id,
-      subPackage.basePrice,
-      discountAmount
-    );
-  }
-
 
   return {
     success: true,
     message: 'Subscription purchased successfully!',
-    subscriptionId: subscription.id,
-    package: (subscription as any).package.name,
-    beneficiaryName: beneficiary.name,
-    beneficiaryId: beneficiary.id
+    subscriptionId: result.subscriptionId,
+    package: result.packageName,
+    beneficiaryName: result.beneficiaryName,
+    beneficiaryId: result.beneficiaryId
   };
 };
 

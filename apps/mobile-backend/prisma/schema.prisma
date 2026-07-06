@@ -542,23 +542,24 @@ model BenefitType {
 }
 
 model Benefit {
-  id              String                       @id @default(uuid())
-  benefitTypeId   String
-  name            String
-  description     String?
-  isChargeable    Boolean                      @default(false)
-  unitCost        Float?
-  currency        String                       @default("INR")
-  unitLabel       String?
-  defaultUnits    Int                          @default(1)
-  isActive        Boolean                      @default(true)
-  displayOrder    Int                          @default(0)
-  createdAt       DateTime                     @default(now())
-  updatedAt       DateTime                     @updatedAt
-  benefitType     BenefitType                  @relation(fields: [benefitTypeId], references: [id])
-  packageBenefits PackageBenefit[]
-  balances        SubscriptionBenefitBalance[]
-  visits          Visit[]
+  id                   String                       @id @default(uuid())
+  benefitTypeId        String
+  name                 String
+  description          String?
+  isChargeable         Boolean                      @default(false)
+  unitCost             Float?
+  currency             String                       @default("INR")
+  unitLabel            String?
+  defaultUnits         Int                          @default(1)
+  isActive             Boolean                      @default(true)
+  displayOrder         Int                          @default(0)
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  benefitType          BenefitType                  @relation(fields: [benefitTypeId], references: [id])
+  packageBenefits      PackageBenefit[]
+  balances             SubscriptionBenefitBalance[]
+  visits               Visit[]
+  packageVersionBenefits PackageVersionBenefit[]
 
   @@map("benefits")
 }
@@ -599,6 +600,67 @@ model PackageDiscount {
 
   @@unique([packageId, billingCycle])
   @@map("package_discounts")
+}
+
+// ─── Package Versioning ───────────────────────────────────────────────────────
+// Each time a package is edited, a new PackageVersion is created (old one frozen).
+// Subscriptions point to the exact version purchased — never changes after signup.
+
+model PackageVersion {
+  id                 String                  @id @default(uuid())
+  packageCode        String                  // Maps to SubscriptionPackage.type e.g. "GOLD"
+  version            Int                     // 1, 2, 3...
+  name               String
+  tagline            String?
+  description        String
+  basePrice          Float
+  mrp                Float                   @default(0)
+  currency           String                  @default("INR")
+  billingCycle       String                  @default("monthly")
+  durationMonths     Int                     @default(1)
+  isFreeTrial        Boolean                 @default(false)
+  trialDurationDays  Int?
+  visitsPerWeek      Int                     @default(0)
+  hoursPerMonth      Float                   @default(0)
+  maxBeneficiaries   Int                     @default(1)
+  features           String[]                @default([])
+  highlightFeatures  String[]                @default([])
+  color              String?                 
+  isPopular          Boolean                 @default(false)
+  isLatest           Boolean                 @default(true)
+  isActive           Boolean                 @default(true)
+  sortOrder          Int                     @default(0)
+  discountPercentage Float                   @default(0)
+  miscellaneousCost  Float                   @default(0)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  versionBenefits    PackageVersionBenefit[]
+  subscriptions      Subscription[]
+  payments           Payment[]
+
+  @@unique([packageCode, version])
+  @@index([packageCode, isLatest])
+  @@map("package_versions")
+}
+
+model PackageVersionBenefit {
+  id                String                     @id @default(uuid())
+  packageVersionId  String
+  benefitId         String                     // FK to live Benefit (for deduction lookup)
+  snapshotName      String                     // Snapshot of Benefit.name at version creation
+  snapshotUnitLabel String?                    // Snapshot of Benefit.unitLabel at version creation
+  unitsIncluded     Int                        @default(1)
+  unitsPeriod       String                     @default("monthly")
+  isUnlimited       Boolean                    @default(false)
+  displayOrder      Int                        @default(0)
+  notes             String?
+  createdAt         DateTime                   @default(now())
+  packageVersion    PackageVersion             @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+  benefit           Benefit                    @relation(fields: [benefitId], references: [id])
+  benefitBalances   SubscriptionBenefitBalance[]
+
+  @@unique([packageVersionId, benefitId])
+  @@map("package_version_benefits")
 }
 
 model SubscriptionPackage {
@@ -643,7 +705,8 @@ model Subscription {
   id               String                       @id @default(uuid())
   subscriberId     String
   beneficiaryId    String
-  packageType      String
+  packageType      String                       // Legacy: SubscriptionPackage.type (kept for compat)
+  packageVersionId String?                      // FK → PackageVersion (the exact version purchased)
   duration         SubscriptionDuration         @default(monthly)
   startDate        DateTime
   endDate          DateTime
@@ -663,6 +726,7 @@ model Subscription {
   benefitBalances  SubscriptionBenefitBalance[]
   beneficiary      Beneficiary                  @relation(fields: [beneficiaryId], references: [id])
   package          SubscriptionPackage          @relation(fields: [packageType], references: [type])
+  packageVersion   PackageVersion?              @relation(fields: [packageVersionId], references: [id])
   subscriber       User                         @relation("SubscriberSubscriptions", fields: [subscriberId], references: [id])
 
   @@index([subscriberId])
@@ -689,21 +753,25 @@ model PackageHoursLog {
 }
 
 model Payment {
-  id                   String        @id @default(uuid())
-  invoiceNumber        String?       @unique
+  id                   String         @id @default(uuid())
+  invoiceNumber        String?        @unique
   subscriberId         String
   beneficiaryId        String
   subscriptionId       String
-  packageType          String
+  packageType          String         // Legacy string type
+  packageVersionId     String?        // FK → PackageVersion (exact version paid for)
+  snapshotPackageName  String?        // Snapshot: package name at payment time
+  snapshotBasePrice    Float?         // Snapshot: base price at payment time
+  snapshotBenefits     Json?          // Snapshot: [{name, units, unitLabel}] at payment time
   baseAmount           Float
-  discountAmount       Float         @default(0.0)
+  discountAmount       Float          @default(0.0)
   couponCode           String?
-  taxAmount            Float         @default(0.0)
+  taxAmount            Float          @default(0.0)
   amountPaid           Float
-  currency             String        @default("INR")
-  paymentMethod        String        @default("UPI")
-  paymentStatus        PaymentStatus @default(pending)
-  transactionId        String?       @unique
+  currency             String         @default("INR")
+  paymentMethod        String         @default("UPI")
+  paymentStatus        PaymentStatus  @default(pending)
+  transactionId        String?        @unique
   gatewayName          String?
   gatewayOrderId       String?
   gatewayPaymentId     String?
@@ -717,14 +785,15 @@ model Payment {
   refundReason         String?
   planStartDate        DateTime
   planEndDate          DateTime
-  isSubscriptionActive Boolean       @default(true)
-  enrolledAt           DateTime      @default(now())
+  isSubscriptionActive Boolean        @default(true)
+  enrolledAt           DateTime       @default(now())
   paidAt               DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  beneficiary          Beneficiary   @relation(fields: [beneficiaryId], references: [id])
-  subscriber           User          @relation("SubscriberPayments", fields: [subscriberId], references: [id])
-  subscription         Subscription  @relation(fields: [subscriptionId], references: [id])
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  beneficiary          Beneficiary    @relation(fields: [beneficiaryId], references: [id])
+  subscriber           User           @relation("SubscriberPayments", fields: [subscriberId], references: [id])
+  subscription         Subscription   @relation(fields: [subscriptionId], references: [id])
+  packageVersion       PackageVersion? @relation(fields: [packageVersionId], references: [id])
 
   @@index([subscriberId])
   @@index([beneficiaryId])
@@ -1289,16 +1358,20 @@ model CouponAttemptLog {
 }
 
 model SubscriptionBenefitBalance {
-  id             String       @id @default(uuid())
-  subscriptionId String
-  benefitId      String
-  totalUnits     Int          @default(0)
-  usedUnits      Int          @default(0)
-  unit           String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  benefit        Benefit      @relation(fields: [benefitId], references: [id])
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  id                     String                 @id @default(uuid())
+  subscriptionId         String
+  benefitId              String                 // FK → Benefit.id (used for deduction lookup)
+  packageVersionBenefitId String?               // FK → PackageVersionBenefit (the frozen version snapshot)
+  snapshotBenefitName    String?                // Snapshot: benefit name at subscription creation
+  snapshotUnitLabel      String?                // Snapshot: unit label at subscription creation
+  totalUnits             Int                    @default(0)
+  usedUnits              Int                    @default(0)
+  unit                   String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  benefit                Benefit                @relation(fields: [benefitId], references: [id])
+  packageVersionBenefit  PackageVersionBenefit? @relation(fields: [packageVersionBenefitId], references: [id])
+  subscription           Subscription           @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@unique([subscriptionId, benefitId])
   @@map("subscription_benefit_balances")
@@ -1461,6 +1534,7 @@ enum CallbackStatus {
 
 enum NotificationType {
   visit_reminder
+  visit_cancelled
   medication_reminder
   emergency_alert
   payment_due

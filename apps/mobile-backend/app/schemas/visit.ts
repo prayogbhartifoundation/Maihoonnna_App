@@ -13,6 +13,7 @@ export const createVisitSchema = Joi.object({
   beneficiaryId: Joi.string().uuid().required(),
   careCompanionId: Joi.string().uuid().required(),
   scheduledTime: Joi.date().required(),
+  benefitId: Joi.string().uuid().optional().allow(null),
 });
 
 export const checkInSchema = Joi.object({

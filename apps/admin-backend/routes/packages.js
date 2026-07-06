@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const { prisma } = require('../lib/prisma');
+const { publishPackageVersion } = require('../utils/packageVersionHelper');
 
 function normalizeUnit(unitLabel) {
   if (!unitLabel) return 'visits';
@@ -207,6 +208,9 @@ router.post('/', async (req, res) => {
         });
       }
 
+      // 5. Publish Package Version
+      await publishPackageVersion(tx, created.id);
+
       return tx.subscriptionPackage.findUnique({
         where: { id: created.id },
         include: {
@@ -244,31 +248,38 @@ router.patch('/:id', async (req, res) => {
     isPopular,
   } = req.body;
   try {
-    const pkg = await prisma.subscriptionPackage.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        basePrice: packageCost ? parseFloat(packageCost) : undefined,
-        mrp: mrp ? parseFloat(mrp) : undefined,
-        discountPercentage: discountPercentage
-          ? parseFloat(discountPercentage)
-          : undefined,
-        miscellaneousCost: miscellaneousCost
-          ? parseFloat(miscellaneousCost)
-          : undefined,
-        billingCycle,
-        isFreeTrial,
-        trialDurationDays,
-        activeFrom: activeFrom ? new Date(activeFrom) : undefined,
-        activeTo: activeTo ? new Date(activeTo) : undefined,
-        sortOrder: displayOrder,
-        isActive,
-        isGlobal,
-        isPopular,
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const pkg = await tx.subscriptionPackage.update({
+        where: { id },
+        data: {
+          name,
+          description,
+          basePrice: packageCost ? parseFloat(packageCost) : undefined,
+          mrp: mrp ? parseFloat(mrp) : undefined,
+          discountPercentage: discountPercentage
+            ? parseFloat(discountPercentage)
+            : undefined,
+          miscellaneousCost: miscellaneousCost
+            ? parseFloat(miscellaneousCost)
+            : undefined,
+          billingCycle,
+          isFreeTrial,
+          trialDurationDays,
+          activeFrom: activeFrom ? new Date(activeFrom) : undefined,
+          activeTo: activeTo ? new Date(activeTo) : undefined,
+          sortOrder: displayOrder,
+          isActive,
+          isGlobal,
+          isPopular,
+        },
+      });
+
+      // Publish Package Version
+      await publishPackageVersion(tx, id);
+      return pkg;
     });
-    res.json({ success: true, data: pkg });
+
+    res.json({ success: true, data: updated });
   } catch (err) {
     if (err.code === 'P2025')
       return res
@@ -392,6 +403,9 @@ router.put('/:id', async (req, res) => {
         });
       }
 
+      // 5. Publish Package Version
+      await publishPackageVersion(tx, id);
+
       return tx.subscriptionPackage.findUnique({
         where: { id },
         include: {
@@ -452,6 +466,9 @@ router.post('/:id/benefits', async (req, res) => {
           })),
         });
       }
+
+      // Publish Package Version
+      await publishPackageVersion(tx, id);
     });
     const pkg = await prisma.subscriptionPackage.findUnique({
       where: { id },

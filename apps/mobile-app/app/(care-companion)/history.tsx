@@ -381,25 +381,36 @@ export default function HistoryScreen() {
                                             </View>
 
                                             <View style={styles.vitalsGrid}>
-                                                <View style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
-                                                    <Text style={styles.vitalLabel}>Blood Pressure</Text>
-                                                    <Text style={styles.vitalValue}>{visit.details.vitals.bp}</Text>
-                                                </View>
+                                                {Array.isArray(visit.details.vitals) ? (
+                                                    visit.details.vitals.map((vit: any, idx: number) => (
+                                                        <View key={idx} style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
+                                                            <Text style={styles.vitalLabel}>{vit.name}</Text>
+                                                            <Text style={styles.vitalValue}>{vit.value}</Text>
+                                                        </View>
+                                                    ))
+                                                ) : (
+                                                    <>
+                                                        <View style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
+                                                            <Text style={styles.vitalLabel}>Blood Pressure</Text>
+                                                            <Text style={styles.vitalValue}>{visit.details.vitals?.bp || 'N/A'}</Text>
+                                                        </View>
 
-                                                <View style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
-                                                    <Text style={styles.vitalLabel}>Weight</Text>
-                                                    <Text style={styles.vitalValue}>{visit.details.vitals.weight}</Text>
-                                                </View>
+                                                        <View style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
+                                                            <Text style={styles.vitalLabel}>Weight</Text>
+                                                            <Text style={styles.vitalValue}>{visit.details.vitals?.weight || 'N/A'}</Text>
+                                                        </View>
 
-                                                <View style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
-                                                    <Text style={styles.vitalLabel}>Temperature</Text>
-                                                    <Text style={styles.vitalValue}>{visit.details.vitals.temp}</Text>
-                                                </View>
+                                                        <View style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
+                                                            <Text style={styles.vitalLabel}>Temperature</Text>
+                                                            <Text style={styles.vitalValue}>{visit.details.vitals?.temp || 'N/A'}</Text>
+                                                        </View>
 
-                                                <View style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
-                                                    <Text style={styles.vitalLabel}>O2 Level</Text>
-                                                    <Text style={styles.vitalValue}>{visit.details.vitals.o2}</Text>
-                                                </View>
+                                                        <View style={[styles.vitalBox, isCompact && styles.vitalBoxCompact]}>
+                                                            <Text style={styles.vitalLabel}>O2 Level</Text>
+                                                            <Text style={styles.vitalValue}>{visit.details.vitals?.o2 || 'N/A'}</Text>
+                                                        </View>
+                                                    </>
+                                                )}
                                             </View>
                                         </View>
 

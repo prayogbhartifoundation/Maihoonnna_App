@@ -278,10 +278,37 @@ router.get('/:userId/visits', authenticate, async (req: AuthRequest, res: Respon
             };
             const formattedDatePast = dateObj.toLocaleDateString('en-US', optionsPast);
 
-            // Compute duration hours text
-            const durationMin = v.durationMinutes || 120;
-            const durationHours = durationMin / 60;
-            const durationText = `${durationHours} hour${durationHours !== 1 ? 's' : ''}`;
+            let dateStr = isUpcoming ? formattedDateUpcoming : formattedDatePast;
+
+            // If visit is completed, check if check-out date is different from scheduled date
+            if (!isUpcoming && v.status === 'completed' && v.checkOutTime) {
+                const checkOutDateObj = new Date(v.checkOutTime);
+                const isDifferentDate = dateObj.toDateString() !== checkOutDateObj.toDateString();
+                if (isDifferentDate) {
+                    const formattedDateCheckOut = checkOutDateObj.toLocaleDateString('en-US', optionsPast);
+                    dateStr = `Scheduled: ${formattedDatePast} | Completed: ${formattedDateCheckOut}`;
+                }
+            }
+
+            // Compute actual duration strictly from check-in and check-out times for completed visits
+            let durationText = '';
+            if (v.status === 'completed' && v.checkInTime && v.checkOutTime) {
+                const diffMs = new Date(v.checkOutTime).getTime() - new Date(v.checkInTime).getTime();
+                let diffMins = Math.round(diffMs / 60000);
+                if (diffMins <= 0 && diffMs > 0) {
+                    diffMins = 1;
+                }
+                if (diffMins < 60) {
+                    durationText = `${diffMins} min${diffMins !== 1 ? 's' : ''}`;
+                } else {
+                    const durationHours = parseFloat((diffMins / 60).toFixed(1));
+                    durationText = `${durationHours} hour${durationHours !== 1 ? 's' : ''}`;
+                }
+            } else {
+                const defaultMins = v.durationMinutes || 120;
+                const durationHours = defaultMins / 60;
+                durationText = `${durationHours} hour${durationHours !== 1 ? 's' : ''}`;
+            }
 
             // Alternate default titles based on index or database note
             const defaultTitles = ['Regular Check-up', 'Health Assessment', 'Medication Review', 'Wellness Visit'];
@@ -291,7 +318,7 @@ router.get('/:userId/visits', authenticate, async (req: AuthRequest, res: Respon
             return {
                 id: v.id,
                 title,
-                date: isUpcoming ? formattedDateUpcoming : formattedDatePast,
+                date: dateStr,
                 time: formattedTime,
                 duration: durationText,
                 companionName: v.careCompanion?.name || 'Care Companion',

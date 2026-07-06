@@ -45,7 +45,16 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
         status: { in: ['completed', 'missed', 'cancelled'] },
       },
       include: {
-        beneficiary: true,
+        beneficiary: {
+          include: {
+            vitalConfigs: {
+              where: { isActive: true },
+              include: {
+                vitalDefinition: true
+              }
+            }
+          }
+        },
         medicationAdherenceRecords: {
           include: {
             medication: true
@@ -73,6 +82,23 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
       avgHours: avgHoursVal.toFixed(1),
     };
 
+    // Pre-fetch latest versions of all beneficiary vital definitions to resolve code changes
+    const allConfigCodes = new Set<string>();
+    completedVisits.forEach(v => {
+      (v.beneficiary.vitalConfigs || []).forEach(vc => {
+        allConfigCodes.add(vc.vitalDefinition.code);
+      });
+    });
+
+    const latestDefinitions = await prisma.vitalDefinition.findMany({
+      where: {
+        code: { in: Array.from(allConfigCodes) },
+        isLatestVersion: true
+      }
+    });
+    const latestDefMap = new Map<string, any>();
+    latestDefinitions.forEach(def => latestDefMap.set(def.code, def));
+
     const visits = completedVisits.map((v) => {
       const addressParts = [];
       if (v.beneficiary.flatPlot) addressParts.push(v.beneficiary.flatPlot);
@@ -83,21 +109,45 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
       const dateObj = v.checkOutTime || v.scheduledTime || new Date();
       const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
 
-      let bp = 'N/A', weight = 'N/A', temp = 'N/A', o2 = 'N/A';
-      if ((v as any).vitalReadings) {
-        (v as any).vitalReadings.forEach((r: any) => {
-          const code = r.vitalDefinition?.code?.toUpperCase();
-          if ((code === 'BP' || code === 'BLOOD_PRESSURE') && r.valueNumeric !== null && r.valueNumeric2 !== null) {
-            bp = `${r.valueNumeric}/${r.valueNumeric2}`;
-          } else if ((code === 'WEIGHT' || code === 'BODY_WEIGHT') && r.valueNumeric !== null) {
-            weight = `${r.valueNumeric} kg`;
-          } else if ((code === 'TEMP' || code === 'TEMPERATURE') && r.valueNumeric !== null) {
-            temp = `${r.valueNumeric}°C`;
-          } else if ((code === 'SPO2' || code === 'OXYGEN_LEVEL') && r.valueNumeric !== null) {
-            o2 = `${r.valueNumeric}%`;
+      // Dynamically resolve beneficiary's required vitals (deduplicated by code)
+      const uniqueCodes = new Set<string>();
+      const configs = (v.beneficiary.vitalConfigs || []).filter(c => {
+        // Filter out legacy split BP codes
+        const code = c.vitalDefinition.code;
+        if (code === 'BP_SYS' || code === 'BP_DIA' || code === 'BP_SYSTOLIC' || code === 'BP_DIASTOLIC') return false;
+
+        if (uniqueCodes.has(code)) return false;
+        uniqueCodes.add(code);
+        return true;
+      });
+
+      const vitalsList = configs.map(c => {
+        const def = latestDefMap.get(c.vitalDefinition.code) || c.vitalDefinition;
+        const reading = v.vitalReadings.find(r => r.vitalDefinition.code === def.code);
+
+        let value = 'N/A';
+        if (reading) {
+          if (def.dataType === 'dual_numeric') {
+            value = reading.valueNumeric !== null && reading.valueNumeric2 !== null
+              ? `${reading.valueNumeric}/${reading.valueNumeric2}${def.unit ? ' ' + def.unit : ''}`
+              : 'N/A';
+          } else if (def.dataType === 'numeric') {
+            value = reading.valueNumeric !== null
+              ? `${reading.valueNumeric}${def.unit ? ' ' + def.unit : ''}`
+              : 'N/A';
+          } else if (def.dataType === 'boolean') {
+            const isTrue = reading.valueBoolean === true || String(reading.valueText).toLowerCase() === 'yes';
+            value = isTrue ? (def.booleanTrueLabel || 'Yes') : (def.booleanFalseLabel || 'No');
+          } else if (def.dataType === 'text') {
+            value = reading.valueText !== null && reading.valueText !== '' ? reading.valueText : 'N/A';
           }
-        });
-      }
+        }
+
+        return {
+          name: def.name,
+          value
+        };
+      });
 
       const meds = v.medicationAdherenceRecords
         .filter(m => m.taken)
@@ -122,7 +172,7 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
         status: v.status,
         isExpanded: false,
         details: v.status === 'completed' ? {
-          vitals: { bp, weight, temp, o2 },
+          vitals: vitalsList,
           meds,
           mood: v.mood || 'N/A',
           notes: v.notes || 'No visit notes captured.',

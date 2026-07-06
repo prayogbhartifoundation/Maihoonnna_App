@@ -3,6 +3,7 @@ const router = express.Router();
 const { prisma } = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
 const { calculateAge } = require('../utils/age');
+const { publishPackageVersion } = require('../utils/packageVersionHelper');
 
 function normalizeUnit(unitLabel) {
   if (!unitLabel) return 'visits';
@@ -393,13 +394,26 @@ router.post('/admin-enroll', async (req, res) => {
         }
       }
 
-      // ──────────────────────────────────────────────────────────────────
       // 4. Deactivate existing active subscriptions for this beneficiary
       // ──────────────────────────────────────────────────────────────────
       await tx.subscription.updateMany({
         where: { beneficiaryId: beneficiary.id, isActive: true },
         data: { isActive: false },
       });
+
+      // 4b. Find or publish latest PackageVersion
+      let pVersion = await tx.packageVersion.findFirst({
+        where: { packageCode: pkg.type, isLatest: true },
+        include: { versionBenefits: true },
+      });
+
+      if (!pVersion) {
+        const createdVer = await publishPackageVersion(tx, pkg.id);
+        pVersion = await tx.packageVersion.findUnique({
+          where: { id: createdVer.id },
+          include: { versionBenefits: true },
+        });
+      }
 
       // ──────────────────────────────────────────────────────────────────
       // 5. Create new Subscription
@@ -409,6 +423,7 @@ router.post('/admin-enroll', async (req, res) => {
           subscriberId: subscriberUser.id,
           beneficiaryId: beneficiary.id,
           packageType: pkg.type,
+          packageVersionId: pVersion.id,
           duration,
           startDate: start,
           endDate: end,
@@ -421,14 +436,17 @@ router.post('/admin-enroll', async (req, res) => {
       // ──────────────────────────────────────────────────────────────────
       // 6. Initialize benefit balances
       // ──────────────────────────────────────────────────────────────────
-      if (pkg.packageBenefits.length > 0) {
+      if (pVersion.versionBenefits && pVersion.versionBenefits.length > 0) {
         await tx.subscriptionBenefitBalance.createMany({
-          data: pkg.packageBenefits.map((pb) => ({
+          data: pVersion.versionBenefits.map((vb) => ({
             subscriptionId: sub.id,
-            benefitId: pb.benefitId,
-            totalUnits: pb.unitsIncluded,
+            benefitId: vb.benefitId,
+            packageVersionBenefitId: vb.id,
+            snapshotBenefitName: vb.snapshotName,
+            snapshotUnitLabel: vb.snapshotUnitLabel,
+            totalUnits: vb.unitsIncluded,
             usedUnits: 0,
-            unit: pb.unit || (pb.benefit?.unitLabel ? normalizeUnit(pb.benefit.unitLabel) : 'visits'),
+            unit: vb.snapshotUnitLabel ? normalizeUnit(vb.snapshotUnitLabel) : 'visits',
           })),
           skipDuplicates: true,
         });
@@ -446,6 +464,14 @@ router.post('/admin-enroll', async (req, res) => {
           beneficiaryId: beneficiary.id,
           subscriptionId: sub.id,
           packageType: pkg.type,
+          packageVersionId: pVersion.id,
+          snapshotPackageName: pVersion.name,
+          snapshotBasePrice: pVersion.basePrice,
+          snapshotBenefits: pVersion.versionBenefits.map(vb => ({
+            name: vb.snapshotName,
+            units: vb.unitsIncluded,
+            unitLabel: vb.snapshotUnitLabel
+          })),
           baseAmount: pkg.basePrice,
           amountPaid: paid,
           discountAmount: pkg.basePrice - paid > 0 ? pkg.basePrice - paid : 0,
@@ -630,11 +656,27 @@ router.post('/enroll', async (req, res) => {
         where: { beneficiaryId, isActive: true },
         data: { isActive: false },
       });
+
+      // Find or publish latest PackageVersion
+      let pVersion = await tx.packageVersion.findFirst({
+        where: { packageCode: pkg.type, isLatest: true },
+        include: { versionBenefits: true },
+      });
+
+      if (!pVersion) {
+        const createdVer = await publishPackageVersion(tx, pkg.id);
+        pVersion = await tx.packageVersion.findUnique({
+          where: { id: createdVer.id },
+          include: { versionBenefits: true },
+        });
+      }
+
       const sub = await tx.subscription.create({
         data: {
           subscriberId,
           beneficiaryId,
           packageType: pkg.type,
+          packageVersionId: pVersion.id,
           duration,
           startDate: start,
           endDate: end,
@@ -643,14 +685,18 @@ router.post('/enroll', async (req, res) => {
           isActive: true,
         },
       });
-      if (pkg.packageBenefits.length > 0) {
+
+      if (pVersion.versionBenefits && pVersion.versionBenefits.length > 0) {
         await tx.subscriptionBenefitBalance.createMany({
-          data: pkg.packageBenefits.map((pb) => ({
+          data: pVersion.versionBenefits.map((vb) => ({
             subscriptionId: sub.id,
-            benefitId: pb.benefitId,
-            totalUnits: pb.unitsIncluded,
+            benefitId: vb.benefitId,
+            packageVersionBenefitId: vb.id,
+            snapshotBenefitName: vb.snapshotName,
+            snapshotUnitLabel: vb.snapshotUnitLabel,
+            totalUnits: vb.unitsIncluded,
             usedUnits: 0,
-            unit: pb.unit || (pb.benefit?.unitLabel ? normalizeUnit(pb.benefit.unitLabel) : 'visits'),
+            unit: vb.snapshotUnitLabel ? normalizeUnit(vb.snapshotUnitLabel) : 'visits',
           })),
         });
       }
@@ -728,6 +774,13 @@ router.get('/beneficiary/:id/utilization', async (req, res) => {
             basePrice: true,
           },
         },
+        packageVersion: {
+          select: {
+            id: true,
+            name: true,
+            basePrice: true,
+          }
+        },
         benefitBalances: {
           include: {
             benefit: {
@@ -779,8 +832,8 @@ router.get('/beneficiary/:id/utilization', async (req, res) => {
 
       return {
         benefitId: b.benefitId,
-        benefitName: b.benefit?.name,
-        unitLabel: b.benefit?.unitLabel || 'units',
+        benefitName: b.snapshotBenefitName || b.benefit?.name,
+        unitLabel: b.snapshotUnitLabel || b.benefit?.unitLabel || 'units',
         benefitTypeName: b.benefit?.benefitType?.name || null,
         description: b.benefit?.description || null,
         totalUnits: b.totalUnits,
@@ -814,7 +867,7 @@ router.get('/beneficiary/:id/utilization', async (req, res) => {
         subscription: {
           id: subscription.id,
           packageId: subscription.package?.id,
-          packageName: subscription.package?.name,
+          packageName: subscription.packageVersion?.name || subscription.package?.name,
           packageType: subscription.packageType,
           startDate: subscription.startDate,
           endDate: subscription.endDate,

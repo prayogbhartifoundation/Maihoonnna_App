@@ -313,7 +313,7 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
   const activeSub = beneficiary.subscriptions[0];
   if (activeSub && activeSub.benefitBalances.length > 0) {
     const hourBalances = activeSub.benefitBalances.filter(
-      b => b.benefit.unitLabel?.toLowerCase() === 'hours' || b.benefit.unitLabel?.toLowerCase() === 'hour'
+      b => b.benefit.unitLabel?.toLowerCase().includes('hour')
     );
     const totalUnits = hourBalances.reduce((sum, b) => sum + (b.totalUnits || 0), 0);
     const usedUnits = hourBalances.reduce((sum, b) => sum + (b.usedUnits || 0), 0);
@@ -362,8 +362,23 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
   });
 
   // Get latest vital readings from VitalReading table efficiently using Postgres DISTINCT ON
+  // Get latest vital readings from VitalReading table efficiently using Postgres DISTINCT ON, filtering out empty entries
   const latestReadingRows = await prisma.vitalReading.findMany({
-    where: { beneficiaryId: beneficiary.id },
+    where: {
+      beneficiaryId: beneficiary.id,
+      OR: [
+        { valueNumeric: { not: null } },
+        { valueNumeric2: { not: null } },
+        { valueBoolean: { not: null } },
+        {
+          AND: [
+            { valueText: { not: null } },
+            { valueText: { not: '' } },
+            { valueText: { not: 'N/A' } }
+          ]
+        }
+      ]
+    },
     include: { vitalDefinition: true },
     orderBy: { capturedAt: 'desc' },
     distinct: ['vitalDefinitionId'],
@@ -493,12 +508,37 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
       timeStr: nextVisit.scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     } : null,
     timeline: pastVisits.map((v: any) => {
-      const startTime = v.scheduledTime;
-      const endTime = new Date(startTime.getTime() + (v.durationMinutes || 90) * 60000);
+      // Use check-in time for start time if completed, otherwise fallback to scheduledTime
+      const startTime = (v.status === 'completed' && v.checkInTime) ? new Date(v.checkInTime) : new Date(v.scheduledTime);
+      
+      // Use check-out time for end time if completed, otherwise calculate from scheduledTime + durationMinutes
+      const endTime = (v.status === 'completed' && v.checkOutTime) 
+        ? new Date(v.checkOutTime) 
+        : new Date(startTime.getTime() + (v.durationMinutes || 90) * 60000);
+
       const datePart = startTime.toISOString().split('T')[0];
       const startStr = startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
       const endStr = endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-      const durationHours = (v.durationMinutes || 90) / 60;
+
+      // Calculate actual duration strictly from check-in and check-out times
+      let durationText = '';
+      if (v.status === 'completed' && v.checkInTime && v.checkOutTime) {
+        const diffMs = new Date(v.checkOutTime).getTime() - new Date(v.checkInTime).getTime();
+        let diffMins = Math.round(diffMs / 60000);
+        if (diffMins <= 0 && diffMs > 0) {
+          diffMins = 1; // minimum 1 min if check-in/out are not identical
+        }
+        if (diffMins < 60) {
+          durationText = `Duration: ${diffMins} min${diffMins !== 1 ? 's' : ''}`;
+        } else {
+          const durationHours = parseFloat((diffMins / 60).toFixed(1));
+          durationText = `Duration: ${durationHours} hour${durationHours !== 1 ? 's' : ''}`;
+        }
+      } else {
+        const defaultMins = v.durationMinutes || 90;
+        const durationHours = parseFloat((defaultMins / 60).toFixed(1));
+        durationText = `Duration: ${durationHours} hour${durationHours !== 1 ? 's' : ''}`;
+      }
 
       return {
         id: v.id,
@@ -506,7 +546,7 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
         companionPhoto: v.careCompanion?.photo,
         companionPhone: v.careCompanion?.user?.phone || null,
         dateStr: `${datePart} • ${startStr} - ${endStr}`,
-        duration: `Duration: ${durationHours} hours`,
+        duration: durationText,
         rated: v.subscriberRating !== null && v.subscriberRating !== undefined,
         rating: v.subscriberRating ?? null,          // subscriber's rating of the CC
         beneficiaryRating: v.beneficiaryRating ?? null, // beneficiary's rating of the CC
