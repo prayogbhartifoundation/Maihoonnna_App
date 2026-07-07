@@ -32,8 +32,18 @@ export default function PaymentSuccessScreen() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const activationDate = tomorrow.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    // Mock Package includes logic
-    const getPackageIncludes = () => {
+    // Parse real package benefits passed from checkout screen
+    const packageIncludes: string[] = React.useMemo(() => {
+        const benefitsParam = params.benefits as string;
+        if (benefitsParam) {
+            try {
+                const parsed = JSON.parse(benefitsParam);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            } catch (e) {
+                // fall through to defaults
+            }
+        }
+        // Fallback defaults if no benefits param was passed
         if (packageName.toLowerCase().includes('platinum') || packageName.toLowerCase().includes('elite')) {
             return ['5 visits per week', 'Daily Vital monitoring', 'Medication reminders', '24/7 Priority Support', 'Doctor Consults'];
         }
@@ -41,7 +51,7 @@ export default function PaymentSuccessScreen() {
             return ['3 visits per week', 'Vital monitoring', 'Medication reminders', 'Emergency contact support'];
         }
         return ['1 visit per week', 'Vital monitoring', 'Medication reminders', 'Standard support'];
-    };
+    }, [params.benefits, packageName]);
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -83,7 +93,7 @@ export default function PaymentSuccessScreen() {
                     {/* Includes box */}
                     <View style={styles.includesBox}>
                         <Text style={styles.includesTitle}>Package Includes:</Text>
-                        {getPackageIncludes().map((item, index) => (
+                        {packageIncludes.map((item, index) => (
                             <View key={index} style={styles.bulletRow}>
                                 <Ionicons name="checkmark-circle" size={18} color="#FE6700" style={{ marginRight: 12 }} />
                                 <Text style={styles.bulletText}>{item}</Text>
@@ -159,13 +169,8 @@ export default function PaymentSuccessScreen() {
 
                 {/* Actions */}
                 <TouchableOpacity style={styles.enrollBtn} onPress={() => router.replace('/(subscriber)')}>
-                    <Text style={styles.enrollBtnText}>Enroll Beneficiary</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.outlineBtn} onPress={() => router.replace('/(subscriber)')}>
-                    <Ionicons name="home-outline" size={19} color="#FE6700" style={{ marginRight: 8 }} />
-                    <Text style={styles.outlineBtnText}>Go to Dashboard</Text>
+                    <Ionicons name="home-outline" size={19} color="#FFFFFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.enrollBtnText}>Go to Dashboard</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.linkBtn}>

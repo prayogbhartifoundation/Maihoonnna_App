@@ -326,19 +326,8 @@ export const purchaseSubscription = async (
   const vitalsInput = medicalData?.vitals || {};
 
   // Run the creation flow inside a single database transaction
+  // Note: newBeneficiaryUser was already created above (outside the transaction)
   const result = await prisma.$transaction(async (tx) => {
-    // 1a. Create User record for beneficiary
-    const newBeneficiaryUser = await tx.user.create({
-      data: {
-        id: generateUUID(),
-        phone: beneficiaryPhone,
-        name: beneficiaryData.name,
-        role: 'beneficiary',
-        age: parseInt(String(beneficiaryData.age || 65), 10),
-        dateOfBirth: dobDate
-      }
-    });
-
     // 1b. Create Beneficiary record
     const beneficiary = await tx.beneficiary.create({
       data: {

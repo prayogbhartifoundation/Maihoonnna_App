@@ -74,6 +74,7 @@ export default function CheckoutScreen() {
     const [appliedCouponCode, setAppliedCouponCode] = useState('');
 
     const [agreed, setAgreed] = useState(false);
+    const [packageBenefits, setPackageBenefits] = useState<string[]>([]);
 
     // 🛑 UI STATE
     const [activeTab, setActiveTab] = useState<'UPI' | 'CARDS' | 'NET_BANKING'>('UPI');
@@ -121,12 +122,40 @@ export default function CheckoutScreen() {
 
     // Initial load — no coupon
     useEffect(() => {
+        const loadPackageBenefits = async (pkgId: string) => {
+            try {
+                const res = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
+                const data = await res.json();
+                if (data.success && Array.isArray(data.data)) {
+                    const matchedPkg = data.data.find((p: any) => p.type === pkgId || p.id === pkgId);
+                    if (matchedPkg) {
+                        if (matchedPkg.packageBenefits && matchedPkg.packageBenefits.length > 0) {
+                            const list = matchedPkg.packageBenefits.map((pb: any) => {
+                                const label = (pb.benefit?.unitLabel || '').replace(/^per\s+/i, '');
+                                return `${pb.unitsIncluded} ${label} • ${pb.benefit?.name}`;
+                            });
+                            setPackageBenefits(list);
+                        } else if (matchedPkg.features && matchedPkg.features.length > 0) {
+                            setPackageBenefits(matchedPkg.features);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load package benefits:', err);
+            }
+        };
+
+        let targetPkgId = packageId;
+
         if (isVerificationFlow && pendingDetailsRaw) {
             setPricingLoading(true);
             try {
                 const b = JSON.parse(pendingDetailsRaw);
                 const sub = b.subscriptions?.[0];
                 const pkg = sub?.packageVersion || sub?.package;
+                if (pkg) {
+                    targetPkgId = pkg.id || pkg.type;
+                }
                 setPricing({
                     packageName: pkg?.name || 'Care Plan',
                     basePrice: pkg?.basePrice || 0,
@@ -140,14 +169,18 @@ export default function CheckoutScreen() {
             } finally {
                 setPricingLoading(false);
             }
-            return;
+        } else {
+            if (packageId) {
+                setPricingLoading(true);
+                fetchCheckoutPreview()
+                    .catch(() => Alert.alert('Error', 'Could not load package pricing.'))
+                    .finally(() => setPricingLoading(false));
+            }
         }
 
-        if (!packageId) return;
-        setPricingLoading(true);
-        fetchCheckoutPreview()
-            .catch(() => Alert.alert('Error', 'Could not load package pricing.'))
-            .finally(() => setPricingLoading(false));
+        if (targetPkgId) {
+            loadPackageBenefits(targetPkgId);
+        }
     }, [packageId, isVerificationFlow, pendingDetailsRaw]);
 
     // Apply coupon — calls preview again with the code
@@ -306,7 +339,8 @@ export default function CheckoutScreen() {
                     replace('/(setup)/payment-success', {
                         orderId: activatedSub.id || 'N/A',
                         packageName: activatedSub.package?.name || pricing.packageName,
-                        price: String(pricing.basePrice)
+                        price: String(pricing.basePrice),
+                        benefits: JSON.stringify(packageBenefits)
                     });
                 } else {
                     throw new Error(data.message || "Activation failed on server.");
@@ -515,7 +549,12 @@ export default function CheckoutScreen() {
                 queryClient.invalidateQueries({ queryKey: ['subscriberDashboard'] });
 
                 // Payment gateway is mocked for now, but beneficiary is saved in DB
-                replace('/(setup)/payment-success', { orderId: data.subscriptionId, packageName: data.package || pricing.packageName, price: pricing.total.toString() });
+                replace('/(setup)/payment-success', {
+                    orderId: data.subscriptionId,
+                    packageName: data.package || pricing.packageName,
+                    price: pricing.total.toString(),
+                    benefits: JSON.stringify(packageBenefits)
+                });
             } else {
                 throw new Error(data.message || "Purchase failed on server.");
             }
@@ -791,7 +830,10 @@ export default function CheckoutScreen() {
                                 <Text style={styles.planDuration}>1 Month</Text>
 
                                 <View style={styles.featuresList}>
-                                    {['Weekly health checkups', 'Vitals monitoring', 'Emergency contact support', 'Basic companionship'].map((feature, index) => (
+                                    {(packageBenefits.length > 0
+                                        ? packageBenefits
+                                        : ['Weekly health checkups', 'Vitals monitoring', 'Emergency contact support', 'Basic companionship']
+                                    ).map((feature, index) => (
                                         <View key={index} style={styles.featureRow}>
                                             <Ionicons name="checkmark-circle" size={18} color="#FE6700" />
                                             <Text style={styles.featureText}>{feature}</Text>
