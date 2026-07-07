@@ -107,3 +107,13 @@ export const uploadMedicalRecord = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getBeneficiaryPendingDetails = async (req: Request, res: Response) => {
+  try {
+    const beneficiaryId = req.params.beneficiaryId as string;
+    const data = await beneficiaryService.getBeneficiaryPendingDetails(beneficiaryId);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Platform, Animated, TouchableWithoutFeedback, Alert, Image, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -100,9 +101,7 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
     const [remindersActive, setRemindersActive] = useState(true);
     const [submittingId, setSubmittingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadData();
-    }, [propBeneficiaryId]);
+    useFocusEffect(useCallback(() => { loadData(); }, [propBeneficiaryId]));
 
     const loadData = async () => {
         try {

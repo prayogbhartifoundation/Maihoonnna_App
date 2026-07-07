@@ -30,11 +30,27 @@ export default function SchedulePreferencesScreen() {
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
     const [userData, setUserData] = useState<any>(null);
 
+    const isVerificationFlow = params.isVerificationFlow === 'true';
+    const beneficiaryId = params.beneficiaryId as string;
+    const pendingDetailsRaw = params.pendingDetails as string;
+
     useEffect(() => {
         AsyncStorage.getItem('userData').then(data => {
             if (data) setUserData(JSON.parse(data));
         });
-    }, []);
+
+        // Pre-fill schedule timing details in verification flow
+        if (isVerificationFlow && pendingDetailsRaw) {
+            try {
+                const b = JSON.parse(pendingDetailsRaw);
+                if (b.schedulePreference?.preferredSlot) {
+                    setVisitTiming(b.schedulePreference.preferredSlot);
+                }
+            } catch (err) {
+                console.error('Error parsing pending details in schedule-preferences:', err);
+            }
+        }
+    }, [isVerificationFlow, pendingDetailsRaw]);
 
     const openDrawer = () => {
         setDrawerOpen(true);
@@ -59,7 +75,10 @@ export default function SchedulePreferencesScreen() {
             beneficiaryData: params.beneficiaryData,
             medicalData: params.medicalData,
             emergencyContacts: params.emergencyContacts,
-            preferencesData: JSON.stringify({ preferredTiming: visitTiming })
+            preferencesData: JSON.stringify({ preferredTiming: visitTiming }),
+            isVerificationFlow: params.isVerificationFlow,
+            beneficiaryId: params.beneficiaryId,
+            pendingDetails: params.pendingDetails
         });
     };
 

@@ -27,6 +27,7 @@ const router = Router();
 router.post('/', authenticate, validate(createBeneficiarySchema), beneficiaryController.createBeneficiary);
 router.get('/subscriber/:subscriberId', authenticate, beneficiaryController.getSubscriberBeneficiaries);
 router.get('/:beneficiaryId/profile', authenticate, beneficiaryController.getBeneficiaryProfile);
+router.get('/:beneficiaryId/pending-details', authenticate, beneficiaryController.getBeneficiaryPendingDetails);
 router.put('/:beneficiaryId', authenticate, validate(updateBeneficiarySchema), beneficiaryController.updateBeneficiary);
 
 // Medical Records Management

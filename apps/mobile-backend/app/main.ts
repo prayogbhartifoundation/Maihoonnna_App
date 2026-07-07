@@ -50,6 +50,7 @@ import publicVitalsRouter from './api/public/vitals.routes';
 import publicZonesRouter from './api/public/zones.routes';
 import publicEnrollmentRouter from './api/public/enrollment.routes';
 import publicLocationRouter from './api/public/location.routes';
+import publicHobbiesRouter from './api/public/hobbies.routes';
 
 // ⚠️ DEV-ONLY — Remove this import + route registration below when done testing
 import devRouter from './api/dev/dev.routes';
@@ -146,6 +147,7 @@ app.use(`${API}/profile-photo`, profilePhotoRouter);
 
 // Public endpoints
 app.use(`${API}/public/vitals`, publicVitalsRouter);
+app.use(`${API}/public/hobbies`, publicHobbiesRouter);
 app.use(`${API}/public/zones`, publicZonesRouter);
 app.use(`${API}/public/location`, publicLocationRouter);
 app.use(`${API}/public`, publicEnrollmentRouter);

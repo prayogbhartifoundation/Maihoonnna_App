@@ -597,3 +597,52 @@ export const createMedicalRecord = async (
     }
   });
 };
+
+export const getBeneficiaryPendingDetails = async (beneficiaryId: string) => {
+  const beneficiary = await prisma.beneficiary.findUnique({
+    where: { id: beneficiaryId },
+    include: {
+      user: true,
+      conditions: {
+        include: {
+          condition: true
+        }
+      },
+      medicationList: true,
+      emergencyContacts: true,
+      schedulePreference: true,
+      vitalConfigs: {
+        include: {
+          vitalDefinition: true
+        }
+      },
+      subscriptions: {
+        where: { isActive: false },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: {
+          package: true,
+          packageVersion: {
+            include: {
+              versionBenefits: {
+                include: {
+                  benefit: true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!beneficiary) {
+    throw new Error('Beneficiary not found');
+  }
+
+  return {
+    ...beneficiary,
+    phone: beneficiary.user?.phone || '',
+    dateOfBirth: beneficiary.dateOfBirth || beneficiary.user?.dateOfBirth || null
+  };
+};

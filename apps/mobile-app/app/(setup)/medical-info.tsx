@@ -13,6 +13,7 @@ import { useSafeBack } from '@/hooks/useSafeBack';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import HeaderSpacer from '@/components/HeaderSpacer';
 
 type Medication = {
@@ -22,6 +23,9 @@ type Medication = {
     timesPerDay: string[];
     setReminders: boolean;
     totalDays?: string;
+    instructions?: string;
+    startDate?: string;
+    endDate?: string;
 };
 
 export default function MedicalInfoScreen() {
@@ -72,14 +76,54 @@ export default function MedicalInfoScreen() {
     const [newCondition, setNewCondition] = useState('');
 
     const [showMedicineModal, setShowMedicineModal] = useState(false);
+    const getTodayFormatted = () => {
+        const d = new Date();
+        const day = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+    };
+
+    const formatEditingDate = (text: string) => {
+        const clean = text.replace(/[^0-9]/g, '');
+        if (clean.length <= 2) return clean;
+        if (clean.length <= 4) return `${clean.slice(0, 2)}-${clean.slice(2)}`;
+        return `${clean.slice(0, 2)}-${clean.slice(2, 4)}-${clean.slice(4, 8)}`;
+    };
+
     const [newMedicine, setNewMedicine] = useState<Medication>({
         name: '',
         dosage: '',
         frequency: 'once_daily',
         timesPerDay: [],
         setReminders: false,
-        totalDays: ''
+        instructions: '',
+        startDate: getTodayFormatted(),
+        endDate: ''
     });
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const isVerificationFlow = params.isVerificationFlow === 'true';
+    const beneficiaryId = params.beneficiaryId as string;
+    const pendingDetailsRaw = params.pendingDetails as string;
+
+    const [isStartDatePickerVisible, setStartDatePickerVisibility] = useState(false);
+    const [isEndDatePickerVisible, setEndDatePickerVisibility] = useState(false);
+
+    const handleConfirmStartDate = (date: Date) => {
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        setNewMedicine({ ...newMedicine, startDate: `${day}-${month}-${year}` });
+        setStartDatePickerVisibility(false);
+    };
+
+    const handleConfirmEndDate = (date: Date) => {
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        setNewMedicine({ ...newMedicine, endDate: `${day}-${month}-${year}` });
+        setEndDatePickerVisibility(false);
+    };
 
     useEffect(() => {
         const fetchVitals = async () => {
@@ -90,6 +134,23 @@ export default function MedicalInfoScreen() {
                     setVitalsConfig(data.data);
                     const initial: Record<string, boolean> = {};
                     data.data.forEach((v: any) => initial[v.code] = false);
+
+                    // Pre-fill active vitals in verification flow
+                    if (isVerificationFlow && pendingDetailsRaw) {
+                        try {
+                            const b = JSON.parse(pendingDetailsRaw);
+                            if (b.vitalConfigs && Array.isArray(b.vitalConfigs)) {
+                                b.vitalConfigs.forEach((vc: any) => {
+                                    if (vc.vitalDefinition?.code) {
+                                        initial[vc.vitalDefinition.code] = true;
+                                    }
+                                });
+                            }
+                        } catch (err) {
+                            console.error('Error pre-filling vitals configuration:', err);
+                        }
+                    }
+
                     setVitals(initial);
                 }
             } catch (err) {
@@ -98,8 +159,58 @@ export default function MedicalInfoScreen() {
                 setLoadingVitals(false);
             }
         };
+
         fetchVitals();
-    }, []);
+
+        // Pre-fill conditions, medications, physician details, and hobbies in verification flow
+        if (isVerificationFlow && pendingDetailsRaw) {
+            try {
+                const b = JSON.parse(pendingDetailsRaw);
+                if (b.conditions && Array.isArray(b.conditions)) {
+                    setConditions(b.conditions.map((c: any) => c.condition?.name).filter(Boolean));
+                }
+                if (b.medicationList && Array.isArray(b.medicationList)) {
+                    setMedications(b.medicationList.map((m: any) => {
+                        let formattedStart = '';
+                        if (m.startDate) {
+                            const d = new Date(m.startDate);
+                            const day = d.getDate().toString().padStart(2, '0');
+                            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                            const year = d.getFullYear();
+                            formattedStart = `${day}-${month}-${year}`;
+                        } else {
+                            formattedStart = getTodayFormatted();
+                        }
+                        let formattedEnd = '';
+                        if (m.endDate) {
+                            const d = new Date(m.endDate);
+                            const day = d.getDate().toString().padStart(2, '0');
+                            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                            const year = d.getFullYear();
+                            formattedEnd = `${day}-${month}-${year}`;
+                        }
+                        return {
+                            name: m.name || '',
+                            dosage: m.dosage || '',
+                            frequency: m.frequency || 'once_daily',
+                            timesPerDay: m.timeSlots || [],
+                            setReminders: !!m.setReminders,
+                            instructions: m.instructions || '',
+                            startDate: formattedStart,
+                            endDate: formattedEnd
+                        };
+                    }));
+                }
+                if (b.primaryPhysicianName) setPhysicianName(b.primaryPhysicianName);
+                if (b.primaryPhysicianPhone) setPhysicianPhone(b.primaryPhysicianPhone);
+                if (b.hobbiesInterests && Array.isArray(b.hobbiesInterests)) {
+                    setHobbiesText(b.hobbiesInterests.join(', '));
+                }
+            } catch (err) {
+                console.error('Error parsing pending details in medical-info:', err);
+            }
+        }
+    }, [isVerificationFlow, pendingDetailsRaw]);
 
     const handleNext = () => {
         const medicalDataPayload = {
@@ -115,7 +226,10 @@ export default function MedicalInfoScreen() {
             packageId: params.packageId,
             subscriberData: params.subscriberData,
             beneficiaryData: params.beneficiaryData,
-            medicalData: JSON.stringify(medicalDataPayload)
+            medicalData: JSON.stringify(medicalDataPayload),
+            isVerificationFlow: params.isVerificationFlow,
+            beneficiaryId: params.beneficiaryId,
+            pendingDetails: params.pendingDetails
         });
     };
 
@@ -135,24 +249,69 @@ export default function MedicalInfoScreen() {
         setConditions(conditions.filter((_, i) => i !== index));
     };
 
+    const editMedicine = (index: number) => {
+        const med = medications[index];
+        setNewMedicine({
+            name: med.name,
+            dosage: med.dosage,
+            frequency: med.frequency,
+            timesPerDay: med.timesPerDay,
+            setReminders: med.setReminders,
+            totalDays: med.totalDays || '',
+            instructions: med.instructions || ''
+        });
+        setEditingIndex(index);
+        setShowMedicineModal(true);
+    };
+
     const addMedicine = () => {
         if (newMedicine.name.trim().length > 0) {
-            setMedications([...medications, newMedicine]);
+            if (editingIndex !== null) {
+                const updated = [...medications];
+                updated[editingIndex] = newMedicine;
+                setMedications(updated);
+            } else {
+                setMedications([...medications, newMedicine]);
+            }
         }
-        setNewMedicine({ name: '', dosage: '', frequency: 'once_daily', timesPerDay: [], setReminders: false, totalDays: '' });
+        setNewMedicine({ name: '', dosage: '', frequency: 'once_daily', timesPerDay: [], setReminders: false, instructions: '', startDate: getTodayFormatted(), endDate: '' });
+        setEditingIndex(null);
+        setShowMedicineModal(false);
+    };
+
+    const cancelModal = () => {
+        setNewMedicine({ name: '', dosage: '', frequency: 'once_daily', timesPerDay: [], setReminders: false, instructions: '', startDate: getTodayFormatted(), endDate: '' });
+        setEditingIndex(null);
         setShowMedicineModal(false);
     };
 
     const removeMedicine = (index: number) => {
         setMedications(medications.filter((_, i) => i !== index));
+        if (editingIndex === index) {
+            setEditingIndex(null);
+        }
     };
 
     const toggleTimeSlot = (slot: string) => {
         const times = newMedicine.timesPerDay;
+        const freq = newMedicine.frequency;
+        
+        let maxSlots = 3;
+        if (freq === 'once_daily') maxSlots = 1;
+        else if (freq === 'twice_daily') maxSlots = 2;
+
         if (times.includes(slot)) {
             setNewMedicine({ ...newMedicine, timesPerDay: times.filter(t => t !== slot) });
         } else {
-            setNewMedicine({ ...newMedicine, timesPerDay: [...times, slot] });
+            if (times.length >= maxSlots) {
+                if (maxSlots === 1) {
+                    setNewMedicine({ ...newMedicine, timesPerDay: [slot] });
+                } else {
+                    setNewMedicine({ ...newMedicine, timesPerDay: [...times.slice(1), slot] });
+                }
+            } else {
+                setNewMedicine({ ...newMedicine, timesPerDay: [...times, slot] });
+            }
         }
     };
 
@@ -253,10 +412,21 @@ export default function MedicalInfoScreen() {
                             <Text style={styles.emptyText}>No medications added.</Text>
                         ) : (
                             medications.map((med, index) => (
-                                <View key={index} style={styles.medicineCard}>
+                                <TouchableOpacity 
+                                    key={index} 
+                                    style={styles.medicineCard}
+                                    activeOpacity={0.7}
+                                    onPress={() => editMedicine(index)}
+                                >
                                     <View style={styles.medicineInfo}>
                                         <Text style={styles.medicineName}>{med.name}</Text>
-                                        <Text style={styles.medicineSub}>{med.dosage} • {formatFrequency(med.frequency)}{med.totalDays ? ` • ${med.totalDays} days` : ''}</Text>
+                                        <Text style={styles.medicineSub}>{med.dosage} • {formatFrequency(med.frequency)}</Text>
+                                        <Text style={[styles.medicineSub, { fontSize: 11, color: '#4B5563', marginTop: 1 }]}>
+                                            Duration: {med.startDate || 'Today'}{med.endDate ? ` to ${med.endDate}` : ' (Ongoing)'}
+                                        </Text>
+                                        {!!med.instructions && (
+                                            <Text style={[styles.medicineSub, { color: '#6B7280', fontSize: 11, marginTop: 3 }]}>{med.instructions}</Text>
+                                        )}
                                     </View>
                                     <View style={styles.medicineRight}>
                                         {/* Shows the first selected time as pill, if any */}
@@ -269,7 +439,7 @@ export default function MedicalInfoScreen() {
                                             <Ionicons name="close" size={20} color="#EF4444" />
                                         </TouchableOpacity>
                                     </View>
-                                </View>
+                                </TouchableOpacity>
                             ))
                         )}
                     </View>
@@ -399,7 +569,9 @@ export default function MedicalInfoScreen() {
             <Modal visible={showMedicineModal} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalMedicineContent}>
-                        <Text style={styles.modalTitle}>Add Medicine</Text>
+                        <Text style={styles.modalTitle}>
+                            {editingIndex !== null ? 'Edit Medicine' : 'Add Medicine'}
+                        </Text>
                         
                         <Text style={styles.inputLabelSm}>Medication Name</Text>
                         <TextInput
@@ -438,7 +610,13 @@ export default function MedicalInfoScreen() {
                                                 newMedicine.frequency === f.value ? styles.timeChipSelected : styles.timeChipUnselected,
                                                 { paddingVertical: 8 }
                                             ]}
-                                            onPress={() => setNewMedicine({...newMedicine, frequency: f.value})}
+                                            onPress={() => {
+                                                let maxSlots = 3;
+                                                if (f.value === 'once_daily') maxSlots = 1;
+                                                else if (f.value === 'twice_daily') maxSlots = 2;
+                                                const truncatedTimes = newMedicine.timesPerDay.slice(0, maxSlots);
+                                                setNewMedicine({ ...newMedicine, frequency: f.value, timesPerDay: truncatedTimes });
+                                            }}
                                         >
                                             <Text style={[styles.timeChipText, { fontSize: 11 }]}>{f.label}</Text>
                                         </TouchableOpacity>
@@ -447,16 +625,62 @@ export default function MedicalInfoScreen() {
                             </View>
                         </View>
 
-                        <Text style={styles.inputLabelSm}>Duration (Days)</Text>
+                        <Text style={styles.inputLabelSm}>Instructions (Optional)</Text>
                         <TextInput
                             style={styles.modalInput}
-                            placeholder="e.g. 30 (Leave blank for ongoing)"
+                            placeholder="e.g., Take after food"
                             placeholderTextColor="#9CA3AF"
-                            keyboardType="numeric"
-                            maxLength={4}
-                            value={newMedicine.totalDays ?? ''}
-                            onChangeText={(t) => setNewMedicine({...newMedicine, totalDays: t.replace(/[^0-9]/g, '').slice(0, 4)})}
+                            value={newMedicine.instructions ?? ''}
+                            maxLength={100}
+                            onChangeText={(t) => setNewMedicine({...newMedicine, instructions: t})}
                         />
+
+                        <View style={styles.splitRow}>
+                            <View style={{ flex: 1, marginRight: 10 }}>
+                                <Text style={styles.inputLabelSm}>Start Date *</Text>
+                                <TouchableOpacity 
+                                    style={styles.modalInputWithIcon}
+                                    onPress={() => {
+                                        if (Platform.OS === 'web') {
+                                            alert("Please type the date directly (dd-mm-yyyy). The calendar picker will work natively on the mobile app.");
+                                        }
+                                        setStartDatePickerVisibility(true);
+                                    }}
+                                >
+                                    <TextInput
+                                        style={styles.modalFlexInput}
+                                        placeholder="DD-MM-YYYY"
+                                        placeholderTextColor="#9CA3AF"
+                                        value={newMedicine.startDate}
+                                        maxLength={10}
+                                        onChangeText={(t) => setNewMedicine({...newMedicine, startDate: formatEditingDate(t)})}
+                                    />
+                                    <Ionicons name="calendar-outline" size={16} color="#9CA3AF" style={{ marginRight: 6 }} />
+                                </TouchableOpacity>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.inputLabelSm}>End Date (Optional)</Text>
+                                <TouchableOpacity 
+                                    style={styles.modalInputWithIcon}
+                                    onPress={() => {
+                                        if (Platform.OS === 'web') {
+                                            alert("Please type the date directly (dd-mm-yyyy). The calendar picker will work natively on the mobile app.");
+                                        }
+                                        setEndDatePickerVisibility(true);
+                                    }}
+                                >
+                                    <TextInput
+                                        style={styles.modalFlexInput}
+                                        placeholder="DD-MM-YYYY"
+                                        placeholderTextColor="#9CA3AF"
+                                        value={newMedicine.endDate}
+                                        maxLength={10}
+                                        onChangeText={(t) => setNewMedicine({...newMedicine, endDate: formatEditingDate(t)})}
+                                    />
+                                    <Ionicons name="calendar-outline" size={16} color="#9CA3AF" style={{ marginRight: 6 }} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
 
                         <View style={styles.dividerLine} />
 
@@ -495,14 +719,30 @@ export default function MedicalInfoScreen() {
                         </View>
 
                         <TouchableOpacity style={styles.modalPrimaryBtn} onPress={addMedicine}>
-                            <Text style={styles.modalPrimaryBtnText}>Add to Schedule</Text>
+                            <Text style={styles.modalPrimaryBtnText}>
+                                {editingIndex !== null ? 'Save Changes' : 'Add to Schedule'}
+                            </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.modalSecondaryBtn} onPress={() => setShowMedicineModal(false)}>
+                        <TouchableOpacity style={styles.modalSecondaryBtn} onPress={cancelModal}>
                             <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
                         </TouchableOpacity>
                     </KeyboardAvoidingView>
                 </View>
             </Modal>
+
+            <DateTimePickerModal
+                isVisible={isStartDatePickerVisible}
+                mode="date"
+                onConfirm={handleConfirmStartDate}
+                onCancel={() => setStartDatePickerVisibility(false)}
+            />
+
+            <DateTimePickerModal
+                isVisible={isEndDatePickerVisible}
+                mode="date"
+                onConfirm={handleConfirmEndDate}
+                onCancel={() => setEndDatePickerVisibility(false)}
+            />
 
             {/* Modal: Multi-select Hobbies */}
             <Modal visible={showHobbiesModal} transparent animationType="slide">
@@ -666,4 +906,22 @@ const styles = StyleSheet.create({
     hobbyItemSelected: { backgroundColor: '#FFF5ED', borderColor: '#F97316' },
     hobbyItemText: { fontSize: 14, color: '#4B5563', marginRight: 6 },
     hobbyItemTextSelected: { color: '#F97316', fontWeight: '600' },
+
+    modalInputWithIcon: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        borderWidth: 1, 
+        borderColor: '#F3F4F6', 
+        borderRadius: 10, 
+        paddingRight: 10, 
+        marginBottom: 20,
+        backgroundColor: '#FFFFFF'
+    },
+    modalFlexInput: { 
+        flex: 1, 
+        paddingVertical: 14, 
+        paddingHorizontal: 14,
+        fontSize: 15, 
+        color: '#111827' 
+    },
 });

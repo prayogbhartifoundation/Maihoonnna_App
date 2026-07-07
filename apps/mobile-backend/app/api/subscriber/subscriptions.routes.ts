@@ -204,6 +204,41 @@ router.post('/purchase', authenticate, async (req: AuthRequest, res: Response) =
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /subscriber/subscriptions/activate
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/activate', authenticate, async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthRequest;
+    const userId = authReq.userId;
+    const { beneficiaryId, beneficiaryData, medicalData, emergencyContacts } = req.body;
+
+    if (!beneficiaryId || !beneficiaryData) {
+      return res.status(400).json({
+        success: false,
+        message: 'beneficiaryId and beneficiaryData are required'
+      });
+    }
+
+    const result = await subscriptionService.activateSubscription(
+      userId as string,
+      beneficiaryId,
+      beneficiaryData,
+      medicalData,
+      emergencyContacts
+    );
+
+    res.json({
+      success: true,
+      message: 'Subscription activated successfully',
+      data: result
+    });
+  } catch (error: any) {
+    console.error('[Activate Subscription Error]:', error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /subscriber/subscriptions/packages
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/packages', async (req: Request, res: Response) => {

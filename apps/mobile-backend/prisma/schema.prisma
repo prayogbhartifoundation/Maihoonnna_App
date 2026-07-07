@@ -255,6 +255,8 @@ model Beneficiary {
   insuranceProvider     String?
   insurancePolicyNo     String?
   isActive              Boolean                  @default(true)
+  createdBy             String                   @default("subscriber") // "subscriber" | "csa"
+  verificationStatus    String                   @default("verified")   // "verified" | "pending"
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
   maritalStatus         String?
@@ -1660,4 +1662,14 @@ model ActivityLog {
   @@index([userId])
   @@index([type])
   @@map("activity_logs")
+}
+
+model Hobby {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("hobbies")
 }

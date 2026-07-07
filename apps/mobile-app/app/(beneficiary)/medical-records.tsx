@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     ActivityIndicator, Platform, useWindowDimensions,
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,7 +58,7 @@ export default function MedicalRecordsScreen() {
     const [error, setError] = useState<string | null>(null);
     const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
-    useEffect(() => { fetchMedicalRecords(); }, []);
+    useFocusEffect(useCallback(() => { fetchMedicalRecords(); }, []));
 
     const fetchMedicalRecords = async () => {
         try {

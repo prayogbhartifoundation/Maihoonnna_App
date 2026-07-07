@@ -3,8 +3,8 @@ import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     ActivityIndicator, Platform, Dimensions, TextInput, Alert,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
@@ -98,7 +98,11 @@ export default function InteractionsScreen() {
     const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
     const [savingFeedbackId, setSavingFeedbackId] = useState<string | null>(null);
 
-    useEffect(() => { fetchInteractions(); }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchInteractions();
+        }, [])
+    );
 
     const fetchInteractions = async () => {
         try {

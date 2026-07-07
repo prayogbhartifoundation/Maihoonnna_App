@@ -558,6 +558,332 @@ export const getUserDashboard = async (userId: string) => {
   };
 };
 
+export const activateSubscription = async (
+  userId: string,
+  beneficiaryId: string,
+  beneficiaryData: {
+    name: string;
+    age: number;
+    gender: string;
+    address: string;
+    flatPlot?: string;
+    streetArea?: string;
+    landmark?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    latitude?: number;
+    longitude?: number;
+    relationship: string;
+    phone: string;
+    dob?: string;
+    maritalStatus?: string;
+  },
+  medicalData?: any,
+  emergencyContactsRaw?: any
+) => {
+  // 1. Find the inactive subscription for this beneficiary
+  const existingSub = await prisma.subscription.findFirst({
+    where: { beneficiaryId, isActive: false },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      package: true,
+      packageVersion: {
+        include: {
+          versionBenefits: true
+        }
+      }
+    }
+  });
+
+  if (!existingSub) {
+    throw new Error('No inactive pre-arranged subscription found for this beneficiary.');
+  }
+
+  const dobDate = parseDob(beneficiaryData.dob);
+
+  // 2. Medical Data Parsing
+  const conditionIds: string[] = [];
+  if (medicalData?.conditions && Array.isArray(medicalData.conditions)) {
+      for (const condName of medicalData.conditions) {
+          const slug = condName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          try {
+              const condition = await prisma.medicalCondition.upsert({
+                  where: { slug },
+                  update: {},
+                  create: {
+                      id: generateUUID(),
+                      name: condName,
+                      slug: slug,
+                      category: "General"
+                   }
+              });
+              conditionIds.push(condition.id);
+          } catch(e) { console.error("Condition Error", e); }
+      }
+  }
+
+  const mappedMedications: any[] = [];
+  if (medicalData?.medications && Array.isArray(medicalData.medications)) {
+      for (const med of medicalData.medications) {
+          let freqEnum = 'once_daily';
+          const lowerFreq = String(med.frequency || '').toLowerCase();
+          if (lowerFreq.includes('twice') || lowerFreq.includes('2')) freqEnum = 'twice_daily';
+          else if (lowerFreq.includes('thrice') || lowerFreq.includes('3')) freqEnum = 'thrice_daily';
+          else if (lowerFreq.includes('needed')) freqEnum = 'as_needed';
+
+          mappedMedications.push({
+              id: generateUUID(),
+              beneficiaryId,
+              name: med.name || 'Unknown',
+              dosage: med.dosage || '',
+              frequency: freqEnum as any,
+              timeSlots: med.timesPerDay || [],
+              setReminders: !!med.setReminders,
+              instructions: med.instructions || null,
+              startDate: med.startDate ? (parseDob(med.startDate) || new Date()) : new Date(),
+              endDate: med.endDate ? parseDob(med.endDate) : null,
+              totalDays: med.totalDays ? parseInt(med.totalDays, 10) : null
+          });
+      }
+  }
+
+  // 3. Emergency Contacts Parsing
+  const finalEmergencyContacts: any[] = [];
+  if (emergencyContactsRaw) {
+    if (emergencyContactsRaw.primaryName || emergencyContactsRaw.primaryPhone) {
+      finalEmergencyContacts.push({
+        name: emergencyContactsRaw.primaryName || 'Primary Contact',
+        phone: String(emergencyContactsRaw.primaryPhone || '').replace(/\D/g, '').slice(-10) || '0000000000',
+        relation: emergencyContactsRaw.primaryRelation || 'Primary Contact',
+        email: emergencyContactsRaw.primaryEmail || '',
+      });
+    }
+    if (emergencyContactsRaw.secondaryName || emergencyContactsRaw.secondaryPhone) {
+      finalEmergencyContacts.push({
+        name: emergencyContactsRaw.secondaryName || 'Secondary Contact',
+        phone: String(emergencyContactsRaw.secondaryPhone || '').replace(/\D/g, '').slice(-10) || '0000000000',
+        relation: emergencyContactsRaw.secondaryRelation || 'Secondary Contact',
+        email: emergencyContactsRaw.secondaryEmail || '',
+      });
+    }
+  }
+
+  const bDataAny = beneficiaryData as any;
+  if (finalEmergencyContacts.length === 0 && bDataAny.emergencyContacts && Array.isArray(bDataAny.emergencyContacts)) {
+    for (const ec of bDataAny.emergencyContacts) {
+      if (ec.name && ec.phone) {
+        finalEmergencyContacts.push({
+          name: ec.name,
+          phone: String(ec.phone).replace(/\D/g, '').slice(-10),
+          relation: ec.relation || 'Emergency',
+          email: ec.email || '',
+        });
+      }
+    }
+  }
+
+  if (finalEmergencyContacts.length === 0 && medicalData && (medicalData as any).emergencyContacts && Array.isArray((medicalData as any).emergencyContacts)) {
+    const rawEC = (medicalData as any).emergencyContacts[0];
+    if (rawEC && rawEC.name && rawEC.phone) {
+      finalEmergencyContacts.push({
+        name: rawEC.name,
+        phone: String(rawEC.phone).replace(/\D/g, '').slice(-10),
+        relation: rawEC.relation || 'Emergency',
+        email: rawEC.secondaryEmail || '',
+      });
+    }
+  }
+
+  if (finalEmergencyContacts.length === 0) {
+    const subscriberUser = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    finalEmergencyContacts.push({
+      name: subscriberUser?.name || 'Subscriber',
+      phone: subscriberUser?.phone || '0000000000',
+      relation: beneficiaryData.relationship || 'Subscriber',
+    });
+  }
+
+  const vitalsInput = medicalData?.vitals || {};
+
+  return prisma.$transaction(async (tx) => {
+    // A. Update Beneficiary profile
+    const beneficiary = await tx.beneficiary.update({
+      where: { id: beneficiaryId },
+      data: {
+        name: beneficiaryData.name,
+        age: parseInt(String(beneficiaryData.age || 65), 10),
+        dateOfBirth: dobDate,
+        gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
+        address: beneficiaryData.address || "Not provided",
+        flatPlot: beneficiaryData.flatPlot || null,
+        streetArea: beneficiaryData.streetArea || null,
+        landmark: beneficiaryData.landmark || null,
+        city: beneficiaryData.city || null,
+        state: beneficiaryData.state || null,
+        pincode: beneficiaryData.pincode || null,
+        latitude: beneficiaryData.latitude || null,
+        longitude: beneficiaryData.longitude || null,
+        relationship: beneficiaryData.relationship || null,
+        maritalStatus: beneficiaryData.maritalStatus || null,
+        verificationStatus: "verified", // Mark as verified!
+        isActive: true,
+
+        primaryPhysicianName: medicalData?.physicianName || null,
+        primaryPhysicianPhone: medicalData?.physicianPhone || null,
+        hobbiesInterests: medicalData?.hobbies || [],
+      }
+    });
+
+    // B. Clean and sync medications
+    await tx.medication.deleteMany({ where: { beneficiaryId } });
+    if (mappedMedications.length > 0) {
+      await tx.medication.createMany({ data: mappedMedications });
+    }
+
+    // C. Clean and sync conditions
+    await tx.beneficiaryCondition.deleteMany({ where: { beneficiaryId } });
+    if (conditionIds.length > 0) {
+      await tx.beneficiaryCondition.createMany({
+        data: conditionIds.map(cid => ({
+          id: generateUUID(),
+          beneficiaryId,
+          conditionId: cid,
+          severity: 'moderate' as any
+        }))
+      });
+    }
+
+    // D. Clean and sync emergency contacts
+    await tx.emergencyContact.deleteMany({ where: { beneficiaryId } });
+    if (finalEmergencyContacts.length > 0) {
+      await tx.emergencyContact.createMany({
+        data: finalEmergencyContacts.map((c: any) => ({
+          id: generateUUID(),
+          beneficiaryId,
+          name: c.name,
+          phone: c.phone,
+          relationship: c.relation || 'Emergency',
+          email: c.email || '',
+        }))
+      });
+    }
+
+    // E. Sync Vitals Config
+    const checkedVitalCodes = Object.entries(vitalsInput)
+      .filter(([, checked]) => !!checked)
+      .map(([code]) => code.trim().toUpperCase());
+
+    if (checkedVitalCodes.length > 0) {
+      const vitalDefs = await tx.vitalDefinition.findMany({
+        where: { code: { in: checkedVitalCodes }, isActive: true }
+      });
+
+      for (const def of vitalDefs) {
+        await tx.beneficiaryVitalConfig.upsert({
+          where: {
+            beneficiaryId_vitalDefinitionId: {
+              beneficiaryId,
+              vitalDefinitionId: def.id,
+            }
+          },
+          update: { isActive: true },
+          create: {
+            id: generateUUID(),
+            beneficiaryId,
+            vitalDefinitionId: def.id,
+            isActive: true,
+            frequency: 'every_visit',
+          }
+        });
+      }
+    }
+
+    // F. Activate Subscription
+    const start = new Date();
+    const end = new Date(start);
+    const months = existingSub.packageVersion?.durationMonths || existingSub.package?.durationMonths || 1;
+    end.setMonth(end.getMonth() + months);
+
+    const subscription = await tx.subscription.update({
+      where: { id: existingSub.id },
+      data: {
+        isActive: true,
+        startDate: start,
+        endDate: end,
+      }
+    });
+
+    // G. Create Benefit Balances if they don't exist
+    const versionObj = existingSub.packageVersion;
+    if (versionObj?.versionBenefits && versionObj.versionBenefits.length > 0) {
+      await tx.subscriptionBenefitBalance.createMany({
+        data: versionObj.versionBenefits.map((vb: any) => ({
+          subscriptionId: subscription.id,
+          benefitId: vb.benefitId,
+          packageVersionBenefitId: vb.id,
+          snapshotBenefitName: vb.snapshotName,
+          snapshotUnitLabel: vb.snapshotUnitLabel,
+          totalUnits: vb.unitsIncluded,
+          usedUnits: 0,
+          unit: vb.snapshotUnitLabel ? normalizeUnit(vb.snapshotUnitLabel) : 'visits',
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // H. Create Payment record
+    const invoiceNumber = `ADM-ACT-${Date.now()}`;
+    await tx.payment.create({
+      data: {
+        invoiceNumber,
+        subscriberId: userId,
+        beneficiaryId,
+        subscriptionId: subscription.id,
+        packageType: subscription.packageType,
+        packageVersionId: versionObj?.id || null,
+        snapshotPackageName: versionObj?.name || 'Prepaid Care Package',
+        snapshotBasePrice: versionObj?.basePrice || 0,
+        snapshotBenefits: versionObj?.versionBenefits?.map((vb: any) => ({
+          name: vb.snapshotName,
+          units: vb.unitsIncluded,
+          unitLabel: vb.snapshotUnitLabel
+        })) || [],
+        baseAmount: versionObj?.basePrice || 0,
+        amountPaid: versionObj?.basePrice || 0,
+        discountAmount: 0,
+        paymentMethod: 'csa_prepaid',
+        paymentStatus: 'success',
+        planStartDate: start,
+        planEndDate: end,
+        paidAt: new Date(),
+        enrolledAt: new Date(),
+        isSubscriptionActive: true,
+        gatewayName: 'csa_consent_activation',
+      }
+    });
+
+    // I. Log Activity
+    await tx.activityLog.create({
+      data: {
+        id: generateUUID(),
+        userId,
+        type: 'SUBSCRIPTION',
+        action: 'ACTIVATED',
+        details: {
+          subscriptionId: subscription.id,
+          beneficiaryId,
+          invoiceNumber
+        } as any
+      }
+    });
+
+    return { subscription, beneficiary };
+  });
+};
+
 export const getSubscriptionPackages = async () => {
   let packages = await prisma.subscriptionPackage.findMany({
     where: { isActive: true, isGlobal: true },
@@ -631,3 +957,5 @@ export const getSubscriptionPackages = async () => {
 
   return packages;
 };
+
+

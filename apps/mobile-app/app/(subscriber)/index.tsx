@@ -121,6 +121,14 @@ export default function SubscriberDashboardScreen() {
         }
     });
 
+    useFocusEffect(
+        useCallback(() => {
+            if (isInitialized) {
+                refetch();
+            }
+        }, [isInitialized, refetch])
+    );
+
     // Fallback logic: Ensure valid selection
     useEffect(() => {
         if (dashboard?.beneficiaries?.length > 0) {
@@ -303,14 +311,17 @@ export default function SubscriberDashboardScreen() {
                         return (
                             <TouchableOpacity
                                 key={b.id || i}
-                                style={[styles.benCard, isSelected && styles.benCardActive]}
-                                activeOpacity={0.85}
+                                style={[styles.benCard, isSelected && b.verificationStatus !== 'pending' && styles.benCardActive]}
                                 onPress={() => {
-                                    if (isSelected) {
-                                        router.push(`/(subscriber)/beneficiary-profile?id=${b.id}`);
+                                    if (b.verificationStatus === 'pending') {
+                                        router.push({
+                                            pathname: '/(setup)/beneficiary-info',
+                                            params: { isVerificationFlow: 'true', beneficiaryId: b.id }
+                                        });
                                     } else {
                                         setSelectedBeneficiaryId(b.id);
                                         AsyncStorage.setItem('selectedBeneficiaryId', b.id);
+                                        router.push(`/(subscriber)/beneficiary-profile?id=${b.id}`);
                                     }
                                 }}
                             >
@@ -322,12 +333,16 @@ export default function SubscriberDashboardScreen() {
                                     <Text style={styles.benName}>{b.name}</Text>
                                     <Text style={styles.benMeta}>{b.age ? `${b.age} years` : ''}{b.relationship ? ` • ${b.relationship}` : ''}</Text>
                                 </View>
-                                {isSelected && (
-                                    <View style={{ backgroundColor: '#FE6700', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 }}>
-                                        <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>Active</Text>
+                                {b.verificationStatus === 'pending' ? (
+                                    <View style={{ backgroundColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 }}>
+                                        <Text style={{ color: '#6B7280', fontSize: 10, fontWeight: '700' }}>Inactive - Verification Required</Text>
+                                    </View>
+                                ) : (
+                                    <View style={{ backgroundColor: '#D1FAE5', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 }}>
+                                        <Text style={{ color: '#065F46', fontSize: 10, fontWeight: '700' }}>Active</Text>
                                     </View>
                                 )}
-                                <Ionicons name="chevron-forward" size={20} color={isSelected ? "#FE6700" : "#9CA3AF"} />
+                                <Ionicons name="chevron-forward" size={20} color="#FE6700" />
                             </TouchableOpacity>
                         );
                     })

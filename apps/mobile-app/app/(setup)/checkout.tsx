@@ -73,6 +73,8 @@ export default function CheckoutScreen() {
     const [couponError, setCouponError] = useState('');
     const [appliedCouponCode, setAppliedCouponCode] = useState('');
 
+    const [agreed, setAgreed] = useState(false);
+
     // 🛑 UI STATE
     const [activeTab, setActiveTab] = useState<'UPI' | 'CARDS' | 'NET_BANKING'>('UPI');
     const [upiId, setUpiId] = useState('');
@@ -113,14 +115,40 @@ export default function CheckoutScreen() {
         }
     };
 
+    const isVerificationFlow = params.isVerificationFlow === 'true';
+    const beneficiaryId = params.beneficiaryId as string;
+    const pendingDetailsRaw = params.pendingDetails as string;
+
     // Initial load — no coupon
     useEffect(() => {
+        if (isVerificationFlow && pendingDetailsRaw) {
+            setPricingLoading(true);
+            try {
+                const b = JSON.parse(pendingDetailsRaw);
+                const sub = b.subscriptions?.[0];
+                const pkg = sub?.packageVersion || sub?.package;
+                setPricing({
+                    packageName: pkg?.name || 'Care Plan',
+                    basePrice: pkg?.basePrice || 0,
+                    discountApplied: 0,
+                    tax: 0,
+                    total: 0, // No payment in verification flow
+                    couponValid: false,
+                });
+            } catch (err) {
+                console.error('Error pre-filling pricing in checkout:', err);
+            } finally {
+                setPricingLoading(false);
+            }
+            return;
+        }
+
         if (!packageId) return;
         setPricingLoading(true);
         fetchCheckoutPreview()
             .catch(() => Alert.alert('Error', 'Could not load package pricing.'))
             .finally(() => setPricingLoading(false));
-    }, [packageId]);
+    }, [packageId, isVerificationFlow, pendingDetailsRaw]);
 
     // Apply coupon — calls preview again with the code
     const handleApplyCoupon = async () => {
@@ -210,6 +238,81 @@ export default function CheckoutScreen() {
             try { if (medicalDataRaw) medicalData = JSON.parse(medicalDataRaw); } catch (e) { }
             try { if (emergencyContactsRaw) emergencyContacts = JSON.parse(emergencyContactsRaw); } catch (e) { }
             try { if (preferencesDataRaw) preferencesData = JSON.parse(preferencesDataRaw); } catch (e) { }
+
+            // CSA Verification / Activation Bypass
+            if (isVerificationFlow) {
+                const payload = {
+                    beneficiaryId,
+                    beneficiaryData,
+                    medicalData,
+                    emergencyContacts,
+                    preferencesData
+                };
+
+                const response = await fetch(`${API_URL}/subscriber/subscriptions/activate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': storedToken ? `Bearer ${storedToken}` : ''
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    const returnedBeneficiary = data.data?.beneficiary || {};
+                    const returnId = returnedBeneficiary.id || beneficiaryId;
+                    if (beneficiaryData.photoUri && returnId) {
+                        try {
+                            const token = storedToken;
+                            const uri = beneficiaryData.photoUri;
+                            const ext = uri.split('.').pop() || 'jpg';
+                            const fileName = `photo_${Date.now()}.${ext}`;
+                            const mimeType = `image/${ext === 'png' ? 'png' : 'jpeg'}`;
+
+                            const formData = new FormData();
+                            if (Platform.OS === 'web') {
+                                const blobResponse = await fetch(uri);
+                                const blob = await blobResponse.blob();
+                                formData.append('file', blob, fileName);
+                            } else {
+                                formData.append('file', {
+                                    uri,
+                                    name: fileName,
+                                    type: mimeType,
+                                } as any);
+                            }
+                            formData.append('targetType', 'beneficiary');
+                            formData.append('targetId', returnId);
+
+                            const uploadResponse = await fetch(`${API_URL}/profile-photo/upload`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': token ? `Bearer ${token}` : ''
+                                },
+                                body: formData
+                            });
+                            const uploadResult = await uploadResponse.json();
+                            console.log('[Checkout Verification Photo Upload] Result:', uploadResult);
+                        } catch (uploadErr) {
+                            console.error('Failed to upload beneficiary photo during verification checkout:', uploadErr);
+                        }
+                    }
+
+                    await AsyncStorage.removeItem('beneficiaryDashboardCache');
+                    queryClient.invalidateQueries({ queryKey: ['subscriberDashboard'] });
+
+                    const activatedSub = data.data?.subscription || {};
+                    replace('/(setup)/payment-success', {
+                        orderId: activatedSub.id || 'N/A',
+                        packageName: activatedSub.package?.name || pricing.packageName,
+                        price: String(pricing.basePrice)
+                    });
+                } else {
+                    throw new Error(data.message || "Activation failed on server.");
+                }
+                return;
+            }
 
             // 1. Check if total is 0 (e.g. 100% discount). If so, skip Razorpay.
             let paymentDetails = {};
@@ -455,170 +558,222 @@ export default function CheckoutScreen() {
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                    <Text style={styles.sectionTitle}>Payment Details</Text>
-                    <Text style={styles.sectionSubtitle}>Choose your preferred payment method</Text>
+                    <Text style={styles.sectionTitle}>{isVerificationFlow ? 'Verify & Activate Plan' : 'Payment Details'}</Text>
+                    <Text style={styles.sectionSubtitle}>{isVerificationFlow ? 'Review details and agree to terms to activate pre-paid package' : 'Choose your preferred payment method'}</Text>
 
-                    {/* SECURITY BADGE */}
-                    <View style={styles.securityBadge}>
-                        <Ionicons name="shield-checkmark-outline" size={20} color="#059669" style={styles.securityIcon} />
-                        <View style={styles.securityTextWrap}>
-                            <Text style={styles.securityTextBold}>100% Secure Payment</Text>
-                            <Text style={styles.securityText}>Your payment information is encrypted and secure</Text>
-                        </View>
-                    </View>
+                    {isVerificationFlow ? (
+                        <View style={styles.paymentCard}>
+                            <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: fs(30), color: '#111827', marginBottom: fs(12), fontWeight: '700' }}>
+                                Consent & Agreement
+                            </Text>
+                            <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: fs(24), color: '#4B5563', lineHeight: fs(32), marginBottom: fs(24) }}>
+                                Please review the pre-filled package details below. By checking the box below, you agree to our Terms of Service and Privacy Policy, and authorize activation of this care package.
+                            </Text>
 
-                    {/* PAYMENT TABS WRAPPER */}
-                    <View style={styles.tabsWrapper}>
-                        <TouchableOpacity style={[styles.tab, activeTab === 'UPI' ? styles.tabActive : styles.tabInactive]} onPress={() => setActiveTab('UPI')}>
-                            <Ionicons name="phone-portrait-outline" size={16} color={activeTab === 'UPI' ? '#FFF' : '#4B5563'} />
-                            <Text style={[styles.tabText, activeTab === 'UPI' && styles.tabTextActive]}>UPI</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={[styles.tab, activeTab === 'CARDS' ? styles.tabActive : styles.tabInactive]} onPress={() => setActiveTab('CARDS')}>
-                            <Ionicons name="card-outline" size={16} color={activeTab === 'CARDS' ? '#FFF' : '#4B5563'} />
-                            <Text style={[styles.tabText, activeTab === 'CARDS' && styles.tabTextActive]}>Cards</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={[styles.tab, activeTab === 'NET_BANKING' ? styles.tabActive : styles.tabInactive]} onPress={() => setActiveTab('NET_BANKING')}>
-                            <MaterialCommunityIcons name="bank-outline" size={16} color={activeTab === 'NET_BANKING' ? '#FFF' : '#4B5563'} />
-                            <Text style={[styles.tabText, activeTab === 'NET_BANKING' && styles.tabTextActive]}>Net Banking</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* MASTER PAYMENT CARD (The big white box!) */}
-                    <View style={styles.paymentCard}>
-
-                        {activeTab === 'UPI' && (
-                            <View>
-                                {/* UPI Apps Grey Container */}
-                                <View style={styles.upiAppsContainer}>
-                                    <View style={styles.upiHeader}>
-                                        <MaterialCommunityIcons name="qrcode-scan" size={20} color="#FE6700" />
-                                        <Text style={styles.upiHeaderText}>Pay using any UPI app</Text>
-                                    </View>
-                                    <View style={styles.upiAppsGrid}>
-                                        {UPI_APPS.map((app) => (
-                                            <View key={app} style={styles.upiAppPill}>
-                                                <Text style={styles.upiAppText}>{app}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                </View>
-
-                                <Text style={styles.inputLabel}>Enter UPI ID</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="yourname@paytm / yourname@okaxis"
-                                    placeholderTextColor="#9CA3AF"
-                                    value={upiId}
-                                    onChangeText={setUpiId}
-                                    autoCapitalize="none"
-                                />
-                                <Text style={styles.inputHelper}>Example: 9876543210@paytm</Text>
-
-                                {/* QR Code Grey Box */}
-                                <View style={styles.qrBox}>
-                                    <Ionicons name="qr-code-outline" size={48} color="#9CA3AF" style={styles.qrIcon} />
-                                    <Text style={styles.qrText}>Or scan QR code with any UPI app</Text>
-                                </View>
-
-                                {/* ─── PROMO / COUPON SECTION ─── */}
-                                <View style={styles.couponCard}>
-                                    <View style={styles.couponHeader}>
-                                        <Ionicons name="pricetag-outline" size={20} color="#FE6700" />
-                                        <Text style={styles.couponHeaderText}>Have a Promo Code?</Text>
-                                    </View>
-
-                                    {!pricing.couponValid ? (
-                                        <>
-                                            <View style={styles.promoInputRow}>
-                                                <TextInput
-                                                    style={styles.promoInput}
-                                                    placeholder="Enter Code"
-                                                    placeholderTextColor="#9CA3AF"
-                                                    value={promoCode}
-                                                    onChangeText={(text) => { setPromoCode(text.toUpperCase()); setCouponError(''); }}
-                                                    autoCapitalize="characters"
-                                                    autoCorrect={false}
-                                                />
-                                                <TouchableOpacity
-                                                    style={[styles.applyBtnOutline, (!promoCode || isApplyingCoupon) && { opacity: 0.5 }]}
-                                                    onPress={handleApplyCoupon}
-                                                    disabled={!promoCode || isApplyingCoupon}
-                                                >
-                                                    {isApplyingCoupon ? (
-                                                        <ActivityIndicator size="small" color="#FE6700" />
-                                                    ) : (
-                                                        <Text style={styles.applyBtnText}>Apply</Text>
-                                                    )}
-                                                </TouchableOpacity>
-                                            </View>
-
-                                            {couponError ? (
-                                                <View style={styles.couponErrorRow}>
-                                                    <Ionicons name="close-circle" size={16} color="#EF4444" />
-                                                    <Text style={styles.couponErrorText}>{couponError}</Text>
-                                                </View>
-                                            ) : (
-                                                <Text style={styles.couponHint}>Enter a valid coupon code to get a discount on this order.</Text>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <View style={styles.couponAppliedBox}>
-                                            <View style={styles.couponAppliedLeft}>
-                                                <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                                                <View style={{ marginLeft: 10 }}>
-                                                    <Text style={styles.couponAppliedCode}>{appliedCouponCode}</Text>
-                                                    <Text style={styles.couponAppliedSaving}>You saved ₹{pricing.discountApplied.toFixed(2)}!</Text>
-                                                </View>
-                                            </View>
-                                            <TouchableOpacity onPress={handleRemoveCoupon} style={styles.removeBtn}>
-                                                <Text style={styles.removeBtnText}>Remove</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <View style={styles.divider} />
-
-                                <TouchableOpacity
-                                    style={[styles.payButton, isProcessing && { opacity: 0.7 }]}
-                                    onPress={handlePay}
-                                    disabled={isProcessing || pricingLoading}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: fs(32) }}>
+                                <TouchableOpacity 
+                                    onPress={() => setAgreed(!agreed)} 
+                                    style={{ 
+                                        width: fs(40), 
+                                        height: fs(40), 
+                                        borderWidth: 2, 
+                                        borderColor: '#FE6700', 
+                                        borderRadius: 4, 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center',
+                                        marginRight: fs(16),
+                                        backgroundColor: agreed ? '#FE6700' : 'transparent'
+                                    }}
                                 >
-                                    {isProcessing ? (
-                                        <ActivityIndicator color="#FFFFFF" />
-                                    ) : (
-                                        <>
-                                            <Feather name="lock" size={16} color="#FFF" style={styles.payBtnIcon} />
-                                            <Text style={styles.payButtonText}>
-                                                Pay ₹{pricingLoading ? '...' : pricing.total.toFixed(2)}
-                                            </Text>
-                                        </>
-                                    )}
+                                    {agreed && <Ionicons name="checkmark" size={16} color="#FFF" />}
                                 </TouchableOpacity>
-
-                                <Text style={styles.termsText}>
-                                    By completing this purchase, you agree to our Terms of Service and Privacy Policy
+                                <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: fs(22), color: '#374151', flex: 1 }}>
+                                    I agree to the Terms of Service & Privacy Policy
                                 </Text>
                             </View>
-                        )}
 
-                        {activeTab === 'CARDS' && (
-                            <View style={styles.placeholderBox}>
-                                <Ionicons name="card-outline" size={48} color="#D1D5DB" />
-                                <Text style={styles.placeholderText}>Credit & Debit Card form will go here.</Text>
+                            <TouchableOpacity
+                                style={[styles.payButton, (isProcessing || !agreed) && { opacity: 0.6 }]}
+                                onPress={handlePay}
+                                disabled={isProcessing || pricingLoading || !agreed}
+                            >
+                                {isProcessing ? (
+                                    <ActivityIndicator color="#FFFFFF" />
+                                ) : (
+                                    <>
+                                        <Feather name="check-circle" size={16} color="#FFF" style={styles.payBtnIcon} />
+                                        <Text style={styles.payButtonText}>
+                                            Activate Package
+                                        </Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            {/* SECURITY BADGE */}
+                            <View style={styles.securityBadge}>
+                                <Ionicons name="shield-checkmark-outline" size={20} color="#059669" style={styles.securityIcon} />
+                                <View style={styles.securityTextWrap}>
+                                    <Text style={styles.securityTextBold}>100% Secure Payment</Text>
+                                    <Text style={styles.securityText}>Your payment information is encrypted and secure</Text>
+                                </View>
                             </View>
-                        )}
 
-                        {activeTab === 'NET_BANKING' && (
-                            <View style={styles.placeholderBox}>
-                                <MaterialCommunityIcons name="bank-outline" size={48} color="#D1D5DB" />
-                                <Text style={styles.placeholderText}>Net Banking options will go here.</Text>
+                            {/* PAYMENT TABS WRAPPER */}
+                            <View style={styles.tabsWrapper}>
+                                <TouchableOpacity style={[styles.tab, activeTab === 'UPI' ? styles.tabActive : styles.tabInactive]} onPress={() => setActiveTab('UPI')}>
+                                    <Ionicons name="phone-portrait-outline" size={16} color={activeTab === 'UPI' ? '#FFF' : '#4B5563'} />
+                                    <Text style={[styles.tabText, activeTab === 'UPI' && styles.tabTextActive]}>UPI</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={[styles.tab, activeTab === 'CARDS' ? styles.tabActive : styles.tabInactive]} onPress={() => setActiveTab('CARDS')}>
+                                    <Ionicons name="card-outline" size={16} color={activeTab === 'CARDS' ? '#FFF' : '#4B5563'} />
+                                    <Text style={[styles.tabText, activeTab === 'CARDS' && styles.tabTextActive]}>Cards</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={[styles.tab, activeTab === 'NET_BANKING' ? styles.tabActive : styles.tabInactive]} onPress={() => setActiveTab('NET_BANKING')}>
+                                    <MaterialCommunityIcons name="bank-outline" size={16} color={activeTab === 'NET_BANKING' ? '#FFF' : '#4B5563'} />
+                                    <Text style={[styles.tabText, activeTab === 'NET_BANKING' && styles.tabTextActive]}>Net Banking</Text>
+                                </TouchableOpacity>
                             </View>
-                        )}
 
-                    </View>
+                            {/* MASTER PAYMENT CARD (The big white box!) */}
+                            <View style={styles.paymentCard}>
+
+                                {activeTab === 'UPI' && (
+                                    <View>
+                                        {/* UPI Apps Grey Container */}
+                                        <View style={styles.upiAppsContainer}>
+                                            <View style={styles.upiHeader}>
+                                                <MaterialCommunityIcons name="qrcode-scan" size={20} color="#FE6700" />
+                                                <Text style={styles.upiHeaderText}>Pay using any UPI app</Text>
+                                            </View>
+                                            <View style={styles.upiAppsGrid}>
+                                                {UPI_APPS.map((app) => (
+                                                    <View key={app} style={styles.upiAppPill}>
+                                                        <Text style={styles.upiAppText}>{app}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        </View>
+
+                                        <Text style={styles.inputLabel}>Enter UPI ID</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="yourname@paytm / yourname@okaxis"
+                                            placeholderTextColor="#9CA3AF"
+                                            value={upiId}
+                                            onChangeText={setUpiId}
+                                            autoCapitalize="none"
+                                        />
+                                        <Text style={styles.inputHelper}>Example: 9876543210@paytm</Text>
+
+                                        {/* QR Code Grey Box */}
+                                        <View style={styles.qrBox}>
+                                            <Ionicons name="qr-code-outline" size={48} color="#9CA3AF" style={styles.qrIcon} />
+                                            <Text style={styles.qrText}>Or scan QR code with any UPI app</Text>
+                                        </View>
+
+                                        {/* ─── PROMO / COUPON SECTION ─── */}
+                                        <View style={styles.couponCard}>
+                                            <View style={styles.couponHeader}>
+                                                <Ionicons name="pricetag-outline" size={20} color="#FE6700" />
+                                                <Text style={styles.couponHeaderText}>Have a Promo Code?</Text>
+                                            </View>
+
+                                            {!pricing.couponValid ? (
+                                                <>
+                                                    <View style={styles.promoInputRow}>
+                                                        <TextInput
+                                                            style={styles.promoInput}
+                                                            placeholder="Enter Code"
+                                                            placeholderTextColor="#9CA3AF"
+                                                            value={promoCode}
+                                                            onChangeText={(text) => { setPromoCode(text.toUpperCase()); setCouponError(''); }}
+                                                            autoCapitalize="characters"
+                                                            autoCorrect={false}
+                                                        />
+                                                        <TouchableOpacity
+                                                            style={[styles.applyBtnOutline, (!promoCode || isApplyingCoupon) && { opacity: 0.5 }]}
+                                                            onPress={handleApplyCoupon}
+                                                            disabled={!promoCode || isApplyingCoupon}
+                                                        >
+                                                            {isApplyingCoupon ? (
+                                                                <ActivityIndicator size="small" color="#FE6700" />
+                                                            ) : (
+                                                                <Text style={styles.applyBtnText}>Apply</Text>
+                                                            )}
+                                                        </TouchableOpacity>
+                                                    </View>
+
+                                                    {couponError ? (
+                                                        <View style={styles.couponErrorRow}>
+                                                            <Ionicons name="close-circle" size={16} color="#EF4444" />
+                                                            <Text style={styles.couponErrorText}>{couponError}</Text>
+                                                        </View>
+                                                    ) : (
+                                                        <Text style={styles.couponHint}>Enter a valid coupon code to get a discount on this order.</Text>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <View style={styles.couponAppliedBox}>
+                                                    <View style={styles.couponAppliedLeft}>
+                                                        <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                                                        <View style={{ marginLeft: 10 }}>
+                                                            <Text style={styles.couponAppliedCode}>{appliedCouponCode}</Text>
+                                                            <Text style={styles.couponAppliedSaving}>You saved ₹{pricing.discountApplied.toFixed(2)}!</Text>
+                                                        </View>
+                                                    </View>
+                                                    <TouchableOpacity onPress={handleRemoveCoupon} style={styles.removeBtn}>
+                                                        <Text style={styles.removeBtnText}>Remove</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        <View style={styles.divider} />
+
+                                        <TouchableOpacity
+                                            style={[styles.payButton, isProcessing && { opacity: 0.7 }]}
+                                            onPress={handlePay}
+                                            disabled={isProcessing || pricingLoading}
+                                        >
+                                            {isProcessing ? (
+                                                <ActivityIndicator color="#FFFFFF" />
+                                            ) : (
+                                                <>
+                                                    <Feather name="lock" size={16} color="#FFF" style={styles.payBtnIcon} />
+                                                    <Text style={styles.payButtonText}>
+                                                        Pay ₹{pricingLoading ? '...' : pricing.total.toFixed(2)}
+                                                    </Text>
+                                                </>
+                                            )}
+                                        </TouchableOpacity>
+
+                                        <Text style={styles.termsText}>
+                                            By completing this purchase, you agree to our Terms of Service and Privacy Policy
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {activeTab === 'CARDS' && (
+                                    <View style={styles.placeholderBox}>
+                                        <Ionicons name="card-outline" size={48} color="#D1D5DB" />
+                                        <Text style={styles.placeholderText}>Credit & Debit Card form will go here.</Text>
+                                    </View>
+                                )}
+
+                                {activeTab === 'NET_BANKING' && (
+                                    <View style={styles.placeholderBox}>
+                                        <MaterialCommunityIcons name="bank-outline" size={48} color="#D1D5DB" />
+                                        <Text style={styles.placeholderText}>Net Banking options will go here.</Text>
+                                    </View>
+                                )}
+
+                            </View>
+                        </>
+                    )}
                     {/* END MASTER PAYMENT CARD */}
 
                     {/* DYNAMIC ORDER SUMMARY */}
@@ -646,25 +801,40 @@ export default function CheckoutScreen() {
 
                                 <View style={styles.divider} />
 
-                                <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>Subtotal</Text>
-                                    <Text style={styles.priceValue}>₹{pricing.basePrice.toFixed(2)}</Text>
-                                </View>
-                                {pricing.couponValid && (
-                                    <View style={styles.priceRow}>
-                                        <Text style={[styles.priceLabel, { color: '#059669' }]}>Discount ({appliedCouponCode})</Text>
-                                        <Text style={[styles.priceValue, { color: '#059669' }]}>-₹{pricing.discountApplied.toFixed(2)}</Text>
-                                    </View>
-                                )}
-                                <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>GST (18%)</Text>
-                                    <Text style={styles.priceValue}>₹{pricing.tax.toFixed(2)}</Text>
-                                </View>
+                                {isVerificationFlow ? (
+                                    <>
+                                        <View style={styles.priceRow}>
+                                            <Text style={styles.priceLabel}>Package Price</Text>
+                                            <Text style={styles.priceValue}>₹{pricing.basePrice.toFixed(2)}</Text>
+                                        </View>
+                                        <View style={styles.priceRow}>
+                                            <Text style={styles.priceLabel}>Amount Due Now</Text>
+                                            <Text style={[styles.priceValue, { color: '#059669', fontWeight: '700' }]}>₹0.00 (Pre-paid by CSA)</Text>
+                                        </View>
+                                    </>
+                                ) : (
+                                    <>
+                                        <View style={styles.priceRow}>
+                                            <Text style={styles.priceLabel}>Subtotal</Text>
+                                            <Text style={styles.priceValue}>₹{pricing.basePrice.toFixed(2)}</Text>
+                                        </View>
+                                        {pricing.couponValid && (
+                                            <View style={styles.priceRow}>
+                                                <Text style={[styles.priceLabel, { color: '#059669' }]}>Discount ({appliedCouponCode})</Text>
+                                                <Text style={[styles.priceValue, { color: '#059669' }]}>-₹{pricing.discountApplied.toFixed(2)}</Text>
+                                            </View>
+                                        )}
+                                        <View style={styles.priceRow}>
+                                            <Text style={styles.priceLabel}>GST (18%)</Text>
+                                            <Text style={styles.priceValue}>₹{pricing.tax.toFixed(2)}</Text>
+                                        </View>
 
-                                <View style={[styles.priceRow, { marginTop: 12 }]}>
-                                    <Text style={styles.totalLabel}>Total</Text>
-                                    <Text style={styles.totalValue}>₹{pricing.total.toFixed(2)}</Text>
-                                </View>
+                                        <View style={[styles.priceRow, { marginTop: 12 }]}>
+                                            <Text style={styles.totalLabel}>Total</Text>
+                                            <Text style={styles.totalValue}>₹{pricing.total.toFixed(2)}</Text>
+                                        </View>
+                                    </>
+                                )}
                             </>
                         )}
                     </View>

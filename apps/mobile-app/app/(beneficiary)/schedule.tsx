@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, useWindowDimensions, Modal, TextInput, Alert, KeyboardAvoidingView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -59,9 +59,11 @@ export default function ScheduleScreen() {
         setTimePickerVisibility(false);
     };
 
-    useEffect(() => {
-        fetchVisits();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchVisits();
+        }, [])
+    );
 
     const fetchVisits = async () => {
         try {

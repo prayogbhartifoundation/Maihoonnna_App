@@ -795,6 +795,13 @@ export const vitalApi = {
   },
 };
 
+export const hobbyApi = {
+  async getAll(options?: { activeOnly?: boolean }): Promise<any[]> {
+    const query = options?.activeOnly ? '?activeOnly=true' : '';
+    return apiJson(`/hobbies${query}`);
+  },
+};
+
 export const benefitTypeApi = {
   async getAll(): Promise<any[]> { return apiJson('/benefit-types'); },
   async create(data: { name: string; description?: string; iconCode?: string; displayOrder?: number }): Promise<any> {
@@ -1185,6 +1192,8 @@ export const enrollmentApi = {
     amountPaid: number;
     paymentMethod: string;
     paymentNote?: string;
+    csaMode?: boolean;
+    subscriberPassword?: string;
   }): Promise<{
     subscription: any;
     subscriber: { id: string; name: string; phone: string };

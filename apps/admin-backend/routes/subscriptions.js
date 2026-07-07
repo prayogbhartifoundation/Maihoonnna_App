@@ -124,6 +124,8 @@ router.post('/admin-enroll', async (req, res) => {
     amountPaid,
     paymentMethod = 'Cash',
     paymentNote = '',
+    csaMode = false,
+    subscriberPassword = '',
   } = req.body;
 
   if (!subscriberPhone || !subscriberName || !packageId) {
@@ -155,8 +157,9 @@ router.post('/admin-enroll', async (req, res) => {
     else if (duration === 'annual') end.setFullYear(end.getFullYear() + 1);
     else end.setMonth(end.getMonth() + 1);
 
-    // We never set a password — mobile users log in via OTP only
-    const dummyHash = await bcrypt.hash('otp-only-' + subscriberPhone, 8);
+    // Use provided password for testing, otherwise OTP-only placeholder
+    const passwordToHash = subscriberPassword || ('otp-only-' + subscriberPhone);
+    const dummyHash = await bcrypt.hash(passwordToHash, 8);
 
     const result = await prisma.$transaction(async (tx) => {
       // ──────────────────────────────────────────────────────────────────
@@ -248,8 +251,9 @@ router.post('/admin-enroll', async (req, res) => {
             primaryPhysicianName: primaryPhysicianName,
             primaryPhysicianPhone: primaryPhysicianPhone,
             hobbiesInterests: hobbiesInterests,
-            // Vitals tracking
-            isActive: true,
+            isActive: csaMode ? false : true,
+            createdBy: csaMode ? 'csa' : 'subscriber',
+            verificationStatus: csaMode ? 'pending' : 'verified',
             // Nested creates
             emergencyContacts: {
               create: [
@@ -375,10 +379,9 @@ router.post('/admin-enroll', async (req, res) => {
           for (const def of vitalDefs) {
             await tx.beneficiaryVitalConfig.upsert({
               where: {
-                beneficiaryId_vitalDefinitionId_effectiveFrom: {
+                beneficiaryId_vitalDefinitionId: {
                   beneficiaryId: beneficiary.id,
-                  vitalDefinitionId: def.id,
-                  effectiveFrom: today
+                  vitalDefinitionId: def.id
                 }
               },
               update: { isActive: true },
@@ -386,8 +389,7 @@ router.post('/admin-enroll', async (req, res) => {
                 beneficiaryId: beneficiary.id,
                 vitalDefinitionId: def.id,
                 isActive: true,
-                frequency: 'every_visit',
-                effectiveFrom: today
+                frequency: 'every_visit'
               }
             });
           }
@@ -429,7 +431,8 @@ router.post('/admin-enroll', async (req, res) => {
           endDate: end,
           visitsTotal: pkg.visitsPerWeek * 4,
           hoursTotal: pkg.hoursPerMonth || 0,
-          isActive: true,
+          // In CSA mode, subscription starts inactive until subscriber activates via mobile app
+          isActive: csaMode ? false : true,
         },
       });
 
@@ -454,38 +457,41 @@ router.post('/admin-enroll', async (req, res) => {
 
       // ──────────────────────────────────────────────────────────────────
       // 7. Create Payment record (offline / admin-enrolled)
+      // In CSA mode, payment is deferred until subscriber activates the plan.
       // ──────────────────────────────────────────────────────────────────
-      const paid = parseFloat(amountPaid) || pkg.basePrice;
       const invoiceNumber = `ADM-${Date.now()}`;
-      await tx.payment.create({
-        data: {
-          invoiceNumber,
-          subscriberId: subscriberUser.id,
-          beneficiaryId: beneficiary.id,
-          subscriptionId: sub.id,
-          packageType: pkg.type,
-          packageVersionId: pVersion.id,
-          snapshotPackageName: pVersion.name,
-          snapshotBasePrice: pVersion.basePrice,
-          snapshotBenefits: pVersion.versionBenefits.map(vb => ({
-            name: vb.snapshotName,
-            units: vb.unitsIncluded,
-            unitLabel: vb.snapshotUnitLabel
-          })),
-          baseAmount: pkg.basePrice,
-          amountPaid: paid,
-          discountAmount: pkg.basePrice - paid > 0 ? pkg.basePrice - paid : 0,
-          paymentMethod: paymentMethod,
-          paymentStatus: 'success',
-          planStartDate: start,
-          planEndDate: end,
-          paidAt: new Date(),
-          enrolledAt: new Date(),
-          isSubscriptionActive: true,
-          gatewayName: 'admin_offline',
-          failureReason: paymentNote || null,
-        },
-      });
+      if (!csaMode) {
+        const paid = parseFloat(amountPaid) || pkg.basePrice;
+        await tx.payment.create({
+          data: {
+            invoiceNumber,
+            subscriberId: subscriberUser.id,
+            beneficiaryId: beneficiary.id,
+            subscriptionId: sub.id,
+            packageType: pkg.type,
+            packageVersionId: pVersion.id,
+            snapshotPackageName: pVersion.name,
+            snapshotBasePrice: pVersion.basePrice,
+            snapshotBenefits: pVersion.versionBenefits.map(vb => ({
+              name: vb.snapshotName,
+              units: vb.unitsIncluded,
+              unitLabel: vb.snapshotUnitLabel
+            })),
+            baseAmount: pkg.basePrice,
+            amountPaid: paid,
+            discountAmount: pkg.basePrice - paid > 0 ? pkg.basePrice - paid : 0,
+            paymentMethod: paymentMethod,
+            paymentStatus: 'success',
+            planStartDate: start,
+            planEndDate: end,
+            paidAt: new Date(),
+            enrolledAt: new Date(),
+            isSubscriptionActive: true,
+            gatewayName: 'admin_offline',
+            failureReason: paymentNote || null,
+          },
+        });
+      }
 
       await tx.activityLog.create({
         data: {

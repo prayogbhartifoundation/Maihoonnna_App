@@ -92,6 +92,7 @@ app.use('/api/packages', adminsOnly, require('./routes/packages'));
 app.use('/api/subscriptions', staffOnly, require('./routes/subscriptions'));
 app.use('/api/visits', staffOnly, require('./routes/visits'));
 app.use('/api/vitals', staffOnly, require('./routes/vitals'));
+app.use('/api/hobbies', staffOnly, require('./routes/hobbies'));
 app.use('/api/coupons', adminsOnly, require('./routes/coupons'));
 app.use('/api/field-manager', adminsOnly, require('./routes/field-manager'));
 app.use('/api/activity-logs', adminsOnly, require('./routes/activity-logs'));

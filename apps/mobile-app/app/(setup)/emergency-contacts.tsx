@@ -29,11 +29,37 @@ export default function EmergencyContactsScreen() {
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
     const [userData, setUserData] = useState<any>(null);
 
+    const isVerificationFlow = params.isVerificationFlow === 'true';
+    const beneficiaryId = params.beneficiaryId as string;
+    const pendingDetailsRaw = params.pendingDetails as string;
+
     useEffect(() => {
         AsyncStorage.getItem('userData').then(data => {
             if (data) setUserData(JSON.parse(data));
         });
-    }, []);
+
+        // Pre-fill emergency contact details in verification flow
+        if (isVerificationFlow && pendingDetailsRaw) {
+            try {
+                const b = JSON.parse(pendingDetailsRaw);
+                if (b.emergencyContacts && Array.isArray(b.emergencyContacts)) {
+                    const primary = b.emergencyContacts.find((c: any) => c.isPrimary) || b.emergencyContacts[0];
+                    const secondary = b.emergencyContacts.find((c: any) => !c.isPrimary) || b.emergencyContacts[1];
+
+                    setForm({
+                        primaryName: primary?.name || '',
+                        primaryPhone: primary?.phone || '',
+                        primaryEmail: primary?.email || '',
+                        secondaryName: secondary?.name || '',
+                        secondaryPhone: secondary?.phone || '',
+                        secondaryEmail: secondary?.email || ''
+                    });
+                }
+            } catch (err) {
+                console.error('Error parsing pending details in emergency-contacts:', err);
+            }
+        }
+    }, [isVerificationFlow, pendingDetailsRaw]);
 
     const openDrawer = () => {
         setDrawerOpen(true);
@@ -81,7 +107,10 @@ export default function EmergencyContactsScreen() {
             subscriberData: params.subscriberData,
             beneficiaryData: params.beneficiaryData,
             medicalData: params.medicalData,
-            emergencyContacts: JSON.stringify(form)
+            emergencyContacts: JSON.stringify(form),
+            isVerificationFlow: params.isVerificationFlow,
+            beneficiaryId: params.beneficiaryId,
+            pendingDetails: params.pendingDetails
         });
     };
 

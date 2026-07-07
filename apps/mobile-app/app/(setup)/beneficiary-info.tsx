@@ -23,6 +23,7 @@ import HeaderSpacer from '@/components/HeaderSpacer';
 import { useState as useDevState } from 'react';
 import { API_URL } from '@/constants/api';
 
+
 export default function BeneficiaryInfoScreen() {
     const router = useRouter();
     const { push } = useNavigationStack();
@@ -38,12 +39,73 @@ export default function BeneficiaryInfoScreen() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
     const [userData, setUserData] = useState<any>(null);
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+    const [pendingData, setPendingData] = useState<any>(null);
+
+    const isVerificationFlow = params.isVerificationFlow === 'true';
+    const beneficiaryId = params.beneficiaryId as string;
+
+    // Track original phone so we don't falsely block it during verification
+    const [originalPhone, setOriginalPhone] = useState<string>('');
 
     useEffect(() => {
         AsyncStorage.getItem('userData').then(data => {
             if (data) setUserData(JSON.parse(data));
         });
-    }, []);
+
+        if (isVerificationFlow && beneficiaryId) {
+            setIsLoadingDetails(true);
+            AsyncStorage.getItem('userToken').then(async (token) => {
+                try {
+                    const response = await fetch(`${API_URL}/subscriber/beneficiaries/${beneficiaryId}/pending-details`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    const resData = await response.json();
+                    if (resData.success && resData.data) {
+                        setPendingData(resData.data);
+                        const b = resData.data;
+                        let formattedDob = '';
+                        if (b.dateOfBirth) {
+                            const d = new Date(b.dateOfBirth);
+                            const day = d.getDate().toString().padStart(2, '0');
+                            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                            const year = d.getFullYear();
+                            formattedDob = `${day}/${month}/${year}`;
+                        }
+                        const capitalize = (s: string) => s ? (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()) : '';
+                        setBeneficiaryForm({
+                            fullName: b.name || '',
+                            dob: formattedDob,
+                            gender: capitalize(b.gender),
+                            maritalStatus: capitalize(b.maritalStatus),
+                            relationship: capitalize(b.relationship),
+                            phone: b.phone || '',
+                            address: b.address || '',
+                            flatPlot: b.flatPlot || '',
+                            streetArea: b.streetArea || '',
+                            landmark: b.landmark || '',
+                            city: b.city || '',
+                            state: b.state || '',
+                            pincode: b.pincode || '',
+                            latitude: b.latitude || 0,
+                            longitude: b.longitude || 0,
+                        });
+                        if (b.photo) {
+                            setPickedPhotoUri(b.photo);
+                        }
+                        // Store original phone to skip uniqueness check for it
+                        if (b.phone) {
+                            setOriginalPhone(b.phone.replace(/\D/g, '').slice(-10));
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error fetching pending details:', err);
+                } finally {
+                    setIsLoadingDetails(false);
+                }
+            });
+        }
+    }, [isVerificationFlow, beneficiaryId]);
 
     const openDrawer = () => {
         setDrawerOpen(true);
@@ -133,6 +195,12 @@ export default function BeneficiaryInfoScreen() {
             setPhoneError(null);
             return true;
         }
+        // In verification flow, the beneficiary's own phone already exists — skip uniqueness check for it
+        const cleaned = phoneStr.replace(/\D/g, '').slice(-10);
+        if (isVerificationFlow && originalPhone && cleaned === originalPhone) {
+            setPhoneError(null);
+            return true;
+        }
         try {
             const res = await fetch(`${API_URL}/public/check-enrollment?phone=${phoneStr}`);
             const data = await res.json();
@@ -180,11 +248,14 @@ export default function BeneficiaryInfoScreen() {
             if (!isPhoneValid) return;
         }
 
+        const packageIdToPass = params.packageId || (pendingData?.subscriptions?.[0]?.packageType || '');
         push('/(setup)/medical-info', {
-            packageId: params.packageId,
+            packageId: packageIdToPass,
             subscriberData: params.subscriberData,
-            // ⚠️ DEV ONLY — devPassword is included so checkout can call /api/dev/set-beneficiary-password
-            beneficiaryData: JSON.stringify({ ...beneficiaryForm, photoUri: pickedPhotoUri, devPassword: devPassword || undefined })
+            isVerificationFlow: params.isVerificationFlow,
+            beneficiaryId: params.beneficiaryId,
+            beneficiaryData: JSON.stringify({ ...beneficiaryForm, photoUri: pickedPhotoUri, devPassword: devPassword || undefined }),
+            pendingDetails: pendingData ? JSON.stringify(pendingData) : undefined
         });
     };
 
@@ -522,8 +593,8 @@ export default function BeneficiaryInfoScreen() {
                             </View>
                         )}
 
-                        <View style={styles.divider} />
-
+                         <View style={styles.divider} />
+ 
                         <View style={styles.buttonRow}>
                             <TouchableOpacity style={styles.prevBtn} onPress={handleBack}>
                                 <Text style={styles.prevBtnText}>Previous</Text>

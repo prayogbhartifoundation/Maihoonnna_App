@@ -10,7 +10,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { enrollmentApi, packageApi, staffOnboardingApi, vitalApi } from '../../services/api';
+import { enrollmentApi, packageApi, staffOnboardingApi, vitalApi, hobbyApi } from '../../services/api';
 import { toast } from 'sonner';
 import {
   UserPlus, ArrowLeft, ArrowRight, Check, Phone, User, Package,
@@ -77,6 +77,9 @@ export default function EnrollmentWizardPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [enrolledResult, setEnrolledResult] = useState<any>(null);
 
+  const [enrollingMode, setEnrollingMode] = useState<'new' | 'existing'>('existing');
+  const [existingSubscriberId, setExistingSubscriberId] = useState('');
+
   // ── Subscriber
   const [subscriberPhone, setSubscriberPhone] = useState('');
   const [subscriberName, setSubscriberName] = useState('');
@@ -85,8 +88,9 @@ export default function EnrollmentWizardPage() {
   const [subscriberPincode, setSubscriberPincode] = useState('');
   const [subscriberCity, setSubscriberCity] = useState('');
   const [subscriberState, setSubscriberState] = useState('');
+  const [subscriberPassword, setSubscriberPassword] = useState('');
   const [phoneChecking, setPhoneChecking] = useState(false);
-  const [phoneCheck, setPhoneCheck] = useState<{ exists: boolean; id?: string; beneficiaries?: any[] } | null>(null);
+  const [phoneCheck, setPhoneCheck] = useState<{ exists: boolean; id?: string; name?: string; beneficiaries?: any[] } | null>(null);
   const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Beneficiary
@@ -114,6 +118,7 @@ export default function EnrollmentWizardPage() {
   const [primaryPhysicianPhone, setPrimaryPhysicianPhone] = useState('');
   const [hobbiesInterests, setHobbiesInterests] = useState<string[]>([]);
   const [customHobby, setCustomHobby] = useState('');
+  const [dbHobbies, setDbHobbies] = useState<string[]>(COMMON_HOBBIES);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Emergency Contacts
@@ -155,6 +160,7 @@ export default function EnrollmentWizardPage() {
         if (data.subscriberPincode) setSubscriberPincode(data.subscriberPincode);
         if (data.subscriberCity) setSubscriberCity(data.subscriberCity);
         if (data.subscriberState) setSubscriberState(data.subscriberState);
+        if (data.subscriberPassword) setSubscriberPassword(data.subscriberPassword);
         if (data.sameAsSubscriber !== undefined) setSameAsSubscriber(data.sameAsSubscriber);
         if (data.beneficiaryPhone) setBeneficiaryPhone(data.beneficiaryPhone);
         if (data.beneficiaryName) setBeneficiaryName(data.beneficiaryName);
@@ -199,7 +205,7 @@ export default function EnrollmentWizardPage() {
   useEffect(() => {
     if (step === 'confirm') return; // Don't save if already confirmed
     const data = {
-      step, subscriberPhone, subscriberName, subscriberEmail, subscriberAddress, subscriberPincode, subscriberCity, subscriberState,
+      step, subscriberPhone, subscriberName, subscriberEmail, subscriberAddress, subscriberPincode, subscriberCity, subscriberState, subscriberPassword,
       sameAsSubscriber, beneficiaryPhone, beneficiaryName, beneficiaryAge, beneficiaryDob, beneficiaryGender, maritalStatus, profilePhoto,
       beneficiaryAddress, beneficiaryPincode, beneficiaryCity, beneficiaryState, relationship, medicalConditions, medications, vitalsToTrack,
       primaryPhysicianName, primaryPhysicianPhone, hobbiesInterests, customHobby, emergencyContactName, emergencyContactPhone, emergencyContactRel,
@@ -208,7 +214,7 @@ export default function EnrollmentWizardPage() {
     };
     sessionStorage.setItem('enrollment_wizard_data', JSON.stringify(data));
   }, [
-    step, subscriberPhone, subscriberName, subscriberEmail, subscriberAddress, subscriberPincode, subscriberCity, subscriberState,
+    step, subscriberPhone, subscriberName, subscriberEmail, subscriberAddress, subscriberPincode, subscriberCity, subscriberState, subscriberPassword,
     sameAsSubscriber, beneficiaryPhone, beneficiaryName, beneficiaryAge, beneficiaryDob, beneficiaryGender, maritalStatus, profilePhoto,
     beneficiaryAddress, beneficiaryPincode, beneficiaryCity, beneficiaryState, relationship, medicalConditions, medications, vitalsToTrack,
     primaryPhysicianName, primaryPhysicianPhone, hobbiesInterests, customHobby, emergencyContactName, emergencyContactPhone, emergencyContactRel,
@@ -234,6 +240,14 @@ export default function EnrollmentWizardPage() {
       })
       .catch(() => toast.error('Failed to load vitals'))
       .finally(() => setLoadingVitals(false));
+
+    hobbyApi.getAll({ activeOnly: true })
+      .then(hobbies => {
+        if (hobbies && hobbies.length > 0) {
+          setDbHobbies(hobbies.map((h: any) => h.name));
+        }
+      })
+      .catch(() => console.error('Failed to load hobbies from backend, using fallback list'));
   }, []);
 
   // Auto-set amount to package price when package is selected
@@ -257,6 +271,7 @@ export default function EnrollmentWizardPage() {
         setPhoneCheck(data);
         if (data.exists && data.name) {
           setSubscriberName(data.name);
+          if (data.id) setExistingSubscriberId(data.id);
         }
       } catch {
         setPhoneCheck(null);
@@ -325,6 +340,8 @@ export default function EnrollmentWizardPage() {
         amountPaid: parseFloat(amountPaid) || 0,
         paymentMethod,
         paymentNote,
+        csaMode: true, // Always CSA mode from admin — subscriber activates via app
+        subscriberPassword: subscriberPassword || undefined,
       });
       setEnrolledResult(result);
       setStep('confirm');
@@ -337,7 +354,10 @@ export default function EnrollmentWizardPage() {
     }
   };
 
-  const canProceedSubscriber = subscriberPhone.length >= 10 && subscriberName.trim().length > 0;
+  // In existing-subscriber mode, we only need phone match; in new mode we need name too
+  const canProceedSubscriber = enrollingMode === 'existing'
+    ? subscriberPhone.length >= 10 && phoneCheck?.exists === true
+    : subscriberPhone.length >= 10 && subscriberName.trim().length > 0;
   const canProceedBeneficiary = sameAsSubscriber
     ? true
     : beneficiaryName.trim().length > 0;
@@ -484,17 +504,58 @@ export default function EnrollmentWizardPage() {
               <CardTitle className="flex items-center gap-2"><User className="w-5 h-5 text-primary" /> Subscriber Information</CardTitle>
               <CardDescription>The person responsible for the account and payments</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
+              {/* ── Enrollment Mode Toggle ── */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => { setEnrollingMode('existing'); setSubscriberPhone(''); setPhoneCheck(null); setSubscriberName(''); }}
+                  className={`py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                    enrollingMode === 'existing'
+                      ? 'bg-primary text-white shadow'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Phone className="w-4 h-4" />
+                  App User (Case 1)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEnrollingMode('new'); setSubscriberPhone(''); setPhoneCheck(null); setSubscriberName(''); }}
+                  className={`py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                    enrollingMode === 'new'
+                      ? 'bg-primary text-white shadow'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Direct Call (Case 2)
+                </button>
+              </div>
+
+              {/* ── Mode Description ── */}
+              <div className={`rounded-xl p-3 text-sm flex gap-2 items-start ${enrollingMode === 'existing' ? 'bg-blue-50 border border-blue-200 text-blue-800' : 'bg-orange-50 border border-orange-200 text-orange-800'}`}>
+                <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  {enrollingMode === 'existing'
+                    ? <><strong>App User:</strong> Subscriber already downloaded the app. Search by their phone number to find their account, then enroll a beneficiary on their behalf.</>
+                    : <><strong>Direct Call:</strong> New user who called directly. Fill in their subscriber details from scratch. A new account will be created for them.</>}
+                </span>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
+                {/* Phone — always shown first */}
                 <div className="space-y-1 col-span-2 sm:col-span-1">
-                  <Label htmlFor="sub-phone">Phone Number *</Label>
+                  <Label htmlFor="sub-phone">
+                    {enrollingMode === 'existing' ? 'Search by Phone *' : 'Phone Number *'}
+                  </Label>
                   <div className="relative">
                     <Phone className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
                     <Input
                       id="sub-phone"
                       value={subscriberPhone}
                       onChange={e => setSubscriberPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="10-digit mobile number"
+                      placeholder={enrollingMode === 'existing' ? 'Enter subscriber\'s phone to search' : '10-digit mobile number'}
                       className="pl-9"
                       maxLength={10}
                     />
@@ -502,88 +563,147 @@ export default function EnrollmentWizardPage() {
                   </div>
                 </div>
 
+                {/* Name: locked for existing mode when found, editable for new */}
                 <div className="space-y-1 col-span-2 sm:col-span-1">
-                  <Label htmlFor="sub-name">Full Name *</Label>
+                  <Label htmlFor="sub-name">Full Name {enrollingMode === 'new' && '*'}</Label>
                   <Input
                     id="sub-name"
                     value={subscriberName}
-                    onChange={e => setSubscriberName(e.target.value)}
-                    placeholder="e.g. Sumit Kejriwal"
+                    onChange={e => enrollingMode === 'new' && setSubscriberName(e.target.value)}
+                    placeholder={enrollingMode === 'existing' ? 'Auto-filled from account' : 'e.g. Sumit Kejriwal'}
+                    readOnly={enrollingMode === 'existing'}
+                    className={enrollingMode === 'existing' ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}
                   />
                 </div>
 
-                <div className="space-y-1 col-span-2">
-                  <Label htmlFor="sub-email">Email Address</Label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                    <Input
-                      id="sub-email"
-                      value={subscriberEmail}
-                      onChange={e => setSubscriberEmail(e.target.value)}
-                      placeholder="your@email.com"
-                      className="pl-9"
-                    />
+                {/* Phone status banner */}
+                {phoneCheck && (
+                  <div className={`col-span-2 flex items-start gap-2 text-xs px-3 py-2.5 rounded-xl border ${
+                    phoneCheck.exists
+                      ? 'bg-green-50 text-green-800 border-green-200'
+                      : enrollingMode === 'existing'
+                        ? 'bg-red-50 text-red-700 border-red-200'
+                        : 'bg-green-50 text-green-700 border-green-200'
+                  }`}>
+                    {phoneCheck.exists ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <strong>Subscriber found: {phoneCheck.name}</strong>
+                          <span className="block mt-0.5 text-green-700">
+                            {phoneCheck.beneficiaries?.length || 0} beneficiar{(phoneCheck.beneficiaries?.length || 0) === 1 ? 'y' : 'ies'} already enrolled. You can add another.
+                          </span>
+                        </div>
+                      </>
+                    ) : enrollingMode === 'existing' ? (
+                      <>
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>No subscriber found with this phone. Switch to <strong>Direct Call</strong> to create a new account.</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span>New phone — a fresh subscriber account will be created.</span>
+                      </>
+                    )}
                   </div>
-                </div>
+                )}
 
-                <div className="space-y-1 col-span-2 sm:col-span-1">
-                  <Label htmlFor="sub-address">Permanent Address</Label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                    <Input
-                      id="sub-address"
-                      value={subscriberAddress}
-                      onChange={e => setSubscriberAddress(e.target.value)}
-                      placeholder="Enter complete address"
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
+                {/* Extra fields: only shown for New mode (Case 2) */}
+                {enrollingMode === 'new' && (
+                  <>
+                    <div className="space-y-1 col-span-2">
+                      <Label htmlFor="sub-email">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+                        <Input
+                          id="sub-email"
+                          value={subscriberEmail}
+                          onChange={e => setSubscriberEmail(e.target.value)}
+                          placeholder="your@email.com"
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
 
-                <div className="space-y-1 col-span-2 sm:col-span-1">
-                  <Label htmlFor="sub-pincode">Pincode</Label>
-                  <Input 
-                    id="sub-pincode" 
-                    value={subscriberPincode} 
-                    onChange={e => setSubscriberPincode(e.target.value.replace(/\D/g, '').slice(0, 6))} 
-                    placeholder="6-digit pincode" 
-                    maxLength={6}
-                  />
-                  <PincodeCheck 
-                    pincode={subscriberPincode} 
-                    onCheck={(serviceable, zone) => {
-                      if (serviceable && zone) {
-                        if (!subscriberCity) setSubscriberCity(zone.city || '');
-                        if (!subscriberState) setSubscriberState(zone.state || '');
-                      }
-                    }} 
-                  />
-                </div>
+                    <div className="space-y-1 col-span-2 sm:col-span-1">
+                      <Label htmlFor="sub-address">Permanent Address</Label>
+                      <div className="relative">
+                        <MapPin className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+                        <Input
+                          id="sub-address"
+                          value={subscriberAddress}
+                          onChange={e => setSubscriberAddress(e.target.value)}
+                          placeholder="Enter complete address"
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
 
-                <div className="space-y-1 col-span-1">
-                  <Label htmlFor="sub-city">City</Label>
-                  <div className="relative">
-                    <Building className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                    <Input id="sub-city" className="pl-9" value={subscriberCity} onChange={e => setSubscriberCity(e.target.value)} placeholder="City" />
-                  </div>
-                </div>
+                    <div className="space-y-1 col-span-2 sm:col-span-1">
+                      <Label htmlFor="sub-pincode">Pincode</Label>
+                      <Input
+                        id="sub-pincode"
+                        value={subscriberPincode}
+                        onChange={e => setSubscriberPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="6-digit pincode"
+                        maxLength={6}
+                      />
+                      <PincodeCheck
+                        pincode={subscriberPincode}
+                        onCheck={(serviceable, zone) => {
+                          if (serviceable && zone) {
+                            if (!subscriberCity) setSubscriberCity(zone.city || '');
+                            if (!subscriberState) setSubscriberState(zone.state || '');
+                          }
+                        }}
+                      />
+                    </div>
 
-                <div className="space-y-1 col-span-1">
-                  <Label htmlFor="sub-state">State</Label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                    <Input id="sub-state" className="pl-9" value={subscriberState} onChange={e => setSubscriberState(e.target.value)} placeholder="State" />
-                  </div>
-                </div>
+                    <div className="space-y-1 col-span-1">
+                      <Label htmlFor="sub-city">City</Label>
+                      <div className="relative">
+                        <Building className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+                        <Input id="sub-city" className="pl-9" value={subscriberCity} onChange={e => setSubscriberCity(e.target.value)} placeholder="City" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 col-span-1">
+                      <Label htmlFor="sub-state">State</Label>
+                      <div className="relative">
+                        <MapPin className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+                        <Input id="sub-state" className="pl-9" value={subscriberState} onChange={e => setSubscriberState(e.target.value)} placeholder="State" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 col-span-2 border-t pt-4 mt-2">
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <Label className="text-amber-800 text-xs font-bold block mb-1">
+                          ⚠️ DEV ONLY — Subscriber Password
+                        </Label>
+                        <Input
+                          type="text"
+                          value={subscriberPassword}
+                          onChange={e => setSubscriberPassword(e.target.value)}
+                          placeholder="Set subscriber test password (for app login testing)"
+                          className="bg-white border-amber-300 focus-visible:ring-amber-500 text-sm"
+                        />
+                        <p className="text-[10px] text-amber-600 mt-1">
+                          If left blank, subscriber defaults to OTP-only login.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
-              {phoneCheck && (
-                <div className={`flex items-center gap-2 text-xs mt-1 px-2 py-1.5 rounded-lg ${phoneCheck.exists ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
-                  {phoneCheck.exists
-                    ? <><AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> Existing subscriber found — <strong>{phoneCheck.beneficiaries?.length || 0} beneficiar{(phoneCheck.beneficiaries?.length || 0) === 1 ? 'y' : 'ies'}</strong> enrolled.</>
-                    : <><Check className="w-3.5 h-3.5 flex-shrink-0" /> New phone — a fresh subscriber account will be created.</>}
-                </div>
-              )}
+              {/* CSA mode info */}
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-orange-800 flex gap-2 items-start">
+                <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  <strong>Beneficiary will start as Inactive.</strong> When the subscriber logs into the app, they will see an "Inactive - Verification Required" badge and must confirm/activate the beneficiary profile themselves.
+                </span>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -1011,7 +1131,7 @@ export default function EnrollmentWizardPage() {
                   </Label>
                   
                   <div className="flex flex-wrap gap-2">
-                    {COMMON_HOBBIES.map((hobby) => {
+                    {dbHobbies.map((hobby) => {
                       const isSelected = hobbiesInterests.includes(hobby);
                       return (
                         <button
@@ -1037,7 +1157,7 @@ export default function EnrollmentWizardPage() {
                   </div>
 
                   <div className="pt-2">
-                    {(hobbiesInterests.includes('Other') || hobbiesInterests.some(h => !COMMON_HOBBIES.includes(h))) && (
+                    {(hobbiesInterests.includes('Other') || hobbiesInterests.some(h => !dbHobbies.includes(h))) && (
                       <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
                         <Label className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Specify Other Hobby</Label>
                         <Input 
