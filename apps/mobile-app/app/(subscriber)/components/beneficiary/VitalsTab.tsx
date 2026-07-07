@@ -40,16 +40,22 @@ export const VitalsTab = ({ beneficiary }: { beneficiary: any }) => {
             </View>
             
             <View style={styles.vitalsGrid}>
-                {vitals.map((v: any) => (
-                    <View key={v.label} style={styles.vitalsGridCard}>
-                        <MaterialCommunityIcons name={v.icon as any} size={24} color={v.color} style={{ marginBottom: 8 }} />
-                        <Text style={styles.vitalsGridValue}>{v.value}</Text>
-                        <Text style={styles.vitalsGridLabel}>{v.label}</Text>
-                        <View style={[styles.trendBadge, { backgroundColor: v.trend === 'Good' || v.trend === 'Normal' || v.trend === 'Stable' ? '#ECFDF5' : '#FEF3C7' }]}>
-                            <Text style={[styles.trendText, { color: v.trend === 'Slightly High' ? '#D97706' : '#059669' }]}>{v.trend}</Text>
-                        </View>
+                {vitals.length === 0 ? (
+                    <View style={{ width: '100%', paddingVertical: 40, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 14, color: '#9CA3AF' }}>No vital readings recorded yet</Text>
                     </View>
-                ))}
+                ) : (
+                    vitals.map((v: any) => (
+                        <View key={v.label} style={styles.vitalsGridCard}>
+                            <MaterialCommunityIcons name={v.icon as any} size={24} color={v.color} style={{ marginBottom: 8 }} />
+                            <Text style={styles.vitalsGridValue}>{v.value}</Text>
+                            <Text style={styles.vitalsGridLabel}>{v.label}</Text>
+                            <View style={[styles.trendBadge, { backgroundColor: v.trend === 'Good' || v.trend === 'Normal' || v.trend === 'Stable' ? '#ECFDF5' : '#FEF3C7' }]}>
+                                <Text style={[styles.trendText, { color: v.trend === 'Slightly High' ? '#D97706' : '#059669' }]}>{v.trend}</Text>
+                            </View>
+                        </View>
+                    ))
+                )}
             </View>
         </View>
     );

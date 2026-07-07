@@ -123,7 +123,11 @@ export default function BeneficiaryProfileScreen() {
         );
     }
 
-    const happinessScore = beneficiary.emotionalScore ?? 0;
+    // Use lastHappinessScore: derived from most recent CC visit with mood recorded (same as vitals).
+    // null means no mood was ever recorded in any visit → show '--'
+    const happinessScore = beneficiary.lastHappinessScore !== null && beneficiary.lastHappinessScore !== undefined
+        ? `${beneficiary.lastHappinessScore}%`
+        : '--';
     const conditions = beneficiary.conditions?.map((c: any) => c.condition?.name) || [];
 
     /** Returns a distinct pastel icon-box background for each vital type */
@@ -206,7 +210,7 @@ export default function BeneficiaryProfileScreen() {
                                 <View style={[styles.statIconBox, styles.happinessIconBox]}>
                                     <Text style={styles.statEmoji}>😊</Text>
                                 </View>
-                                <Text style={styles.statValue}>{happinessScore}%</Text>
+                                <Text style={styles.statValue}>{happinessScore}</Text>
                                 <Text style={styles.statLabel}>Happiness Score</Text>
                             </View>
                             <View style={styles.statItem}>

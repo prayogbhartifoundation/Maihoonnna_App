@@ -188,7 +188,7 @@ export default function SubscriberDashboardScreen() {
     const recentUpdates = dashboard?.recentUpdates || [];
 
     const firstName = (userData?.name || 'there').split(' ')[0];
-    const happinessScore = stats.happinessScore ?? 84;
+    const happinessScore = stats.happinessScore !== undefined && stats.happinessScore !== null ? `${stats.happinessScore}%` : '--';
     const visitsTotal = stats.visitsThisWeek?.total ?? 0;
     const visitsCompleted = stats.visitsThisWeek?.completed ?? 0;
     const activeHours = stats.activeHours?.used ?? 24;
@@ -236,7 +236,7 @@ export default function SubscriberDashboardScreen() {
                                 <View style={styles.statEmojiCircle}>
                                     <Text style={styles.statEmoji}>😊</Text>
                                 </View>
-                                <Text style={styles.statValue}>{happinessScore}%</Text>
+                                <Text style={styles.statValue}>{happinessScore}</Text>
                             </View>
                             <Text style={styles.statLabel}>Happiness Score</Text>
                         </View>

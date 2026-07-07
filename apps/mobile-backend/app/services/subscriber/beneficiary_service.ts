@@ -384,6 +384,27 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
     distinct: ['vitalDefinitionId'],
   });
 
+  // ── Last Happiness Score from visits (same pattern as vitals: most recent visit with mood recorded) ──
+  const lastVisitWithMood = await prisma.visit.findFirst({
+    where: {
+      beneficiaryId: beneficiary.id,
+      mood: { not: null },
+    },
+    orderBy: { scheduledTime: 'desc' },
+    select: { mood: true, scheduledTime: true },
+  });
+
+  const MOOD_SCORE_MAP: Record<string, number> = {
+    happy: 100,
+    neutral: 80,
+    sad: 50,
+    anxious: 20,
+    depressed: 0,
+  };
+  const lastHappinessScore: number | null = lastVisitWithMood?.mood
+    ? (MOOD_SCORE_MAP[lastVisitWithMood.mood.toLowerCase()] ?? null)
+    : null;
+
   // Build a lookup: code -> latest VitalReading value
   const latestByCode: Record<string, { v1: number | null; v2: number | null; text: string | null }> = {};
   for (const r of latestReadingRows) {
@@ -494,6 +515,7 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
   return {
     ...beneficiary,
     emotionalScore: computedEmotionalScore,
+    lastHappinessScore,   // null if no mood ever recorded in any visit
     isDefaultData,
     hoursUsedPercent,
     vitalsData,

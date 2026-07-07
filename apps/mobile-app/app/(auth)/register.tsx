@@ -9,12 +9,14 @@ import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function RegisterScreen() {
     const router = useRouter();
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
     const safeBack = useSafeBack();
+    const { login } = useAuth();
 
     // Form State
     const [step, setStep] = useState(1);
@@ -104,11 +106,11 @@ export default function RegisterScreen() {
                 // The actual payload is inside the 'data' property of ApiResponse
                 const result = data.data;
 
-                // Save user session!
-                await AsyncStorage.setItem('userToken', result.token);
-                await AsyncStorage.setItem('userData', JSON.stringify(result.user));
+                // Use AuthContext.login() — persists to AsyncStorage AND updates
+                // in-memory auth state so GlobalDrawer immediately shows the user name.
+                await login(result.token, result.user);
 
-                // Registration successful! Store tokens/details and go to dashboard
+                // Navigate to the correct home screen for the role
                 if (result.user.role === 'care_companion') {
                     replace("/(care-companion)");
                 } else if (result.user.role === 'beneficiary') {
@@ -194,7 +196,7 @@ export default function RegisterScreen() {
                             </View>
 
                             <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Pincode / ZIP Code *</Text>
+                                <Text style={styles.label}>Service Area Pincode*</Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="Enter 6-digit pincode"
