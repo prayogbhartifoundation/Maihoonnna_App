@@ -188,7 +188,7 @@ export default function SubscriberDashboardScreen() {
     const recentUpdates = dashboard?.recentUpdates || [];
 
     const firstName = (userData?.name || 'there').split(' ')[0];
-    const happinessScore = stats.happinessScore ?? 85;
+    const happinessScore = stats.happinessScore ?? 84;
     const visitsTotal = stats.visitsThisWeek?.total ?? 0;
     const visitsCompleted = stats.visitsThisWeek?.completed ?? 0;
     const activeHours = stats.activeHours?.used ?? 24;

@@ -244,7 +244,11 @@ export default function EnrollmentWizardPage() {
     hobbyApi.getAll({ activeOnly: true })
       .then(hobbies => {
         if (hobbies && hobbies.length > 0) {
-          setDbHobbies(hobbies.map((h: any) => h.name));
+          const names = hobbies.map((h: any) => h.name);
+          const hasOther = names.includes('Other');
+          const sorted = [...names.filter((n: string) => n !== 'Other')];
+          if (hasOther) sorted.push('Other');
+          setDbHobbies(sorted);
         }
       })
       .catch(() => console.error('Failed to load hobbies from backend, using fallback list'));

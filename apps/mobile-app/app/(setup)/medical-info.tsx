@@ -59,6 +59,7 @@ export default function MedicalInfoScreen() {
     const [physicianName, setPhysicianName] = useState('');
     const [physicianPhone, setPhysicianPhone] = useState('');
     const [hobbiesText, setHobbiesText] = useState(''); // comma separated for now
+    const [customHobbyText, setCustomHobbyText] = useState('');
     const [vitals, setVitals] = useState<Record<string, boolean>>({});
     
     // Config States
@@ -68,11 +69,11 @@ export default function MedicalInfoScreen() {
     // Modal States
     const [showConditionModal, setShowConditionModal] = useState(false);
     const [showHobbiesModal, setShowHobbiesModal] = useState(false);
-    const availableHobbies = [
+    const [availableHobbies, setAvailableHobbies] = useState<string[]>([
         'Reading', 'Gardening', 'Traveling', 'Music', 'Cooking', 
         'Photography', 'Yoga/Exercise', 'Painting/Sketching', 
         'Socializing', 'Movies/TV', 'Playing Cards/Board Games', 'Other'
-    ];
+    ]);
     const [newCondition, setNewCondition] = useState('');
 
     const [showMedicineModal, setShowMedicineModal] = useState(false);
@@ -162,6 +163,24 @@ export default function MedicalInfoScreen() {
 
         fetchVitals();
 
+        const fetchHobbies = async () => {
+            try {
+                const res = await fetch(`${API_URL}/public/hobbies?activeOnly=true`);
+                const data = await res.json();
+                if (data.success && Array.isArray(data.data)) {
+                    const names = data.data.map((h: any) => h.name);
+                    const hasOther = names.includes('Other');
+                    const sorted = [...names.filter((n: string) => n !== 'Other')];
+                    if (hasOther) sorted.push('Other');
+                    setAvailableHobbies(sorted);
+                }
+            } catch (err) {
+                console.error('Failed to fetch hobbies', err);
+            }
+        };
+
+        fetchHobbies();
+
         // Pre-fill conditions, medications, physician details, and hobbies in verification flow
         if (isVerificationFlow && pendingDetailsRaw) {
             try {
@@ -205,6 +224,10 @@ export default function MedicalInfoScreen() {
                 if (b.primaryPhysicianPhone) setPhysicianPhone(b.primaryPhysicianPhone);
                 if (b.hobbiesInterests && Array.isArray(b.hobbiesInterests)) {
                     setHobbiesText(b.hobbiesInterests.join(', '));
+                    const otherVal = b.hobbiesInterests.find((h: any) => typeof h === 'string' && h.startsWith('(') && h.endsWith(')'));
+                    if (otherVal) {
+                        setCustomHobbyText(otherVal.slice(1, -1));
+                    }
                 }
             } catch (err) {
                 console.error('Error parsing pending details in medical-info:', err);
@@ -320,6 +343,10 @@ export default function MedicalInfoScreen() {
         let updatedHobbies;
         if (currentHobbies.includes(hobby)) {
             updatedHobbies = currentHobbies.filter(h => h !== hobby);
+            if (hobby === 'Other') {
+                updatedHobbies = updatedHobbies.filter(h => !h.startsWith('('));
+                setCustomHobbyText('');
+            }
         } else {
             updatedHobbies = [...currentHobbies, hobby];
         }
@@ -509,7 +536,9 @@ export default function MedicalInfoScreen() {
                                     placeholder="e.g. Swimming, Bird Watching"
                                     placeholderTextColor="#9CA3AF"
                                     maxLength={50}
+                                    value={customHobbyText}
                                     onChangeText={(t) => {
+                                        setCustomHobbyText(t);
                                         const baseHobbies = hobbiesText.split(', ').filter(h => h !== 'Other' && !h.startsWith('('));
                                         const trimmed = t.slice(0, 50).trim();
                                         if (trimmed) {
