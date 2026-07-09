@@ -7,7 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-
 model User {
   id                             String                   @id @default(uuid())
   phone                          String                   @unique
@@ -30,11 +29,11 @@ model User {
   fcmToken                       String?
   isActive                       Boolean                  @default(true)
   isVerified                     Boolean                  @default(false)
+  refreshToken                   String?
   lastLoginAt                    DateTime?
   createdAt                      DateTime                 @default(now())
   updatedAt                      DateTime                 @updatedAt
   bookedAppointments             Appointment[]            @relation("AppointmentBookedBy")
-  beneficiariesManaged           Beneficiary[]            @relation("BeneficiaryFieldManager")
   subscriberBeneficiaries        Beneficiary[]            @relation("SubscriberBeneficiaries")
   beneficiaryProfile             Beneficiary?             @relation("BeneficiaryUser")
   assignedCallbackRequests       CallbackRequest[]        @relation("CallbackAssignedTo")
@@ -60,7 +59,7 @@ model User {
   customerServiceProfile         CustomerServiceAgent?    @relation("CSAToUser")
   trainingsAssigned              StaffTraining[]          @relation("TrainingAssignedBy")
   subscriberSubscriptions        Subscription[]           @relation("SubscriberSubscriptions")
-  vitalHistoryRecords            VitalHistory[]           @relation("VitalRecordedBy")
+  selectedVitalConfigs           BeneficiaryVitalConfig[] @relation("SubscriberVitalSelections")
   zonesAsFieldManager            Zone[]                   @relation("ZoneFieldManager")
   zonesAsOperationsManager       Zone[]                   @relation("ZoneOperationsManager")
   createdVitalDefinitions        VitalDefinition[]        @relation("VitalDefinitionCreator")
@@ -219,15 +218,15 @@ model SchedulePreference {
 }
 
 model Beneficiary {
-  id                    String                   @id @default(uuid())
-  userId                String                   @unique
+  id                    String     @id @default(uuid())
+  userId                String     @unique
   subscriberId          String
   name                  String
   photo                 String?
   dateOfBirth           DateTime?
   age                   Int
-  gender                GenderType               @default(prefer_not_to_say)
-  bloodGroup            BloodGroup               @default(unknown)
+  gender                GenderType @default(prefer_not_to_say)
+  bloodGroup            BloodGroup @default(unknown)
   address               String
   flatPlot              String?
   streetArea            String?
@@ -241,60 +240,54 @@ model Beneficiary {
   primaryPhysicianName  String?
   primaryPhysicianPhone String?
   primaryPhysicianSpec  String?
-  hobbiesInterests      String[]                 @default([])
-  trackBloodPressure    Boolean                  @default(false)
-  trackHeartRate        Boolean                  @default(false)
-  trackBloodSugar       Boolean                  @default(false)
-  trackTemperature      Boolean                  @default(false)
-  trackOxygenSaturation Boolean                  @default(false)
-  trackWeight           Boolean                  @default(false)
-  trackPainLevel        Boolean                  @default(false)
-  trackRespiratoryRate  Boolean                  @default(false)
-  primaryCcId           String?
-  secondaryCcId         String?
-  fieldManagerId        String?
-  emotionalScore        Float                    @default(8.0)
-  medicationScore       Float                    @default(100.0)
-  healthScore           Float                    @default(8.0)
-  dietaryRestrictions   String[]                 @default([])
-  allergies             String[]                 @default([])
-  mobilityStatus        String?
-  cognitiveStatus       String?
-  insuranceProvider     String?
-  insurancePolicyNo     String?
-  isActive              Boolean                  @default(true)
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
-  maritalStatus         String?
-  appointments          Appointment[]
-  fieldManager          User?                    @relation("BeneficiaryFieldManager", fields: [fieldManagerId], references: [id])
-  primaryCC             CareCompanion?           @relation("PrimaryCC", fields: [primaryCcId], references: [id])
-  secondaryCC           CareCompanion?           @relation("SecondaryCC", fields: [secondaryCcId], references: [id])
-  subscriber            User                     @relation("SubscriberBeneficiaries", fields: [subscriberId], references: [id])
-  user                  User                     @relation("BeneficiaryUser", fields: [userId], references: [id])
-  conditions            BeneficiaryCondition[]
-  calls                 CallLog[]                @relation("BeneficiaryCalls")
-  callbackRequests      CallbackRequest[]
-  emergencyContacts     EmergencyContact[]
-  emergencyRequests     EmergencyRequest[]
-  medicalRecords        MedicalRecord[]
-  adherenceRecords      MedicationAdherence[]
-  medicationList        Medication[]
-  packageHourLogs       PackageHoursLog[]
-  payments              Payment[]
-  schedulePreference    SchedulePreference?
-  subscriptions         Subscription[]
-  visits                Visit[]
-  vitalConfigs          BeneficiaryVitalConfig[]
-  vitalReadings         VitalReading[]
-  vitalAlerts           VitalAlert[]
-  vitalHistory          VitalHistory[]
+  hobbiesInterests      String[]   @default([])
+
+  primaryCcId         String?
+  secondaryCcId       String?
+  teamId              String?
+  emotionalScore      Float                    @default(8.0)
+  medicationScore     Float                    @default(100.0)
+  healthScore         Float                    @default(8.0)
+  dietaryRestrictions String[]                 @default([])
+  allergies           String[]                 @default([])
+  mobilityStatus      String?
+  cognitiveStatus     String?
+  insuranceProvider   String?
+  insurancePolicyNo   String?
+  isActive            Boolean                  @default(true)
+  createdBy           String                   @default("subscriber") // "subscriber" | "csa"
+  verificationStatus  String                   @default("verified") // "verified" | "pending"
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  maritalStatus       String?
+  appointments        Appointment[]
+  team                Team?                    @relation(fields: [teamId], references: [id])
+  primaryCC           CareCompanion?           @relation("PrimaryCC", fields: [primaryCcId], references: [id])
+  secondaryCC         CareCompanion?           @relation("SecondaryCC", fields: [secondaryCcId], references: [id])
+  subscriber          User                     @relation("SubscriberBeneficiaries", fields: [subscriberId], references: [id])
+  user                User                     @relation("BeneficiaryUser", fields: [userId], references: [id])
+  conditions          BeneficiaryCondition[]
+  calls               CallLog[]                @relation("BeneficiaryCalls")
+  callbackRequests    CallbackRequest[]
+  emergencyContacts   EmergencyContact[]
+  emergencyRequests   EmergencyRequest[]
+  medicalRecords      MedicalRecord[]
+  adherenceRecords    MedicationAdherence[]
+  medicationList      Medication[]
+  packageHourLogs     PackageHoursLog[]
+  payments            Payment[]
+  schedulePreference  SchedulePreference?
+  subscriptions       Subscription[]
+  visits              Visit[]
+  vitalConfigs        BeneficiaryVitalConfig[]
+  vitalReadings       VitalReading[]
+  vitalAlerts         VitalAlert[]
 
   @@index([name])
   @@index([city])
   @@index([pincode])
   @@index([subscriberId])
-  @@index([fieldManagerId])
+  @@index([teamId])
   @@index([primaryCcId])
   @@index([secondaryCcId])
   @@map("beneficiaries")
@@ -529,6 +522,7 @@ model Team {
   updatedAt      DateTime        @updatedAt
   careCompanions CareCompanion[]
   staffProfiles  StaffProfile[]
+  beneficiaries  Beneficiary[]
   fieldManager   FieldManager    @relation(fields: [fieldManagerId], references: [id])
 
   @@map("teams")
@@ -550,22 +544,24 @@ model BenefitType {
 }
 
 model Benefit {
-  id              String                       @id @default(uuid())
-  benefitTypeId   String
-  name            String
-  description     String?
-  isChargeable    Boolean                      @default(false)
-  unitCost        Float?
-  currency        String                       @default("INR")
-  unitLabel       String?
-  defaultUnits    Int                          @default(1)
-  isActive        Boolean                      @default(true)
-  displayOrder    Int                          @default(0)
-  createdAt       DateTime                     @default(now())
-  updatedAt       DateTime                     @updatedAt
-  benefitType     BenefitType                  @relation(fields: [benefitTypeId], references: [id])
-  packageBenefits PackageBenefit[]
-  balances        SubscriptionBenefitBalance[]
+  id                     String                       @id @default(uuid())
+  benefitTypeId          String
+  name                   String
+  description            String?
+  isChargeable           Boolean                      @default(false)
+  unitCost               Float?
+  currency               String                       @default("INR")
+  unitLabel              String?
+  defaultUnits           Int                          @default(1)
+  isActive               Boolean                      @default(true)
+  displayOrder           Int                          @default(0)
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  benefitType            BenefitType                  @relation(fields: [benefitTypeId], references: [id])
+  packageBenefits        PackageBenefit[]
+  balances               SubscriptionBenefitBalance[]
+  visits                 Visit[]
+  packageVersionBenefits PackageVersionBenefit[]
 
   @@map("benefits")
 }
@@ -606,6 +602,67 @@ model PackageDiscount {
 
   @@unique([packageId, billingCycle])
   @@map("package_discounts")
+}
+
+// ─── Package Versioning ───────────────────────────────────────────────────────
+// Each time a package is edited, a new PackageVersion is created (old one frozen).
+// Subscriptions point to the exact version purchased — never changes after signup.
+
+model PackageVersion {
+  id                 String                  @id @default(uuid())
+  packageCode        String // Maps to SubscriptionPackage.type e.g. "GOLD"
+  version            Int // 1, 2, 3...
+  name               String
+  tagline            String?
+  description        String
+  basePrice          Float
+  mrp                Float                   @default(0)
+  currency           String                  @default("INR")
+  billingCycle       String                  @default("monthly")
+  durationMonths     Int                     @default(1)
+  isFreeTrial        Boolean                 @default(false)
+  trialDurationDays  Int?
+  visitsPerWeek      Int                     @default(0)
+  hoursPerMonth      Float                   @default(0)
+  maxBeneficiaries   Int                     @default(1)
+  features           String[]                @default([])
+  highlightFeatures  String[]                @default([])
+  color              String?
+  isPopular          Boolean                 @default(false)
+  isLatest           Boolean                 @default(true)
+  isActive           Boolean                 @default(true)
+  sortOrder          Int                     @default(0)
+  discountPercentage Float                   @default(0)
+  miscellaneousCost  Float                   @default(0)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  versionBenefits    PackageVersionBenefit[]
+  subscriptions      Subscription[]
+  payments           Payment[]
+
+  @@unique([packageCode, version])
+  @@index([packageCode, isLatest])
+  @@map("package_versions")
+}
+
+model PackageVersionBenefit {
+  id                String                       @id @default(uuid())
+  packageVersionId  String
+  benefitId         String // FK to live Benefit (for deduction lookup)
+  snapshotName      String // Snapshot of Benefit.name at version creation
+  snapshotUnitLabel String? // Snapshot of Benefit.unitLabel at version creation
+  unitsIncluded     Int                          @default(1)
+  unitsPeriod       String                       @default("monthly")
+  isUnlimited       Boolean                      @default(false)
+  displayOrder      Int                          @default(0)
+  notes             String?
+  createdAt         DateTime                     @default(now())
+  packageVersion    PackageVersion               @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+  benefit           Benefit                      @relation(fields: [benefitId], references: [id])
+  benefitBalances   SubscriptionBenefitBalance[]
+
+  @@unique([packageVersionId, benefitId])
+  @@map("package_version_benefits")
 }
 
 model SubscriptionPackage {
@@ -650,7 +707,8 @@ model Subscription {
   id               String                       @id @default(uuid())
   subscriberId     String
   beneficiaryId    String
-  packageType      String
+  packageType      String // Legacy: SubscriptionPackage.type (kept for compat)
+  packageVersionId String? // FK → PackageVersion (the exact version purchased)
   duration         SubscriptionDuration         @default(monthly)
   startDate        DateTime
   endDate          DateTime
@@ -670,6 +728,7 @@ model Subscription {
   benefitBalances  SubscriptionBenefitBalance[]
   beneficiary      Beneficiary                  @relation(fields: [beneficiaryId], references: [id])
   package          SubscriptionPackage          @relation(fields: [packageType], references: [type])
+  packageVersion   PackageVersion?              @relation(fields: [packageVersionId], references: [id])
   subscriber       User                         @relation("SubscriberSubscriptions", fields: [subscriberId], references: [id])
 
   @@index([subscriberId])
@@ -696,21 +755,25 @@ model PackageHoursLog {
 }
 
 model Payment {
-  id                   String        @id @default(uuid())
-  invoiceNumber        String?       @unique
+  id                   String          @id @default(uuid())
+  invoiceNumber        String?         @unique
   subscriberId         String
   beneficiaryId        String
   subscriptionId       String
-  packageType          String
+  packageType          String // Legacy string type
+  packageVersionId     String? // FK → PackageVersion (exact version paid for)
+  snapshotPackageName  String? // Snapshot: package name at payment time
+  snapshotBasePrice    Float? // Snapshot: base price at payment time
+  snapshotBenefits     Json? // Snapshot: [{name, units, unitLabel}] at payment time
   baseAmount           Float
-  discountAmount       Float         @default(0.0)
+  discountAmount       Float           @default(0.0)
   couponCode           String?
-  taxAmount            Float         @default(0.0)
+  taxAmount            Float           @default(0.0)
   amountPaid           Float
-  currency             String        @default("INR")
-  paymentMethod        String        @default("UPI")
-  paymentStatus        PaymentStatus @default(pending)
-  transactionId        String?       @unique
+  currency             String          @default("INR")
+  paymentMethod        String          @default("UPI")
+  paymentStatus        PaymentStatus   @default(pending)
+  transactionId        String?         @unique
   gatewayName          String?
   gatewayOrderId       String?
   gatewayPaymentId     String?
@@ -724,14 +787,15 @@ model Payment {
   refundReason         String?
   planStartDate        DateTime
   planEndDate          DateTime
-  isSubscriptionActive Boolean       @default(true)
-  enrolledAt           DateTime      @default(now())
+  isSubscriptionActive Boolean         @default(true)
+  enrolledAt           DateTime        @default(now())
   paidAt               DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  beneficiary          Beneficiary   @relation(fields: [beneficiaryId], references: [id])
-  subscriber           User          @relation("SubscriberPayments", fields: [subscriberId], references: [id])
-  subscription         Subscription  @relation(fields: [subscriptionId], references: [id])
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  beneficiary          Beneficiary     @relation(fields: [beneficiaryId], references: [id])
+  subscriber           User            @relation("SubscriberPayments", fields: [subscriberId], references: [id])
+  subscription         Subscription    @relation(fields: [subscriptionId], references: [id])
+  packageVersion       PackageVersion? @relation(fields: [packageVersionId], references: [id])
 
   @@index([subscriberId])
   @@index([beneficiaryId])
@@ -794,36 +858,29 @@ model Address {
 }
 
 model Visit {
-  id                         String                @id @default(uuid())
-  encounterId                String                @unique
-  beneficiaryId              String
-  careCompanionId            String
-  appointmentId              String?               @unique
-  scheduledTime              DateTime
-  checkInTime                DateTime?
-  checkOutTime               DateTime?
-  durationMinutes            Int?
-  status                     VisitStatus           @default(scheduled)
-  checkInLat                 Float?
-  checkInLng                 Float?
-  checkOutLat                Float?
-  checkOutLng                Float?
-  isGeoVerified              Boolean               @default(false)
-  geoDistanceMeters          Float?
-  manualCheckInReason        String?
-  bpSystolic                 Int?
-  bpDiastolic                Int?
-  heartRate                  Int?
-  oxygenLevel                Float?
-  bloodSugarFasting          Float?
-  bloodSugarPostMeal         Float?
-  temperature                Float?
-  weight                     Float?
-  height                     Float?
-  bmi                        Float?
-  painLevel                  Int?
-  respiratoryRate            Int?
-  extraVitals                Json?
+  id                        String      @id @default(uuid())
+  encounterId               String      @unique
+  visitCode                 String?     @unique // Human-readable ID: e.g. VK7XM4RP
+  beneficiaryId             String
+  careCompanionId           String
+  appointmentId             String?     @unique
+  benefitId                 String? // The benefit selected for this visit — determines deduction rule (visits vs hours)
+  scheduledTime             DateTime
+  checkInTime               DateTime?
+  checkOutTime              DateTime?
+  durationMinutes           Int?
+  status                    VisitStatus @default(scheduled)
+  checkInLat                Float?
+  checkInLng                Float?
+  checkOutLat               Float?
+  checkOutLng               Float?
+  isGeoVerified             Boolean     @default(false)
+  geoDistanceMeters         Float?
+  manualCheckInReason       String?
+  isCheckOutGeoVerified     Boolean     @default(false)
+  checkOutGeoDistanceMeters Float?
+  manualCheckOutReason      String?
+
   mood                       MoodType?
   happinessScore             Int?
   cognitiveScore             Int?
@@ -836,6 +893,7 @@ model Visit {
   medicationAdherence        Boolean               @default(false)
   medicationNotes            String?
   notes                      String?
+  imageUrls                  String?               @default("[]") // JSON array of Supabase photo URLs
   visitSummary               String?
   followUpRequired           Boolean               @default(false)
   followUpNotes              String?
@@ -845,8 +903,16 @@ model Visit {
   rating                     Int?
   feedback                   String?
   ccSelfRating               Int?
+  subscriberRating           Int?
+  beneficiaryRating          Int?
   locationLat                Float?
   locationLng                Float?
+  changeRequestedAt          DateTime?
+  changePreferredDate        String?
+  changePreferredTime        String?
+  changeReason               String?
+  changeRequestStatus        String?               @default("pending")
+  changeResolutionReason     String?
   createdAt                  DateTime              @default(now())
   updatedAt                  DateTime              @updatedAt
   medicationAdherenceRecords MedicationAdherence[]
@@ -854,42 +920,14 @@ model Visit {
   appointment                Appointment?          @relation(fields: [appointmentId], references: [id])
   beneficiary                Beneficiary           @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
   careCompanion              CareCompanion         @relation(fields: [careCompanionId], references: [id])
+  benefit                    Benefit?              @relation(fields: [benefitId], references: [id])
   vitalReadings              VitalReading[]
-  vitalHistory               VitalHistory[]
 
   @@index([beneficiaryId])
   @@index([careCompanionId])
   @@index([status])
   @@index([scheduledTime])
   @@map("visits")
-}
-
-model VitalHistory {
-  id                 String      @id @default(uuid())
-  beneficiaryId      String
-  visitId            String?
-  recordedBy         String
-  recordedAt         DateTime    @default(now())
-  bpSystolic         Int?
-  bpDiastolic        Int?
-  heartRate          Int?
-  oxygenLevel        Float?
-  bloodSugarFasting  Float?
-  bloodSugarPostMeal Float?
-  temperature        Float?
-  weight             Float?
-  height             Float?
-  bmi                Float?
-  painLevel          Int?
-  respiratoryRate    Int?
-  beneficiary        Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
-  recordedByUser     User        @relation("VitalRecordedBy", fields: [recordedBy], references: [id])
-  visit              Visit?      @relation(fields: [visitId], references: [id])
-
-  @@index([beneficiaryId])
-  @@index([visitId])
-  @@index([recordedAt])
-  @@map("vital_history")
 }
 
 model MedicationAdherence {
@@ -904,7 +942,7 @@ model MedicationAdherence {
   administeredBy String?
   recordedBy     String
   beneficiary    Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
-  medication     Medication  @relation(fields: [medicationId], references: [id])
+  medication     Medication  @relation(fields: [medicationId], references: [id], onDelete: Cascade)
   recordedByUser User        @relation("MedicationRecordedBy", fields: [recordedBy], references: [id])
   visit          Visit?      @relation(fields: [visitId], references: [id])
 
@@ -1057,33 +1095,43 @@ model CallbackRequest {
 }
 
 model VitalDefinition {
-  id            String   @id @default(uuid())
-  code          String   @unique
-  name          String
-  description   String?
-  unit          String?
-  dataType      String // 'numeric', 'dual_numeric', 'text', 'boolean'
-  inputMin      Float?
-  inputMax      Float?
-  normalMin     Float?
-  normalMax     Float?
+  id                 String  @id @default(uuid())
+  // ── Versioning ──
+  // 'code' is the stable identifier shared across all versions of the same vital (e.g. "blood_pressure")
+  // Each admin edit creates a NEW row with incremented version instead of overwriting.
+  // CC app always fetches WHERE code = ? AND isLatestVersion = true.
+  // Old VitalReadings keep their vitalDefinitionId pointing to the version row at the time of capture.
+  code               String
+  version            Int     @default(1)
+  parentDefinitionId String? // null for v1; points to the id of v1 for all subsequent versions
+  isLatestVersion    Boolean @default(true) // only ONE row per code has true at any time
+
+  name        String
+  description String?
+  category    String? // e.g. "Cardiovascular", "Metabolic", "Neurological" — for grouping in UI
+  unit        String?
+  dataType    String // 'numeric', 'dual_numeric', 'text', 'boolean'
+  inputMin    Float?
+  inputMax    Float?
+  normalMin   Float?
+  normalMax   Float?
 
   // ── Dual Numeric fields (e.g. Blood Pressure: Systolic/Diastolic) ──
-  value1Label   String?  // e.g. "Systolic"
-  value2Label   String?  // e.g. "Diastolic"
-  normalMin2    Float?   // Normal min for second value
-  normalMax2    Float?   // Normal max for second value
+  value1Label String? // e.g. "Systolic"
+  value2Label String? // e.g. "Diastolic"
+  normalMin2  Float? // Normal min for second value
+  normalMax2  Float? // Normal max for second value
 
   // ── Text type fields ──
-  textOptions   String[] @default([]) // Predefined options e.g. ["Happy","Sad","Anxious"]
-  alertOptions  String[] @default([]) // Options that trigger an alert e.g. ["Sad","Anxious"]
+  textOptions  String[] @default([]) // Predefined options e.g. ["Happy","Sad","Anxious"]
+  alertOptions String[] @default([]) // Options that trigger an alert e.g. ["Sad","Anxious"]
 
   // ── Boolean type fields ──
-  booleanTrueLabel  String?  // Custom label for "Yes" (default: "Yes")
-  booleanFalseLabel String?  // Custom label for "No" (default: "No")
+  booleanTrueLabel  String? // Custom label for "Yes" (default: "Yes")
+  booleanFalseLabel String? // Custom label for "No" (default: "No")
   booleanAlertValue Boolean? // Which boolean value triggers alert (true=Yes, false=No, null=none)
 
-  isSystemVital Boolean  @default(true)
+  isSystemVital Boolean  @default(false)
   displayOrder  Int      @default(0)
   iconCode      String?
   isActive      Boolean  @default(true)
@@ -1092,10 +1140,15 @@ model VitalDefinition {
   updatedAt     DateTime @updatedAt
 
   createdBy          User?                    @relation("VitalDefinitionCreator", fields: [createdById], references: [id])
+  parentDefinition   VitalDefinition?         @relation("VitalVersionChain", fields: [parentDefinitionId], references: [id])
+  childVersions      VitalDefinition[]        @relation("VitalVersionChain")
   templateItems      VitalTemplateItem[]
   beneficiaryConfigs BeneficiaryVitalConfig[]
   readings           VitalReading[]
 
+  @@unique([code, version])
+  @@index([code, isLatestVersion])
+  @@index([isActive])
   @@map("vital_definitions")
 }
 
@@ -1134,48 +1187,63 @@ model VitalTemplateItem {
 }
 
 model BeneficiaryVitalConfig {
-  id                String  @id @default(uuid())
-  beneficiaryId     String
-  vitalDefinitionId String
-  templateId        String?
-  isActive          Boolean @default(true)
-  isMandatory       Boolean @default(false)
-  frequency         String  @default("every_visit")
-  alertOnAbnormal   Boolean @default(true)
+  id                     String  @id @default(uuid())
+  beneficiaryId          String
+  // vitalDefinitionId stores the ORIGINAL v1 id (code anchor).
+  // When admin creates a new version of a vital, existing configs remain linked
+  // via the code. Backend resolves latest version at fetch time.
+  vitalDefinitionId      String
+  templateId             String?
+  // Who selected this vital for the beneficiary (subscriber or admin)
+  selectedBySubscriberId String?
+
+  isActive        Boolean @default(true)
+  isMandatory     Boolean @default(false)
+  // 'every_visit' | 'daily' | 'weekly' | 'monthly'
+  frequency       String  @default("every_visit")
+  alertOnAbnormal Boolean @default(true)
 
   customNormalMin Float?
   customNormalMax Float?
 
-  effectiveFrom DateTime  @default(now()) @db.Date
-  effectiveTo   DateTime? @db.Date
-  notes         String?
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  notes     String?
 
   createdById String?
   updatedById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  beneficiary     Beneficiary          @relation(fields: [beneficiaryId], references: [id])
-  vitalDefinition VitalDefinition      @relation(fields: [vitalDefinitionId], references: [id])
-  template        VitalConfigTemplate? @relation(fields: [templateId], references: [id])
-  createdBy       User?                @relation("BeneficiaryVitalConfigCreator", fields: [createdById], references: [id])
-  updatedBy       User?                @relation("BeneficiaryVitalConfigUpdater", fields: [updatedById], references: [id])
-  readings        VitalReading[]
+  beneficiary          Beneficiary          @relation(fields: [beneficiaryId], references: [id])
+  vitalDefinition      VitalDefinition      @relation(fields: [vitalDefinitionId], references: [id])
+  selectedBySubscriber User?                @relation("SubscriberVitalSelections", fields: [selectedBySubscriberId], references: [id])
+  template             VitalConfigTemplate? @relation(fields: [templateId], references: [id])
+  createdBy            User?                @relation("BeneficiaryVitalConfigCreator", fields: [createdById], references: [id])
+  updatedBy            User?                @relation("BeneficiaryVitalConfigUpdater", fields: [updatedById], references: [id])
+  readings             VitalReading[]
 
-  @@unique([beneficiaryId, vitalDefinitionId, effectiveFrom])
+  @@unique([beneficiaryId, vitalDefinitionId]) // one active config per vital per beneficiary
+  @@index([beneficiaryId, isActive])
   @@map("beneficiary_vital_configs")
 }
 
 model VitalReading {
   id                String  @id @default(uuid())
   beneficiaryId     String
+  // Points to the specific VitalDefinition VERSION row active when this reading was captured.
+  // This is the schema version anchor — old readings remain 100% interpretable
+  // even if the admin later publishes a newer version of the vital.
   vitalDefinitionId String
-  encounterId       String?
-  configId          String?
+  visitId           String? // direct FK to the Visit (encounter) this reading belongs to
+  configId          String? // FK to BeneficiaryVitalConfig — the subscriber's selection that triggered this
 
-  valueNumeric  Float?
-  valueNumeric2 Float?
-  valueText     String?
+  // ── Value storage ── only the relevant field(s) are populated based on dataType
+  valueNumeric  Float? // 'numeric' dataType  (e.g. Heart Rate = 72)
+  valueNumeric2 Float? // 'dual_numeric' dataType second value (e.g. Diastolic = 80)
+  valueText     String? // 'text' dataType  (e.g. Mood = "Happy")
+  valueBoolean  Boolean? // 'boolean' dataType  (e.g. Medication Taken = true)
+  valueJson     Json? // future complex vitals (e.g. Eye Test: {left: 2.3, right: 2.5})
 
   unit             String?
   isAbnormal       Boolean?
@@ -1193,13 +1261,13 @@ model VitalReading {
 
   beneficiary     Beneficiary             @relation(fields: [beneficiaryId], references: [id])
   vitalDefinition VitalDefinition         @relation(fields: [vitalDefinitionId], references: [id])
-  encounter       Visit?                  @relation(fields: [encounterId], references: [id])
+  visit           Visit?                  @relation(fields: [visitId], references: [id])
   config          BeneficiaryVitalConfig? @relation(fields: [configId], references: [id])
   capturedBy      User                    @relation("VitalReadingCapturedBy", fields: [capturedById], references: [id])
   alerts          VitalAlert[]
 
   @@index([beneficiaryId, capturedAt(sort: Desc)])
-  @@index([encounterId])
+  @@index([visitId])
   @@index([vitalDefinitionId, capturedAt(sort: Desc)])
   @@map("vital_readings")
 }
@@ -1290,16 +1358,20 @@ model CouponAttemptLog {
 }
 
 model SubscriptionBenefitBalance {
-  id             String       @id @default(uuid())
-  subscriptionId String
-  benefitId      String
-  totalUnits     Int          @default(0)
-  usedUnits      Int          @default(0)
-  unit           String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  benefit        Benefit      @relation(fields: [benefitId], references: [id])
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  id                      String                 @id @default(uuid())
+  subscriptionId          String
+  benefitId               String // FK → Benefit.id (used for deduction lookup)
+  packageVersionBenefitId String? // FK → PackageVersionBenefit (the frozen version snapshot)
+  snapshotBenefitName     String? // Snapshot: benefit name at subscription creation
+  snapshotUnitLabel       String? // Snapshot: unit label at subscription creation
+  totalUnits              Int                    @default(0)
+  usedUnits               Int                    @default(0)
+  unit                    String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  benefit                 Benefit                @relation(fields: [benefitId], references: [id])
+  packageVersionBenefit   PackageVersionBenefit? @relation(fields: [packageVersionBenefitId], references: [id])
+  subscription            Subscription           @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@unique([subscriptionId, benefitId])
   @@map("subscription_benefit_balances")
@@ -1462,6 +1534,7 @@ enum CallbackStatus {
 
 enum NotificationType {
   visit_reminder
+  visit_cancelled
   medication_reminder
   emergency_alert
   payment_due

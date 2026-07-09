@@ -8,3 +8,9 @@ apps/mobile-backend/scratch_delete_user.ts
 apps/admin-backend/scratch/
 apps/mobile-backend/scratch_check_harshit.ts
 apps/mobile-backend/scratch/check_user.ts
+.idea
+.vscode
+.vscode
+apps/web-landing/
+apps/admin-backend/
+apps/admin-frontend/
