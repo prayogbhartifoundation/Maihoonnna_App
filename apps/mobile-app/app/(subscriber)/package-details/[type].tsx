@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -177,7 +178,14 @@ export default function PackageDetailScreen() {
             <View style={styles.footer}>
                 <TouchableOpacity 
                     style={styles.actionBtn}
-                    onPress={() => push({ pathname: '/(setup)/subscribe-form', params: { packageId: pkg.type } })}
+                    onPress={async () => {
+                        const token = await AsyncStorage.getItem('userToken');
+                        if (!token) {
+                            push({ pathname: '/(auth)/register' });
+                        } else {
+                            push({ pathname: '/(setup)/subscribe-form', params: { packageId: pkg.type } });
+                        }
+                    }}
                 >
                     <Text style={styles.actionBtnText}>Select this Package</Text>
                     <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />

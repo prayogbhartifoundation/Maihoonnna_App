@@ -252,7 +252,8 @@ export default function MedicalInfoScreen() {
             medicalData: JSON.stringify(medicalDataPayload),
             isVerificationFlow: params.isVerificationFlow,
             beneficiaryId: params.beneficiaryId,
-            pendingDetails: params.pendingDetails
+            pendingDetails: params.pendingDetails,
+            isLinkingFlow: params.isLinkingFlow || 'false'
         });
     };
 

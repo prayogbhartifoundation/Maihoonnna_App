@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { GlobalHeader } from '../../components/GlobalHeader';
 import { Image } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PlanDuration = 'basic' | '6months' | 'annual';
 
@@ -23,25 +24,54 @@ export default function SubscriptionPackagesScreen() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchPackages = async () => {
+        const init = async () => {
             try {
+                // Check auth status
+                const token = await AsyncStorage.getItem('userToken');
+
+                if (token) {
+                    // Check for unlinked subscription — redirect to enrollment wizard if found
+                    try {
+                        const unlinkedRes = await fetch(`${API_URL}/subscriber/subscriptions/unlinked-check`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const unlinkedJson = await unlinkedRes.json();
+                        if (unlinkedJson.success && unlinkedJson.hasUnlinkedSubscription) {
+                            // Subscriber has purchased but not enrolled a beneficiary — redirect them
+                            router.replace({ pathname: '/(setup)/subscribe-form', params: { isLinkingFlow: 'true' } });
+                            return;
+                        }
+                    } catch (e) {
+                        // Non-fatal: just proceed to packages list
+                        console.warn('Unlinked check failed:', e);
+                    }
+                }
+
+                // Fetch available packages
                 const response = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
                 const json = await response.json();
                 if (json.success) {
                     setPackages(json.data);
                 }
             } catch (err) {
-                console.error('Failed to fetch packages:', err);
+                console.error('Failed to initialize packages screen:', err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchPackages();
+        init();
     }, []);
 
-    const handleSelectPackage = (packageId: string) => {
-        // We pass the package "type" (e.g. silver/gold) directly to the subscribe form
-        push('/(setup)/subscribe-form', { packageId });
+    const handleSelectPackage = async (packageId: string) => {
+        // Check if user is logged in
+        const token = await AsyncStorage.getItem('userToken');
+        if (!token) {
+            // Not logged in — send to register
+            router.push('/(auth)/register');
+            return;
+        }
+        // Logged in — go directly to checkout with the packageId
+        push('/(setup)/checkout', { packageId });
     };
 
     const getPrice = (pkg: any) => {

@@ -95,7 +95,8 @@ export default function SubscribeFormScreen() {
                         pathname: '/(setup)/beneficiary-info',
                         params: {
                             packageId: params.packageId || 'silver',
-                            subscriberData: JSON.stringify(subscriberData)
+                            subscriberData: JSON.stringify(subscriberData),
+                            isLinkingFlow: params.isLinkingFlow || 'false'
                         }
                     });
                     return; // Stop execution here
@@ -139,7 +140,8 @@ export default function SubscribeFormScreen() {
 
         push('/(setup)/beneficiary-info', {
             packageId: params.packageId || 'silver',
-            subscriberData: JSON.stringify(subscriberForm)
+            subscriberData: JSON.stringify(subscriberForm),
+            isLinkingFlow: params.isLinkingFlow || 'false'
         });
     };
 

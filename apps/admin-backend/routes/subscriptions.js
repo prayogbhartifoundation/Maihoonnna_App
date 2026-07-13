@@ -173,7 +173,7 @@ router.post('/admin-enroll', async (req, res) => {
           data: {
             phone: subscriberPhone,
             name: subscriberName,
-            role: 'subscriber',
+            role: sameAsSubscriber ? 'beneficiary' : 'subscriber',
             password: dummyHash,
             isActive: true,
             location: subscriberAddress
@@ -182,20 +182,27 @@ router.post('/admin-enroll', async (req, res) => {
           },
         });
       } else {
-        // Update name if provided and different
+        // Update name if provided and different, and promote to subscriber if currently prospect
         const newLocation = subscriberAddress
           ? `${subscriberAddress}, ${subscriberCity || ''}, ${subscriberState || ''} - ${subscriberPincode || ''}`.trim()
           : subscriberUser.location;
-        if (
-          subscriberUser.name !== subscriberName ||
-          subscriberUser.location !== newLocation
-        ) {
+
+        const updateData = {};
+        if (subscriberUser.name !== subscriberName) updateData.name = subscriberName;
+        if (subscriberUser.location !== newLocation) updateData.location = newLocation;
+        
+        if (sameAsSubscriber) {
+          if (subscriberUser.role !== 'beneficiary') {
+            updateData.role = 'beneficiary';
+          }
+        } else if (subscriberUser.role === 'prospect') {
+          updateData.role = 'subscriber';
+        }
+
+        if (Object.keys(updateData).length > 0) {
           subscriberUser = await tx.user.update({
             where: { id: subscriberUser.id },
-            data: {
-              name: subscriberName,
-              location: newLocation,
-            },
+            data: updateData,
           });
         }
       }
@@ -323,18 +330,25 @@ router.post('/admin-enroll', async (req, res) => {
         // ──────────────────────────────────────────────────────────────
         if (medicalConditions && medicalConditions.length > 0) {
           for (const conditionName of medicalConditions) {
-            const slug = conditionName
+            if (!conditionName) continue;
+            const normalizedName = conditionName.trim();
+            const slug = normalizedName
               .toLowerCase()
               .replace(/\s+/g, '-')
               .replace(/[^\w-]/g, '');
-            // Find or create the condition
-            let cond = await tx.medicalCondition.findUnique({
-              where: { name: conditionName },
+            // Find or create the condition checking both name and slug
+            let cond = await tx.medicalCondition.findFirst({
+              where: {
+                OR: [
+                  { name: { equals: normalizedName, mode: 'insensitive' } },
+                  { slug: slug }
+                ]
+              }
             });
             if (!cond) {
               cond = await tx.medicalCondition.create({
                 data: {
-                  name: conditionName,
+                  name: normalizedName,
                   slug: slug,
                   category: 'General',
                   isCommon: false,

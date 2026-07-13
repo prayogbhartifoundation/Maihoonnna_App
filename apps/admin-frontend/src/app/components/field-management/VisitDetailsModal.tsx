@@ -506,6 +506,18 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
                     )}
                   </div>
 
+                  {/* Additional Medication Notes */}
+                  {!editMode && (
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Additional Med Notes (CC)</p>
+                      {visit.medicationNotes ? (
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-[#FAF8F5] p-3 rounded-xl border border-[#E7DED6]">{visit.medicationNotes}</p>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic bg-[#FAF8F5]/30 p-2.5 rounded-xl border border-dashed border-[#E7DED6]">No medication notes recorded</p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Visit Summary — editable */}
                   <div>
                     <p className="text-[10px] font-black text-[#1D4ED8] uppercase tracking-widest mb-1">Visit Summary</p>
@@ -529,43 +541,52 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
               {/* Ratings */}
               <div>
                 <h4 className="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
-                  <Star size={16} className="text-gray-400" /> Ratings
+                  <Star size={16} className="text-gray-400" /> Ratings & Feedback
                 </h4>
-                <div className="bg-white border border-[#E7DED6] rounded-2xl p-4 grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subscriber Rating</p>
-                    {visit.subscriberRating ? (
-                      <div className="flex items-center gap-1 mt-1">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star
-                            key={s}
-                            size={16}
-                            className={s <= visit.subscriberRating ? "fill-amber-400 text-amber-400" : "text-gray-300"}
-                          />
-                        ))}
-                        <span className="text-xs font-bold text-gray-600 ml-1">{visit.subscriberRating}/5</span>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400 italic mt-1">Not rated yet</p>
-                    )}
+                <div className="bg-white border border-[#E7DED6] rounded-2xl p-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subscriber Rating</p>
+                      {visit.subscriberRating ? (
+                        <div className="flex items-center gap-1 mt-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              size={16}
+                              className={s <= visit.subscriberRating ? "fill-amber-400 text-amber-400" : "text-gray-300"}
+                            />
+                          ))}
+                          <span className="text-xs font-bold text-gray-600 ml-1">{visit.subscriberRating}/5</span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic mt-1">Not rated yet</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Beneficiary Rating</p>
+                      {visit.beneficiaryRating ? (
+                        <div className="flex items-center gap-1 mt-1">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              size={16}
+                              className={s <= visit.beneficiaryRating ? "fill-amber-400 text-amber-400" : "text-gray-300"}
+                            />
+                          ))}
+                          <span className="text-xs font-bold text-gray-600 ml-1">{visit.beneficiaryRating}/5</span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic mt-1">Not rated yet</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Beneficiary Rating</p>
-                    {visit.beneficiaryRating ? (
-                      <div className="flex items-center gap-1 mt-1">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star
-                            key={s}
-                            size={16}
-                            className={s <= visit.beneficiaryRating ? "fill-amber-400 text-amber-400" : "text-gray-300"}
-                          />
-                        ))}
-                        <span className="text-xs font-bold text-gray-600 ml-1">{visit.beneficiaryRating}/5</span>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-gray-400 italic mt-1">Not rated yet</p>
-                    )}
-                  </div>
+
+                  {visit.feedback && (
+                    <div className="bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E7DED6] text-xs">
+                      <p className="font-black text-gray-400 uppercase tracking-widest text-[9px] mb-1.5">Beneficiary/Subscriber Feedback</p>
+                      <p className="font-bold text-gray-700 italic leading-relaxed">"{visit.feedback}"</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

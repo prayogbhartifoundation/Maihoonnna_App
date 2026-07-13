@@ -26,6 +26,8 @@ export default function Index() {
     return <Redirect href="/(care-companion)" />;
   } else if (role === "beneficiary") {
     return <Redirect href="/(beneficiary)" />;
+  } else if (role === "prospect") {
+    return <Redirect href="/(setup)/subscription-packages" />;
   } else {
     // Default: subscriber dashboard
     return <Redirect href="/(subscriber)" />;

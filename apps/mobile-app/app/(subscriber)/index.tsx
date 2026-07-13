@@ -2,11 +2,12 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Platform, Animated, Dimensions, Modal, ActivityIndicator, ImageBackground } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { useRouter, useFocusEffect, useLocalSearchParams, Redirect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { API_URL } from '@/constants/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { CallbackButton } from '@/components/CallbackButton';
 import { logoutWithConfirm } from '@/utils/logout';
 import { formatHours } from '@/utils/timeFormat';
@@ -28,6 +29,12 @@ const CARD_GAP = scale(12);
 export default function SubscriberDashboardScreen() {
     useExitOnBack();
     const router = useRouter();
+    const { role } = useAuth();
+
+    if (role === 'prospect') {
+        return <Redirect href="/(setup)/subscription-packages" />;
+    }
+
     const [userData, setUserData] = useState<any>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
@@ -70,7 +77,7 @@ export default function SubscriberDashboardScreen() {
     } = useQuery({
         queryKey: ['subscriberDashboard', selectedBeneficiaryId],
         enabled: isInitialized,
-        staleTime: 5 * 60 * 1000,
+        staleTime: 0,
         queryFn: async () => {
             const storedToken = await AsyncStorage.getItem('userToken');
             if (!storedToken) throw new Error("Auth missing");
@@ -89,8 +96,8 @@ export default function SubscriberDashboardScreen() {
                 const cachedData = cache[selectedBeneficiaryId];
                 const ageMs = Date.now() - (cachedData.lastUpdated || 0);
                 
-                // If cache is under 5 minutes old, return instantly
-                if (ageMs < 5 * 60 * 1000) {
+                // If cache is under 30 seconds old, return instantly (prevents rapid tab-switch hammering)
+                if (ageMs < 30 * 1000) {
                     return cachedData.response;
                 }
             }
@@ -186,14 +193,15 @@ export default function SubscriberDashboardScreen() {
     const stats = dashboard?.topStats || {};
     const beneficiaries = dashboard?.beneficiaries || [];
     const recentUpdates = dashboard?.recentUpdates || [];
+    const unlinkedSubs = (dashboard?.activeSubscriptions || []).filter((sub: any) => !sub.beneficiaryId);
 
     const firstName = (userData?.name || 'there').split(' ')[0];
     const happinessScore = stats.happinessScore !== undefined && stats.happinessScore !== null ? `${stats.happinessScore}%` : '--';
     const visitsTotal = stats.visitsThisWeek?.total ?? 0;
     const visitsCompleted = stats.visitsThisWeek?.completed ?? 0;
-    const activeHours = stats.activeHours?.used ?? 24;
-    const remainingHours = stats.activeHours?.remaining ?? 36;
-    const totalCarePlans = stats.totalCarePlans ?? 1;
+    const activeHours = stats.activeHours?.used ?? 0;
+    const remainingHours = stats.activeHours?.remaining ?? 0;
+    const totalCarePlans = stats.totalCarePlans ?? 0;
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return '';
@@ -296,15 +304,52 @@ export default function SubscriberDashboardScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {beneficiaries.length === 0 ? (
-                    <View style={styles.emptyBenCard}>
-                        <Ionicons name="person-add-outline" size={40} color="#FE6700" style={{ marginBottom: 12 }} />
-                        <Text style={styles.emptyTitle}>No Beneficiaries Yet</Text>
-                        <Text style={styles.emptySubtitle}>Subscribe to a care plan to add your first beneficiary</Text>
-                        <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(setup)/subscription-packages')}>
-                            <Text style={styles.emptyBtnText}>Browse Packages</Text>
+                {/* Unlinked Care Plan Attachment Cards */}
+                {unlinkedSubs.map((sub: any) => (
+                    <View key={sub.id} style={styles.unlinkedSubCard}>
+                        <View style={styles.unlinkedInfo}>
+                            <Feather name="user-plus" size={22} color="#FE6700" style={{ marginRight: 10 }} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.unlinkedTitle}>Unlinked Care Plan</Text>
+                                <Text style={styles.unlinkedSubtitle}>
+                                    Attach a beneficiary to {sub.package?.name || sub.packageType}
+                                </Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity 
+                            style={[styles.unlinkedBtn, { flexDirection: 'row', alignItems: 'center' }]}
+                            onPress={() => router.push({ pathname: '/(setup)/subscribe-form', params: { isLinkingFlow: 'true' } })}
+                        >
+                            <Feather name="user-plus" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                            <Text style={styles.unlinkedBtnText}>Add Beneficiary</Text>
                         </TouchableOpacity>
                     </View>
+                ))}
+
+                {beneficiaries.length === 0 ? (
+                    dashboard?.activeSubscriptions && dashboard.activeSubscriptions.length > 0 ? (
+                        <View style={styles.emptyBenCard}>
+                            <Feather name="user-plus" size={40} color="#FE6700" style={{ marginBottom: 12 }} />
+                            <Text style={styles.emptyTitle}>Add Beneficiary to your care plan</Text>
+                            <Text style={styles.emptySubtitle}>({dashboard.activeSubscriptions[0]?.package?.name || dashboard.activeSubscriptions[0]?.packageType || 'Care Plan'})</Text>
+                            <TouchableOpacity 
+                                style={[styles.emptyBtn, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} 
+                                onPress={() => router.push({ pathname: '/(setup)/subscribe-form', params: { isLinkingFlow: 'true' } })}
+                            >
+                                <Feather name="user-plus" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                                <Text style={styles.emptyBtnText}>Add Beneficiary</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.emptyBenCard}>
+                            <Ionicons name="person-add-outline" size={40} color="#FE6700" style={{ marginBottom: 12 }} />
+                            <Text style={styles.emptyTitle}>No Beneficiaries Yet</Text>
+                            <Text style={styles.emptySubtitle}>Subscribe to a care plan to add your first beneficiary</Text>
+                            <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(setup)/subscription-packages')}>
+                                <Text style={styles.emptyBtnText}>Browse Packages</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )
                 ) : (
                     beneficiaries.map((b: any, i: number) => {
                         const isSelected = b.id === selectedBeneficiaryId;
@@ -318,10 +363,14 @@ export default function SubscriberDashboardScreen() {
                                             pathname: '/(setup)/beneficiary-info',
                                             params: { isVerificationFlow: 'true', beneficiaryId: b.id }
                                         });
+                                    } else if (isSelected) {
+                                        // Second tap on already-selected card → open profile
+                                        router.push(`/(subscriber)/beneficiary-profile?id=${b.id}`);
                                     } else {
+                                        // First tap → select and refetch data for this beneficiary
                                         setSelectedBeneficiaryId(b.id);
                                         AsyncStorage.setItem('selectedBeneficiaryId', b.id);
-                                        router.push(`/(subscriber)/beneficiary-profile?id=${b.id}`);
+                                        // refetch will be triggered automatically by the queryKey change
                                     }
                                 }}
                             >
@@ -635,5 +684,50 @@ const styles = StyleSheet.create({
     whatsappBtn: {
         width: scale(48), height: scale(48), borderRadius: scale(12), backgroundColor: '#FFF5ED',
         justifyContent: 'center', alignItems: 'center',
+    },
+    unlinkedSubCard: {
+        backgroundColor: '#FFF5ED',
+        borderWidth: 1,
+        borderColor: '#FFD7BC',
+        borderRadius: scale(14),
+        padding: scale(14),
+        marginHorizontal: HORIZONTAL_PADDING,
+        marginBottom: scale(12),
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        ...Platform.select({
+            ios: { shadowColor: '#FE6700', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+            android: { elevation: 2 },
+        }),
+    },
+    unlinkedInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        marginRight: scale(12),
+    },
+    unlinkedTitle: {
+        fontSize: scale(14),
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: scale(2),
+    },
+    unlinkedSubtitle: {
+        fontSize: scale(12),
+        color: '#4B5563',
+    },
+    unlinkedBtn: {
+        backgroundColor: '#FE6700',
+        paddingHorizontal: scale(12),
+        paddingVertical: scale(8),
+        borderRadius: scale(8),
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    unlinkedBtnText: {
+        color: '#FFFFFF',
+        fontSize: scale(12),
+        fontWeight: '700',
     },
 });

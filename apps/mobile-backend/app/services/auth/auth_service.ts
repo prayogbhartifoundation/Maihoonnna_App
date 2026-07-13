@@ -80,6 +80,11 @@ export const verifyOtp = async (rawPhone: string, otpCode: string) => {
     };
   }
 
+  // Block beneficiary logins if their profile verification is pending
+  if (user.role === 'beneficiary' && user.beneficiaryProfile?.verificationStatus === 'pending') {
+    throw new Error('Your beneficiary profile is pending verification. Please contact your subscriber to verify and activate your account.');
+  }
+
   const token = createToken({ sub: user.id, role: user.role });
 
   // Update last login and activity log
@@ -199,7 +204,7 @@ export const registerWithPassword = async (rawPhone: string, name: string, age: 
       name,
       age,
       password: hashedPassword,
-      role: 'subscriber',
+      role: 'prospect',
     },
   });
 
@@ -221,7 +226,10 @@ export const registerWithPassword = async (rawPhone: string, name: string, age: 
 
 export const loginWithPassword = async (rawPhone: string, passwordRaw: string) => {
   const phone = rawPhone.replace(/\D/g, '').slice(-10);
-  const user = await prisma.user.findUnique({ where: { phone } });
+  const user = await prisma.user.findUnique({
+    where: { phone },
+    include: { beneficiaryProfile: true }
+  });
 
   if (!user || !user.password) {
     throw new Error('Invalid phone number or password.');
@@ -232,6 +240,11 @@ export const loginWithPassword = async (rawPhone: string, passwordRaw: string) =
 
   if (!isMatch) {
     throw new Error('Invalid phone number or password.');
+  }
+
+  // Block beneficiary logins if their profile verification is pending
+  if (user.role === 'beneficiary' && user.beneficiaryProfile?.verificationStatus === 'pending') {
+    throw new Error('Your beneficiary profile is pending verification. Please contact your subscriber to verify and activate your account.');
   }
 
   const token = createToken({ sub: user.id, role: user.role });

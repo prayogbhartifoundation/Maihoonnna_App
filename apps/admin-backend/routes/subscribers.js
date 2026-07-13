@@ -13,10 +13,14 @@ router.get('/', async (req, res) => {
     const filterParams = { role: 'subscriber' };
 
     if (search) {
-      filterParams.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
-        { email: { contains: search, mode: 'insensitive' } },
+      filterParams.AND = [
+        {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 
@@ -99,7 +103,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const s = await prisma.user.findUnique({
-      where: { id: req.params.id, role: 'subscriber' },
+      where: { id: req.params.id },
       include: {
         subscriberBeneficiaries: {
           include: {
@@ -112,15 +116,19 @@ router.get('/:id', async (req, res) => {
         },
       },
     });
-    if (!s)
+    if (!s || s.role !== 'subscriber')
       return res
         .status(404)
         .json({ success: false, message: 'Subscriber not found' });
 
-    // Fetch active subscription separately
-    const sub = await prisma.subscription.findFirst({
-      where: { subscriberId: s.id, isActive: true },
-      include: { package: true },
+    // Fetch all subscriptions for this subscriber
+    const subs = await prisma.subscription.findMany({
+      where: { subscriberId: s.id },
+      include: {
+        package: true,
+        beneficiary: true,
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
     res.json({
@@ -130,7 +138,7 @@ router.get('/:id', async (req, res) => {
         dateOfBirth: s.dateOfBirth || null,
         age: s.dateOfBirth ? (calculateAge(s.dateOfBirth) ?? s.age) : s.age,
         beneficiaries: s.subscriberBeneficiaries,
-        subscriptions: sub ? [sub] : [],
+        subscriptions: subs,
       },
     });
   } catch (err) {
@@ -148,8 +156,8 @@ router.put('/:id', async (req, res) => {
       profilePhoto, isActive, dateOfBirth 
     } = req.body;
 
-    const s = await prisma.user.findUnique({ where: { id, role: 'subscriber' } });
-    if (!s) return res.status(404).json({ success: false, message: 'Subscriber not found' });
+    const s = await prisma.user.findUnique({ where: { id } });
+    if (!s || s.role !== 'subscriber') return res.status(404).json({ success: false, message: 'Subscriber not found' });
 
     let parsedAge = age !== undefined ? Number(age) : undefined;
     if (parsedAge !== undefined && isNaN(parsedAge)) parsedAge = s.age;

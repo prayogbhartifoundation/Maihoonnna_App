@@ -282,9 +282,16 @@ const styles = StyleSheet.create({
 
     enrollBtn: {
         backgroundColor: '#FE6700', height: 49, borderRadius: 7,
-        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 18
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 12
     },
     enrollBtnText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginRight: 10 },
+
+    beneficiaryBtn: {
+        backgroundColor: '#FFFFFF', height: 49, borderRadius: 7,
+        borderWidth: 2, borderColor: '#FE6700',
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 18
+    },
+    beneficiaryBtnText: { color: '#FE6700', fontSize: 16, fontWeight: '700' },
 
     outlineBtn: {
         borderWidth: 1, borderColor: '#FE6700', height: 48, borderRadius: 7,

@@ -667,12 +667,26 @@ router.put('/:id', async (req, res) => {
         // Re-link new conditions
         for (const condName of medicalConditions) {
           if (!condName) continue;
+          const normalizedName = condName.trim();
+          const slug = normalizedName
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^\w-]/g, '');
           let condition = await tx.medicalCondition.findFirst({
-            where: { name: { equals: condName, mode: 'insensitive' } }
+            where: {
+              OR: [
+                { name: { equals: normalizedName, mode: 'insensitive' } },
+                { slug: slug }
+              ]
+            }
           });
           if (!condition) {
             condition = await tx.medicalCondition.create({
-              data: { name: condName.trim(), slug: condName.trim().toLowerCase().replace(/\s+/g, '-'), category: 'General' }
+              data: {
+                name: normalizedName,
+                slug: slug,
+                category: 'General'
+              }
             });
           }
           await tx.beneficiaryCondition.create({
@@ -820,16 +834,27 @@ router.post('/:id/conditions', async (req, res) => {
 
     if (!name) return res.status(400).json({ success: false, message: 'Condition name required' });
 
-    // Check if condition exists globally
+    const normalizedName = name.trim();
+    const slug = normalizedName
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]/g, '');
+
+    // Check if condition exists globally by name or slug
     let condition = await prisma.medicalCondition.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' } }
+      where: {
+        OR: [
+          { name: { equals: normalizedName, mode: 'insensitive' } },
+          { slug: slug }
+        ]
+      }
     });
 
     if (!condition) {
       condition = await prisma.medicalCondition.create({
         data: { 
-          name: name.trim(),
-          slug: name.trim().toLowerCase().replace(/\s+/g, '-'),
+          name: normalizedName,
+          slug: slug,
           category: 'General'
         }
       });

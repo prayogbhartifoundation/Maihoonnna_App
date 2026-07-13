@@ -54,6 +54,59 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     // SCENARIO 2: Subscriber requesting a specific beneficiary's details
     // ─────────────────────────────────────────────────────────────────
     if (userRole === 'subscriber' && beneficiaryId) {
+      if (String(beneficiaryId).startsWith('unlinked-')) {
+        const subId = String(beneficiaryId).replace('unlinked-', '');
+        const unlinkedSubscription = await prisma.subscription.findFirst({
+          where: { id: subId, subscriberId: userId, isActive: true },
+          include: {
+            package: { select: { id: true, name: true, type: true } },
+            benefitBalances: {
+              include: {
+                benefit: { select: { id: true, name: true, unitLabel: true, benefitType: { select: { name: true } } } }
+              }
+            }
+          }
+        });
+
+        if (!unlinkedSubscription) {
+          return res.status(404).json({ success: false, message: 'Unlinked subscription not found' });
+        }
+
+        const formattedBenefits = (unlinkedSubscription.benefitBalances || []).map((bal: any) => {
+          const remaining = Math.max(0, bal.totalUnits - bal.usedUnits);
+          const usagePercent = bal.totalUnits > 0 ? Math.round((bal.usedUnits / bal.totalUnits) * 100) : 0;
+          return {
+            benefitId: bal.benefitId,
+            benefitName: bal.benefit?.name,
+            unitLabel: bal.benefit?.unitLabel || 'units',
+            benefitTypeName: bal.benefit?.benefitType?.name || null,
+            totalUnits: bal.totalUnits,
+            usedUnits: bal.usedUnits,
+            remainingUnits: remaining,
+            usagePercent,
+            isLowBalance: bal.totalUnits > 0 && (remaining / bal.totalUnits) < 0.2,
+            isExhausted: bal.totalUnits > 0 && remaining === 0,
+          };
+        });
+
+        return res.json({
+          success: true,
+          data: {
+            type: 'detail',
+            subscription: {
+              id: unlinkedSubscription.id,
+              packageName: unlinkedSubscription.package?.name || unlinkedSubscription.packageType,
+              packageType: unlinkedSubscription.packageType,
+              startDate: unlinkedSubscription.startDate,
+              endDate: unlinkedSubscription.endDate,
+              isActive: unlinkedSubscription.isActive,
+            },
+            benefits: formattedBenefits,
+            recentLogs: []
+          }
+        });
+      }
+
       // Ensure the requested beneficiary belongs to this subscriber
       const beneficiary = await prisma.beneficiary.findFirst({
         where: {
@@ -90,6 +143,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     // SCENARIO 3: Subscriber requesting summary of all beneficiaries
     // ─────────────────────────────────────────────────────────────────
     if (userRole === 'subscriber' && !beneficiaryId) {
+      // 1. Fetch normal beneficiaries
       const beneficiaries = await prisma.beneficiary.findMany({
         where: { subscriberId: userId, isActive: true },
         select: {
@@ -112,7 +166,77 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         }
       });
 
-      const summary = beneficiaries.map(b => {
+      // 2. Fetch unlinked active subscriptions
+      const unlinkedSubscriptions = await prisma.subscription.findMany({
+        where: { subscriberId: userId, isActive: true, beneficiaryId: null },
+        include: { package: { select: { name: true } } }
+      });
+
+      // If they have no beneficiaries at all, AND have an unlinked sub, return unlinked detailed view
+      if (beneficiaries.length === 0 && unlinkedSubscriptions.length > 0) {
+        const unlinkedSubscription = unlinkedSubscriptions[0];
+        const detailedSubscription = await prisma.subscription.findUnique({
+          where: { id: unlinkedSubscription.id },
+          include: {
+            package: { select: { id: true, name: true, type: true } },
+            benefitBalances: {
+              include: {
+                benefit: { select: { id: true, name: true, unitLabel: true, benefitType: { select: { name: true } } } }
+              }
+            }
+          }
+        });
+
+        if (detailedSubscription) {
+          const formattedBenefits = (detailedSubscription.benefitBalances || []).map((bal: any) => {
+            const remaining = Math.max(0, bal.totalUnits - bal.usedUnits);
+            const usagePercent = bal.totalUnits > 0 ? Math.round((bal.usedUnits / bal.totalUnits) * 100) : 0;
+            return {
+              benefitId: bal.benefitId,
+              benefitName: bal.benefit?.name,
+              unitLabel: bal.benefit?.unitLabel || 'units',
+              benefitTypeName: bal.benefit?.benefitType?.name || null,
+              totalUnits: bal.totalUnits,
+              usedUnits: bal.usedUnits,
+              remainingUnits: remaining,
+              usagePercent,
+              isLowBalance: bal.totalUnits > 0 && (remaining / bal.totalUnits) < 0.2,
+              isExhausted: bal.totalUnits > 0 && remaining === 0,
+            };
+          });
+
+          return res.json({
+            success: true,
+            data: {
+              type: 'detail',
+              subscription: {
+                id: detailedSubscription.id,
+                packageName: detailedSubscription.package?.name || detailedSubscription.packageType,
+                packageType: detailedSubscription.packageType,
+                startDate: detailedSubscription.startDate,
+                endDate: detailedSubscription.endDate,
+                isActive: detailedSubscription.isActive,
+              },
+              benefits: formattedBenefits,
+              recentLogs: []
+            }
+          });
+        }
+      }
+
+      // 3. Map unlinked subscriptions to summary objects
+      const unlinkedSummaries = unlinkedSubscriptions.map(sub => ({
+        beneficiaryId: `unlinked-${sub.id}`,
+        beneficiaryName: 'Unassigned Care Plan',
+        age: 0,
+        activePackage: sub.package?.name || sub.packageType,
+        hasLowBalance: false,
+        hasExhausted: false,
+        isUnlinked: true
+      }));
+
+      // 4. Map normal beneficiaries to summary objects
+      const normalSummaries = beneficiaries.map(b => {
         const activeSub = b.subscriptions?.[0] || null;
         const benefits = (activeSub?.benefitBalances || []).map(bal => {
           const remaining = Math.max(0, bal.totalUnits - bal.usedUnits);
@@ -142,7 +266,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         };
       });
 
-      return res.json({ success: true, data: summary });
+      return res.json({ success: true, data: [...normalSummaries, ...unlinkedSummaries] });
     }
 
     return res.status(400).json({ success: false, message: 'Invalid request parameters' });

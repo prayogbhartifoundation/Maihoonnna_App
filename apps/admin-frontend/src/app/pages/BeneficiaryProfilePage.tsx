@@ -255,8 +255,14 @@ export default function BeneficiaryProfilePage() {
                   />
                 </div>
                 <h1 className="text-2xl font-black text-gray-900 tracking-tight">{details.name}</h1>
-                <div className="mt-2">
-                  <StatusChip status={details.isActive ? 'Active' : 'Inactive'} />
+                <div className="mt-2 flex flex-col gap-1 items-center">
+                  {details.verificationStatus === 'pending' ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider">
+                      Pending Verification
+                    </span>
+                  ) : (
+                    <StatusChip status={details.isActive ? 'Active' : 'Inactive'} />
+                  )}
                 </div>
                 <p className="text-xs font-bold text-gray-400 mt-4 uppercase tracking-[0.2em]">Age: {details.age} • {details.gender}{details.relationship ? ` • ${details.relationship}` : ''}</p>
               </div>

@@ -96,6 +96,9 @@ export default function EnrollmentWizardPage() {
   // ── Beneficiary
   const [sameAsSubscriber, setSameAsSubscriber] = useState(false);
   const [beneficiaryPhone, setBeneficiaryPhone] = useState('');
+  const [benPhoneChecking, setBenPhoneChecking] = useState(false);
+  const [benPhoneCheck, setBenPhoneCheck] = useState<{ exists: boolean; name?: string } | null>(null);
+  const benPhoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [beneficiaryName, setBeneficiaryName] = useState('');
   const [beneficiaryAge, setBeneficiaryAge] = useState('');
   const [beneficiaryDob, setBeneficiaryDob] = useState('');
@@ -145,6 +148,57 @@ export default function EnrollmentWizardPage() {
   const [amountPaid, setAmountPaid] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paymentNote, setPaymentNote] = useState('');
+
+  // ── Add Medicine Dialog State
+  const [isMedDialogOpen, setIsMedDialogOpen] = useState(false);
+  const [medName, setMedName] = useState('');
+  const [medDosage, setMedDosage] = useState('');
+  const [medFrequency, setMedFrequency] = useState('once_daily');
+  const [medSlots, setMedSlots] = useState<string[]>(['morning']);
+  const [medInstructions, setMedInstructions] = useState('');
+  const [medStartDate, setMedStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [medEndDate, setMedEndDate] = useState('');
+  const [medReminders, setMedReminders] = useState(false);
+
+  const handleFrequencyChange = (value: string) => {
+    setMedFrequency(value);
+    if (value === 'once_daily') {
+      setMedSlots(prev => prev.length > 0 ? [prev[0]] : ['morning']);
+    } else if (value === 'twice_daily') {
+      setMedSlots(prev => {
+        if (prev.length === 2) return prev;
+        if (prev.length === 3) return [prev[0], prev[1]];
+        if (prev.length === 1) {
+          const remaining = ['morning', 'evening', 'afternoon'].filter(s => s !== prev[0]);
+          return [prev[0], remaining[0]];
+        }
+        return ['morning', 'evening'];
+      });
+    } else if (value === 'thrice_daily') {
+      setMedSlots(['morning', 'afternoon', 'evening']);
+    }
+  };
+
+  const handleSlotToggle = (slot: string) => {
+    if (medFrequency === 'thrice_daily') return; // Locked to all three
+    
+    if (medFrequency === 'once_daily') {
+      setMedSlots([slot]);
+      return;
+    }
+    
+    if (medFrequency === 'twice_daily') {
+      if (medSlots.includes(slot)) {
+        setMedSlots(medSlots.filter(s => s !== slot));
+      } else {
+        if (medSlots.length < 2) {
+          setMedSlots([...medSlots, slot]);
+        } else {
+          setMedSlots([medSlots[1], slot]);
+        }
+      }
+    }
+  };
 
   // ── Persistence Logic
   useEffect(() => {
@@ -285,6 +339,30 @@ export default function EnrollmentWizardPage() {
     }, 600);
   }, [subscriberPhone]);
 
+  // Beneficiary phone debounce check
+  useEffect(() => {
+    if (sameAsSubscriber || beneficiaryPhone.length < 10) {
+      setBenPhoneCheck(null);
+      return;
+    }
+    if (beneficiaryPhone === subscriberPhone) {
+      setBenPhoneCheck({ exists: true, name: 'Same as Subscriber' });
+      return;
+    }
+    if (benPhoneDebounce.current) clearTimeout(benPhoneDebounce.current);
+    benPhoneDebounce.current = setTimeout(async () => {
+      setBenPhoneChecking(true);
+      try {
+        const data = await enrollmentApi.checkPhone(beneficiaryPhone);
+        setBenPhoneCheck(data);
+      } catch {
+        setBenPhoneCheck(null);
+      } finally {
+        setBenPhoneChecking(false);
+      }
+    }, 600);
+  }, [beneficiaryPhone, sameAsSubscriber, subscriberPhone]);
+
 
   const goNext = () => {
     const nextIndex = Math.min(STEPS.length - 1, stepIndex + 1);
@@ -364,7 +442,10 @@ export default function EnrollmentWizardPage() {
     : subscriberPhone.length >= 10 && subscriberName.trim().length > 0;
   const canProceedBeneficiary = sameAsSubscriber
     ? true
-    : beneficiaryName.trim().length > 0;
+    : beneficiaryName.trim().length > 0 &&
+      beneficiaryPhone.length === 10 &&
+      beneficiaryPhone !== subscriberPhone &&
+      benPhoneCheck?.exists !== true;
   const canProceedMedical = true; // Medical is optional as per user request
   const canProceedEmergency = emergencyContactName.trim().length > 0 && emergencyContactPhone.length >= 10;
   const canProceedPackage = !!selectedPackageId;
@@ -789,7 +870,7 @@ export default function EnrollmentWizardPage() {
 
                 {!sameAsSubscriber && (
                   <div className="space-y-1 col-span-2">
-                    <Label htmlFor="ben-phone">Phone Number</Label>
+                    <Label htmlFor="ben-phone">Phone Number *</Label>
                     <div className="relative">
                       <Phone className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
                       <Input
@@ -800,7 +881,22 @@ export default function EnrollmentWizardPage() {
                         placeholder="Beneficiary's mobile number"
                         maxLength={10}
                       />
+                      {benPhoneChecking && <Loader2 className="w-4 h-4 animate-spin absolute right-3 top-3 text-muted-foreground" />}
                     </div>
+
+                    {beneficiaryPhone.length === 10 && beneficiaryPhone === subscriberPhone && (
+                      <div className="flex items-start gap-2 text-xs px-3 py-2.5 rounded-xl border bg-red-50 text-red-700 border-red-200 mt-1">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>Beneficiary phone cannot be the same as Subscriber phone number. Select "Beneficiary is the same as Subscriber" above if they are the same person.</span>
+                      </div>
+                    )}
+
+                    {beneficiaryPhone.length === 10 && beneficiaryPhone !== subscriberPhone && benPhoneCheck && benPhoneCheck.exists && (
+                      <div className="flex items-start gap-2 text-xs px-3 py-2.5 rounded-xl border bg-red-50 text-red-700 border-red-200 mt-1">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>This phone number already exists in the database ({benPhoneCheck.name}). Beneficiary phone numbers must be unique.</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -986,7 +1082,19 @@ export default function EnrollmentWizardPage() {
                     <Label className="text-sm font-semibold flex items-center gap-2">
                       <Stethoscope className="w-4 h-4 text-primary" /> Current Medications
                     </Label>
-                    <Dialog>
+                    <Dialog open={isMedDialogOpen} onOpenChange={(open) => {
+                      setIsMedDialogOpen(open);
+                      if (!open) {
+                        setMedName('');
+                        setMedDosage('');
+                        setMedFrequency('once_daily');
+                        setMedSlots(['morning']);
+                        setMedInstructions('');
+                        setMedStartDate(new Date().toISOString().split('T')[0]);
+                        setMedEndDate('');
+                        setMedReminders(false);
+                      }
+                    }}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="h-8 gap-1 rounded-full border-primary text-primary hover:bg-primary/5">
                           <Plus className="w-3.5 h-3.5" /> Add
@@ -998,35 +1106,62 @@ export default function EnrollmentWizardPage() {
                         </DialogHeader>
                         <form className="space-y-4 py-4" onSubmit={(e) => {
                           e.preventDefault();
-                          const fd = new FormData(e.currentTarget);
-                          const slots = ['morning', 'afternoon', 'evening'].filter(s => fd.get(`slot-${s}`) === 'on');
-                          const newMed = {
-                            name: fd.get('name') as string,
-                            dosage: fd.get('dosage') as string,
-                            frequency: fd.get('frequency') as string,
-                            timeSlots: slots,
-                            setReminders: fd.get('reminders') === 'on',
-                            startDate: fd.get('startDate') as string,
-                            endDate: fd.get('endDate') as string,
-                            instructions: fd.get('instructions') as string,
-                          };
-                          if (newMed.name) {
-                            setMedications([...medications, newMed]);
-                            (e.target as HTMLFormElement).reset();
+                          if (!medName.trim()) {
+                            toast.error('Medication name is required');
+                            return;
                           }
+                          if (medFrequency === 'once_daily' && medSlots.length !== 1) {
+                            toast.error('Please select exactly 1 time slot for Once Daily');
+                            return;
+                          }
+                          if (medFrequency === 'twice_daily' && medSlots.length !== 2) {
+                            toast.error('Please select exactly 2 time slots for Twice Daily');
+                            return;
+                          }
+                          if (medFrequency === 'thrice_daily' && medSlots.length !== 3) {
+                            toast.error('Please select all 3 time slots for Thrice Daily');
+                            return;
+                          }
+                          const newMed = {
+                            name: medName.trim(),
+                            dosage: medDosage,
+                            frequency: medFrequency,
+                            timeSlots: medSlots,
+                            setReminders: medReminders,
+                            startDate: medStartDate,
+                            endDate: medEndDate || undefined,
+                            instructions: medInstructions,
+                          };
+                          setMedications([...medications, newMed]);
+                          setIsMedDialogOpen(false);
                         }}>
                           <div className="space-y-2">
                             <Label>Medication Name</Label>
-                            <Input name="name" placeholder="e.g., Amoxicillin" required />
+                            <Input 
+                              name="name" 
+                              placeholder="e.g., Amoxicillin" 
+                              required 
+                              value={medName}
+                              onChange={(e) => setMedName(e.target.value)}
+                            />
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Dosage</Label>
-                              <Input name="dosage" placeholder="250mg" />
+                              <Input 
+                                name="dosage" 
+                                placeholder="250mg" 
+                                value={medDosage}
+                                onChange={(e) => setMedDosage(e.target.value)}
+                              />
                             </div>
                             <div className="space-y-2">
                               <Label>Frequency</Label>
-                              <Select name="frequency" defaultValue="once_daily">
+                              <Select 
+                                name="frequency" 
+                                value={medFrequency} 
+                                onValueChange={handleFrequencyChange}
+                              >
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
@@ -1041,33 +1176,55 @@ export default function EnrollmentWizardPage() {
 
                           <div className="space-y-2">
                             <Label>Instructions (Optional)</Label>
-                            <Input name="instructions" placeholder="e.g., Take after food" />
+                            <Input 
+                              name="instructions" 
+                              placeholder="e.g., Take after food" 
+                              value={medInstructions}
+                              onChange={(e) => setMedInstructions(e.target.value)}
+                            />
                           </div>
                           
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Start Date</Label>
-                              <Input name="startDate" type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+                              <Input 
+                                name="startDate" 
+                                type="date" 
+                                value={medStartDate}
+                                onChange={(e) => setMedStartDate(e.target.value)}
+                              />
                             </div>
                             <div className="space-y-2">
                               <Label>End Date (Optional)</Label>
-                              <Input name="endDate" type="date" />
+                              <Input 
+                                name="endDate" 
+                                type="date" 
+                                value={medEndDate}
+                                onChange={(e) => setMedEndDate(e.target.value)}
+                              />
                             </div>
                           </div>
                           <div className="space-y-2">
                             <Label>Times per day</Label>
                             <div className="flex gap-2">
-                              {['morning', 'afternoon', 'evening'].map(slot => (
-                                <div key={slot} className="flex-1">
-                                  <input type="checkbox" name={`slot-${slot}`} id={`slot-${slot}`} className="peer hidden" />
-                                  <label 
-                                    htmlFor={`slot-${slot}`}
-                                    className="block w-full text-center py-2 text-xs rounded-full border border-border cursor-pointer peer-checked:bg-orange-500 peer-checked:text-white peer-checked:border-orange-500 capitalize transition-colors"
-                                  >
-                                    {slot}
-                                  </label>
-                                </div>
-                              ))}
+                              {['morning', 'afternoon', 'evening'].map(slot => {
+                                const isChecked = medSlots.includes(slot);
+                                return (
+                                  <div key={slot} className="flex-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSlotToggle(slot)}
+                                      className={`block w-full text-center py-2 text-xs rounded-full border cursor-pointer capitalize transition-colors ${
+                                        isChecked 
+                                          ? 'bg-orange-500 text-white border-orange-500 font-semibold' 
+                                          : 'border-border text-muted-foreground hover:bg-secondary/20'
+                                      }`}
+                                    >
+                                      {slot}
+                                    </button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                           <div className="flex items-center justify-between p-3 bg-secondary/20 rounded-lg">
@@ -1075,7 +1232,10 @@ export default function EnrollmentWizardPage() {
                               <Label className="text-sm">Set Reminders</Label>
                               <p className="text-[10px] text-muted-foreground">Get notified when it's time to take meds</p>
                             </div>
-                            <Switch name="reminders" />
+                            <Switch 
+                              checked={medReminders} 
+                              onCheckedChange={setMedReminders}
+                            />
                           </div>
                           <DialogFooter className="pt-2">
                             <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600">Add to Schedule</Button>

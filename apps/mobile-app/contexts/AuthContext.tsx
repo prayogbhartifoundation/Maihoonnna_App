@@ -36,6 +36,7 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   login: (token: string, userData: UserData) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (token: string, userData: UserData) => Promise<void>;
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -105,6 +106,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Updates current user profile details dynamically
+  const updateUser = useCallback(async (token: string, userData: UserData) => {
+    const promises: Promise<any>[] = [
+      AsyncStorage.setItem('userToken', token),
+      AsyncStorage.setItem('userData', JSON.stringify(userData)),
+    ];
+    if (Platform.OS !== 'web') {
+      promises.push(
+        SecureStore.setItemAsync('secureUserToken', token),
+        SecureStore.setItemAsync('secureUserData', JSON.stringify(userData))
+      );
+    }
+    await Promise.all(promises);
+    setState(prev => ({
+      ...prev,
+      token,
+      user: userData,
+      role: userData.role,
+    }));
+  }, []);
+
   // Called from logout button — clears everything
   const logout = useCallback(async () => {
     try {
@@ -127,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ...state,
     login,
     logout,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

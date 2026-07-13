@@ -161,15 +161,17 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
     // Map beneficiaries to normalize the default 8.0 score
     const mappedBeneficiaries = beneficiaries.map((b: any) => ({
       ...b,
-      emotionalScore: b.emotionalScore === 8.0 ? 85 : (b.emotionalScore || 85)
+      // Only map default Prisma seed score (8.0) → null; real scores pass through as-is
+      emotionalScore: b.emotionalScore === 8.0 ? null : (b.emotionalScore ?? null)
     }));
 
     // Average Happiness (Scoped)
     const scopedBeneficiaries = mappedBeneficiaries.filter((b: any) => benIds.includes(b.id));
-    let avgHappiness = 85;
-    if (scopedBeneficiaries.length > 0) {
-      const totalScore = scopedBeneficiaries.reduce((sum: any, b: any) => sum + b.emotionalScore, 0);
-      avgHappiness = Math.round(totalScore / scopedBeneficiaries.length);
+    let avgHappiness: number | null = null;
+    const scoredBeneficiaries = scopedBeneficiaries.filter((b: any) => b.emotionalScore !== null && b.emotionalScore !== undefined);
+    if (scoredBeneficiaries.length > 0) {
+      const totalScore = scoredBeneficiaries.reduce((sum: any, b: any) => sum + b.emotionalScore, 0);
+      avgHappiness = Math.round(totalScore / scoredBeneficiaries.length);
     }
 
     // Active Hours (Actual aggregation from hourly benefit balances if available, fallback to subscription columns)
@@ -221,12 +223,12 @@ async function handleUserDashboard(req: AuthRequest, res: Response) {
 
     res.json({
       success: true,
-      activeSubscriptions,
+      activeSubscriptions: allActiveSubscriptions,
       beneficiaries: mappedBeneficiaries,
       topStats: {
         happinessScore: avgHappiness,
         visitsThisWeek: { total: visitsThisWeek, completed: completedVisitsThisWeek },
-        activeHours: { used: activeHours || 24, remaining: remainingHours || 36 },
+        activeHours: { used: activeHours, remaining: remainingHours },
         totalCarePlans: allActiveSubscriptions.length || 0
       },
       recentUpdates

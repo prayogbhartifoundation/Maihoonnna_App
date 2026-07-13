@@ -115,13 +115,18 @@ async function publishPackageVersion(tx: any, packageId: string): Promise<any> {
     });
   }
 
-  return newVersion;
+  const versionWithBenefits = await tx.packageVersion.findUnique({
+    where: { id: newVersion.id },
+    include: { versionBenefits: true }
+  });
+
+  return versionWithBenefits!;
 }
 
 export const purchaseSubscription = async (
   userId: string,
   packageId: string, // We map this to the package type string
-  beneficiaryData: {
+  beneficiaryData?: {
     name: string;
     age: number;
     gender: string;
@@ -137,7 +142,7 @@ export const purchaseSubscription = async (
     relationship: string;
     phone: string;
     dob?: string;
-  },
+  } | null,
   medicalData?: any,
   emergencyContactsRaw?: any,
   couponCode?: string
@@ -152,41 +157,45 @@ export const purchaseSubscription = async (
     throw new Error(`Package type ${mappedType} not found in database. Available types: ${packages.map(p => p.type).join(', ')}`);
   }
 
-  // 1a. The Beneficiary is technically a user in this schema, so we create a simple placeholder user row first
-  // We try to use the beneficiary's phone if it looks like a real one, else generate a unique fake one
-  let beneficiaryPhone = '';
-  if (beneficiaryData.phone) {
-    beneficiaryPhone = beneficiaryData.phone.replace(/\D/g, '').slice(-10);
-    // Check if phone already exists to avoid unique constraint error
-    const existingUser = await prisma.user.findUnique({ where: { phone: beneficiaryPhone } });
-    if (existingUser) {
-      throw new Error('A user with this phone number already exists.');
-    }
-  } else {
-    // Generate a unique fake 10-digit phone number starting with '000'
-    let isUnique = false;
-    while (!isUnique) {
-      const fakePhone = `000${Math.floor(1000000 + Math.random() * 9000000)}`;
-      const existingFake = await prisma.user.findUnique({ where: { phone: fakePhone } });
-      if (!existingFake) {
-        beneficiaryPhone = fakePhone;
-        isUnique = true;
+  // 1a. If beneficiaryData is provided, create the beneficiary user
+  let newBeneficiaryUser: any = null;
+  let dobDate: Date | null = null;
+
+  if (beneficiaryData) {
+    let beneficiaryPhone = '';
+    if (beneficiaryData.phone) {
+      beneficiaryPhone = beneficiaryData.phone.replace(/\D/g, '').slice(-10);
+      // Check if phone already exists to avoid unique constraint error
+      const existingUser = await prisma.user.findUnique({ where: { phone: beneficiaryPhone } });
+      if (existingUser) {
+        throw new Error('A user with this phone number already exists.');
+      }
+    } else {
+      // Generate a unique fake 10-digit phone number starting with '000'
+      let isUnique = false;
+      while (!isUnique) {
+        const fakePhone = `000${Math.floor(1000000 + Math.random() * 9000000)}`;
+        const existingFake = await prisma.user.findUnique({ where: { phone: fakePhone } });
+        if (!existingFake) {
+          beneficiaryPhone = fakePhone;
+          isUnique = true;
+        }
       }
     }
+
+    dobDate = parseDob(beneficiaryData.dob);
+
+    newBeneficiaryUser = await prisma.user.create({
+      data: {
+        id: generateUUID(),
+        phone: beneficiaryPhone,
+        name: beneficiaryData.name,
+        role: 'beneficiary',
+        age: parseInt(String(beneficiaryData.age || 65), 10),
+        dateOfBirth: dobDate
+      }
+    });
   }
-
-  const dobDate = parseDob(beneficiaryData.dob);
-
-  const newBeneficiaryUser = await prisma.user.create({
-    data: {
-      id: generateUUID(),
-      phone: beneficiaryPhone,
-      name: beneficiaryData.name,
-      role: 'beneficiary',
-      age: parseInt(String(beneficiaryData.age || 65), 10),
-      dateOfBirth: dobDate
-    }
-  });
 
   // Calculate pricing & validate coupon
   let finalAmountPaid = subPackage.basePrice;
@@ -284,7 +293,7 @@ export const purchaseSubscription = async (
 
   // 2. Check beneficiaryData.emergencyContacts array format
   const bDataAny = beneficiaryData as any;
-  if (finalEmergencyContacts.length === 0 && bDataAny.emergencyContacts && Array.isArray(bDataAny.emergencyContacts)) {
+  if (finalEmergencyContacts.length === 0 && bDataAny && bDataAny.emergencyContacts && Array.isArray(bDataAny.emergencyContacts)) {
     for (const ec of bDataAny.emergencyContacts) {
       if (ec.name && ec.phone) {
         finalEmergencyContacts.push({
@@ -311,7 +320,7 @@ export const purchaseSubscription = async (
   }
 
   // 4. Default fallback: subscriber profile
-  if (finalEmergencyContacts.length === 0) {
+  if (beneficiaryData && finalEmergencyContacts.length === 0) {
     const subscriberUser = await prisma.user.findUnique({
       where: { id: userId }
     });
@@ -328,81 +337,85 @@ export const purchaseSubscription = async (
   // Run the creation flow inside a single database transaction
   // Note: newBeneficiaryUser was already created above (outside the transaction)
   const result = await prisma.$transaction(async (tx) => {
-    // 1b. Create Beneficiary record
-    const beneficiary = await tx.beneficiary.create({
-      data: {
-        id: generateUUID(),
-        userId: newBeneficiaryUser.id,
-        subscriberId: userId,
-        name: beneficiaryData.name,
-        age: parseInt(String(beneficiaryData.age || 65), 10),
-        dateOfBirth: dobDate,
-        gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
-        address: beneficiaryData.address || "Not provided",
-        flatPlot: beneficiaryData.flatPlot || null,
-        streetArea: beneficiaryData.streetArea || null,
-        landmark: beneficiaryData.landmark || null,
-        city: beneficiaryData.city || null,
-        state: beneficiaryData.state || null,
-        pincode: beneficiaryData.pincode || null,
-        latitude: beneficiaryData.latitude || null,
-        longitude: beneficiaryData.longitude || null,
-        relationship: beneficiaryData.relationship || null,
-        
-        // Hook up parsed medical fields
-        primaryPhysicianName: medicalData?.physicianName || null,
-        primaryPhysicianPhone: medicalData?.physicianPhone || null,
-        hobbiesInterests: medicalData?.hobbies || [],
+    let beneficiary: any = null;
 
-        emergencyContacts: {
-          create: finalEmergencyContacts.map((c: any) => ({
-            id: generateUUID(),
-            name: c.name,
-            phone: c.phone,
-            relationship: c.relation || 'Emergency',
-            email: c.email || '',
-          })),
-        },
-        conditions: conditionIds.length > 0 ? {
-            create: conditionIds.map(cid => ({
-                id: generateUUID(),
-                conditionId: cid,
-                severity: 'moderate' as any
-            }))
-        } : undefined,
-        medicationList: mappedMedications.length > 0 ? {
-            create: mappedMedications
-        } : undefined
-      }
-    });
+    if (beneficiaryData && newBeneficiaryUser) {
+      // 1b. Create Beneficiary record (only if beneficiary data was provided)
+      beneficiary = await tx.beneficiary.create({
+        data: {
+          id: generateUUID(),
+          userId: newBeneficiaryUser.id,
+          subscriberId: userId,
+          name: beneficiaryData.name,
+          age: parseInt(String(beneficiaryData.age || 65), 10),
+          dateOfBirth: dobDate,
+          gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
+          address: beneficiaryData.address || "Not provided",
+          flatPlot: beneficiaryData.flatPlot || null,
+          streetArea: beneficiaryData.streetArea || null,
+          landmark: beneficiaryData.landmark || null,
+          city: beneficiaryData.city || null,
+          state: beneficiaryData.state || null,
+          pincode: beneficiaryData.pincode || null,
+          latitude: beneficiaryData.latitude || null,
+          longitude: beneficiaryData.longitude || null,
+          relationship: beneficiaryData.relationship || null,
+          
+          // Hook up parsed medical fields
+          primaryPhysicianName: medicalData?.physicianName || null,
+          primaryPhysicianPhone: medicalData?.physicianPhone || null,
+          hobbiesInterests: medicalData?.hobbies || [],
 
-    // 1c. Upsert BeneficiaryVitalConfigs
-    const checkedVitalCodes = Object.entries(vitalsInput)
-      .filter(([, checked]) => !!checked)
-      .map(([code]) => code.trim().toUpperCase());
-
-    if (checkedVitalCodes.length > 0) {
-      const vitalDefs = await tx.vitalDefinition.findMany({
-        where: { code: { in: checkedVitalCodes }, isActive: true }
+          emergencyContacts: {
+            create: finalEmergencyContacts.map((c: any) => ({
+              id: generateUUID(),
+              name: c.name,
+              phone: c.phone,
+              relationship: c.relation || 'Emergency',
+              email: c.email || '',
+            })),
+          },
+          conditions: conditionIds.length > 0 ? {
+              create: conditionIds.map(cid => ({
+                  id: generateUUID(),
+                  conditionId: cid,
+                  severity: 'moderate' as any
+              }))
+          } : undefined,
+          medicationList: mappedMedications.length > 0 ? {
+              create: mappedMedications
+          } : undefined
+        }
       });
 
-      for (const def of vitalDefs) {
-        await tx.beneficiaryVitalConfig.upsert({
-          where: {
-            beneficiaryId_vitalDefinitionId: {
+      // 1c. Upsert BeneficiaryVitalConfigs
+      const checkedVitalCodes = Object.entries(vitalsInput)
+        .filter(([, checked]) => !!checked)
+        .map(([code]) => code.trim().toUpperCase());
+
+      if (checkedVitalCodes.length > 0) {
+        const vitalDefs = await tx.vitalDefinition.findMany({
+          where: { code: { in: checkedVitalCodes }, isActive: true }
+        });
+
+        for (const def of vitalDefs) {
+          await tx.beneficiaryVitalConfig.upsert({
+            where: {
+              beneficiaryId_vitalDefinitionId: {
+                beneficiaryId: beneficiary.id,
+                vitalDefinitionId: def.id,
+              }
+            },
+            update: { isActive: true },
+            create: {
+              id: generateUUID(),
               beneficiaryId: beneficiary.id,
               vitalDefinitionId: def.id,
+              isActive: true,
+              frequency: 'every_visit',
             }
-          },
-          update: { isActive: true },
-          create: {
-            id: generateUUID(),
-            beneficiaryId: beneficiary.id,
-            vitalDefinitionId: def.id,
-            isActive: true,
-            frequency: 'every_visit',
-          }
-        });
+          });
+        }
       }
     }
 
@@ -415,12 +428,12 @@ export const purchaseSubscription = async (
     }
     const versionObj = pVersion!;
 
-    // 2b. Create active Subscription record
+    // 2b. Create active Subscription record (beneficiaryId is optional now)
     const subscription = await tx.subscription.create({
       data: {
         id: generateUUID(),
         subscriberId: userId,
-        beneficiaryId: beneficiary.id,
+        beneficiaryId: beneficiary ? beneficiary.id : null,
         packageType: mappedType,
         packageVersionId: versionObj.id,
         startDate: new Date(),
@@ -431,6 +444,12 @@ export const purchaseSubscription = async (
       include: {
         package: true,
       }
+    });
+
+    // Promote user from prospect to subscriber if they are currently a prospect
+    await tx.user.updateMany({
+      where: { id: userId, role: 'prospect' },
+      data: { role: 'subscriber' },
     });
 
     // 2c. Initialize snapshot benefit balances
@@ -455,13 +474,13 @@ export const purchaseSubscription = async (
       data: {
         id: generateUUID(),
         subscriberId: userId,
-        beneficiaryId: beneficiary.id,
+        beneficiaryId: beneficiary ? beneficiary.id : null,
         subscriptionId: subscription.id,
         packageType: mappedType,
         packageVersionId: versionObj.id,
         snapshotPackageName: versionObj.name,
         snapshotBasePrice: versionObj.basePrice,
-        snapshotBenefits: versionObj.versionBenefits.map((vb: any) => ({
+        snapshotBenefits: (versionObj.versionBenefits || []).map((vb: any) => ({
           name: vb.snapshotName,
           units: vb.unitsIncluded,
           unitLabel: vb.snapshotUnitLabel
@@ -506,8 +525,8 @@ export const purchaseSubscription = async (
     return {
       subscriptionId: subscription.id,
       packageName: subscription.package.name,
-      beneficiaryName: beneficiary.name,
-      beneficiaryId: beneficiary.id
+      beneficiaryName: beneficiary?.name || null,
+      beneficiaryId: beneficiary?.id || null
     };
   });
 
@@ -518,6 +537,234 @@ export const purchaseSubscription = async (
     package: result.packageName,
     beneficiaryName: result.beneficiaryName,
     beneficiaryId: result.beneficiaryId
+  };
+};
+
+/**
+ * Links a beneficiary to an existing unlinked subscription for a subscriber.
+ * This is called after checkout when the user is prompted to enroll their first beneficiary.
+ */
+export const linkBeneficiaryToSubscription = async (
+  userId: string,
+  beneficiaryData: {
+    name: string;
+    age: number;
+    gender: string;
+    address: string;
+    flatPlot?: string;
+    streetArea?: string;
+    landmark?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    latitude?: number;
+    longitude?: number;
+    relationship: string;
+    phone?: string;
+    dob?: string;
+    maritalStatus?: string;
+  },
+  medicalData?: any,
+  emergencyContactsRaw?: any,
+  preferencesData?: any
+) => {
+  // 1. Find the active unlinked subscription for this subscriber
+  const unlinkedSubscription = await prisma.subscription.findFirst({
+    where: { subscriberId: userId, isActive: true, beneficiaryId: null },
+    orderBy: { createdAt: 'desc' },
+    include: { package: true }
+  });
+
+  if (!unlinkedSubscription) {
+    throw new Error('No unlinked active subscription found. Please purchase a package first.');
+  }
+
+  const beneficiaryName = beneficiaryData.name || (beneficiaryData as any).fullName || 'Beneficiary';
+  const dobDate = parseDob(beneficiaryData.dob);
+
+  // 2. Find or create beneficiary user
+  let beneficiaryUser: any = null;
+  let beneficiaryPhone = '';
+  if (beneficiaryData.phone) {
+    beneficiaryPhone = beneficiaryData.phone.replace(/\D/g, '').slice(-10);
+    beneficiaryUser = await prisma.user.findUnique({ where: { phone: beneficiaryPhone } });
+  }
+
+  if (!beneficiaryUser) {
+    if (!beneficiaryPhone) {
+      let isUnique = false;
+      while (!isUnique) {
+        const fakePhone = `000${Math.floor(1000000 + Math.random() * 9000000)}`;
+        const existingFake = await prisma.user.findUnique({ where: { phone: fakePhone } });
+        if (!existingFake) { beneficiaryPhone = fakePhone; isUnique = true; }
+      }
+    }
+
+    beneficiaryUser = await prisma.user.create({
+      data: {
+        id: generateUUID(),
+        phone: beneficiaryPhone,
+        name: beneficiaryName,
+        role: 'beneficiary',
+        age: parseInt(String(beneficiaryData.age || 65), 10),
+        dateOfBirth: dobDate
+      }
+    });
+  }
+
+  // 3. Parse medical conditions and medications
+  const conditionIds: string[] = [];
+  if (medicalData?.conditions && Array.isArray(medicalData.conditions)) {
+    for (const condName of medicalData.conditions) {
+      const slug = condName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      try {
+        const condition = await prisma.medicalCondition.upsert({
+          where: { slug },
+          update: {},
+          create: { id: generateUUID(), name: condName, slug, category: 'General' }
+        });
+        conditionIds.push(condition.id);
+      } catch (e) { console.error('Condition Error', e); }
+    }
+  }
+
+  const mappedMedications: any[] = [];
+  if (medicalData?.medications && Array.isArray(medicalData.medications)) {
+    for (const med of medicalData.medications) {
+      let freqEnum = 'once_daily';
+      const lowerFreq = String(med.frequency || '').toLowerCase();
+      if (lowerFreq.includes('twice') || lowerFreq.includes('2')) freqEnum = 'twice_daily';
+      else if (lowerFreq.includes('thrice') || lowerFreq.includes('3')) freqEnum = 'thrice_daily';
+      else if (lowerFreq.includes('needed')) freqEnum = 'as_needed';
+      mappedMedications.push({
+        id: generateUUID(),
+        name: med.name || 'Unknown',
+        dosage: med.dosage || '',
+        frequency: freqEnum as any,
+        timeSlots: med.timesPerDay || [],
+        setReminders: !!med.setReminders,
+        startDate: new Date()
+      });
+    }
+  }
+
+  // 4. Parse emergency contacts
+  const finalEmergencyContacts: any[] = [];
+  if (emergencyContactsRaw) {
+    if (emergencyContactsRaw.primaryName || emergencyContactsRaw.primaryPhone) {
+      finalEmergencyContacts.push({
+        name: emergencyContactsRaw.primaryName || 'Primary Contact',
+        phone: String(emergencyContactsRaw.primaryPhone || '').replace(/\D/g, '').slice(-10) || '0000000000',
+        relation: emergencyContactsRaw.primaryRelation || 'Primary Contact',
+        email: emergencyContactsRaw.primaryEmail || '',
+      });
+    }
+    if (emergencyContactsRaw.secondaryName || emergencyContactsRaw.secondaryPhone) {
+      finalEmergencyContacts.push({
+        name: emergencyContactsRaw.secondaryName || 'Secondary Contact',
+        phone: String(emergencyContactsRaw.secondaryPhone || '').replace(/\D/g, '').slice(-10) || '0000000000',
+        relation: emergencyContactsRaw.secondaryRelation || 'Secondary Contact',
+        email: emergencyContactsRaw.secondaryEmail || '',
+      });
+    }
+  }
+
+  if (finalEmergencyContacts.length === 0) {
+    const subscriberUser = await prisma.user.findUnique({ where: { id: userId } });
+    finalEmergencyContacts.push({
+      name: subscriberUser?.name || 'Subscriber',
+      phone: subscriberUser?.phone || '0000000000',
+      relation: beneficiaryData.relationship || 'Subscriber',
+    });
+  }
+
+  const vitalsInput = medicalData?.vitals || {};
+
+  // 5. Run link operation in a transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // 5a. Find or create beneficiary record
+    let beneficiary = await tx.beneficiary.findUnique({
+      where: { userId: beneficiaryUser.id }
+    });
+
+    if (!beneficiary) {
+      beneficiary = await tx.beneficiary.create({
+        data: {
+          id: generateUUID(),
+          userId: beneficiaryUser.id,
+          subscriberId: userId,
+          name: beneficiaryName,
+          age: parseInt(String(beneficiaryData.age || 65), 10),
+        dateOfBirth: dobDate,
+        gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
+        address: beneficiaryData.address || 'Not provided',
+        flatPlot: beneficiaryData.flatPlot || null,
+        streetArea: beneficiaryData.streetArea || null,
+        landmark: beneficiaryData.landmark || null,
+        city: beneficiaryData.city || null,
+        state: beneficiaryData.state || null,
+        pincode: beneficiaryData.pincode || null,
+        latitude: beneficiaryData.latitude || null,
+        longitude: beneficiaryData.longitude || null,
+        relationship: beneficiaryData.relationship || null,
+        primaryPhysicianName: medicalData?.physicianName || null,
+        primaryPhysicianPhone: medicalData?.physicianPhone || null,
+        hobbiesInterests: medicalData?.hobbies || [],
+        emergencyContacts: {
+          create: finalEmergencyContacts.map((c: any) => ({
+            id: generateUUID(),
+            name: c.name,
+            phone: c.phone,
+            relationship: c.relation || 'Emergency',
+            email: c.email || '',
+          }))
+        },
+        conditions: conditionIds.length > 0 ? {
+          create: conditionIds.map(cid => ({ id: generateUUID(), conditionId: cid, severity: 'moderate' as any }))
+        } : undefined,
+        medicationList: mappedMedications.length > 0 ? { create: mappedMedications } : undefined
+      }
+    });
+  }
+
+    // 5b. Link subscription and payments to the new beneficiary
+    await tx.subscription.update({
+      where: { id: unlinkedSubscription.id },
+      data: { beneficiaryId: beneficiary.id }
+    });
+
+    await tx.payment.updateMany({
+      where: { subscriptionId: unlinkedSubscription.id, beneficiaryId: null },
+      data: { beneficiaryId: beneficiary.id }
+    });
+
+    // 5c. Upsert vital configs
+    const checkedVitalCodes = Object.entries(vitalsInput)
+      .filter(([, checked]) => !!checked)
+      .map(([code]) => code.trim().toUpperCase());
+
+    if (checkedVitalCodes.length > 0) {
+      const vitalDefs = await tx.vitalDefinition.findMany({
+        where: { code: { in: checkedVitalCodes }, isActive: true }
+      });
+      for (const def of vitalDefs) {
+        await tx.beneficiaryVitalConfig.upsert({
+          where: { beneficiaryId_vitalDefinitionId: { beneficiaryId: beneficiary.id, vitalDefinitionId: def.id } },
+          update: { isActive: true },
+          create: { id: generateUUID(), beneficiaryId: beneficiary.id, vitalDefinitionId: def.id, isActive: true, frequency: 'every_visit' }
+        });
+      }
+    }
+
+    return { beneficiaryId: beneficiary.id, beneficiaryName: beneficiary.name };
+  });
+
+  return {
+    success: true,
+    message: 'Beneficiary enrolled and linked to subscription successfully!',
+    beneficiaryId: result.beneficiaryId,
+    beneficiaryName: result.beneficiaryName,
+    subscriptionId: unlinkedSubscription.id
   };
 };
 
@@ -867,6 +1114,12 @@ export const activateSubscription = async (
           invoiceNumber
         } as any
       }
+    });
+
+    // Promote user from prospect to subscriber if they are currently a prospect
+    await tx.user.updateMany({
+      where: { id: userId, role: 'prospect' },
+      data: { role: 'subscriber' },
     });
 
     return { subscription, beneficiary };

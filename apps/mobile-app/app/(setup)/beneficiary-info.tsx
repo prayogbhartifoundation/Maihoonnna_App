@@ -243,7 +243,11 @@ export default function BeneficiaryInfoScreen() {
             return;
         }
 
-        if (beneficiaryForm.phone && beneficiaryForm.phone.length === 10) {
+        if (beneficiaryForm.phone) {
+            if (beneficiaryForm.phone.length !== 10) {
+                setPhoneError("Phone number must be exactly 10 digits");
+                return;
+            }
             const isPhoneValid = await validatePhone(beneficiaryForm.phone);
             if (!isPhoneValid) return;
         }
@@ -255,7 +259,8 @@ export default function BeneficiaryInfoScreen() {
             isVerificationFlow: params.isVerificationFlow,
             beneficiaryId: params.beneficiaryId,
             beneficiaryData: JSON.stringify({ ...beneficiaryForm, photoUri: pickedPhotoUri, devPassword: devPassword || undefined }),
-            pendingDetails: pendingData ? JSON.stringify(pendingData) : undefined
+            pendingDetails: pendingData ? JSON.stringify(pendingData) : undefined,
+            isLinkingFlow: params.isLinkingFlow || 'false'
         });
     };
 

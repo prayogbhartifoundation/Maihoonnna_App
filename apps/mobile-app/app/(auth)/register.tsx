@@ -115,6 +115,8 @@ export default function RegisterScreen() {
                     replace("/(care-companion)");
                 } else if (result.user.role === 'beneficiary') {
                     replace("/(beneficiary)");
+                } else if (result.user.role === 'prospect') {
+                    replace("/(setup)/subscription-packages");
                 } else {
                     replace("/(subscriber)");
                 }

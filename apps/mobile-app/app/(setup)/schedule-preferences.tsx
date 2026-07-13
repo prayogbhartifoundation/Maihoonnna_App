@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Dimensions, Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -14,6 +14,7 @@ import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderSpacer from '../../components/HeaderSpacer';
+import { API_URL } from '@/constants/api';
 
 export default function SchedulePreferencesScreen() {
     const router = useRouter();
@@ -31,8 +32,10 @@ export default function SchedulePreferencesScreen() {
     const [userData, setUserData] = useState<any>(null);
 
     const isVerificationFlow = params.isVerificationFlow === 'true';
+    const isLinkingFlow = params.isLinkingFlow === 'true';
     const beneficiaryId = params.beneficiaryId as string;
     const pendingDetailsRaw = params.pendingDetails as string;
+    const [isLinking, setIsLinking] = useState(false);
 
     useEffect(() => {
         AsyncStorage.getItem('userData').then(data => {
@@ -63,9 +66,53 @@ export default function SchedulePreferencesScreen() {
     const [visitTiming, setVisitTiming] = useState('');
     const [agreed, setAgreed] = useState(false);
 
-    const handleEnrollment = () => {
+    const handleEnrollment = async () => {
         if (!agreed) {
             alert('Please agree to the Terms of Service and Privacy Policy');
+            return;
+        }
+
+        if (isLinkingFlow) {
+            // Post-purchase: link beneficiary to the existing unlinked subscription
+            setIsLinking(true);
+            try {
+                const token = await AsyncStorage.getItem('userToken');
+                let beneficiaryData: any = {};
+                let medicalData: any = {};
+                let emergencyContacts: any = {};
+                try { beneficiaryData = JSON.parse(params.beneficiaryData as string || '{}'); } catch (e) {}
+                try { medicalData = JSON.parse(params.medicalData as string || '{}'); } catch (e) {}
+                try { emergencyContacts = JSON.parse(params.emergencyContacts as string || '{}'); } catch (e) {}
+
+                const response = await fetch(`${API_URL}/subscriber/subscriptions/link-beneficiary`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        beneficiaryData,
+                        medicalData,
+                        emergencyContacts,
+                        preferencesData: { preferredTiming: visitTiming }
+                    })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    Alert.alert(
+                        '✅ Beneficiary Enrolled!',
+                        `${result.beneficiaryName || 'Beneficiary'} has been linked to your subscription.`,
+                        [{ text: 'Go to Dashboard', onPress: () => router.replace('/(subscriber)') }]
+                    );
+                } else {
+                    Alert.alert('Enrollment Failed', result.message || 'Please try again.');
+                }
+            } catch (err: any) {
+                Alert.alert('Error', err.message || 'Something went wrong. Please try again.');
+            } finally {
+                setIsLinking(false);
+            }
             return;
         }
 
@@ -178,8 +225,14 @@ export default function SchedulePreferencesScreen() {
                         <View style={styles.divider} />
 
                         <View style={styles.buttonContainerStacked}>
-                            <TouchableOpacity style={styles.completeBtn} onPress={handleEnrollment}>
-                                <Text style={styles.completeBtnText}>Complete Enrollment</Text>
+                            <TouchableOpacity style={[styles.completeBtn, isLinking && { opacity: 0.7 }]} onPress={handleEnrollment} disabled={isLinking}>
+                                {isLinking ? (
+                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                    <Text style={styles.completeBtnText}>
+                                        {isLinkingFlow ? 'Enroll Beneficiary' : 'Complete Enrollment'}
+                                    </Text>
+                                )}
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.prevBtnStacked} onPress={handleBack}>
                                 <Text style={styles.prevBtnTextStacked}>Previous</Text>

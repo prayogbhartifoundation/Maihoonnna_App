@@ -90,6 +90,16 @@ export default function PackageUtilizationScreen() {
         </View>
       ) : (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {((beneficiaryId && String(beneficiaryId).startsWith('unlinked-')) || (!beneficiaryId && detailData)) && (
+            <TouchableOpacity 
+              style={styles.addBeneficiaryCta}
+              onPress={() => router.push({ pathname: '/(setup)/subscribe-form', params: { isLinkingFlow: 'true' } })}
+            >
+              <Ionicons name="person-add" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.addBeneficiaryCtaText}>Enroll your beneficiary to package</Text>
+            </TouchableOpacity>
+          )}
+
           {summaryList && summaryList.length > 0 && (
             <View>
               <Text style={styles.sectionTitle}>Your Beneficiaries</Text>
@@ -107,11 +117,18 @@ export default function PackageUtilizationScreen() {
                     </View>
                     <View style={styles.summaryInfo}>
                       <Text style={styles.summaryName}>{item.beneficiaryName}</Text>
-                      <Text style={styles.summaryMeta}>{item.age} years · {item.activePackage || 'No Package'}</Text>
+                      <Text style={styles.summaryMeta}>
+                        {item.beneficiaryId.startsWith('unlinked-') 
+                          ? `Unlinked Plan · ${item.activePackage || 'Care Plan'}` 
+                          : `${item.age} years · ${item.activePackage || 'No Package'}`
+                        }
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.summaryStatus}>
-                    {item.hasExhausted ? (
+                    {item.beneficiaryId.startsWith('unlinked-') ? (
+                      <View style={styles.statusBadgeUnassigned}><Text style={styles.statusBadgeTextUnassigned}>UNASSIGNED</Text></View>
+                    ) : item.hasExhausted ? (
                       <View style={styles.statusBadgeExhausted}><Text style={styles.statusBadgeTextExhausted}>EXHAUSTED BENEFITS</Text></View>
                     ) : item.hasLowBalance ? (
                       <View style={styles.statusBadgeLow}><Text style={styles.statusBadgeTextLow}>LOW BALANCE</Text></View>
@@ -186,4 +203,24 @@ const styles = StyleSheet.create({
   statusBadgeTextLow: { color: '#D97706', fontSize: 11, fontWeight: '800' },
   statusBadgeOk: { backgroundColor: '#F0FDF4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   statusBadgeTextOk: { color: '#16A34A', fontSize: 11, fontWeight: '800' },
+  statusBadgeUnassigned: { backgroundColor: '#FFF7ED', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  statusBadgeTextUnassigned: { color: '#EA580C', fontSize: 11, fontWeight: '800' },
+  addBeneficiaryCta: {
+    backgroundColor: '#FF5B0A',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    ...Platform.select({
+      ios: { shadowColor: '#FF5B0A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+      android: { elevation: 4 },
+    }),
+  },
+  addBeneficiaryCtaText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

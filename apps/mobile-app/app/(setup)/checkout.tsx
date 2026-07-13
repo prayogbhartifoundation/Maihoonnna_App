@@ -12,6 +12,7 @@ import { API_URL } from '@/constants/api';
 import HeaderSpacer from '@/components/HeaderSpacer';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+import { useAuth } from '@/contexts/AuthContext';
 // @ts-ignore
 import RazorpayCheckout from 'react-native-razorpay';
 
@@ -39,6 +40,7 @@ const fs = (value: number) => Math.round(value * figmaScale);
 export default function CheckoutScreen() {
     const router = useRouter();
     const { pop, replace } = useNavigationStack();
+    const { updateUser } = useAuth();
     useAndroidBackHandler();
     const queryClient = useQueryClient();
     const params = useLocalSearchParams();
@@ -231,22 +233,8 @@ export default function CheckoutScreen() {
             const preferencesDataRaw = params.preferencesData as string;
 
             let subscriberData = {};
-            let beneficiaryData: any = {
-                name: "Beneficiary",
-                age: 65,
-                gender: "Not specified",
-                address: "Not provided",
-                flatPlot: "",
-                streetArea: "",
-                landmark: "",
-                city: "",
-                state: "",
-                pincode: "",
-                latitude: 0,
-                longitude: 0,
-                relationship: "Relative",
-                phone: "9876543210"
-            };
+            // If no beneficiary params (direct from packages flow), keep as null
+            let beneficiaryData: any = null;
             let medicalData = {};
             let emergencyContacts = {};
             let preferencesData = {};
@@ -254,8 +242,25 @@ export default function CheckoutScreen() {
             try { if (subscriberDataRaw) subscriberData = JSON.parse(subscriberDataRaw); } catch (e) { }
             try {
                 if (beneficiaryDataRaw) {
+                    // Beneficiary form was filled in — parse it
                     const parsed = JSON.parse(beneficiaryDataRaw);
-                    beneficiaryData = { ...beneficiaryData, ...parsed };
+                    beneficiaryData = {
+                        name: "Beneficiary",
+                        age: 65,
+                        gender: "Not specified",
+                        address: "Not provided",
+                        flatPlot: "",
+                        streetArea: "",
+                        landmark: "",
+                        city: "",
+                        state: "",
+                        pincode: "",
+                        latitude: 0,
+                        longitude: 0,
+                        relationship: "Relative",
+                        phone: "9876543210",
+                        ...parsed
+                    };
                     if (parsed.fullName) beneficiaryData.name = parsed.fullName;
 
                     if (parsed.dob) {
@@ -335,6 +340,12 @@ export default function CheckoutScreen() {
                     await AsyncStorage.removeItem('beneficiaryDashboardCache');
                     queryClient.invalidateQueries({ queryKey: ['subscriberDashboard'] });
 
+                    const resToken = data.data?.token || storedToken;
+                    const resUser = data.data?.user;
+                    if (resToken && resUser) {
+                        await updateUser(resToken, resUser);
+                    }
+
                     const activatedSub = data.data?.subscription || {};
                     replace('/(setup)/payment-success', {
                         orderId: activatedSub.id || 'N/A',
@@ -396,7 +407,7 @@ export default function CheckoutScreen() {
                     order_id: orderData.data.order_id,
                     prefill: {
                         email: user.email || '',
-                        contact: user.phone || beneficiaryData.phone || '',
+                        contact: user.phone || beneficiaryData?.phone || '',
                         name: user.name || ''
                     },
                     theme: { color: '#FE6700' }
@@ -498,7 +509,7 @@ export default function CheckoutScreen() {
             if (data.success) {
                 // Upload beneficiary photo if selected
                 const beneficiaryId = data.beneficiaryId;
-                if (beneficiaryData.photoUri && beneficiaryId) {
+                if (beneficiaryData?.photoUri && beneficiaryId) {
                     try {
                         const token = storedToken;
                         const uri = beneficiaryData.photoUri;
@@ -536,7 +547,7 @@ export default function CheckoutScreen() {
                 }
 
                 // ⚠️ DEV ONLY — auto-set beneficiary password if provided — remove when done testing
-                if (beneficiaryData.devPassword && beneficiaryData.phone) {
+                if (beneficiaryData?.devPassword && beneficiaryData?.phone) {
                     fetch(`${API_URL}/dev/set-beneficiary-password`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -545,8 +556,15 @@ export default function CheckoutScreen() {
                 }
                 // end DEV ONLY
 
-                // Invalidate dashboard queries so the new beneficiary appears immediately
+                // Invalidate dashboard queries so the new subscription appears immediately
+                await AsyncStorage.removeItem('beneficiaryDashboardCache');
                 queryClient.invalidateQueries({ queryKey: ['subscriberDashboard'] });
+
+                const resToken = data.token || storedToken;
+                const resUser = data.user;
+                if (resToken && resUser) {
+                    await updateUser(resToken, resUser);
+                }
 
                 // Payment gateway is mocked for now, but beneficiary is saved in DB
                 replace('/(setup)/payment-success', {

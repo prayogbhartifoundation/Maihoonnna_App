@@ -167,8 +167,8 @@ router.post('/purchase', authenticate, async (req: AuthRequest, res: Response) =
       razorpay_signature
     } = req.body;
 
-    if (!packageId || !beneficiaryData) {
-      throw new Error("Missing required payload fields: packageId and beneficiaryData are required.");
+    if (!packageId) {
+      throw new Error("Missing required payload field: packageId is required.");
     }
 
     // Verify Payment Signature if payment details are provided
@@ -196,7 +196,22 @@ router.post('/purchase', authenticate, async (req: AuthRequest, res: Response) =
       emergencyContacts,
       couponCode
     );
-    res.json(result);
+
+    // Generate new token containing the updated subscriber role
+    const { createToken } = require('../../core/security');
+    const newToken = createToken({ sub: userId, role: 'subscriber' });
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, phone: true, name: true, age: true, role: true }
+    });
+
+    const responseData = result as any;
+    if (responseData.success) {
+      responseData.token = newToken;
+      responseData.user = updatedUser;
+    }
+
+    res.json(responseData);
   } catch (error: any) {
     console.error('[Purchase Error]:', error);
     res.status(400).json({ success: false, message: error.message });
@@ -227,13 +242,83 @@ router.post('/activate', authenticate, async (req: Request, res: Response) => {
       emergencyContacts
     );
 
+    // Generate new token containing the updated subscriber role
+    const { createToken } = require('../../core/security');
+    const newToken = createToken({ sub: userId as string, role: 'subscriber' });
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId as string },
+      select: { id: true, phone: true, name: true, age: true, role: true }
+    });
+
     res.json({
       success: true,
       message: 'Subscription activated successfully',
-      data: result
+      data: {
+        ...result,
+        token: newToken,
+        user: updatedUser
+      }
     });
   } catch (error: any) {
     console.error('[Activate Subscription Error]:', error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /subscriber/subscriptions/unlinked-check
+// Check if the authenticated user has an active subscription with no beneficiary
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/unlinked-check', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const unlinkedSub = await prisma.subscription.findFirst({
+      where: { subscriberId: userId, isActive: true, beneficiaryId: null },
+      include: { package: true }
+    });
+
+    res.json({
+      success: true,
+      hasUnlinkedSubscription: !!unlinkedSub,
+      subscription: unlinkedSub ? {
+        id: unlinkedSub.id,
+        packageType: unlinkedSub.packageType,
+        packageName: (unlinkedSub.package as any)?.name || unlinkedSub.packageType,
+        startDate: unlinkedSub.startDate,
+        endDate: unlinkedSub.endDate
+      } : null
+    });
+  } catch (error: any) {
+    console.error('[Unlinked Check Error]:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /subscriber/subscriptions/link-beneficiary
+// Link a beneficiary to an existing unlinked subscription
+// Body: { beneficiaryData, medicalData?, emergencyContacts?, preferencesData? }
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/link-beneficiary', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const { beneficiaryData, medicalData, emergencyContacts, preferencesData } = req.body;
+
+    if (!beneficiaryData) {
+      return res.status(400).json({ success: false, message: 'beneficiaryData is required' });
+    }
+
+    const result = await subscriptionService.linkBeneficiaryToSubscription(
+      userId,
+      beneficiaryData,
+      medicalData,
+      emergencyContacts,
+      preferencesData
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('[Link Beneficiary Error]:', error);
     res.status(400).json({ success: false, message: error.message });
   }
 });
@@ -250,4 +335,4 @@ router.get('/packages', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+export default router;

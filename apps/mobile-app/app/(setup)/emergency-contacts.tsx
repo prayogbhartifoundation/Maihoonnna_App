@@ -110,7 +110,8 @@ export default function EmergencyContactsScreen() {
             emergencyContacts: JSON.stringify(form),
             isVerificationFlow: params.isVerificationFlow,
             beneficiaryId: params.beneficiaryId,
-            pendingDetails: params.pendingDetails
+            pendingDetails: params.pendingDetails,
+            isLinkingFlow: params.isLinkingFlow || 'false'
         });
     };
 

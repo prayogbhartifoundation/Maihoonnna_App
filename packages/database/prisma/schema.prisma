@@ -649,7 +649,7 @@ model SubscriptionPackage {
 model Subscription {
   id               String                       @id @default(uuid())
   subscriberId     String
-  beneficiaryId    String
+  beneficiaryId    String?                      // Nullable: package can be purchased before beneficiary is linked
   packageType      String
   duration         SubscriptionDuration         @default(monthly)
   startDate        DateTime
@@ -668,7 +668,7 @@ model Subscription {
   hoursLogs        PackageHoursLog[]
   payments         Payment[]
   benefitBalances  SubscriptionBenefitBalance[]
-  beneficiary      Beneficiary                  @relation(fields: [beneficiaryId], references: [id])
+  beneficiary      Beneficiary?                 @relation(fields: [beneficiaryId], references: [id])
   package          SubscriptionPackage          @relation(fields: [packageType], references: [type])
   subscriber       User                         @relation("SubscriberSubscriptions", fields: [subscriberId], references: [id])
 
@@ -699,7 +699,7 @@ model Payment {
   id                   String        @id @default(uuid())
   invoiceNumber        String?       @unique
   subscriberId         String
-  beneficiaryId        String
+  beneficiaryId        String?       // Nullable: payment can exist before beneficiary is linked
   subscriptionId       String
   packageType          String
   baseAmount           Float
@@ -729,7 +729,7 @@ model Payment {
   paidAt               DateTime?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
-  beneficiary          Beneficiary   @relation(fields: [beneficiaryId], references: [id])
+  beneficiary          Beneficiary?  @relation(fields: [beneficiaryId], references: [id])
   subscriber           User          @relation("SubscriberPayments", fields: [subscriberId], references: [id])
   subscription         Subscription  @relation(fields: [subscriptionId], references: [id])
 
@@ -1332,6 +1332,7 @@ model SystemConfig {
 }
 
 enum UserRole {
+  prospect
   subscriber
   beneficiary
   care_companion
