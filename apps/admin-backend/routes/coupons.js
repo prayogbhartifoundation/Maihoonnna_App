@@ -80,6 +80,12 @@ router.post('/', async (req, res) => {
   try {
     const data = req.body;
 
+    if (data.type === 'percentage' && parseFloat(data.discountValue) > 100) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Percentage discount value cannot be more than 100%' });
+    }
+
     // Check if code exists
     const existing = await prisma.coupon.findUnique({
       where: { code: data.code },
@@ -138,6 +144,12 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
+
+    if (data.type === 'percentage' && data.discountValue !== undefined && parseFloat(data.discountValue) > 100) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Percentage discount value cannot be more than 100%' });
+    }
 
     // Check code conflict if changing code (though code shouldn't change normally)
     if (data.code) {

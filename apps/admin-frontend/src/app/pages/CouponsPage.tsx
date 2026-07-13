@@ -94,6 +94,10 @@ export default function CouponsPage() {
   };
 
   const handleSave = async () => {
+    if (formData.type === 'percentage' && parseFloat(formData.discountValue) > 100) {
+      alert('Discount percentage value cannot be more than 100%.');
+      return;
+    }
     try {
       const payload = {
         ...formData,
@@ -232,6 +236,11 @@ export default function CouponsPage() {
                     <div className="space-y-2">
                       <Label htmlFor="discountValue">Value</Label>
                       <Input id="discountValue" type="number" value={formData.discountValue} onChange={handleInputChange} placeholder={formData.type === 'percentage' ? 'e.g. 20' : 'e.g. 1000'} />
+                      {formData.type === 'percentage' && parseFloat(formData.discountValue) > 100 && (
+                        <p className="text-[11px] text-red-500 font-bold flex items-center gap-1 mt-1">
+                          <AlertCircle size={12} /> Value cannot exceed 100%
+                        </p>
+                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -298,7 +307,17 @@ export default function CouponsPage() {
               </Tabs>
               
               <div className="p-4 bg-gray-50 border-t">
-                <Button className="w-full" onClick={handleSave} disabled={!formData.code || !formData.discountValue || !formData.startDate || !formData.endDate}>
+                <Button 
+                  className="w-full" 
+                  onClick={handleSave} 
+                  disabled={
+                    !formData.code || 
+                    !formData.discountValue || 
+                    !formData.startDate || 
+                    !formData.endDate || 
+                    (formData.type === 'percentage' && parseFloat(formData.discountValue) > 100)
+                  }
+                >
                   {editingCoupon ? 'Update Coupon' : 'Create Coupon'}
                 </Button>
               </div>
