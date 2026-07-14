@@ -72,13 +72,7 @@ export default function VisitDetailsScreen() {
     const [reqPreferredTiming, setReqPreferredTiming] = useState('Morning');
     const [submittingServiceRequest, setSubmittingServiceRequest] = useState(false);
 
-    // Static list of generic medications as fallback or standard selection
-    const [meds, setMeds] = useState([
-        { id: '1', name: 'Metformin 500mg', checked: false },
-        { id: '2', name: 'Lisinopril 10mg', checked: false },
-        { id: '3', name: 'Atorvastatin 20mg', checked: false },
-        { id: '4', name: 'Aspirin 81mg', checked: false },
-    ]);
+    const [meds, setMeds] = useState<any[]>([]);
 
     const toggleMed = (id: string) => {
         setMeds(meds.map(m => m.id === id ? { ...m, checked: !m.checked } : m));
@@ -125,12 +119,7 @@ export default function VisitDetailsScreen() {
                         };
                     }));
                 } else {
-                    setMeds([
-                        { id: '1', name: 'Metformin 500mg', checked: false },
-                        { id: '2', name: 'Lisinopril 10mg', checked: false },
-                        { id: '3', name: 'Atorvastatin 20mg', checked: false },
-                        { id: '4', name: 'Aspirin 81mg', checked: false },
-                    ]);
+                    setMeds([]);
                 }
 
                 // Initialize vital values mapping
@@ -823,7 +812,7 @@ export default function VisitDetailsScreen() {
                         )}
 
                         {/* 3. MEDICATION ADHERENCE CARD */}
-                        {isCheckedIn && (
+                        {isCheckedIn && meds.length > 0 && (
                             <View style={styles.card}>
                                 <View style={styles.cardHeader}>
                                     <MaterialCommunityIcons name="pill" size={20} color="#9333EA" />
