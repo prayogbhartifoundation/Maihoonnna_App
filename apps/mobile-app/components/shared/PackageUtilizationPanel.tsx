@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatHours } from '@/utils/timeFormat';
@@ -33,6 +33,7 @@ export interface LogEntry {
 
 export interface DetailedUtilization {
   type: 'detail';
+  beneficiaryId: string;
   subscription: {
     id: string;
     packageName: string;
@@ -47,9 +48,11 @@ export interface DetailedUtilization {
 
 interface Props {
   data: DetailedUtilization | null;
+  selectedBenefitId?: string | null;
+  onSelectBenefit?: (benefit: BenefitBalance) => void;
 }
 
-export default function PackageUtilizationPanel({ data }: Props) {
+export default function PackageUtilizationPanel({ data, selectedBenefitId, onSelectBenefit }: Props) {
   if (!data || !data.subscription) {
     return (
       <View style={styles.emptyContainer}>
@@ -87,56 +90,62 @@ export default function PackageUtilizationPanel({ data }: Props) {
         </View>
 
         {benefits.length > 0 ? (
-          benefits.map((b, i) => (
-            <View 
-              key={b.benefitId} 
-              style={[
-                styles.benefitCard, 
-                b.isExhausted ? styles.cardExhausted : (b.isLowBalance ? styles.cardLow : {})
-              ]}
-            >
-              <View style={styles.benefitHeader}>
-                <Text style={styles.benefitName}>{b.benefitName}</Text>
-                {b.isExhausted ? (
-                  <View style={styles.badgeExhausted}><Text style={styles.badgeTextExhausted}>EXHAUSTED</Text></View>
-                ) : b.isLowBalance ? (
-                  <View style={styles.badgeLow}><Text style={styles.badgeTextLow}>LOW</Text></View>
-                ) : (
-                  <View style={styles.badgeOk}><Text style={styles.badgeTextOk}>OK</Text></View>
-                )}
-              </View>
-
-              <View style={styles.progressContainer}>
-                <View style={styles.progressTrack}>
-                  <View 
-                    style={[
-                      styles.progressFill, 
-                      { 
-                        width: `${Math.min(100, Math.max(0, b.usagePercent))}%`,
-                        backgroundColor: b.isExhausted ? '#EF4444' : (b.isLowBalance ? '#F59E0B' : '#10B981')
-                      }
-                    ]} 
-                  />
+          benefits.map((b, i) => {
+            const isSelected = selectedBenefitId === b.benefitId;
+            return (
+              <TouchableOpacity 
+                key={b.benefitId} 
+                activeOpacity={0.85}
+                onPress={() => onSelectBenefit?.(b)}
+                style={[
+                  styles.benefitCard, 
+                  b.isExhausted ? styles.cardExhausted : (b.isLowBalance ? styles.cardLow : {}),
+                  isSelected && styles.cardSelected
+                ]}
+              >
+                <View style={styles.benefitHeader}>
+                  <Text style={styles.benefitName}>{b.benefitName}</Text>
+                  {b.isExhausted ? (
+                    <View style={styles.badgeExhausted}><Text style={styles.badgeTextExhausted}>EXHAUSTED</Text></View>
+                  ) : b.isLowBalance ? (
+                    <View style={styles.badgeLow}><Text style={styles.badgeTextLow}>LOW</Text></View>
+                  ) : (
+                    <View style={styles.badgeOk}><Text style={styles.badgeTextOk}>OK</Text></View>
+                  )}
                 </View>
-              </View>
 
-              <View style={styles.benefitFooter}>
-                {
-                  // Detect hour-type benefits by their unit label
-                  (() => {
-                    const lbl = (b.unitLabel || '').toLowerCase();
-                    const isHourType = lbl.includes('hour') || lbl.includes('hr');
-                    const usedStr = isHourType ? formatHours(b.usedUnits) : `${b.usedUnits}`;
-                    const remainStr = isHourType ? formatHours(b.remainingUnits) : `${b.remainingUnits}`;
-                    return (
-                      <Text style={styles.benefitStats}>{usedStr} used · {remainStr} remaining</Text>
-                    );
-                  })()
-                }
-                <Text style={styles.benefitUnit}>{b.unitLabel}</Text>
-              </View>
-            </View>
-          ))
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressTrack}>
+                    <View 
+                      style={[
+                        styles.progressFill, 
+                        { 
+                          width: `${Math.min(100, Math.max(0, b.usagePercent))}%`,
+                          backgroundColor: b.isExhausted ? '#EF4444' : (b.isLowBalance ? '#F59E0B' : '#10B981')
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.benefitFooter}>
+                  {
+                    // Detect hour-type benefits by their unit label
+                    (() => {
+                      const lbl = (b.unitLabel || '').toLowerCase();
+                      const isHourType = lbl.includes('hour') || lbl.includes('hr');
+                      const usedStr = isHourType ? formatHours(b.usedUnits) : `${b.usedUnits}`;
+                      const remainStr = isHourType ? formatHours(b.remainingUnits) : `${b.remainingUnits}`;
+                      return (
+                        <Text style={styles.benefitStats}>{usedStr} used · {remainStr} remaining</Text>
+                      );
+                    })()
+                  }
+                  <Text style={styles.benefitUnit}>{b.unitLabel}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
         ) : (
           <Text style={styles.emptySubText}>No structured benefits found for this package.</Text>
         )}
@@ -157,8 +166,12 @@ export default function PackageUtilizationPanel({ data }: Props) {
             
             return (
               <View key={log.id} style={styles.logItem}>
-                <View style={styles.logIconBox}>
-                  <Ionicons name="time" size={16} color="#FF5B0A" />
+                <View style={[styles.logIconBox, log.isRequest && { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons 
+                    name={log.isRequest ? "calendar-outline" : "time"} 
+                    size={16} 
+                    color={log.isRequest ? "#3B82F6" : "#FF5B0A"} 
+                  />
                 </View>
                 <View style={styles.logContent}>
                   <Text style={styles.logDesc} numberOfLines={1}>{log.description || 'Manual deduction'}</Text>
@@ -167,7 +180,16 @@ export default function PackageUtilizationPanel({ data }: Props) {
                   </Text>
                 </View>
                 <View style={styles.logRight}>
-                  <Text style={styles.logValue}>{isHours ? `${billMinutes}m billed` : '−1 visit'}</Text>
+                  {log.isRequest ? (
+                    <Text style={[
+                      styles.logValue, 
+                      { color: log.visitStatus === 'READ' ? '#10B981' : '#3B82F6', fontWeight: '800', fontSize: 11 }
+                    ]}>
+                      {log.visitStatus}
+                    </Text>
+                  ) : (
+                    <Text style={styles.logValue}>{isHours ? `${billMinutes}m billed` : '−1 visit'}</Text>
+                  )}
                   <Text style={styles.logDate}>
                     {new Date(log.loggedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </Text>
@@ -235,6 +257,7 @@ const styles = StyleSheet.create({
   },
   cardLow: { backgroundColor: '#FEFCE8', borderColor: '#FEF08A' },
   cardExhausted: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+  cardSelected: { borderColor: '#FF5B0A', borderWidth: 2 },
 
   benefitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   benefitName: { fontSize: 15, fontWeight: '700', color: '#374151' },

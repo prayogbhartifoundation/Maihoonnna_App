@@ -70,6 +70,8 @@ model User {
   acknowledgedVitalAlerts        VitalAlert[]             @relation("VitalAlertAcknowledgedBy")
   activityLogs                   ActivityLog[]
   addresses                      Address[]
+  serviceRequests                ServiceRequest[]         @relation("SubscriberServiceRequests")
+  requestedServiceRequests       ServiceRequest[]         @relation("RequestedByServiceRequests")
 
   @@index([name])
   @@index([role])
@@ -282,6 +284,7 @@ model Beneficiary {
   vitalConfigs        BeneficiaryVitalConfig[]
   vitalReadings       VitalReading[]
   vitalAlerts         VitalAlert[]
+  serviceRequests     ServiceRequest[]
 
   @@index([name])
   @@index([city])
@@ -562,6 +565,7 @@ model Benefit {
   balances               SubscriptionBenefitBalance[]
   visits                 Visit[]
   packageVersionBenefits PackageVersionBenefit[]
+  serviceRequests        ServiceRequest[]
 
   @@map("benefits")
 }
@@ -1671,4 +1675,25 @@ model Hobby {
   updatedAt DateTime @updatedAt
 
   @@map("hobbies")
+}
+
+model ServiceRequest {
+  id                String       @id @default(uuid())
+  beneficiaryId     String
+  subscriberId      String?      // Nullable: requested directly by beneficiary
+  benefitId         String       // The benefit being requested
+  preferredDate     DateTime
+  preferredTiming   String
+  additionalNote    String?
+  isRead            Boolean      @default(false)
+  requestedByUserId String?
+  requestedByRole   String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  beneficiary       Beneficiary  @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  subscriber        User?        @relation("SubscriberServiceRequests", fields: [subscriberId], references: [id])
+  requestedByUser   User?        @relation("RequestedByServiceRequests", fields: [requestedByUserId], references: [id])
+  benefit           Benefit      @relation(fields: [benefitId], references: [id])
+
+  @@map("service_requests")
 }

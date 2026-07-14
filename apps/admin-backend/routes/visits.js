@@ -357,6 +357,26 @@ router.patch('/:id/complete', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api/visits/check-availability
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/check-availability', async (req, res) => {
+  const { careCompanionId, scheduledTime, durationMinutes } = req.query;
+  try {
+    if (!careCompanionId || !scheduledTime || !durationMinutes) {
+      return res.status(400).json({ success: false, message: 'Missing parameters' });
+    }
+    const availability = await checkCCAvailability(
+      careCompanionId,
+      new Date(scheduledTime),
+      parseInt(durationMinutes)
+    );
+    res.json({ success: true, data: availability });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/visits/:id - Get a single visit by ID
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
@@ -371,7 +391,7 @@ router.get('/:id', async (req, res) => {
         vitalReadings: {
           include: {
             vitalDefinition: { select: { id: true, name: true, unit: true, dataType: true, code: true, booleanTrueLabel: true, booleanFalseLabel: true } },
-            capturedBy: { select: { id: true, firstName: true, lastName: true } }
+            capturedBy: { select: { id: true, name: true } }
           }
         }
       },
@@ -667,25 +687,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GET /api/visits/check-availability
-// ─────────────────────────────────────────────────────────────────────────────
-router.get('/check-availability', async (req, res) => {
-  const { careCompanionId, scheduledTime, durationMinutes } = req.query;
-  try {
-    if (!careCompanionId || !scheduledTime || !durationMinutes) {
-      return res.status(400).json({ success: false, message: 'Missing parameters' });
-    }
-    const availability = await checkCCAvailability(
-      careCompanionId,
-      new Date(scheduledTime),
-      parseInt(durationMinutes)
-    );
-    res.json({ success: true, data: availability });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/visits/:id - Cancel a scheduled visit

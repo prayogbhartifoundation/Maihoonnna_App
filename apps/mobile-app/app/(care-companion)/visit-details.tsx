@@ -63,6 +63,15 @@ export default function VisitDetailsScreen() {
     const [proximityMeters, setProximityMeters] = useState<number | null>(null);
     const [locationLoading, setLocationLoading] = useState(false);
 
+    // CC Service Request state
+    const [showBenefitDropdown, setShowBenefitDropdown] = useState(false);
+    const [selectedBenefit, setSelectedBenefit] = useState<any>(null);
+    const [reqPreferredDate, setReqPreferredDate] = useState(() => {
+        return new Date().toISOString().split('T')[0];
+    });
+    const [reqPreferredTiming, setReqPreferredTiming] = useState('Morning');
+    const [submittingServiceRequest, setSubmittingServiceRequest] = useState(false);
+
     // Static list of generic medications as fallback or standard selection
     const [meds, setMeds] = useState([
         { id: '1', name: 'Metformin 500mg', checked: false },
@@ -457,6 +466,49 @@ export default function VisitDetailsScreen() {
         }
     };
 
+    const handleCcRequestService = async () => {
+        if (!selectedBenefit) {
+            Alert.alert('Selection Required', 'Please select a benefit to request.');
+            return;
+        }
+        if (!reqPreferredDate.trim()) {
+            Alert.alert('Date Required', 'Preferred date is required.');
+            return;
+        }
+        
+        setSubmittingServiceRequest(true);
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            const body = {
+                beneficiaryId: beneficiary?.id,
+                benefitId: selectedBenefit.benefitId,
+                preferredDate: reqPreferredDate,
+                preferredTiming: reqPreferredTiming,
+            };
+
+            const res = await fetch(`${API_URL}/shared/utilization/request-service`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(body)
+            });
+            const result = await res.json();
+            if (result.success) {
+                Alert.alert('Success', 'Service request submitted successfully.');
+                setSelectedBenefit(null);
+                setReqPreferredDate(new Date().toISOString().split('T')[0]);
+            } else {
+                throw new Error(result.message || 'Failed to submit request');
+            }
+        } catch (e: any) {
+            Alert.alert('Error', e.message);
+        } finally {
+            setSubmittingServiceRequest(false);
+        }
+    };
+
     let [fontsLoaded] = useFonts({
         Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold,
     });
@@ -835,13 +887,125 @@ export default function VisitDetailsScreen() {
                             <View style={styles.card}>
                                 <View style={styles.cardHeader}>
                                     <MaterialCommunityIcons name="stethoscope" size={20} color="#0D9488" />
-                                    <Text style={styles.cardTitle}>Requests</Text>
+                                    <Text style={styles.cardTitle}>Request Service</Text>
                                 </View>
-                                <Text style={styles.inputLabel}>Request Type</Text>
-                                <View style={styles.dropdownBtn}>
-                                    <Text style={styles.dropdownText}>Select request type</Text>
-                                    <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
-                                </View>
+                                
+                                <Text style={styles.inputLabel}>Select Benefit *</Text>
+                                <TouchableOpacity 
+                                    style={styles.dropdownBtn}
+                                    onPress={() => setShowBenefitDropdown(!showBenefitDropdown)}
+                                >
+                                    <Text style={[styles.dropdownText, selectedBenefit && { color: '#111827', fontWeight: '600' }]}>
+                                        {selectedBenefit ? `${selectedBenefit.benefitName} (${selectedBenefit.remainingUnits} left)` : 'Select benefit type...'}
+                                    </Text>
+                                    <Ionicons name={showBenefitDropdown ? "chevron-up" : "chevron-down"} size={20} color="#9CA3AF" />
+                                </TouchableOpacity>
+
+                                {showBenefitDropdown && (
+                                    <View style={styles.dropdownList}>
+                                        {(visitDetail?.benefits || []).map((b: any) => (
+                                            <TouchableOpacity 
+                                                key={b.benefitId}
+                                                style={styles.dropdownItem}
+                                                onPress={() => {
+                                                    setSelectedBenefit(b);
+                                                    setShowBenefitDropdown(false);
+                                                }}
+                                            >
+                                                <Text style={styles.dropdownItemText}>{b.benefitName}</Text>
+                                                <Text style={styles.dropdownItemSubText}>{b.remainingUnits} remaining</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                        {(visitDetail?.benefits || []).length === 0 && (
+                                            <Text style={styles.emptyDropdownText}>No benefits found for this beneficiary.</Text>
+                                        )}
+                                    </View>
+                                )}
+
+                                {selectedBenefit && (
+                                    <View style={{ marginTop: 12 }}>
+                                        <Text style={styles.inputLabel}>Preferred Date *</Text>
+                                        <TextInput
+                                            style={styles.remarksInput}
+                                            placeholder="YYYY-MM-DD (e.g. 2026-07-15)"
+                                            placeholderTextColor="#9CA3AF"
+                                            value={reqPreferredDate}
+                                            onChangeText={setReqPreferredDate}
+                                        />
+
+                                        <Text style={styles.inputLabel}>Preferred Timing *</Text>
+                                        <View style={[styles.moodRow, { gap: 4 }]}>
+                                            {['Morning', 'Afternoon', 'Evening'].map((slot) => {
+                                                const isActive = reqPreferredTiming === slot;
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={slot}
+                                                        style={[styles.moodBox, isActive && styles.moodBoxActive, { flex: 1, paddingVertical: 10 }]}
+                                                        onPress={() => setReqPreferredTiming(slot)}
+                                                    >
+                                                        <Text style={[styles.moodText, isActive && styles.moodTextActive]}>
+                                                            {slot}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+
+                                        <TouchableOpacity
+                                            style={[styles.autoCheckInBtn, { backgroundColor: '#0D9488', marginTop: 16 }, submittingServiceRequest && { opacity: 0.7 }]}
+                                            onPress={handleCcRequestService}
+                                            disabled={submittingServiceRequest}
+                                        >
+                                            {submittingServiceRequest ? (
+                                                <ActivityIndicator size="small" color="#FFFFFF" />
+                                            ) : (
+                                                <Text style={styles.autoCheckInText}>Request Service for Patient</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+
+                                {/* Service Request History Sublist */}
+                                {(visitDetail?.serviceRequests || []).length > 0 && (
+                                    <View style={{ marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB', borderStyle: 'dashed' }}>
+                                        <Text style={[styles.inputLabel, { color: '#0D9488', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }]}>
+                                             Upcoming Requested Services
+                                        </Text>
+                                        <View style={{ gap: 10 }}>
+                                            {(visitDetail?.serviceRequests || []).map((sr: any) => {
+                                                const dateStr = new Date(sr.preferredDate).toLocaleDateString('en-IN', {
+                                                    day: '2-digit',
+                                                    month: 'short',
+                                                    year: 'numeric'
+                                                });
+                                                return (
+                                                    <View key={sr.id} style={{ padding: 12, backgroundColor: '#FAF3EB', borderRadius: 8, borderWidth: 1, borderColor: '#E7DED6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <View style={{ flex: 1, paddingRight: 8 }}>
+                                                            <Text style={{ fontFamily: 'Poppins_600SemiBold', fontSize: 13, color: '#374151' }}>
+                                                                {sr.benefitName}
+                                                            </Text>
+                                                            <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                                                                Preferred: {dateStr} ({sr.preferredTiming})
+                                                            </Text>
+                                                            <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: 10, color: '#9CA3AF', marginTop: 1, fontStyle: 'italic' }}>
+                                                                {sr.requestedByRole === 'care_companion'
+                                                                    ? 'Requested by Care Companion'
+                                                                    : sr.requestedByRole === 'subscriber'
+                                                                        ? `Requested by Subscriber${sr.requesterName ? ` (${sr.requesterName})` : ''}`
+                                                                        : 'Requested by Beneficiary itself'}
+                                                            </Text>
+                                                        </View>
+                                                        <View style={{ backgroundColor: sr.isRead ? '#D1FAE5' : '#DBEAFE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                                            <Text style={{ fontFamily: 'Poppins_600SemiBold', fontSize: 9, color: sr.isRead ? '#065F46' : '#1E40AF', textTransform: 'uppercase' }}>
+                                                                {sr.isRead ? 'Read' : 'Pending'}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+                                                );
+                                            })}
+                                        </View>
+                                    </View>
+                                )}
                             </View>
                         )}
 
@@ -1035,6 +1199,11 @@ const styles = StyleSheet.create({
 
     dropdownBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 14 },
     dropdownText: { fontFamily: 'Poppins_400Regular', color: '#6B7280', fontSize: 14 },
+    dropdownList: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, marginTop: 4, padding: 8, zIndex: 50 },
+    dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    dropdownItemText: { fontFamily: 'Poppins_500Medium', fontSize: 13, color: '#374151' },
+    dropdownItemSubText: { fontFamily: 'Poppins_400Regular', fontSize: 11, color: '#9CA3AF' },
+    emptyDropdownText: { fontFamily: 'Poppins_400Regular', fontSize: 13, color: '#9CA3AF', padding: 8, textAlign: 'center' },
 
     saveBtn: { backgroundColor: DEEP_ORANGE, flexDirection: 'row', borderRadius: 8, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10, shadowColor: DEEP_ORANGE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
     saveBtnText: { color: '#FFFFFF', fontSize: 16, fontFamily: 'Poppins_600SemiBold' },

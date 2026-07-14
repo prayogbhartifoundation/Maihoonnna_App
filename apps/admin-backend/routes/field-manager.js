@@ -262,13 +262,17 @@ router.get('/beneficiaries', async (req, res) => {
     const beneficiaries = await prisma.beneficiary.findMany({
       where,
       include: {
-        primaryCC: { select: { id: true, name: true, isAvailable: true } },
-        secondaryCC: { select: { id: true, name: true, isAvailable: true } },
+        primaryCC: { select: { id: true, userId: true, name: true, isAvailable: true } },
+        secondaryCC: { select: { id: true, userId: true, name: true, isAvailable: true } },
         subscriptions: {
           where: { isActive: true },
           include: { package: { select: { name: true } } },
           take: 1,
         },
+        serviceRequests: {
+          where: { isRead: false },
+          select: { id: true }
+        }
       },
       orderBy: { name: 'asc' },
     });
@@ -283,12 +287,15 @@ router.get('/beneficiaries', async (req, res) => {
       city: b.city,
       pincode: b.pincode,
       primaryCcId: b.primaryCcId,
+      primaryCcUserId: b.primaryCC?.userId || null,
       primaryCcName: b.primaryCC?.name || null,
       secondaryCcId: b.secondaryCcId,
+      secondaryCcUserId: b.secondaryCC?.userId || null,
       secondaryCcName: b.secondaryCC?.name || null,
       teamId: b.teamId,
       activePackage: b.subscriptions?.[0]?.package?.name || null,
       subscriptionId: b.subscriptions?.[0]?.id || null,
+      hasUnreadRequests: (b.serviceRequests || []).length > 0,
     }));
 
     res.json({ success: true, data: mapped });

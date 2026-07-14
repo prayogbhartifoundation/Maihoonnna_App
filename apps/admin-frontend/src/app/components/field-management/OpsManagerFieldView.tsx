@@ -9,7 +9,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { fieldManagerApi, visitApi } from '../../../services/api';
+import { fieldManagerApi, visitApi, beneficiaryApi } from '../../../services/api';
 import { toast } from 'sonner';
 import { Users, UserCheck, CheckCircle2, RefreshCw } from 'lucide-react';
 import { LoadingState, StatCard } from './SharedComponents';
@@ -73,8 +73,13 @@ export default function OpsManagerFieldView() {
     setBenLoading(true);
     try {
       // GET /field-manager/beneficiaries?fmId=<fm.userId>
-      // The backend filters WHERE fieldManagerId = fm.userId
       const raw = await fieldManagerApi.getBeneficiariesByFM(fm.userId);
+      console.log("raw FM beneficiaries:", raw);
+
+      // Fetch unread requests globally to guarantee correct dot notification badges
+      const unreadRequests = await beneficiaryApi.getUnreadServiceRequests(fm.userId);
+      const unreadBenIds = new Set(unreadRequests.map((r: any) => r.beneficiaryId));
+
       setBeneficiaries(raw.map((b: any): BeneficiaryItem => ({
         id: b.id,
         name: b.name,
@@ -84,11 +89,14 @@ export default function OpsManagerFieldView() {
         city: b.city,
         pincode: b.pincode,
         primaryCcId: b.primaryCcId ?? null,
+        primaryCcUserId: b.primaryCcUserId ?? null,
         primaryCcName: b.careCompanion ?? b.primaryCcName ?? null,
         secondaryCcId: b.secondaryCcId ?? null,
+        secondaryCcUserId: b.secondaryCcUserId ?? null,
         secondaryCcName: b.secondaryCareCompanion ?? b.secondaryCcName ?? null,
         activePackage: b.activePackage ?? null,
         subscriberName: b.subscriberName ?? null,
+        hasUnreadRequests: unreadBenIds.has(b.id) || b.hasUnreadRequests || false,
       })));
     } catch (e: any) {
       toast.error('Failed to load beneficiaries');
@@ -126,6 +134,18 @@ export default function OpsManagerFieldView() {
     loadTeam(selectedFM);
     loadBeneficiaries(selectedFM);
   };
+
+  // ── Auto-refresh every 2 minutes ───────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedFM) return;
+
+    const interval = setInterval(() => {
+      loadTeam(selectedFM);
+      loadBeneficiaries(selectedFM);
+    }, 120000); // 2 minutes
+
+    return () => clearInterval(interval);
+  }, [selectedFM, loadTeam, loadBeneficiaries]);
 
   // ── Derived stats ───────────────────────────────────────────────────────────
   const assignedCount = beneficiaries.filter(b => b.primaryCcId).length;
@@ -219,6 +239,7 @@ export default function OpsManagerFieldView() {
                 loading={benLoading}
                 submittingId={submittingId}
                 onScheduleVisit={handleScheduleVisit}
+                onRefresh={() => loadBeneficiaries(selectedFM)}
               />
             </div>
           </div>

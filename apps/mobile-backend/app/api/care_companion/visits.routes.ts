@@ -331,6 +331,59 @@ router.get('/:visitId/details', authenticate, async (req: Request, res: Response
       }
     });
 
+    // Fetch active package benefits for the beneficiary
+    const activeSub = await prisma.subscription.findFirst({
+      where: { beneficiaryId: visit.beneficiaryId, isActive: true },
+      include: {
+        benefitBalances: {
+          include: {
+            benefit: true
+          }
+        }
+      }
+    });
+
+    const formattedBenefits = (activeSub?.benefitBalances || []).map((bal: any) => {
+      return {
+        benefitId: bal.benefitId,
+        benefitName: bal.benefit?.name || 'Benefit',
+        unitLabel: bal.benefit?.unitLabel || 'units',
+        remainingUnits: Math.max(0, bal.totalUnits - bal.usedUnits),
+      };
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Fetch service requests for the beneficiary from today onwards
+    const serviceRequests = await prisma.serviceRequest.findMany({
+      where: {
+        beneficiaryId: visit.beneficiaryId,
+        preferredDate: {
+          gte: today
+        }
+      },
+      orderBy: { preferredDate: 'asc' },
+      include: {
+        benefit: { select: { name: true } },
+        requestedByUser: { select: { name: true } },
+        subscriber: { select: { name: true } }
+      }
+    });
+
+    const formattedRequests = serviceRequests.map((sr: any) => {
+      return {
+        id: sr.id,
+        benefitName: sr.benefit?.name || 'Service',
+        preferredDate: sr.preferredDate,
+        preferredTiming: sr.preferredTiming,
+        isRead: sr.isRead,
+        requestedByUserId: sr.requestedByUserId,
+        requestedByRole: sr.requestedByRole,
+        requesterName: sr.requestedByUser?.name || sr.subscriber?.name || null
+      };
+    });
+
     res.json({
       success: true,
       data: {
@@ -372,6 +425,8 @@ router.get('/:visitId/details', authenticate, async (req: Request, res: Response
           frequency: m.frequency,
           instructions: m.instructions,
         })),
+        benefits: formattedBenefits,
+        serviceRequests: formattedRequests,
       }
     });
   } catch (error: any) {

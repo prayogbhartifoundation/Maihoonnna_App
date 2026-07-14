@@ -317,7 +317,7 @@ async function buildDetailedUtilization(beneficiary: any) {
       }
     });
 
-    recentLogs = rawLogs.map(log => {
+    const mappedLogs = rawLogs.map(log => {
       let actualMinutes = null;
       if (log.visit?.checkInTime && log.visit?.checkOutTime) {
         const ms = new Date(log.visit.checkOutTime).getTime() - new Date(log.visit.checkInTime).getTime();
@@ -334,13 +334,56 @@ async function buildDetailedUtilization(beneficiary: any) {
         careCompanionName: log.visit?.careCompanion?.user?.name || 'Unknown',
         ccType: log.visit?.careCompanion?.ccType || null,
         visitStatus: log.visit?.status || null,
-        actualMinutes
+        actualMinutes,
+        isRequest: false
       };
     });
+
+    // Fetch service requests as activity logs
+    const serviceReqs = await prisma.serviceRequest.findMany({
+      where: { beneficiaryId: beneficiary.id },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      include: {
+        benefit: { select: { name: true } },
+        requestedByUser: { select: { name: true } },
+        subscriber: { select: { name: true } }
+      }
+    });
+
+    const mappedRequests = serviceReqs.map(sr => {
+      let requesterName = 'Beneficiary itself';
+      if (sr.requestedByRole === 'subscriber') {
+        requesterName = `Subscriber (${sr.requestedByUser?.name || sr.subscriber?.name || 'Subscriber'})`;
+      } else if (sr.requestedByRole === 'care_companion') {
+        requesterName = `Care Companion (${sr.requestedByUser?.name || 'Care Companion'})`;
+      } else if (!sr.requestedByRole && sr.subscriberId) {
+        requesterName = `Subscriber (${sr.subscriber?.name || 'Subscriber'})`;
+      }
+      return {
+        id: sr.id,
+        visitId: null,
+        hoursConsumed: null,
+        balanceBefore: null,
+        balanceAfter: null,
+        description: `Requested service: ${sr.benefit?.name || 'Service'}`,
+        loggedAt: sr.createdAt,
+        careCompanionName: requesterName,
+        ccType: sr.preferredTiming,
+        visitStatus: sr.isRead ? 'READ' : 'PENDING',
+        actualMinutes: null,
+        isRequest: true
+      };
+    });
+
+    recentLogs = [...mappedLogs, ...mappedRequests].sort(
+      (a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime()
+    ).slice(0, 30);
   }
 
   return {
     type: 'detail',
+    beneficiaryId: beneficiary.id,
     subscription: activeSub ? {
       id: activeSub.id,
       packageName: activeSub.package?.name,
@@ -353,5 +396,46 @@ async function buildDetailedUtilization(beneficiary: any) {
     recentLogs
   };
 }
+
+router.post('/request-service', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId, userRole } = req;
+    const { beneficiaryId, benefitId, preferredDate, preferredTiming, additionalNote } = req.body;
+
+    if (!userId || !userRole) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (!beneficiaryId || !benefitId || !preferredDate || !preferredTiming) {
+      return res.status(400).json({ success: false, message: 'Missing required parameters: beneficiaryId, benefitId, preferredDate, and preferredTiming are required.' });
+    }
+
+    // Resolve subscriberId if userRole is subscriber
+    const subscriberId = userRole === 'subscriber' ? userId : null;
+
+    const request = await prisma.serviceRequest.create({
+      data: {
+        beneficiaryId,
+        subscriberId,
+        benefitId,
+        preferredDate: new Date(preferredDate),
+        preferredTiming,
+        additionalNote: additionalNote || null,
+        isRead: false,
+        requestedByUserId: userId,
+        requestedByRole: userRole
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Service request submitted successfully.',
+      data: request
+    });
+  } catch (error: any) {
+    console.error('POST /api/shared/utilization/request-service error:', error);
+    res.status(500).json({ success: false, message: error.message || 'An error occurred while saving the service request.' });
+  }
+});
 
 export default router;

@@ -629,6 +629,33 @@ export const beneficiaryApi = {
       body: JSON.stringify(payload),
     });
   },
+
+  async getUnreadServiceRequests(fmUserId?: string): Promise<any[]> {
+    try {
+      const query = fmUserId ? `?fmId=${encodeURIComponent(fmUserId)}` : '';
+      const res = await apiJson<any>(`/beneficiaries/service-requests/unread${query}`);
+      return Array.isArray(res) ? res : (res?.data || []);
+    } catch (err) {
+      console.error('beneficiaryApi.getUnreadServiceRequests failed:', err);
+      return [];
+    }
+  },
+
+  async getServiceRequests(beneficiaryId: string): Promise<any[]> {
+    try {
+      const res = await apiJson<any>(`/beneficiaries/${beneficiaryId}/service-requests`);
+      return Array.isArray(res) ? res : (res?.data || []);
+    } catch (err) {
+      console.error('beneficiaryApi.getServiceRequests failed:', err);
+      return [];
+    }
+  },
+
+  async markServiceRequestRead(requestId: string): Promise<any> {
+    return apiJson(`/beneficiaries/service-requests/${requestId}/read`, {
+      method: 'POST',
+    });
+  },
 };
 
 

@@ -894,4 +894,120 @@ router.delete('/:id/conditions/:conditionId', async (req, res) => {
   }
 });
 
+// ── GET /api/beneficiaries/service-requests/unread ───────────────────────────
+// Get all unread service requests for beneficiaries managed by selected FM
+router.get('/service-requests/unread', async (req, res) => {
+  try {
+    const isFM = req.user?.role === 'field_manager';
+    const isAdmin = req.user?.role === 'master_admin' || req.user?.role === 'admin';
+    const isOM = req.user?.role === 'operations_manager';
+    const { fmId } = req.query;
+
+    let beneficiaryWhereFilter = { isActive: true };
+
+    if (isFM || ((isAdmin || isOM) && fmId)) {
+      const targetFmUserId = isFM ? req.user.id : fmId;
+      
+      const fm = await prisma.fieldManager.findUnique({
+        where: { userId: targetFmUserId },
+        select: { id: true }
+      });
+      
+      if (fm) {
+        const teams = await prisma.team.findMany({
+          where: { fieldManagerId: fm.id },
+          select: { id: true }
+        });
+        const teamIds = teams.map((t) => t.id);
+        
+        const ccProfiles = await prisma.careCompanion.findMany({
+          where: { teamId: { in: teamIds } },
+          select: { id: true }
+        });
+        const ccIds = ccProfiles.map((c) => c.id);
+        
+        beneficiaryWhereFilter = {
+          isActive: true,
+          OR: [
+            { teamId: { in: teamIds } },
+            { primaryCcId: { in: ccIds } },
+            { secondaryCcId: { in: ccIds } }
+          ]
+        };
+      }
+    }
+
+    const requests = await prisma.serviceRequest.findMany({
+      where: {
+        isRead: false,
+        beneficiary: beneficiaryWhereFilter
+      },
+      select: {
+        id: true,
+        beneficiaryId: true
+      }
+    });
+    res.json({ success: true, data: requests });
+  } catch (err) {
+    console.error('GET /beneficiaries/service-requests/unread error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── GET /api/beneficiaries/:id/service-requests ───────────────────────────────
+// Get all unread service requests for a beneficiary
+router.get('/:id/service-requests', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const requests = await prisma.serviceRequest.findMany({
+      where: {
+        beneficiaryId: id
+      },
+      include: {
+        benefit: {
+          select: {
+            name: true,
+            unitLabel: true
+          }
+        },
+        requestedByUser: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        subscriber: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+    res.json({ success: true, data: requests });
+  } catch (err) {
+    console.error('GET /beneficiaries/:id/service-requests error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── POST /api/beneficiaries/service-requests/:requestId/read ──────────────────
+// Mark a service request as read
+router.post('/service-requests/:requestId/read', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const updated = await prisma.serviceRequest.update({
+      where: { id: requestId },
+      data: { isRead: true }
+    });
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('POST /beneficiaries/service-requests/:requestId/read error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

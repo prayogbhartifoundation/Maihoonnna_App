@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Platform, Modal, TextInput, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,6 +31,74 @@ export default function PackageUtilizationScreen() {
   const [summaryList, setSummaryList] = useState<SummaryData[] | null>(null);
   const [detailData, setDetailData] = useState<DetailedUtilization | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+
+  const [selectedBenefit, setSelectedBenefit] = useState<any | null>(null);
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [preferredDate, setPreferredDate] = useState(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+  const [preferredTiming, setPreferredTiming] = useState('Morning');
+  const [additionalNote, setAdditionalNote] = useState('');
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+
+  const handleRequestService = async () => {
+    if (!selectedBenefit) return;
+    if (!preferredDate) {
+      if (Platform.OS === 'web') window.alert('Please enter a preferred date');
+      else Alert.alert('Error', 'Please enter a preferred date');
+      return;
+    }
+
+    setSubmittingRequest(true);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) throw new Error('No auth token found');
+
+      const actualBenId = beneficiaryId || detailData?.beneficiaryId;
+      if (!actualBenId) throw new Error('Beneficiary ID not found');
+
+      const response = await fetch(`${API_URL}/shared/utilization/request-service`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          beneficiaryId: actualBenId,
+          benefitId: selectedBenefit.benefitId,
+          preferredDate,
+          preferredTiming,
+          additionalNote: userRole === 'subscriber' ? additionalNote : undefined
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        if (Platform.OS === 'web') {
+          window.alert('✅ Request Submitted! We will schedule your service shortly.');
+        } else {
+          Alert.alert('✅ Request Submitted', 'We will schedule your service shortly.');
+        }
+        setShowRequestModal(false);
+        setAdditionalNote('');
+        setSelectedBenefit(null);
+      } else {
+        throw new Error(result.message || 'Failed to submit request');
+      }
+    } catch (e: any) {
+      if (Platform.OS === 'web') {
+        window.alert('Error: ' + e.message);
+      } else {
+        Alert.alert('Error', e.message);
+      }
+    } finally {
+      setSubmittingRequest(false);
+    }
+  };
 
   const fetchUtilization = async () => {
     setLoading(true);
@@ -158,10 +226,112 @@ export default function PackageUtilizationScreen() {
           )}
 
           {detailData && (
-            <PackageUtilizationPanel data={detailData} />
+            <PackageUtilizationPanel 
+              data={detailData} 
+              selectedBenefitId={selectedBenefit?.benefitId}
+              onSelectBenefit={setSelectedBenefit}
+            />
           )}
         </ScrollView>
       )}
+
+      {selectedBenefit && (
+        <View style={styles.floatingActionContainer}>
+          <View style={styles.selectedBenefitBanner}>
+            <Text style={styles.selectedBenefitLabel} numberOfLines={1}>Selected: {selectedBenefit.benefitName}</Text>
+            <TouchableOpacity onPress={() => setSelectedBenefit(null)} style={{ padding: 4 }}>
+              <Ionicons name="close-circle" size={22} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity 
+            style={styles.requestServiceBtn}
+            onPress={() => setShowRequestModal(true)}
+          >
+            <Ionicons name="calendar-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.requestServiceBtnText}>Request for the service</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Request Modal */}
+      <Modal
+        visible={showRequestModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRequestModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Request Service</Text>
+              <TouchableOpacity onPress={() => setShowRequestModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubTitle}>{selectedBenefit?.benefitName}</Text>
+            
+            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalForm}>
+                <Text style={styles.modalLabel}>Preferred Date *</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#9CA3AF"
+                  value={preferredDate}
+                  onChangeText={setPreferredDate}
+                />
+                <Text style={styles.modalHint}>Format: YYYY-MM-DD (e.g. 2026-07-15)</Text>
+
+                <Text style={styles.modalLabel}>Preferred Timing *</Text>
+                <View style={styles.timingRow}>
+                  {['Morning', 'Afternoon', 'Evening'].map((slot) => {
+                    const isActive = preferredTiming === slot;
+                    return (
+                      <TouchableOpacity
+                        key={slot}
+                        style={[styles.timingPill, isActive && styles.timingPillActive]}
+                        onPress={() => setPreferredTiming(slot)}
+                      >
+                        <Text style={[styles.timingPillText, isActive && styles.timingPillTextActive]}>
+                          {slot}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {userRole !== 'beneficiary' && (
+                  <>
+                    <Text style={styles.modalLabel}>Additional Note (Optional)</Text>
+                    <TextInput
+                      style={[styles.modalTextInput, styles.modalTextArea]}
+                      placeholder="Provide any instructions or preferences..."
+                      placeholderTextColor="#9CA3AF"
+                      multiline
+                      numberOfLines={4}
+                      value={additionalNote}
+                      onChangeText={setAdditionalNote}
+                    />
+                  </>
+                )}
+
+                <TouchableOpacity 
+                  style={styles.modalSubmitBtn}
+                  onPress={handleRequestService}
+                  disabled={submittingRequest}
+                >
+                  {submittingRequest ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalSubmitBtnText}>Submit Request</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -173,7 +343,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
   
   scrollView: { flex: 1 },
-  scrollContent: { padding: 16 },
+  scrollContent: { padding: 16, paddingBottom: 140 },
   
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, color: '#6B7280', fontSize: 15, fontWeight: '500' },
@@ -231,5 +401,159 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  floatingActionContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F2E7DE',
+    ...Platform.select({
+      ios: { shadowColor: '#4A2B17', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+      android: { elevation: 4 },
+      default: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 },
+    }),
+    zIndex: 999,
+  },
+  selectedBenefitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  selectedBenefitLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+    flex: 1,
+  },
+  requestServiceBtn: {
+    backgroundColor: '#FF5B0A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestServiceBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: '100%',
+    maxHeight: '85%',
+    padding: 20,
+    ...Platform.select({
+      ios: { shadowColor: '#000000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 15 },
+      android: { elevation: 10 },
+    }),
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    paddingBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  modalSubTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FF5B0A',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  modalForm: {
+    marginTop: 10,
+  },
+  modalLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  modalTextInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+  },
+  modalTextArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  modalHint: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  timingRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginVertical: 4,
+  },
+  timingPill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  timingPillActive: {
+    backgroundColor: '#FF5B0A',
+    borderColor: '#FF5B0A',
+  },
+  timingPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  timingPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  modalSubmitBtn: {
+    backgroundColor: '#FF5B0A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  modalSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
 });

@@ -8,9 +8,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Search, Users, Calendar, Clock,
-  Loader2, AlertCircle, X, ChevronRight, Phone, MapPin, Sparkles, ChevronDown
+  Loader2, AlertCircle, X, ChevronRight, Phone, MapPin, Sparkles, ChevronDown, RefreshCw
 } from 'lucide-react';
-import { visitApi } from '../../../services/api';
+import { visitApi, beneficiaryApi } from '../../../services/api';
 import { toast } from 'sonner';
 import { LoadingState, EmptyState, Avatar, SectionHeader } from './SharedComponents';
 import { PackageUtilizationPanel } from '../PackageUtilizationPanel';
@@ -32,11 +32,14 @@ export interface BeneficiaryItem {
   city?: string;
   pincode?: string;
   primaryCcId?: string | null;
+  primaryCcUserId?: string | null;
   primaryCcName?: string | null;
   secondaryCcId?: string | null;
+  secondaryCcUserId?: string | null;
   secondaryCcName?: string | null;
   activePackage?: string | null;
   subscriberName?: string | null;
+  hasUnreadRequests?: boolean;
 }
 
 interface Props {
@@ -45,6 +48,7 @@ interface Props {
   loading: boolean;
   submittingId: string | null;
   onScheduleVisit: (beneficiaryId: string, ccId: string, scheduledTime: string, durationMinutes: number, benefitId?: string) => Promise<void>;
+  onRefresh?: () => void;
 }
 
 export default function BeneficiaryList({
@@ -53,6 +57,7 @@ export default function BeneficiaryList({
   loading,
   submittingId,
   onScheduleVisit,
+  onRefresh,
 }: Props) {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -71,6 +76,14 @@ export default function BeneficiaryList({
     checking: boolean;
     availabilities: Record<string, { isAvailable: boolean; reason: string | null }>;
   }>>({});
+
+  const [serviceRequests, setServiceRequests] = useState<Record<string, any[]>>({});
+  const [loadingRequests, setLoadingRequests] = useState<Record<string, boolean>>({});
+  const [unreadOverrides, setUnreadOverrides] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setUnreadOverrides({});
+  }, [beneficiaries]);
 
   // Available CCs (for dropdown)
   const availableCCs = team;
@@ -138,6 +151,42 @@ export default function BeneficiaryList({
     }
   };
 
+  const loadServiceRequestsForBeneficiary = async (benId: string) => {
+    setLoadingRequests(prev => ({ ...prev, [benId]: true }));
+    try {
+      const data = await beneficiaryApi.getServiceRequests(benId);
+      setServiceRequests(prev => ({ ...prev, [benId]: data }));
+      setUnreadOverrides(prev => ({ ...prev, [benId]: data.some(r => !r.isRead) }));
+    } catch (e) {
+      console.error('Failed to load service requests', e);
+    } finally {
+      setLoadingRequests(prev => ({ ...prev, [benId]: false }));
+    }
+  };
+
+  const handleMarkRequestRead = async (benId: string, requestId: string) => {
+    try {
+      await beneficiaryApi.markServiceRequestRead(requestId);
+      toast.success('Service request marked as read.');
+      const updatedList = (serviceRequests[benId] || []).map(r => 
+        r.id === requestId ? { ...r, isRead: true } : r
+      );
+      setServiceRequests(prev => ({
+        ...prev,
+        [benId]: updatedList
+      }));
+      const hasAnyUnread = updatedList.some(r => !r.isRead);
+      if (!hasAnyUnread) {
+        setUnreadOverrides(prev => ({
+          ...prev,
+          [benId]: false
+        }));
+      }
+    } catch (e: any) {
+      toast.error('Failed to mark service request as read: ' + e.message);
+    }
+  };
+
   const handleToggleExpand = (benId: string) => {
     const isExpanded = expandedId === benId;
     if (isExpanded) {
@@ -157,6 +206,7 @@ export default function BeneficiaryList({
         }));
       }
       checkAllCcAvailability(benId, currentState);
+      loadServiceRequestsForBeneficiary(benId);
     }
   };
 
@@ -444,6 +494,21 @@ export default function BeneficiaryList({
             : `${beneficiaries.length} total`
         }
         icon={<Users size={18} />}
+        action={
+          onRefresh && (
+            <button
+              onClick={e => { e.stopPropagation(); onRefresh(); }}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-gray-400 hover:text-[#FF7A00] border border-[#E7DED6] rounded-xl hover:border-[#FF7A00] transition-all disabled:opacity-50"
+            >
+              <RefreshCw
+                size={12}
+                className={loading ? 'animate-spin text-[#FF7A00]' : ''}
+              />
+              Refresh
+            </button>
+          )
+        }
       />
 
       {/* Search Bar */}
@@ -509,7 +574,12 @@ export default function BeneficiaryList({
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-black text-gray-800 truncate">{ben.name}</p>
+                      <p className="text-sm font-black text-gray-800 truncate flex items-center gap-1.5">
+                        {ben.name}
+                        {(unreadOverrides[ben.id] !== undefined ? unreadOverrides[ben.id] : ben.hasUnreadRequests) && (
+                          <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" title="Has pending service request" />
+                        )}
+                      </p>
                       {ben.age && (
                         <span className="text-[10px] text-gray-400 font-bold">{ben.age}y</span>
                       )}
@@ -702,6 +772,114 @@ export default function BeneficiaryList({
                                 {conflicts[ben.id]}
                               </p>
                             </div>
+                          )}
+                        </div>
+
+                        {/* Service Requests Section */}
+                        <div className="mt-6 pt-6 border-t border-dashed border-[#F4EAE3]">
+                          <p className="text-[10px] font-black text-[#FF7A00] uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                            <Sparkles size={12} className="text-[#FF7A00]" /> Requested Services
+                          </p>
+                          
+                          {loadingRequests[ben.id] ? (
+                            <div className="flex items-center gap-2 py-3 text-xs text-gray-400 font-bold">
+                              <Loader2 size={13} className="animate-spin text-[#FF7A00]" /> Loading requests...
+                            </div>
+                          ) : (serviceRequests[ben.id] || []).length > 0 ? (
+                            <div className="space-y-3">
+                              {(serviceRequests[ben.id] || []).map((req: any) => {
+                                const dateStr = new Date(req.preferredDate).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                });
+                                return (
+                                  <div key={req.id} className={`p-3.5 rounded-xl border shadow-sm flex flex-col justify-between gap-3 ${
+                                    req.isRead 
+                                      ? 'bg-[#FCFAF9] border-[#E8DFD8] opacity-60' 
+                                      : 'bg-white border-[#E7DED6]'
+                                  }`}>
+                                    <div className="flex justify-between items-start gap-3">
+                                      <div>
+                                        <p className="text-xs font-black text-gray-800">
+                                          {req.benefit?.name || 'Requested Service'}
+                                        </p>
+                                        <p className="text-[10px] text-gray-400 font-bold mt-1">
+                                          Preferred: {dateStr} ({req.preferredTiming})
+                                        </p>
+                                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                          <p className="text-[10px] text-gray-500 font-medium">
+                                            {req.requestedByRole === 'subscriber' && (
+                                              <>Requested by Subscriber <span className="font-bold text-gray-700">({req.requestedByUser?.name || req.subscriber?.name || 'Subscriber'})</span></>
+                                            )}
+                                            {req.requestedByRole === 'beneficiary' && (
+                                              <>Requested by Beneficiary itself</>
+                                            )}
+                                            {req.requestedByRole === 'care_companion' && (
+                                              <>Requested by Care Companion <span className="font-bold text-gray-700">({req.requestedByUser?.name || 'Care Companion'})</span></>
+                                            )}
+                                            {!req.requestedByRole && (
+                                              req.subscriberId 
+                                                ? <>Requested by Subscriber <span className="font-bold text-gray-700">({req.subscriber?.name || 'Subscriber'})</span></>
+                                                : <>Requested by Beneficiary itself</>
+                                            )}
+                                          </p>
+                                          {req.requestedByRole === 'care_companion' && (
+                                            (() => {
+                                              const userId = req.requestedByUserId;
+                                              const isPrimary = userId && ben.primaryCcUserId && userId === ben.primaryCcUserId;
+                                              const isSecondary = userId && ben.secondaryCcUserId && userId === ben.secondaryCcUserId;
+                                              if (isPrimary) {
+                                                return (
+                                                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-green-100 text-green-700 border border-green-200">
+                                                    Primary CC
+                                                  </span>
+                                                );
+                                              }
+                                              if (isSecondary) {
+                                                return (
+                                                  <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-blue-100 text-blue-700 border border-blue-200">
+                                                    Secondary CC
+                                                  </span>
+                                                );
+                                              }
+                                              return null;
+                                            })()
+                                          )}
+                                        </div>
+                                      </div>
+                                      {req.isRead ? (
+                                        <span className="shrink-0 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-green-600 bg-green-50 border border-green-100 rounded-lg">
+                                          Read
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={e => {
+                                            e.stopPropagation();
+                                            handleMarkRequestRead(ben.id, req.id);
+                                          }}
+                                          className="shrink-0 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#FF7A00] bg-orange-50 border border-orange-100 hover:bg-orange-100 rounded-lg transition-colors"
+                                        >
+                                          Mark Read
+                                        </button>
+                                      )}
+                                    </div>
+                                    {req.additionalNote && (
+                                      <div className="p-2 rounded-lg bg-gray-50 border border-gray-100">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none">Additional Note:</p>
+                                        <p className="text-[11px] font-bold text-gray-600 mt-1 leading-normal">
+                                          "{req.additionalNote}"
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] font-bold text-gray-400 italic">
+                              No active service requests for this beneficiary.
+                            </p>
                           )}
                         </div>
                       </div>
