@@ -30,6 +30,7 @@ export default function PackageUtilizationScreen() {
   // or a detailed object (if beneficiary, or subscriber with specific beneficiaryId).
   const [summaryList, setSummaryList] = useState<SummaryData[] | null>(null);
   const [detailData, setDetailData] = useState<DetailedUtilization | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const fetchUtilization = async () => {
     setLoading(true);
@@ -37,6 +38,14 @@ export default function PackageUtilizationScreen() {
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) throw new Error('No auth token found');
+
+      const userDataStr = await AsyncStorage.getItem('userData');
+      if (userDataStr) {
+        try {
+          const userData = JSON.parse(userDataStr);
+          setUserRole(userData.role || null);
+        } catch (e) {}
+      }
 
       let url = `${API_URL}/shared/utilization`;
       if (beneficiaryId) url += `?beneficiaryId=${beneficiaryId}`;
@@ -90,7 +99,7 @@ export default function PackageUtilizationScreen() {
         </View>
       ) : (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {((beneficiaryId && String(beneficiaryId).startsWith('unlinked-')) || (!beneficiaryId && detailData)) && (
+          {userRole !== 'beneficiary' && ((beneficiaryId && String(beneficiaryId).startsWith('unlinked-')) || (!beneficiaryId && detailData)) && (
             <TouchableOpacity 
               style={styles.addBeneficiaryCta}
               onPress={() => router.push({ pathname: '/(setup)/subscribe-form', params: { isLinkingFlow: 'true' } })}

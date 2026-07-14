@@ -195,8 +195,16 @@ export default function BeneficiaryInfoScreen() {
             setPhoneError(null);
             return true;
         }
-        // In verification flow, the beneficiary's own phone already exists — skip uniqueness check for it
         const cleaned = phoneStr.replace(/\D/g, '').slice(-10);
+
+        // Block subscriber from using their own phone as beneficiary phone
+        const subscriberPhone = (userData?.phone || '').replace(/\D/g, '').slice(-10);
+        if (subscriberPhone && cleaned === subscriberPhone) {
+            setPhoneError("You cannot use your own phone number as the beneficiary's phone.");
+            return false;
+        }
+
+        // In verification flow, the beneficiary's own phone already exists — skip uniqueness check for it
         if (isVerificationFlow && originalPhone && cleaned === originalPhone) {
             setPhoneError(null);
             return true;
@@ -205,7 +213,7 @@ export default function BeneficiaryInfoScreen() {
             const res = await fetch(`${API_URL}/public/check-enrollment?phone=${phoneStr}`);
             const data = await res.json();
             if (data.success && data.data.exists) {
-                setPhoneError("A user with this phone number already exists.");
+                setPhoneError("This phone number is already registered. Please use a different number.");
                 return false;
             }
         } catch (e) {
@@ -243,14 +251,17 @@ export default function BeneficiaryInfoScreen() {
             return;
         }
 
-        if (beneficiaryForm.phone) {
-            if (beneficiaryForm.phone.length !== 10) {
-                setPhoneError("Phone number must be exactly 10 digits");
-                return;
-            }
-            const isPhoneValid = await validatePhone(beneficiaryForm.phone);
-            if (!isPhoneValid) return;
+        // Phone is required
+        if (!beneficiaryForm.phone || beneficiaryForm.phone.trim().length === 0) {
+            setPhoneError("Phone number is required.");
+            return;
         }
+        if (beneficiaryForm.phone.length !== 10) {
+            setPhoneError("Phone number must be exactly 10 digits");
+            return;
+        }
+        const isPhoneValid = await validatePhone(beneficiaryForm.phone);
+        if (!isPhoneValid) return;
 
         const packageIdToPass = params.packageId || (pendingData?.subscriptions?.[0]?.packageType || '');
         push('/(setup)/medical-info', {
@@ -258,7 +269,7 @@ export default function BeneficiaryInfoScreen() {
             subscriberData: params.subscriberData,
             isVerificationFlow: params.isVerificationFlow,
             beneficiaryId: params.beneficiaryId,
-            beneficiaryData: JSON.stringify({ ...beneficiaryForm, photoUri: pickedPhotoUri, devPassword: devPassword || undefined }),
+            beneficiaryData: JSON.stringify({ ...beneficiaryForm, photoUri: pickedPhotoUri, devPassword: devPassword || '654321' }),
             pendingDetails: pendingData ? JSON.stringify(pendingData) : undefined,
             isLinkingFlow: params.isLinkingFlow || 'false'
         });
@@ -447,7 +458,7 @@ export default function BeneficiaryInfoScreen() {
 
                         {/* Phone Number */}
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Phone Number</Text>
+                            <Text style={styles.label}>Phone Number <Text style={{ color: '#EF4444' }}>*</Text></Text>
                             <TextInput
                                 style={[styles.input, phoneError ? { borderColor: '#EF4444' } : null]}
                                 placeholder="10-digit mobile number"

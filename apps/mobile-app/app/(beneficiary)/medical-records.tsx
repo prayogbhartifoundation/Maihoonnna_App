@@ -29,11 +29,15 @@ interface HistoryVital {
     name: string;
     value: string;
     icon: string;
+    source?: string;
+    recorder?: string;
 }
 
 interface HistoryItem {
     id: string;
     date: string;
+    recorder?: string;
+    recorderType?: 'care_companion' | 'beneficiary';
     vitals: HistoryVital[];
 }
 
@@ -169,11 +173,11 @@ export default function MedicalRecordsScreen() {
                     )}
 
                     {/* ── History ── */}
-                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Visit History</Text>
+                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Readings History</Text>
 
                     {history.length === 0 ? (
                         <View style={styles.emptyCard}>
-                            <Text style={styles.emptyCardText}>No visit history found.</Text>
+                            <Text style={styles.emptyCardText}>No readings history found.</Text>
                         </View>
                     ) : (
                         <View style={styles.historyList}>
@@ -191,6 +195,16 @@ export default function MedicalRecordsScreen() {
                                                 <Text style={styles.historyDateText}>{item.date}</Text>
                                             </View>
                                             <View style={styles.historyMeta}>
+                                                {/* Recorder badge */}
+                                                {item.recorderType === 'beneficiary' ? (
+                                                    <View style={styles.selfBadge}>
+                                                        <Text style={styles.selfBadgeText}>Self</Text>
+                                                    </View>
+                                                ) : item.recorder ? (
+                                                    <View style={styles.ccBadge}>
+                                                        <Text style={styles.ccBadgeText} numberOfLines={1}>CC</Text>
+                                                    </View>
+                                                ) : null}
                                                 <Text style={styles.historyCount}>{item.vitals.length} vital{item.vitals.length !== 1 ? 's' : ''}</Text>
                                                 <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color="#6B7280" style={{ marginLeft: 4 }} />
                                             </View>
@@ -324,4 +338,14 @@ const styles = StyleSheet.create({
     historyVitalValue: {
         fontFamily: 'Poppins-Medium', fontSize: 13, color: '#111827',
     },
+    selfBadge: {
+        backgroundColor: '#DBEAFE', borderRadius: 6,
+        paddingHorizontal: 7, paddingVertical: 2, marginRight: 8,
+    },
+    selfBadgeText: { fontSize: 10, fontWeight: '700', color: '#1D4ED8' },
+    ccBadge: {
+        backgroundColor: '#F3F4F6', borderRadius: 6,
+        paddingHorizontal: 7, paddingVertical: 2, marginRight: 8,
+    },
+    ccBadgeText: { fontSize: 10, fontWeight: '700', color: '#6B7280' },
 });

@@ -316,7 +316,22 @@ router.post('/link-beneficiary', authenticate, async (req: AuthRequest, res: Res
       preferencesData
     );
 
-    res.json(result);
+    // Generate new token containing the updated subscriber role
+    const { createToken } = require('../../core/security');
+    const newToken = createToken({ sub: userId, role: 'subscriber' });
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, phone: true, name: true, age: true, role: true }
+    });
+
+    res.json({
+      success: true,
+      message: 'Beneficiary linked successfully',
+      beneficiaryId: result.beneficiaryId,
+      beneficiaryName: result.beneficiaryName,
+      token: newToken,
+      user: updatedUser
+    });
   } catch (error: any) {
     console.error('[Link Beneficiary Error]:', error);
     res.status(400).json({ success: false, message: error.message });

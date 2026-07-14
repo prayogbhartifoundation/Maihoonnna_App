@@ -478,15 +478,48 @@ export default function VisitDetailsModal({ visitId, onClose }: VisitDetailsModa
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {visit.bpSystolic && visit.bpDiastolic ? renderVital('Blood Pressure', `${visit.bpSystolic}/${visit.bpDiastolic}`, 'mmHg') : null}
-                    {renderVital('Heart Rate', visit.heartRate, 'bpm')}
-                    {renderVital('Oxygen Level', visit.oxygenLevel, '%')}
-                    {renderVital('Temperature', visit.temperature, '°F')}
-                    {renderVital('Weight', visit.weight, 'kg')}
-                    {renderVital('Blood Sugar (F)', visit.bloodSugarFasting, 'mg/dL')}
-                    {renderVital('Blood Sugar (PM)', visit.bloodSugarPostMeal, 'mg/dL')}
-                  </div>
+                  {/* Dynamic Vitals from VitalReadings */}
+                  {visit.vitalReadings && visit.vitalReadings.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {visit.vitalReadings.map((r: any) => {
+                        const def = r.vitalDefinition;
+                        if (!def) return null;
+                        const isSelf = r.source === 'beneficiary';
+                        const recorderName = isSelf
+                          ? 'Self-reported'
+                          : (r.capturedBy ? [r.capturedBy.firstName, r.capturedBy.lastName].filter(Boolean).join(' ') : 'Care Companion');
+
+                        let displayVal = '--';
+                        if (r.valueNumeric != null && r.valueNumeric2 != null) {
+                          displayVal = `${r.valueNumeric}/${r.valueNumeric2}${def.unit ? ' ' + def.unit : ''}`;
+                        } else if (r.valueBoolean != null) {
+                          displayVal = r.valueBoolean ? (def.booleanTrueLabel || 'Yes') : (def.booleanFalseLabel || 'No');
+                        } else if (r.valueText) {
+                          displayVal = r.valueText;
+                        } else if (r.valueNumeric != null) {
+                          displayVal = `${r.valueNumeric}${def.unit ? ' ' + def.unit : ''}`;
+                        }
+
+                        return (
+                          <div key={r.id} className="bg-[#FAF8F5] p-3 rounded-xl border border-[#E7DED6]">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{def.name}</p>
+                              <span
+                                title={recorderName}
+                                className={`text-[9px] font-black px-1.5 py-0.5 rounded ${isSelf ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}
+                              >
+                                {isSelf ? 'Self' : 'CC'}
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-gray-800">{displayVal}</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">{recorderName}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic text-center py-2">No vitals recorded for this visit.</p>
+                  )}
 
                   {/* Notes — editable */}
                   <div>

@@ -17,7 +17,147 @@ const FALLBACK_COLOR_BY_CODE: Record<string, string> = {
 const DEFAULT_COLOR = '#6B7280';
 const DEFAULT_ICON = 'clipboard-pulse';
 
+// ── Helper: format a VitalReading value to display string ─────────────────────
+function formatReadingValue(r: any, def: any): string {
+    if (!def) return '--';
+    if (r.valueNumeric != null && r.valueNumeric2 != null) {
+        return `${r.valueNumeric}/${r.valueNumeric2}${def.unit ? ' ' + def.unit : ''}`;
+    } else if (def.dataType === 'boolean' && r.valueBoolean != null) {
+        return r.valueBoolean ? (def.booleanTrueLabel ?? 'Yes') : (def.booleanFalseLabel ?? 'No');
+    } else if (def.dataType === 'text' && r.valueText) {
+        return r.valueText;
+    } else if (r.valueNumeric != null) {
+        return `${r.valueNumeric}${def.unit ? ' ' + def.unit : ''}`;
+    }
+    return '--';
+}
+
+// ── Helper: get recorder display label ────────────────────────────────────────
+function getRecorderLabel(r: any): string {
+    if (r.source === 'beneficiary') return 'Self';
+    if (r.capturedBy) {
+        return r.capturedBy.name || 'Care Companion';
+    }
+    return 'Care Companion';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /beneficiary/medical-records/vital-definitions
+// Returns all active vital definitions assigned to the authenticated beneficiary.
+// Used by VitalEntrySheet to build input fields.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/vital-definitions', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.userId as string;
+
+        const beneficiary = await prisma.beneficiary.findFirst({
+            where: { OR: [{ id: userId }, { userId }] },
+            include: {
+                vitalConfigs: {
+                    where: { isActive: true },
+                    include: {
+                        vitalDefinition: {
+                            select: {
+                                id: true, code: true, name: true, unit: true,
+                                dataType: true, iconCode: true, displayOrder: true,
+                                normalMin: true, normalMax: true,
+                                normalMin2: true, normalMax2: true,
+                                value1Label: true, value2Label: true,
+                                booleanTrueLabel: true, booleanFalseLabel: true,
+                                textOptions: true,
+                            }
+                        }
+                    }
+                }
+            }
+        }) as any;
+
+        if (!beneficiary) {
+            return res.status(404).json({ success: false, message: 'Beneficiary profile not found' });
+        }
+
+        const definitions = (beneficiary.vitalConfigs || [])
+            .map((c: any) => c.vitalDefinition)
+            .filter(Boolean)
+            .filter((def: any, idx: number, arr: any[]) => arr.findIndex(d => d!.code === def!.code) === idx); // deduplicate
+
+        res.json({ success: true, data: definitions });
+    } catch (error: any) {
+        console.error('Vital definitions error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /beneficiary/medical-records/vitals
+// Accepts a batch of vitals from the beneficiary (self-reported).
+// Inserts VitalReading rows with source='beneficiary', visitId=null.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/vitals', authenticate, async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.userId as string;
+
+        const beneficiary = await prisma.beneficiary.findFirst({
+            where: { OR: [{ id: userId }, { userId }] },
+        }) as any;
+
+        if (!beneficiary) {
+            return res.status(404).json({ success: false, message: 'Beneficiary profile not found' });
+        }
+
+        const { vitalsList } = req.body as {
+            vitalsList: Array<{
+                vitalDefinitionId: string;
+                valueNumeric?: number;
+                valueNumeric2?: number;
+                valueText?: string;
+                valueBoolean?: boolean;
+            }>;
+        };
+
+        if (!Array.isArray(vitalsList) || vitalsList.length === 0) {
+            return res.status(400).json({ success: false, message: 'vitalsList must be a non-empty array' });
+        }
+
+        // Validate that all vitalDefinitionIds belong to this beneficiary's active configs
+        const activeConfigs = await prisma.beneficiaryVitalConfig.findMany({
+            where: { beneficiaryId: beneficiary.id, isActive: true },
+            select: { vitalDefinitionId: true }
+        });
+        const allowedIds = new Set(activeConfigs.map(c => c.vitalDefinitionId));
+
+        const validVitals = vitalsList.filter(v => allowedIds.has(v.vitalDefinitionId));
+        if (validVitals.length === 0) {
+            return res.status(400).json({ success: false, message: 'No valid vital definitions found for this beneficiary' });
+        }
+
+        const now = new Date();
+        const readings = await prisma.vitalReading.createMany({
+            data: validVitals.map(v => ({
+                beneficiaryId: beneficiary.id,
+                vitalDefinitionId: v.vitalDefinitionId,
+                valueNumeric: v.valueNumeric ?? null,
+                valueNumeric2: v.valueNumeric2 ?? null,
+                valueText: v.valueText ?? null,
+                valueBoolean: v.valueBoolean ?? null,
+                capturedById: userId,
+                capturedAt: now,
+                source: 'beneficiary',
+                captureMethod: 'manual',
+            }))
+        });
+
+        res.status(201).json({ success: true, data: { created: readings.count } });
+    } catch (error: any) {
+        console.error('Beneficiary vitals save error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /beneficiary/medical-records/me
+// Returns latest readings, trend charts (both CC + self-reported), and history.
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.userId as string;
@@ -41,25 +181,31 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
                     }
                 }
             }
-        });
+        }) as any;
 
         if (!beneficiary) {
             return res.status(404).json({ success: false, message: 'Beneficiary profile not found' });
         }
 
-        // ── 1. Latest reading per vital ──────────────────────────────────────
+        // ── 1. All readings — both CC and self-reported ───────────────────────
         const allReadings = await prisma.vitalReading.findMany({
             where: { beneficiaryId: beneficiary.id },
             include: {
                 vitalDefinition: {
-                    select: { code: true, name: true, unit: true, dataType: true, iconCode: true, displayOrder: true }
+                    select: { code: true, name: true, unit: true, dataType: true, iconCode: true, displayOrder: true, booleanTrueLabel: true, booleanFalseLabel: true }
+                },
+                capturedBy: {
+                    select: { name: true }
                 }
             },
             orderBy: { capturedAt: 'desc' }
-        });
+        }) as any[];
 
-        // Build "latest by code" map
-        const latestByCode: Record<string, { v1: number | null; v2: number | null; text: string | null; bool: boolean | null }> = {};
+        // Build "latest by code" map — enriched with recorder/source info
+        const latestByCode: Record<string, {
+            v1: number | null; v2: number | null; text: string | null; bool: boolean | null;
+            source: string; recorder: string; recordedAt: string;
+        }> = {};
         for (const r of allReadings) {
             const code = r.vitalDefinition?.code?.toUpperCase();
             if (code && !latestByCode[code]) {
@@ -68,6 +214,9 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
                     v2: r.valueNumeric2,
                     text: r.valueText,
                     bool: r.valueBoolean,
+                    source: r.source,
+                    recorder: getRecorderLabel(r),
+                    recordedAt: r.capturedAt.toISOString(),
                 };
             }
         }
@@ -111,10 +260,13 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
                 unit: def.unit || '',
                 dataType: def.dataType,
                 hasReading: !!reading,
+                source: reading?.source ?? null,
+                recorder: reading?.recorder ?? null,
+                recordedAt: reading?.recordedAt ?? null,
             });
         }
 
-        // If no vitalConfigs, fall back to whatever codes have readings
+        // Fallback: no configs — pull from whatever has readings
         if (activeConfigs.length === 0) {
             for (const r of allReadings) {
                 const def = r.vitalDefinition;
@@ -138,11 +290,14 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
                     unit: def.unit || '',
                     dataType: def.dataType,
                     hasReading: !!reading,
+                    source: reading?.source ?? null,
+                    recorder: reading?.recorder ?? null,
+                    recordedAt: reading?.recordedAt ?? null,
                 });
             }
         }
 
-        // ── 3. Trends (last 30 days, grouped by vital code) ──────────────────
+        // ── 3. Trends — both sources, last 30 days, carry-forward ────────────
         const fromDate = new Date();
         fromDate.setDate(fromDate.getDate() - 30);
 
@@ -172,15 +327,19 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
             const g = grouped.get(code);
             const shortDate = new Date(r.capturedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             const fullDate = new Date(r.capturedAt).toISOString().split('T')[0];
+            const src = r.source || 'care_companion';
+            const rec = getRecorderLabel(r);
 
-            if (r.valueNumeric != null) g.v1.push({ date: shortDate, fullDate, value: r.valueNumeric });
-            if (def.dataType === 'dual_numeric' && r.valueNumeric2 != null) g.v2.push({ date: shortDate, fullDate, value: r.valueNumeric2 });
+            if (r.valueNumeric != null) g.v1.push({ date: shortDate, fullDate, value: r.valueNumeric, source: src, recorder: rec });
+            if (def.dataType === 'dual_numeric' && r.valueNumeric2 != null) g.v2.push({ date: shortDate, fullDate, value: r.valueNumeric2, source: src, recorder: rec });
         }
 
         const trends = Array.from(grouped.values()).map(g => {
+            // Keep last 7 data points per series
             g.v1 = g.v1.slice(-7);
             g.v2 = g.v2.slice(-7);
 
+            // Carry-forward: if no data for a date slot, fill from previous known value
             let maxVal = 0;
             [...g.v1, ...g.v2].forEach((pt: any) => { if (pt.value > maxVal) maxVal = pt.value; });
             g.gridMax = maxVal > 0 ? Math.ceil(maxVal * 1.2) : 200;
@@ -192,53 +351,79 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
             return g;
         });
 
-        // ── 4. History: per-visit vitals grouped ─────────────────────────────
+        // ── 4. History — CC visit vitals + self-reported entries ──────────────
+        // 4a. Completed visit vitals
         const completedVisits = await prisma.visit.findMany({
             where: { beneficiaryId: beneficiary.id, status: 'completed' },
             include: {
                 vitalReadings: {
                     include: {
                         vitalDefinition: {
-                            select: { name: true, unit: true, dataType: true, iconCode: true }
-                        }
+                            select: { name: true, unit: true, dataType: true, iconCode: true, booleanTrueLabel: true, booleanFalseLabel: true }
+                        },
+                        capturedBy: { select: { name: true } }
                     }
+                },
+                careCompanion: {
+                    include: { user: { select: { name: true } } }
                 }
             },
             orderBy: { checkOutTime: 'desc' },
             take: 20,
-        });
+        }) as any[];
 
-        const history = completedVisits
+        const visitHistory = completedVisits
             .map(v => {
                 const dateObj = v.checkOutTime || v.scheduledTime || new Date();
                 const date = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const ccName = v.careCompanion?.user?.name || 'Care Companion';
 
-                // Build an array of { name, value, icon } for all vitals in this visit
-                const vitals = v.vitalReadings.map(r => {
+                const vitals = v.vitalReadings.map((r: any) => {
                     const def = r.vitalDefinition;
                     if (!def) return null;
-
-                    let value = '--';
-                    if (r.valueNumeric != null && r.valueNumeric2 != null) {
-                        value = `${r.valueNumeric}/${r.valueNumeric2}${def.unit ? ' ' + def.unit : ''}`;
-                    } else if (r.valueNumeric != null) {
-                        value = `${r.valueNumeric}${def.unit ? ' ' + def.unit : ''}`;
-                    } else if (r.valueText) {
-                        value = r.valueText;
-                    } else if (r.valueBoolean != null) {
-                        value = r.valueBoolean ? 'Yes' : 'No';
-                    }
-
                     return {
                         name: def.name,
-                        value: value.trim(),
+                        value: formatReadingValue(r, def).trim(),
                         icon: def.iconCode || DEFAULT_ICON,
+                        source: r.source || 'care_companion',
+                        recorder: getRecorderLabel(r),
                     };
                 }).filter(Boolean);
 
-                return { id: v.id, date, vitals };
+                return { id: v.id, date, recorder: ccName, recorderType: 'care_companion', vitals };
             })
             .filter(h => h.vitals.length > 0);
+
+        // 4b. Self-reported vitals (no visitId, source='beneficiary'), grouped by day
+        const selfReadings = allReadings.filter(r => !r.visitId && r.source === 'beneficiary');
+        const selfByDay = new Map<string, any>();
+        for (const r of selfReadings) {
+            const def = r.vitalDefinition;
+            if (!def) continue;
+            const day = r.capturedAt.toISOString().split('T')[0];
+            if (!selfByDay.has(day)) {
+                selfByDay.set(day, {
+                    id: `self-${day}`,
+                    date: r.capturedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    recorder: 'Self',
+                    recorderType: 'beneficiary',
+                    vitals: [],
+                });
+            }
+            selfByDay.get(day).vitals.push({
+                name: def.name,
+                value: formatReadingValue(r, def).trim(),
+                icon: def.iconCode || DEFAULT_ICON,
+                source: 'beneficiary',
+                recorder: 'Self',
+            });
+        }
+        const selfHistory = Array.from(selfByDay.values()).filter(h => h.vitals.length > 0);
+
+        // Merge and sort by date descending
+        const history = [...visitHistory, ...selfHistory].sort((a, b) => {
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
 
         res.json({
             success: true,

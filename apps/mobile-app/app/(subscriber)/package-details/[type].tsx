@@ -183,7 +183,8 @@ export default function PackageDetailScreen() {
                         if (!token) {
                             push({ pathname: '/(auth)/register' });
                         } else {
-                            push({ pathname: '/(setup)/subscribe-form', params: { packageId: pkg.type } });
+                            // New flow: go directly to checkout (no beneficiary data at this stage)
+                            push('/(setup)/checkout', { packageId: pkg.type });
                         }
                     }}
                 >

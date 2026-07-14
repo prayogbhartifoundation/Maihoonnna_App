@@ -368,7 +368,12 @@ router.get('/:id', async (req, res) => {
         beneficiary: { select: { id: true, name: true, user: { select: { phone: true } }, latitude: true, longitude: true, primaryCcId: true, secondaryCcId: true } },
         careCompanion: { select: { id: true, name: true, user: { select: { phone: true } } } },
         medicationAdherenceRecords: true,
-        vitalReadings: true
+        vitalReadings: {
+          include: {
+            vitalDefinition: { select: { id: true, name: true, unit: true, dataType: true, code: true, booleanTrueLabel: true, booleanFalseLabel: true } },
+            capturedBy: { select: { id: true, firstName: true, lastName: true } }
+          }
+        }
       },
     });
 

@@ -180,22 +180,24 @@ export default function EnrollmentWizardPage() {
   };
 
   const handleSlotToggle = (slot: string) => {
-    if (medFrequency === 'thrice_daily') return; // Locked to all three
+    const times = medSlots;
+    const freq = medFrequency;
     
-    if (medFrequency === 'once_daily') {
-      setMedSlots([slot]);
-      return;
-    }
-    
-    if (medFrequency === 'twice_daily') {
-      if (medSlots.includes(slot)) {
-        setMedSlots(medSlots.filter(s => s !== slot));
-      } else {
-        if (medSlots.length < 2) {
-          setMedSlots([...medSlots, slot]);
+    let maxSlots = 3;
+    if (freq === 'once_daily') maxSlots = 1;
+    else if (freq === 'twice_daily') maxSlots = 2;
+
+    if (times.includes(slot)) {
+      setMedSlots(times.filter(t => t !== slot));
+    } else {
+      if (times.length >= maxSlots) {
+        if (maxSlots === 1) {
+          setMedSlots([slot]);
         } else {
-          setMedSlots([medSlots[1], slot]);
+          setMedSlots([...times.slice(1), slot]);
         }
+      } else {
+        setMedSlots([...times, slot]);
       }
     }
   };
@@ -279,6 +281,22 @@ export default function EnrollmentWizardPage() {
   const stepIndex = STEPS.findIndex(s => s.id === step);
   const selectedPackage = packages.find(p => p.id === selectedPackageId);
 
+  const getSuggestedEndDate = (startStr: string, dur: string): string => {
+    if (!startStr) return '';
+    try {
+      const date = new Date(startStr);
+      if (isNaN(date.getTime())) return '';
+      
+      const opt = DURATION_OPTIONS.find(d => d.value === dur);
+      const months = opt ? opt.months : 1;
+      
+      date.setMonth(date.getMonth() + months);
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+    } catch (e) {
+      return '';
+    }
+  };
+
   useEffect(() => {
     packageApi.getAll().then(setPackages).catch(() => toast.error('Failed to load packages'));
     
@@ -288,7 +306,7 @@ export default function EnrollmentWizardPage() {
         setAvailableVitals(vitals);
         const initialVitals: Record<string, boolean> = {};
         vitals.forEach(v => {
-          initialVitals[v.code] = true; // Default all to true as per previous hardcoded logic
+          initialVitals[v.code] = false; // Default all to false (unchecked by default)
         });
         setVitalsToTrack(initialVitals);
       })
@@ -1069,10 +1087,17 @@ export default function EnrollmentWizardPage() {
                       className="bg-orange-50 text-orange-700 hover:bg-orange-100 border-none py-1.5 px-3 flex items-center gap-2 rounded-lg"
                     >
                       {condition}
-                      <X 
-                        className="w-3 h-3 cursor-pointer hover:text-orange-900" 
-                        onClick={() => setMedicalConditions(medicalConditions.filter(c => c !== condition))}
-                      />
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="cursor-pointer hover:text-orange-900 p-0.5 inline-flex items-center justify-center rounded-full hover:bg-orange-200/50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMedicalConditions(medicalConditions.filter(c => c !== condition));
+                        }}
+                      >
+                        <X className="w-3 h-3" />
+                      </span>
                     </Badge>
                   ))}
                 </div>
@@ -1296,14 +1321,21 @@ export default function EnrollmentWizardPage() {
                   
                   <div className="flex flex-wrap gap-2">
                     {dbHobbies.map((hobby) => {
-                      const isSelected = hobbiesInterests.includes(hobby);
+                      const isSelected = hobby === 'Other'
+                        ? (hobbiesInterests.includes('Other') || hobbiesInterests.some(h => !dbHobbies.includes(h)))
+                        : hobbiesInterests.includes(hobby);
                       return (
                         <button
                           key={hobby}
                           type="button"
                           onClick={() => {
                             if (isSelected) {
-                              setHobbiesInterests(hobbiesInterests.filter(h => h !== hobby));
+                              if (hobby === 'Other') {
+                                // Deselecting 'Other' also removes all specified custom hobbies
+                                setHobbiesInterests(hobbiesInterests.filter(h => dbHobbies.includes(h) && h !== 'Other'));
+                              } else {
+                                setHobbiesInterests(hobbiesInterests.filter(h => h !== hobby));
+                              }
                             } else {
                               setHobbiesInterests([...hobbiesInterests, hobby]);
                             }
@@ -1319,6 +1351,32 @@ export default function EnrollmentWizardPage() {
                       );
                     })}
                   </div>
+
+                  {/* Custom hobbies badges with cross option to delete */}
+                  {hobbiesInterests.filter(h => !dbHobbies.includes(h) && h !== 'Other').length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1 animate-in fade-in slide-in-from-top-1">
+                      {hobbiesInterests.filter(h => !dbHobbies.includes(h) && h !== 'Other').map((customHobbyItem) => (
+                        <Badge 
+                          key={customHobbyItem} 
+                          variant="secondary" 
+                          className="bg-orange-50 text-orange-700 hover:bg-orange-100 border-none py-1.5 px-3 flex items-center gap-2 rounded-lg text-xs"
+                        >
+                          {customHobbyItem}
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className="cursor-pointer hover:text-orange-900 p-0.5 inline-flex items-center justify-center rounded-full hover:bg-orange-200/50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHobbiesInterests(hobbiesInterests.filter(h => h !== customHobbyItem));
+                            }}
+                          >
+                            <X className="w-3 h-3" />
+                          </span>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="pt-2">
                     {(hobbiesInterests.includes('Other') || hobbiesInterests.some(h => !dbHobbies.includes(h))) && (
@@ -1348,8 +1406,44 @@ export default function EnrollmentWizardPage() {
             </Card>
 
             <Card>
-              <CardHeader className="py-4">
-                <CardTitle className="text-sm flex items-center gap-2"><HeartPulse className="w-4 h-4 text-primary" /> Vitals to Track</CardTitle>
+              <CardHeader className="py-4 flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <HeartPulse className="w-4 h-4 text-primary" /> Vitals to Track
+                </CardTitle>
+                {!loadingVitals && availableVitals.length > 0 && (
+                  <div className="flex gap-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-[10px] px-2 text-primary hover:text-primary-foreground border-primary/20 hover:border-primary"
+                      onClick={() => {
+                        const allChecked: Record<string, boolean> = {};
+                        availableVitals.forEach(v => {
+                          allChecked[v.code] = true;
+                        });
+                        setVitalsToTrack(allChecked);
+                      }}
+                    >
+                      Check All
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 text-[10px] px-2 text-muted-foreground border-border hover:bg-secondary/50"
+                      onClick={() => {
+                        const allUnchecked: Record<string, boolean> = {};
+                        availableVitals.forEach(v => {
+                          allUnchecked[v.code] = false;
+                        });
+                        setVitalsToTrack(allUnchecked);
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3 py-2">
                 {loadingVitals ? (
@@ -1503,9 +1597,27 @@ export default function EnrollmentWizardPage() {
                       ))}
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="start-date" className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Start Date</Label>
-                    <Input id="start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="max-w-xs" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="start-date" className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-primary" /> Start Date
+                      </Label>
+                      <Input 
+                        id="start-date" 
+                        type="date" 
+                        value={startDate} 
+                        onChange={e => setStartDate(e.target.value)} 
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="flex items-center gap-1 text-muted-foreground">
+                        <Clock className="w-3 h-3 text-muted-foreground" /> Suggested End Date
+                      </Label>
+                      <div className="h-10 px-3 border border-border bg-slate-50 text-slate-500 rounded-md text-xs flex items-center font-mono">
+                        {getSuggestedEndDate(startDate, duration) || 'N/A'}
+                      </div>
+                    </div>
                   </div>
                 </>
               )}

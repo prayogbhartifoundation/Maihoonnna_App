@@ -27,7 +27,7 @@ router.get('/trends/:beneficiaryId', authenticate, async (req: AuthRequest, res:
       return res.status(404).json({ success: false, message: 'Beneficiary not found or unauthorized' });
     }
 
-    // Get readings for this period
+    // Get readings for this period — both CC and self-reported
     const readings = await prisma.vitalReading.findMany({
       where: {
         beneficiaryId: beneficiaryId as string,
@@ -36,10 +36,11 @@ router.get('/trends/:beneficiaryId', authenticate, async (req: AuthRequest, res:
       include: {
         vitalDefinition: {
           select: { code: true, name: true, unit: true, dataType: true, normalMax: true, normalMin: true, normalMax2: true, normalMin2: true }
-        }
+        },
+        capturedBy: { select: { name: true } }
       },
       orderBy: { capturedAt: 'asc' }
-    });
+    }) as any[];
 
     // Group by vitalDefinition.code
     const grouped = new Map<string, any>();
@@ -65,12 +66,19 @@ router.get('/trends/:beneficiaryId', authenticate, async (req: AuthRequest, res:
       const dateStr = r.capturedAt.toISOString().split('T')[0]; // simple YYYY-MM-DD
       const shortDate = r.capturedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
+      const src = r.source || 'care_companion';
+      const recName = src === 'beneficiary'
+        ? 'Self'
+        : (r.capturedBy
+            ? r.capturedBy.name || 'Care Companion'
+            : 'Care Companion');
+
       if (def.dataType === 'numeric' || def.dataType === 'dual_numeric') {
         if (r.valueNumeric !== null) {
-          group.v1.push({ date: shortDate, fullDate: dateStr, value: r.valueNumeric });
+          group.v1.push({ date: shortDate, fullDate: dateStr, value: r.valueNumeric, source: src, recorder: recName });
         }
         if (def.dataType === 'dual_numeric' && r.valueNumeric2 !== null) {
-          group.v2.push({ date: shortDate, fullDate: dateStr, value: r.valueNumeric2 });
+          group.v2.push({ date: shortDate, fullDate: dateStr, value: r.valueNumeric2, source: src, recorder: recName });
         }
       }
     }

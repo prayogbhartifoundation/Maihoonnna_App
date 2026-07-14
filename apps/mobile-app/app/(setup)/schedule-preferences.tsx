@@ -15,10 +15,12 @@ import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeaderSpacer from '../../components/HeaderSpacer';
 import { API_URL } from '@/constants/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SchedulePreferencesScreen() {
     const router = useRouter();
     const { push } = useNavigationStack();
+    const { updateUser } = useAuth();
     const safeBack = useSafeBack();
     useAndroidBackHandler();
     const params = useLocalSearchParams();
@@ -100,13 +102,25 @@ export default function SchedulePreferencesScreen() {
                 const result = await response.json();
 
                 if (result.success) {
-                    Alert.alert(
-                        '✅ Beneficiary Enrolled!',
-                        `${result.beneficiaryName || 'Beneficiary'} has been linked to your subscription.`,
-                        [{ text: 'Go to Dashboard', onPress: () => router.replace('/(subscriber)') }]
-                    );
+                    if (result.token && result.user) {
+                        await updateUser(result.token, result.user);
+                    }
+                    if (Platform.OS === 'web') {
+                        alert(`Beneficiary enrolled successfully!\n\n${result.beneficiaryName || 'Beneficiary'} has been linked to your subscription.`);
+                        router.replace('/(subscriber)');
+                    } else {
+                        Alert.alert(
+                            '✅ Beneficiary Enrolled!',
+                            `${result.beneficiaryName || 'Beneficiary'} has been linked to your subscription.`,
+                            [{ text: 'Go to Dashboard', onPress: () => router.replace('/(subscriber)') }]
+                        );
+                    }
                 } else {
-                    Alert.alert('Enrollment Failed', result.message || 'Please try again.');
+                    if (Platform.OS === 'web') {
+                        alert(`Enrollment Failed: ${result.message || 'Please try again.'}`);
+                    } else {
+                        Alert.alert('Enrollment Failed', result.message || 'Please try again.');
+                    }
                 }
             } catch (err: any) {
                 Alert.alert('Error', err.message || 'Something went wrong. Please try again.');
@@ -230,7 +244,7 @@ export default function SchedulePreferencesScreen() {
                                     <ActivityIndicator size="small" color="#FFFFFF" />
                                 ) : (
                                     <Text style={styles.completeBtnText}>
-                                        {isLinkingFlow ? 'Enroll Beneficiary' : 'Complete Enrollment'}
+                                        {isLinkingFlow ? 'Complete Enrollment And Activate Package' : 'Complete Enrollment'}
                                     </Text>
                                 )}
                             </TouchableOpacity>

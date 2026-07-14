@@ -1252,6 +1252,7 @@ model VitalReading {
   capturedById  String
   capturedAt    DateTime @default(now())
   captureMethod String   @default("manual") // 'manual', 'device', 'auto'
+  source        String   @default("care_companion") // 'care_companion' | 'beneficiary'
   deviceId      String?
 
   latitude  Float?

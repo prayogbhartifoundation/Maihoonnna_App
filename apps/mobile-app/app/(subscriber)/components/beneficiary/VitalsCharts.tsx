@@ -7,6 +7,8 @@ interface DataPoint {
     date: string;
     fullDate: string;
     value: number;
+    source?: 'care_companion' | 'beneficiary'; // who recorded this reading
+    recorder?: string; // display name (e.g. "Priya S." or "Self")
 }
 
 export interface VitalTrend {
@@ -20,6 +22,11 @@ export interface VitalTrend {
     v1: DataPoint[];
     v2?: DataPoint[];
 }
+
+// Source colours
+const CC_DOT_FILL = '#FFFFFF';       // white fill — CC readings
+const SELF_DOT_FILL = '#DBEAFE';     // light-blue fill — self-reported readings
+const SELF_DOT_BORDER = '#3B82F6';   // blue border — self-reported
 
 export const VitalsCharts = ({ trends }: { trends: VitalTrend[] }) => {
     const [chartWidth, setChartWidth] = useState(screenWidth - 40 - 45); // fallback default
@@ -79,13 +86,17 @@ export const VitalsCharts = ({ trends }: { trends: VitalTrend[] }) => {
         const labels = hasV1 ? vital.v1.map(p => p.date) : (hasV2 ? vital.v2!.map(p => p.date) : []);
         const gridValues = [...vital.gridValues].reverse(); // high to low for display
 
-        const renderPoints = (data: DataPoint[], lineColor: string, dotColor: string) => {
+        // Check if any reading in this chart has a self-reported entry
+        const allPoints = [...(vital.v1 || []), ...(vital.v2 || [])];
+        const hasSelfReported = allPoints.some(p => p.source === 'beneficiary');
+
+        const renderPoints = (data: DataPoint[], lineColor: string) => {
             const points = data
                 .map((pt, i) => {
                     const val = pt.value;
                     const x = data.length === 1 ? chartWidth / 2 : (i / (data.length - 1)) * chartWidth;
                     const y = chartHeight - (Math.min(val, vital.gridMax) / vital.gridMax) * chartHeight;
-                    return { x, y, val };
+                    return { x, y, val, source: pt.source ?? 'care_companion' };
                 });
 
             const dotSize = 8;
@@ -99,24 +110,28 @@ export const VitalsCharts = ({ trends }: { trends: VitalTrend[] }) => {
                         return renderLineSegment(p.x, p.y, next.x, next.y, lineColor, `line-${lineColor}-${i}`);
                     })}
 
-                    {/* Data Point Dots */}
-                    {points.map((p, i) => (
-                        <View
-                            key={`dot-${lineColor}-${i}`}
-                            style={[
-                                styles.dot,
-                                {
-                                    left: p.x - dotSize / 2,
-                                    top: p.y - dotSize / 2,
-                                    width: dotSize,
-                                    height: dotSize,
-                                    borderRadius: dotSize / 2,
-                                    borderColor: lineColor,
-                                    backgroundColor: dotColor,
-                                }
-                            ]}
-                        />
-                    ))}
+                    {/* Data Point Dots — different fill/border based on source */}
+                    {points.map((p, i) => {
+                        const isSelf = p.source === 'beneficiary';
+                        return (
+                            <View
+                                key={`dot-${lineColor}-${i}`}
+                                style={[
+                                    styles.dot,
+                                    {
+                                        left: p.x - dotSize / 2,
+                                        top: p.y - dotSize / 2,
+                                        width: dotSize,
+                                        height: dotSize,
+                                        borderRadius: dotSize / 2,
+                                        borderColor: isSelf ? SELF_DOT_BORDER : lineColor,
+                                        backgroundColor: isSelf ? SELF_DOT_FILL : CC_DOT_FILL,
+                                        borderWidth: isSelf ? 2.5 : 2,
+                                    }
+                                ]}
+                            />
+                        );
+                    })}
                 </React.Fragment>
             );
         };
@@ -157,8 +172,8 @@ export const VitalsCharts = ({ trends }: { trends: VitalTrend[] }) => {
                             );
                         })}
 
-                        {hasV1 && renderPoints(vital.v1, vital.color, '#FFF')}
-                        {hasV2 && renderPoints(vital.v2!, '#6B7280', '#FFF')}
+                        {hasV1 && renderPoints(vital.v1, vital.color)}
+                        {hasV2 && renderPoints(vital.v2!, '#6B7280')}
                     </View>
                 </View>
 
@@ -173,6 +188,20 @@ export const VitalsCharts = ({ trends }: { trends: VitalTrend[] }) => {
                         ))}
                     </View>
                 </View>
+
+                {/* Source Legend — only show when there are self-reported readings */}
+                {hasSelfReported && (
+                    <View style={styles.sourceLegend}>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: CC_DOT_FILL, borderColor: vital.color }]} />
+                            <Text style={styles.legendText}>Care Companion</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: SELF_DOT_FILL, borderColor: SELF_DOT_BORDER }]} />
+                            <Text style={styles.legendText}>Self-reported</Text>
+                        </View>
+                    </View>
+                )}
             </View>
         );
     };
@@ -246,6 +275,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row', 
         justifyContent: 'space-between' 
     },
+
+    // Source legend
+    sourceLegend: {
+        flexDirection: 'row',
+        gap: 16,
+        marginTop: 10,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#F3F4F6',
+    },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    legendDot: { width: 8, height: 8, borderRadius: 4, borderWidth: 2 },
+    legendText: { fontSize: 11, color: '#6B7280', fontWeight: '500' },
     
     empty: { padding: 40, alignItems: 'center' },
     emptyText: { color: '#9CA3AF', fontSize: 14 },

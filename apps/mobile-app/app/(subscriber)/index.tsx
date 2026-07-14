@@ -209,6 +209,23 @@ export default function SubscriberDashboardScreen() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} • ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} AM`;
     };
 
+    // Compute age from DOB if present — avoids showing stale stored age value
+    const getDisplayAge = (b: any): string => {
+        if (b.dateOfBirth) {
+            try {
+                const dob = new Date(b.dateOfBirth);
+                if (!isNaN(dob.getTime())) {
+                    const today = new Date();
+                    let age = today.getFullYear() - dob.getFullYear();
+                    const m = today.getMonth() - dob.getMonth();
+                    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+                    return `${age} years`;
+                }
+            } catch (_) {}
+        }
+        return b.age ? `${b.age} years` : '';
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             {/* ── Inline Dashboard Header (Figma) ── */}
@@ -380,7 +397,7 @@ export default function SubscriberDashboardScreen() {
                                 />
                                 <View style={styles.benDetails}>
                                     <Text style={styles.benName}>{b.name}</Text>
-                                    <Text style={styles.benMeta}>{b.age ? `${b.age} years` : ''}{b.relationship ? ` • ${b.relationship}` : ''}</Text>
+                                    <Text style={styles.benMeta}>{getDisplayAge(b)}{b.relationship ? ` • ${b.relationship}` : ''}</Text>
                                 </View>
                                 {b.verificationStatus === 'pending' ? (
                                     <View style={{ backgroundColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 }}>

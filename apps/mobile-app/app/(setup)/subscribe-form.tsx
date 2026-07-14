@@ -77,28 +77,44 @@ export default function SubscribeFormScreen() {
     useEffect(() => {
         const checkAuthAndFetchPackage = async () => {
             try {
+                // Guard: packageId is required for purchase flow — no fallback allowed (would corrupt DB records)
+                // Linking flow (from dashboard "Add Beneficiary") does NOT need a packageId — backend resolves it automatically
+                if (!params.packageId && params.isLinkingFlow !== 'true') {
+                    alert('No package selected. Please go back and select a package.');
+                    router.back();
+                    return;
+                }
+
                 // 1. Check for existing session
                 const stored = await AsyncStorage.getItem('userData');
                 if (stored) {
                     const user = JSON.parse(stored);
                     
-                    // If user is logged in, auto-fill and redirect "immediately"
-                    const subscriberData = {
-                        fullName: user.name || '',
-                        phone: user.phone?.replace('+91', '') || '',
-                        email: user.email || '',
-                        address: user.address || ''
-                    };
-
-                    // Skip the screen
-                    router.replace({
-                        pathname: '/(setup)/beneficiary-info',
-                        params: {
-                            packageId: params.packageId || 'silver',
-                            subscriberData: JSON.stringify(subscriberData),
-                            isLinkingFlow: params.isLinkingFlow || 'false'
-                        }
-                    });
+                    if (params.isLinkingFlow === 'true') {
+                        // Linking flow: subscriber already paid, now enrolling a beneficiary
+                        // Go directly to beneficiary-info to start the enrollment wizard
+                        const subscriberData = {
+                            fullName: user.name || '',
+                            phone: user.phone?.replace('+91', '') || '',
+                            email: user.email || '',
+                            address: user.address || ''
+                        };
+                        router.replace({
+                            pathname: '/(setup)/beneficiary-info',
+                            params: {
+                                packageId: params.packageId,
+                                subscriberData: JSON.stringify(subscriberData),
+                                isLinkingFlow: 'true'
+                            }
+                        });
+                    } else {
+                        // New purchase flow: go directly to checkout
+                        // (beneficiary info is collected AFTER payment via dashboard)
+                        router.replace({
+                            pathname: '/(setup)/checkout',
+                            params: { packageId: params.packageId }
+                        });
+                    }
                     return; // Stop execution here
                 }
 

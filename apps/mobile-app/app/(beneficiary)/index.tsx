@@ -12,7 +12,7 @@ import {
     useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons, Feather, AntDesign } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Feather, AntDesign, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
@@ -307,12 +307,15 @@ export default function BeneficiaryDashboard() {
                         <Text style={styles.actionSubtitle}>Schedule visit</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.actionCard}>
+                    <TouchableOpacity
+                        style={styles.actionCard}
+                        onPress={() => router.push('/(beneficiary)/vitals' as any)}
+                    >
                         <View style={[styles.actionIconBadge, { backgroundColor: '#FFEDD4' }]}>
-                            <MaterialCommunityIcons name="pill" size={24} color="#FF6900" />
+                            <Ionicons name="pulse-outline" size={24} color="#FF6900" />
                         </View>
-                        <Text style={styles.actionTitle}>Order Meds</Text>
-                        <Text style={styles.actionSubtitle}>Refill now</Text>
+                        <Text style={styles.actionTitle}>Vitals</Text>
+                        <Text style={styles.actionSubtitle}>Track health</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.actionCard}>

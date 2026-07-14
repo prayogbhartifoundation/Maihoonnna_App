@@ -1,6 +1,7 @@
 import prisma from '../../core/database';
 import { generateUUID } from '../../utils/helpers';
 import { validateCoupon, applyCoupon } from '../coupon_service';
+import bcrypt from 'bcryptjs';
 
 function normalizeUnit(unitLabel: string | null | undefined): string {
   if (!unitLabel) return 'visits';
@@ -37,6 +38,21 @@ function parseDob(dobStr: string | null | undefined): Date | null {
   }
   const parsed = new Date(dobStr);
   return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function calculateAge(dob: Date | null | undefined, rawAge?: string | number | null): number {
+  if (dob && !isNaN(dob.getTime())) {
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    return Math.max(0, age);
+  }
+  if (rawAge !== undefined && rawAge !== null && rawAge !== '') {
+    const parsed = parseInt(String(rawAge), 10);
+    if (!isNaN(parsed)) return Math.max(0, parsed);
+  }
+  return 0; // safe non-null default — age MUST be Int in DB
 }
 
 async function publishPackageVersion(tx: any, packageId: string): Promise<any> {
@@ -142,6 +158,7 @@ export const purchaseSubscription = async (
     relationship: string;
     phone: string;
     dob?: string;
+    devPassword?: string;
   } | null,
   medicalData?: any,
   emergencyContactsRaw?: any,
@@ -162,28 +179,35 @@ export const purchaseSubscription = async (
   let dobDate: Date | null = null;
 
   if (beneficiaryData) {
+    // Fetch subscriber's own phone to prevent self-linking
+    const subscriberUser = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true } });
+    const subscriberPhone = subscriberUser?.phone || '';
+
     let beneficiaryPhone = '';
     if (beneficiaryData.phone) {
       beneficiaryPhone = beneficiaryData.phone.replace(/\D/g, '').slice(-10);
-      // Check if phone already exists to avoid unique constraint error
+      // Block subscriber from using their own number
+      if (beneficiaryPhone === subscriberPhone) {
+        throw new Error('You cannot use your own phone number as the beneficiary phone. Please use a different number.');
+      }
+      // Block any number already registered in the system
       const existingUser = await prisma.user.findUnique({ where: { phone: beneficiaryPhone } });
       if (existingUser) {
-        throw new Error('A user with this phone number already exists.');
+        throw new Error('This phone number is already registered. Please use a different number.');
       }
-    } else {
-      // Generate a unique fake 10-digit phone number starting with '000'
-      let isUnique = false;
-      while (!isUnique) {
-        const fakePhone = `000${Math.floor(1000000 + Math.random() * 9000000)}`;
-        const existingFake = await prisma.user.findUnique({ where: { phone: fakePhone } });
-        if (!existingFake) {
-          beneficiaryPhone = fakePhone;
-          isUnique = true;
-        }
-      }
+    }
+    if (!beneficiaryPhone) {
+      throw new Error('Beneficiary phone number is required.');
     }
 
     dobDate = parseDob(beneficiaryData.dob);
+
+    // Hash devPassword if provided (default '654321' set on frontend)
+    let passwordHash: string | undefined = undefined;
+    if (beneficiaryData.devPassword) {
+      const salt = await bcrypt.genSalt(10);
+      passwordHash = await bcrypt.hash(String(beneficiaryData.devPassword), salt);
+    }
 
     newBeneficiaryUser = await prisma.user.create({
       data: {
@@ -191,8 +215,9 @@ export const purchaseSubscription = async (
         phone: beneficiaryPhone,
         name: beneficiaryData.name,
         role: 'beneficiary',
-        age: parseInt(String(beneficiaryData.age || 65), 10),
-        dateOfBirth: dobDate
+        age: calculateAge(dobDate, beneficiaryData.age),
+        dateOfBirth: dobDate,
+        ...(passwordHash ? { password: passwordHash } : {})
       }
     });
   }
@@ -563,6 +588,7 @@ export const linkBeneficiaryToSubscription = async (
     phone?: string;
     dob?: string;
     maritalStatus?: string;
+    devPassword?: string;
   },
   medicalData?: any,
   emergencyContactsRaw?: any,
@@ -575,29 +601,56 @@ export const linkBeneficiaryToSubscription = async (
     include: { package: true }
   });
 
-  if (!unlinkedSubscription) {
-    throw new Error('No unlinked active subscription found. Please purchase a package first.');
+  let subIdToLink: string | null = unlinkedSubscription?.id || null;
+  if (!subIdToLink) {
+    const anyActiveSub = await prisma.subscription.findFirst({
+      where: { subscriberId: userId, isActive: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (anyActiveSub) {
+      subIdToLink = anyActiveSub.id;
+    }
   }
 
   const beneficiaryName = beneficiaryData.name || (beneficiaryData as any).fullName || 'Beneficiary';
   const dobDate = parseDob(beneficiaryData.dob);
 
   // 2. Find or create beneficiary user
+  // Fetch subscriber's own phone to prevent self-linking
+  const subscriberSelf = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true } });
+  const subscriberPhone = subscriberSelf?.phone || '';
+
   let beneficiaryUser: any = null;
   let beneficiaryPhone = '';
   if (beneficiaryData.phone) {
-    beneficiaryPhone = beneficiaryData.phone.replace(/\D/g, '').slice(-10);
-    beneficiaryUser = await prisma.user.findUnique({ where: { phone: beneficiaryPhone } });
+    const rawBenPhone = beneficiaryData.phone.replace(/\D/g, '').slice(-10);
+    if (rawBenPhone) {
+      // Block subscriber from using their own number
+      if (rawBenPhone === subscriberPhone) {
+        throw new Error('You cannot use your own phone number as the beneficiary phone. Please use a different number.');
+      }
+      beneficiaryPhone = rawBenPhone;
+      const existingUser = await prisma.user.findUnique({ where: { phone: beneficiaryPhone } });
+      // Only reuse if this is a different user (already a beneficiary account)
+      if (existingUser && existingUser.id !== userId) {
+        beneficiaryUser = existingUser;
+      } else if (existingUser) {
+        // Phone belongs to some other registered user — reject it
+        throw new Error('This phone number is already registered. Please use a different number.');
+      }
+    }
+  }
+
+  if (!beneficiaryPhone) {
+    throw new Error('Beneficiary phone number is required.');
   }
 
   if (!beneficiaryUser) {
-    if (!beneficiaryPhone) {
-      let isUnique = false;
-      while (!isUnique) {
-        const fakePhone = `000${Math.floor(1000000 + Math.random() * 9000000)}`;
-        const existingFake = await prisma.user.findUnique({ where: { phone: fakePhone } });
-        if (!existingFake) { beneficiaryPhone = fakePhone; isUnique = true; }
-      }
+    // Hash devPassword if provided (default '654321' set on frontend)
+    let passwordHash: string | undefined = undefined;
+    if (beneficiaryData.devPassword) {
+      const salt = await bcrypt.genSalt(10);
+      passwordHash = await bcrypt.hash(String(beneficiaryData.devPassword), salt);
     }
 
     beneficiaryUser = await prisma.user.create({
@@ -606,8 +659,9 @@ export const linkBeneficiaryToSubscription = async (
         phone: beneficiaryPhone,
         name: beneficiaryName,
         role: 'beneficiary',
-        age: parseInt(String(beneficiaryData.age || 65), 10),
-        dateOfBirth: dobDate
+        age: calculateAge(dobDate, beneficiaryData.age),
+        dateOfBirth: dobDate,
+        ...(passwordHash ? { password: passwordHash } : {})
       }
     });
   }
@@ -694,48 +748,74 @@ export const linkBeneficiaryToSubscription = async (
           userId: beneficiaryUser.id,
           subscriberId: userId,
           name: beneficiaryName,
-          age: parseInt(String(beneficiaryData.age || 65), 10),
-        dateOfBirth: dobDate,
-        gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
-        address: beneficiaryData.address || 'Not provided',
-        flatPlot: beneficiaryData.flatPlot || null,
-        streetArea: beneficiaryData.streetArea || null,
-        landmark: beneficiaryData.landmark || null,
-        city: beneficiaryData.city || null,
-        state: beneficiaryData.state || null,
-        pincode: beneficiaryData.pincode || null,
-        latitude: beneficiaryData.latitude || null,
-        longitude: beneficiaryData.longitude || null,
-        relationship: beneficiaryData.relationship || null,
-        primaryPhysicianName: medicalData?.physicianName || null,
-        primaryPhysicianPhone: medicalData?.physicianPhone || null,
-        hobbiesInterests: medicalData?.hobbies || [],
-        emergencyContacts: {
-          create: finalEmergencyContacts.map((c: any) => ({
-            id: generateUUID(),
-            name: c.name,
-            phone: c.phone,
-            relationship: c.relation || 'Emergency',
-            email: c.email || '',
-          }))
-        },
-        conditions: conditionIds.length > 0 ? {
-          create: conditionIds.map(cid => ({ id: generateUUID(), conditionId: cid, severity: 'moderate' as any }))
-        } : undefined,
-        medicationList: mappedMedications.length > 0 ? { create: mappedMedications } : undefined
-      }
-    });
-  }
+          age: calculateAge(dobDate, beneficiaryData.age),
+          dateOfBirth: dobDate,
+          gender: (String(beneficiaryData.gender).toLowerCase().includes('male') && !String(beneficiaryData.gender).toLowerCase().includes('female')) ? 'male' : String(beneficiaryData.gender).toLowerCase().includes('female') ? 'female' : 'prefer_not_to_say',
+          address: beneficiaryData.address || 'Not provided',
+          flatPlot: beneficiaryData.flatPlot || null,
+          streetArea: beneficiaryData.streetArea || null,
+          landmark: beneficiaryData.landmark || null,
+          city: beneficiaryData.city || null,
+          state: beneficiaryData.state || null,
+          pincode: beneficiaryData.pincode || null,
+          latitude: beneficiaryData.latitude || null,
+          longitude: beneficiaryData.longitude || null,
+          relationship: beneficiaryData.relationship || null,
+          primaryPhysicianName: medicalData?.physicianName || null,
+          primaryPhysicianPhone: medicalData?.physicianPhone || null,
+          hobbiesInterests: medicalData?.hobbies || [],
+          emergencyContacts: {
+            create: finalEmergencyContacts.map((c: any) => ({
+              id: generateUUID(),
+              name: c.name,
+              phone: c.phone,
+              relationship: c.relation || 'Emergency',
+              email: c.email || '',
+            }))
+          },
+          conditions: conditionIds.length > 0 ? {
+            create: conditionIds.map(cid => ({ id: generateUUID(), conditionId: cid, severity: 'moderate' as any }))
+          } : undefined,
+          medicationList: mappedMedications.length > 0 ? { create: mappedMedications } : undefined
+        }
+      });
+    }
 
     // 5b. Link subscription and payments to the new beneficiary
-    await tx.subscription.update({
-      where: { id: unlinkedSubscription.id },
-      data: { beneficiaryId: beneficiary.id }
-    });
+    if (subIdToLink) {
+      const existingSub = await tx.subscription.findUnique({
+        where: { id: subIdToLink },
+        include: { package: true, packageVersion: true }
+      });
 
-    await tx.payment.updateMany({
-      where: { subscriptionId: unlinkedSubscription.id, beneficiaryId: null },
-      data: { beneficiaryId: beneficiary.id }
+      const newStart = new Date();
+      const newEnd = new Date(newStart);
+      const months = existingSub?.packageVersion?.durationMonths || existingSub?.package?.durationMonths || 1;
+      newEnd.setMonth(newEnd.getMonth() + months);
+
+      await tx.subscription.update({
+        where: { id: subIdToLink },
+        data: { 
+          beneficiaryId: beneficiary.id,
+          startDate: newStart,
+          endDate: newEnd
+        }
+      });
+
+      await tx.payment.updateMany({
+        where: { subscriptionId: subIdToLink },
+        data: { 
+          beneficiaryId: beneficiary.id,
+          planStartDate: newStart,
+          planEndDate: newEnd
+        }
+      });
+    }
+
+    // Promote user from prospect to subscriber if they are currently a prospect
+    await tx.user.updateMany({
+      where: { id: userId, role: 'prospect' },
+      data: { role: 'subscriber' },
     });
 
     // 5c. Upsert vital configs
@@ -756,6 +836,38 @@ export const linkBeneficiaryToSubscription = async (
       }
     }
 
+    // 5d. Save schedule preferences (preferredTiming → preferredSlot)
+    if (preferencesData) {
+      const preferredSlot = preferencesData.preferredTiming || preferencesData.preferredSlot || 'morning';
+      const preferredDays = Array.isArray(preferencesData.preferredDays) ? preferencesData.preferredDays : [];
+      const avoidDays = Array.isArray(preferencesData.avoidDays) ? preferencesData.avoidDays : [];
+      await tx.schedulePreference.upsert({
+        where: { beneficiaryId: beneficiary.id },
+        update: {
+          preferredSlot,
+          preferredDays,
+          avoidDays,
+          preferredTimeFrom: preferencesData.preferredTimeFrom || null,
+          preferredTimeTo: preferencesData.preferredTimeTo || null,
+          preferFemaleCc: !!preferencesData.preferFemaleCc,
+          languagePreference: preferencesData.languagePreference || null,
+          specialNotes: preferencesData.specialNotes || null,
+        },
+        create: {
+          id: generateUUID(),
+          beneficiaryId: beneficiary.id,
+          preferredSlot,
+          preferredDays,
+          avoidDays,
+          preferredTimeFrom: preferencesData.preferredTimeFrom || null,
+          preferredTimeTo: preferencesData.preferredTimeTo || null,
+          preferFemaleCc: !!preferencesData.preferFemaleCc,
+          languagePreference: preferencesData.languagePreference || null,
+          specialNotes: preferencesData.specialNotes || null,
+        }
+      });
+    }
+
     return { beneficiaryId: beneficiary.id, beneficiaryName: beneficiary.name };
   });
 
@@ -764,7 +876,7 @@ export const linkBeneficiaryToSubscription = async (
     message: 'Beneficiary enrolled and linked to subscription successfully!',
     beneficiaryId: result.beneficiaryId,
     beneficiaryName: result.beneficiaryName,
-    subscriptionId: unlinkedSubscription.id
+    subscriptionId: subIdToLink
   };
 };
 
@@ -1180,7 +1292,7 @@ export const getSubscriptionPackages = async () => {
       data: defaultPackages
     });
 
-   const packages = await prisma.subscriptionPackage.findMany({
+    packages = await prisma.subscriptionPackage.findMany({
       where: { isActive: true, isGlobal: true },
       include: {
         packageBenefits: {

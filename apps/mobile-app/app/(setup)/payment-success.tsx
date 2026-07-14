@@ -173,6 +173,17 @@ export default function PaymentSuccessScreen() {
                     <Text style={styles.enrollBtnText}>Go to Dashboard</Text>
                 </TouchableOpacity>
 
+                <TouchableOpacity 
+                    style={styles.addBeneficiaryBtn} 
+                    onPress={() => router.replace({
+                        pathname: '/(setup)/beneficiary-info',
+                        params: { isLinkingFlow: 'true' }
+                    })}
+                >
+                    <Ionicons name="person-add-outline" size={19} color="#FE6700" style={{ marginRight: 8 }} />
+                    <Text style={styles.addBeneficiaryBtnText}>Add Beneficiary to this Package</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity style={styles.linkBtn}>
                     <Ionicons name="download-outline" size={16} color="#050505" style={{ marginRight: 6 }} />
                     <Text style={styles.linkBtnText}>Download Invoice</Text>
@@ -285,6 +296,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 12
     },
     enrollBtnText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginRight: 10 },
+
+    addBeneficiaryBtn: {
+        backgroundColor: '#FFFFFF', height: 49, borderRadius: 7,
+        borderWidth: 2, borderColor: '#FE6700',
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 18
+    },
+    addBeneficiaryBtnText: { color: '#FE6700', fontSize: 16, fontWeight: '700' },
 
     beneficiaryBtn: {
         backgroundColor: '#FFFFFF', height: 49, borderRadius: 7,
