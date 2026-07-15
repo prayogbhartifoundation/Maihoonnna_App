@@ -343,7 +343,8 @@ router.post('/link-beneficiary', authenticate, async (req: AuthRequest, res: Res
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/packages', async (req: Request, res: Response) => {
   try {
-    const packages = await subscriptionService.getSubscriptionPackages();
+    const regionId = req.query.regionId as string | undefined;
+    const packages = await subscriptionService.getSubscriptionPackages(regionId);
     res.json({ success: true, data: packages });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });

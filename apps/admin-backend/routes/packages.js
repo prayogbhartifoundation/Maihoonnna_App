@@ -23,6 +23,9 @@ router.get('/', async (req, res) => {
       where: all === 'true' ? undefined : { isActive: true },
       orderBy: { sortOrder: 'asc' },
       include: {
+        packageRegions: {
+          include: { region: true }
+        },
         packageBenefits: {
           orderBy: { displayOrder: 'asc' },
           include: {
@@ -41,6 +44,8 @@ router.get('/', async (req, res) => {
     const mappedPackages = packages.map((pkg) => ({
       ...pkg,
       totalCost: pkg.basePrice,
+      regionIds: (pkg.packageRegions || []).map(pr => pr.regionId),
+      regions: (pkg.packageRegions || []).map(pr => pr.region),
       benefits: (pkg.packageBenefits || []).map((pb) => ({
         ...pb,
         monthlyUnits: pb.unitsIncluded,
@@ -60,6 +65,9 @@ router.get('/:id', async (req, res) => {
     const pkg = await prisma.subscriptionPackage.findUnique({
       where: { id: req.params.id },
       include: {
+        packageRegions: {
+          include: { region: true }
+        },
         packageBenefits: {
           orderBy: { displayOrder: 'asc' },
           include: {
@@ -78,6 +86,8 @@ router.get('/:id', async (req, res) => {
     const mappedPackage = {
       ...pkg,
       totalCost: pkg.basePrice,
+      regionIds: (pkg.packageRegions || []).map(pr => pr.regionId),
+      regions: (pkg.packageRegions || []).map(pr => pr.region),
       benefits: (pkg.packageBenefits || []).map((pb) => ({
         ...pb,
         monthlyUnits: pb.unitsIncluded,
@@ -111,6 +121,7 @@ router.post('/', async (req, res) => {
     discounts = [],
     isGlobal,
     isPopular,
+    regionIds = [],
   } = req.body;
 
   if (!name || !activeFrom) {
@@ -150,6 +161,16 @@ router.post('/', async (req, res) => {
           isPopular: isPopular ?? false,
         },
       });
+
+      // 1b. Create Package Regions associations if not global
+      if (!created.isGlobal && regionIds && regionIds.length > 0) {
+        await tx.subscriptionPackageRegion.createMany({
+          data: regionIds.map((rId) => ({
+            packageId: created.id,
+            regionId: rId,
+          })),
+        });
+      }
 
       // 2. Create packageBenefits
       if (benefits.length > 0) {
@@ -311,6 +332,7 @@ router.put('/:id', async (req, res) => {
     isGlobal,
     isPopular,
     totalHours,
+    regionIds = [],
   } = req.body;
 
   try {
@@ -343,6 +365,17 @@ router.put('/:id', async (req, res) => {
           totalHours: totalHours ? parseFloat(totalHours) : undefined,
         },
       });
+
+      // 1b. Update Package Regions associations
+      await tx.subscriptionPackageRegion.deleteMany({ where: { packageId: id } });
+      if (!pkg.isGlobal && regionIds && regionIds.length > 0) {
+        await tx.subscriptionPackageRegion.createMany({
+          data: regionIds.map((rId) => ({
+            packageId: id,
+            regionId: rId,
+          })),
+        });
+      }
 
       // 2. Refresh benefits (delete and recreate)
       if (benefits.length > 0) {
@@ -409,12 +442,17 @@ router.put('/:id', async (req, res) => {
       return tx.subscriptionPackage.findUnique({
         where: { id },
         include: {
+          packageRegions: { include: { region: true } },
           packageBenefits: { include: { benefit: true } },
           packageDiscounts: true,
         },
       });
     });
 
+    if (updated) {
+      updated.regionIds = (updated.packageRegions || []).map(pr => pr.regionId);
+      updated.regions = (updated.packageRegions || []).map(pr => pr.region);
+    }
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error('PUT package error:', err);

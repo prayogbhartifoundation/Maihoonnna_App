@@ -705,6 +705,7 @@ model SubscriptionPackage {
   packageBenefits    PackageBenefit[]
   packageDiscounts   PackageDiscount[]
   subscriptions      Subscription[]
+  packageRegions     SubscriptionPackageRegion[]
 
   @@map("subscription_packages")
 }
@@ -1705,19 +1706,30 @@ model ServiceRequest {
 }
 
 model Region {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  city      String
-  state     String
-  latitude  Float
-  longitude Float
-  radiusKm  Float    @default(30.0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  zones     Zone[]
+  id             String                      @id @default(uuid())
+  name           String                      @unique
+  city           String
+  state          String
+  latitude       Float
+  longitude      Float
+  radiusKm       Float                       @default(30.0)
+  isActive       Boolean                     @default(true)
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  zones          Zone[]
+  packageRegions SubscriptionPackageRegion[]
 
   @@map("regions")
+}
+
+model SubscriptionPackageRegion {
+  packageId String
+  regionId  String
+  package   SubscriptionPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  region    Region              @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@id([packageId, regionId])
+  @@map("subscription_package_regions")
 }
 
 

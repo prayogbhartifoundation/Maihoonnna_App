@@ -317,6 +317,8 @@ export interface SubscriptionPackage {
   isGlobal?: boolean;
   createdBy: string;
   createdAt: string;
+  regionIds?: string[];
+  regions?: any[];
 }
 
 // ============================================================================

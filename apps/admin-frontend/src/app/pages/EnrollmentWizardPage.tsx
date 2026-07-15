@@ -525,10 +525,12 @@ export default function EnrollmentWizardPage() {
                     className={`text-[8px] uppercase px-1 h-3.5 border-none ${
                       enrolledResult.package.isGlobal 
                         ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' 
+                        : enrolledResult.package.regions && enrolledResult.package.regions.length > 0
+                        ? 'bg-[#FFE6D5] text-[#FF7A00] hover:bg-[#FFE6D5]'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
                     }`}
                   >
-                    {enrolledResult.package.isGlobal ? 'Global' : 'Private'}
+                    {enrolledResult.package.isGlobal ? 'Global' : enrolledResult.package.regions && enrolledResult.package.regions.length > 0 ? 'Region Based' : 'Private'}
                   </Badge>
                 )}
               </div>
@@ -1566,10 +1568,12 @@ export default function EnrollmentWizardPage() {
                             className={`text-[9px] uppercase px-1.5 h-4 border-none ${
                               pkg.isGlobal 
                                 ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' 
+                                : pkg.regions && pkg.regions.length > 0
+                                ? 'bg-[#FFE6D5] text-[#FF7A00] hover:bg-[#FFE6D5]'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
                             }`}
                           >
-                            {pkg.isGlobal ? 'Global' : 'Private'}
+                            {pkg.isGlobal ? 'Global' : pkg.regions && pkg.regions.length > 0 ? 'Region Based' : 'Private'}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">₹{pkg.basePrice} / month</p>
@@ -1704,10 +1708,12 @@ export default function EnrollmentWizardPage() {
                         className={`text-[8px] uppercase px-1 h-3.5 border-none ${
                           selectedPackage.isGlobal 
                             ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' 
+                            : selectedPackage.regions && selectedPackage.regions.length > 0
+                            ? 'bg-[#FFE6D5] text-[#FF7A00] hover:bg-[#FFE6D5]'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
                         }`}
                       >
-                        {selectedPackage.isGlobal ? 'Global' : 'Private'}
+                        {selectedPackage.isGlobal ? 'Global' : selectedPackage.regions && selectedPackage.regions.length > 0 ? 'Region Based' : 'Private'}
                       </Badge>
                     )}
                   </div>

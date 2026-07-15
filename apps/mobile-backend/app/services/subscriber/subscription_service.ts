@@ -1238,10 +1238,24 @@ export const activateSubscription = async (
   });
 };
 
-export const getSubscriptionPackages = async () => {
+export const getSubscriptionPackages = async (regionId?: string) => {
   let packages = await prisma.subscriptionPackage.findMany({
-    where: { isActive: true, isGlobal: true },
+    where: {
+      isActive: true,
+      OR: [
+        { isGlobal: true },
+        regionId ? {
+          isGlobal: false,
+          packageRegions: {
+            some: { regionId }
+          }
+        } : null
+      ].filter(Boolean) as any
+    },
     include: {
+      packageRegions: {
+        include: { region: true }
+      },
       packageBenefits: {
         include: {
           benefit: {
