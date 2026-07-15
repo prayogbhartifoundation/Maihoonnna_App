@@ -169,9 +169,12 @@ export const purchaseSubscription = async (
 
   // Ensure the packages exist and get the mapped one
   const packages = await getSubscriptionPackages();
-  const subPackage = packages.find((p: any) => p.type.toLowerCase() === mappedType);
+  const subPackage = packages.find((p: any) => 
+    p.type.toLowerCase() === mappedType || 
+    p.id.toLowerCase() === mappedType
+  );
   if (!subPackage) {
-    throw new Error(`Package type ${mappedType} not found in database. Available types: ${packages.map(p => p.type).join(', ')}`);
+    throw new Error(`Package type/ID ${mappedType} not found in database. Available types: ${packages.map(p => p.type).join(', ')}`);
   }
 
   // 1a. If beneficiaryData is provided, create the beneficiary user
@@ -459,7 +462,7 @@ export const purchaseSubscription = async (
         id: generateUUID(),
         subscriberId: userId,
         beneficiaryId: beneficiary ? beneficiary.id : null,
-        packageType: mappedType,
+        packageType: subPackage.type,
         packageVersionId: versionObj.id,
         startDate: new Date(),
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days

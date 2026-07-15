@@ -1,6 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, Dimensions, Image } from 'react-native';
 import { useState, useEffect } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -22,6 +22,13 @@ export default function AuthScreen() {
     const { push, replace, pop } = useNavigationStack();
     useAndroidBackHandler();
     const { login } = useAuth();
+    const { message } = useLocalSearchParams();
+
+  useEffect(() => {
+    if (message) {
+      Alert.alert("Login Required", message as string);
+    }
+  }, [message]);
 
   useEffect(() => {
     const checkAutoBiometric = async () => {

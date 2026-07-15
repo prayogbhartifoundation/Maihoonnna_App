@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Alert, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { GlobalHeader } from '../../components/GlobalHeader';
 import { Image } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AddressPicker } from '../../components/ui/AddressPicker';
+import * as Location from 'expo-location';
 
 type PlanDuration = 'basic' | '6months' | 'annual';
 
@@ -23,11 +25,104 @@ export default function SubscriptionPackagesScreen() {
     const [packages, setPackages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Location targeting states
+    const [selectedAddress, setSelectedAddress] = useState('');
+    const [selectedPincode, setSelectedPincode] = useState('');
+    const [selectedRegionId, setSelectedRegionId] = useState('');
+    const [selectedLat, setSelectedLat] = useState<number | null>(null);
+    const [selectedLng, setSelectedLng] = useState<number | null>(null);
+
+    const [mapModalVisible, setMapModalVisible] = useState(false);
+
+    const [checkingPin, setCheckingPin] = useState(false);
+    const [serviceMessage, setServiceMessage] = useState('');
+    const [isServiceable, setIsServiceable] = useState<boolean | null>(null);
+
+    const handleCheckLocation = async (lat: number, lng: number) => {
+        setCheckingPin(true);
+        setServiceMessage('');
+        setIsServiceable(null);
+        try {
+            const res = await fetch(`${API_URL}/public/location/reverse-geocode?lat=${lat}&lng=${lng}`);
+            const json = await res.json();
+            if (json.success && json.data.pincode) {
+                const pincode = json.data.pincode;
+                const svcRes = await fetch(`${API_URL}/public/zones/check-pincode?pincode=${pincode}`);
+                const svcJson = await svcRes.json();
+                
+                if (svcJson.success && svcJson.data.available) {
+                    const regionId = svcJson.data.regionId || '';
+                    setServiceMessage(`Serving ${json.data.address || svcJson.data.location}! Showing targeted packages.`);
+                    setIsServiceable(true);
+                    setSelectedAddress(json.data.address || `${svcJson.data.location} (${pincode})`);
+                    setSelectedPincode(pincode);
+                    setSelectedRegionId(regionId);
+                    setSelectedLat(lat);
+                    setSelectedLng(lng);
+                    
+                    // Reload packages for this region
+                    const pkgRes = await fetch(`${API_URL}/subscriber/subscriptions/packages?regionId=${regionId}`);
+                    const pkgJson = await pkgRes.json();
+                    if (pkgJson.success) {
+                        setPackages(pkgJson.data);
+                    }
+                } else {
+                    setServiceMessage("We don't serve this location yet. Showing global packages only.");
+                    setIsServiceable(false);
+                    setSelectedAddress(json.data.address || `Pincode ${pincode}`);
+                    setSelectedPincode(pincode);
+                    setSelectedRegionId('');
+                    setSelectedLat(lat);
+                    setSelectedLng(lng);
+                    // Load global packages only
+                    const pkgRes = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
+                    const pkgJson = await pkgRes.json();
+                    if (pkgJson.success) {
+                        setPackages(pkgJson.data);
+                    }
+                }
+            } else {
+                setServiceMessage("Could not resolve location address.");
+                setIsServiceable(false);
+            }
+        } catch (err) {
+            console.error("Error checking location:", err);
+            Alert.alert("Error", "Could not check location serviceability.");
+        } finally {
+            setCheckingPin(false);
+        }
+    };
+
+    const handleDirectDetectLocation = async () => {
+        setCheckingPin(true);
+        setServiceMessage('');
+        setIsServiceable(null);
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert("Permission Denied", "Location permission is required to find your current location.");
+                setCheckingPin(false);
+                return;
+            }
+            const location = await Location.getCurrentPositionAsync({});
+            const { latitude, longitude } = location.coords;
+            await handleCheckLocation(latitude, longitude);
+        } catch (err) {
+            console.error("Direct detect location failed:", err);
+            Alert.alert("Error", "Failed to auto-detect your location.");
+            setCheckingPin(false);
+        }
+    };
+
     useEffect(() => {
         const init = async () => {
             try {
                 // Check auth status
                 const token = await AsyncStorage.getItem('userToken');
+                let userPincode = '';
+                let defaultLat = 28.6139;
+                let defaultLng = 77.2090;
+                let hasCoords = false;
 
                 if (token) {
                     // Check for unlinked subscription — redirect to enrollment wizard if found
@@ -42,16 +137,61 @@ export default function SubscriptionPackagesScreen() {
                             return;
                         }
                     } catch (e) {
-                        // Non-fatal: just proceed to packages list
                         console.warn('Unlinked check failed:', e);
+                    }
+
+                    // Load user profile to check for default coordinates
+                    try {
+                        const profileRes = await fetch(`${API_URL}/subscriber/profile`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const profileJson = await profileRes.json();
+                        if (profileJson.success && profileJson.data?.user) {
+                            const u = profileJson.data.user;
+                            if (u.latitude && u.longitude) {
+                                defaultLat = u.latitude;
+                                defaultLng = u.longitude;
+                                hasCoords = true;
+                            } else if (u.pincode) {
+                                userPincode = u.pincode;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Profile fetch failed:', e);
                     }
                 }
 
-                // Fetch available packages
-                const response = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
-                const json = await response.json();
-                if (json.success) {
-                    setPackages(json.data);
+                if (hasCoords) {
+                    await handleCheckLocation(defaultLat, defaultLng);
+                } else if (userPincode) {
+                    // fall back to checking user pincode
+                    try {
+                        const pinRes = await fetch(`${API_URL}/public/zones/check-pincode?pincode=${userPincode}`);
+                        const pinJson = await pinRes.json();
+                        if (pinJson.success && pinJson.data.available) {
+                            const regionId = pinJson.data.regionId || '';
+                            setSelectedAddress(pinJson.data.location);
+                            setSelectedPincode(userPincode);
+                            setSelectedRegionId(regionId);
+                            setServiceMessage(`Serving ${pinJson.data.location}! Showing targeted packages.`);
+                            setIsServiceable(true);
+                            // Reload packages
+                            const pkgRes = await fetch(`${API_URL}/subscriber/subscriptions/packages?regionId=${regionId}`);
+                            const pkgJson = await pkgRes.json();
+                            if (pkgJson.success) {
+                                setPackages(pkgJson.data);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Pincode initialization failed:', e);
+                    }
+                } else {
+                    // Fetch available packages
+                    const response = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
+                    const json = await response.json();
+                    if (json.success) {
+                        setPackages(json.data);
+                    }
                 }
             } catch (err) {
                 console.error('Failed to initialize packages screen:', err);
@@ -62,16 +202,45 @@ export default function SubscriptionPackagesScreen() {
         init();
     }, []);
 
-    const handleSelectPackage = async (packageId: string) => {
+    const handleSelectPackage = async (packageType: string) => {
         // Check if user is logged in
         const token = await AsyncStorage.getItem('userToken');
         if (!token) {
-            // Not logged in — send to register
-            router.push('/(auth)/register');
+            // Not logged in — send to login with warning message
+            Alert.alert(
+                "Login Required",
+                "Please login first to select a package.",
+                [
+                    {
+                        text: "Login",
+                        onPress: () => router.push({ pathname: '/(auth)', params: { message: 'Please login first to select a package.' } })
+                    },
+                    {
+                        text: "Cancel",
+                        style: "cancel"
+                    }
+                ]
+            );
             return;
         }
-        // Logged in — go directly to checkout with the packageId
-        push('/(setup)/checkout', { packageId });
+
+        // Find the full package object
+        const selectedPkg = packages.find(p => p.type === packageType);
+        if (!selectedPkg) {
+            Alert.alert("Error", "Package not found.");
+            return;
+        }
+
+        // Logged in — go directly to checkout with the packageId and location parameters
+        // Wrap serviceAddress in JSON so commas/spaces survive Expo Router URL serialisation
+        push('/(setup)/checkout', { 
+            packageId: selectedPkg.id, 
+            serviceRegionId: selectedRegionId,
+            servicePincode: selectedPincode,
+            serviceAddress: JSON.stringify(selectedAddress),
+            serviceLat: selectedLat ? String(selectedLat) : '',
+            serviceLng: selectedLng ? String(selectedLng) : ''
+        });
     };
 
     const getPrice = (pkg: any) => {
@@ -110,12 +279,56 @@ export default function SubscriptionPackagesScreen() {
                     <Text style={styles.subTitle}>Personalized plans designed for peace of mind.</Text>
                 </View>
 
+                {/* Google Maps Location Pick Box */}
+                <View style={styles.locationContainer}>
+                    <Text style={styles.locationTitle}>See packages serving in desired location</Text>
+                    {selectedAddress ? (
+                        <View style={styles.selectedLocationBox}>
+                            <Ionicons name="location" size={18} color="#FE6700" style={{ marginRight: 6 }} />
+                            <Text style={styles.selectedAddressText} numberOfLines={2}>
+                                {selectedAddress}
+                            </Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.noLocationText}>No location selected yet.</Text>
+                    )}
+                    
+                    <View style={styles.actionButtonRow}>
+                        <TouchableOpacity 
+                            style={styles.detectLocationBtn} 
+                            onPress={handleDirectDetectLocation}
+                            disabled={checkingPin}
+                        >
+                            <Ionicons name="locate-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                            <Text style={styles.pickLocationBtnText}>Detect Location</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={styles.pickLocationBtn} 
+                            onPress={() => setMapModalVisible(true)}
+                        >
+                            <Ionicons name="map-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                            <Text style={styles.pickLocationBtnText}>Pick on Map</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {serviceMessage ? (
+                        <Text style={[
+                            styles.serviceMessage, 
+                            isServiceable ? styles.serviceSuccess : styles.serviceFail
+                        ]}>
+                            {serviceMessage}
+                        </Text>
+                    ) : null}
+                </View>
+
                 {/* Dynamic DB Driven Cards */}
                 {packages.map((pkg: any) => {
                     const isPopular = pkg.isPopular;
+                    const isRegional = !pkg.isGlobal;
 
                     return (
-                        <View key={pkg.id} style={[styles.card, isPopular && styles.popularCard]}>
+                        <View key={pkg.id} style={[styles.card, isPopular && styles.popularCard, isRegional && styles.regionalCard]}>
                             {isPopular && (
                                 <View style={styles.popularBadge}>
                                     <Ionicons name="star" size={12} color="#FFF" style={{ marginRight: 4 }} />
@@ -123,11 +336,18 @@ export default function SubscriptionPackagesScreen() {
                                 </View>
                             )}
 
+                            {isRegional && (
+                                <View style={styles.regionalBadge}>
+                                    <Ionicons name="location" size={12} color="#FFF" style={{ marginRight: 4 }} />
+                                    <Text style={styles.regionalBadgeText}>Local Plan</Text>
+                                </View>
+                            )}
+
                             <View style={styles.cardHeaderRow}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.planName}>{pkg.name}</Text>
                                     <View style={styles.priceRow}>
-                                        <Text style={isPopular ? styles.planPriceColor : styles.planPrice}>
+                                        <Text style={isRegional ? styles.planPriceRegional : (isPopular ? styles.planPriceColor : styles.planPrice)}>
                                             ₹{getPrice(pkg).toLocaleString('en-IN')}
                                         </Text>
                                         {pkg.mrp > pkg.basePrice && (
@@ -157,7 +377,7 @@ export default function SubscriptionPackagesScreen() {
                                     const label = (pb.benefit?.unitLabel || '').replace(/^per\s+/i, '');
                                     return (
                                         <View key={fIdx} style={styles.featureRow}>
-                                            <Ionicons name="checkmark-circle" size={18} color="#F97316" />
+                                            <Ionicons name="checkmark-circle" size={18} color={isRegional ? "#0D9488" : "#F97316"} />
                                             <Text style={styles.featureText}>
                                                 {pb.benefit?.name}{' '}
                                                 <Text style={{ fontWeight: '800', color: '#111827' }}>
@@ -171,17 +391,17 @@ export default function SubscriptionPackagesScreen() {
 
                             <View style={styles.cardActions}>
                                 <TouchableOpacity
-                                    style={styles.detailsBtn}
+                                    style={[styles.detailsBtn, isRegional && styles.detailsBtnRegional]}
                                     onPress={() => router.push(`/(subscriber)/package-details/${pkg.type}`)}
                                 >
-                                    <Text style={styles.detailsBtnText}>View Details</Text>
+                                    <Text style={[styles.detailsBtnText, isRegional && styles.detailsBtnTextRegional]}>View Details</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={isPopular ? styles.selectBtnSolid : styles.selectBtnOutline}
+                                    style={[isPopular ? styles.selectBtnSolid : styles.selectBtnOutline, isRegional && (isPopular ? styles.selectBtnSolidRegional : styles.selectBtnOutlineRegional)]}
                                     onPress={() => handleSelectPackage(pkg.type)}
                                 >
-                                    <Text style={isPopular ? styles.selectBtnSolidText : styles.selectBtnOutlineText}>
+                                    <Text style={isPopular ? styles.selectBtnSolidText : (isRegional ? styles.selectBtnOutlineTextRegional : styles.selectBtnOutlineText)}>
                                         Select
                                     </Text>
                                 </TouchableOpacity>
@@ -189,6 +409,7 @@ export default function SubscriptionPackagesScreen() {
                         </View>
                     );
                 })}
+
 
 
                 {/* How It Works Section */}
@@ -247,6 +468,25 @@ export default function SubscriptionPackagesScreen() {
                     </View>
                 </View>
             </ScrollView>
+
+            {/* Address Picker Modal */}
+            {mapModalVisible && (
+                <Modal visible={mapModalVisible} animationType="slide" transparent={false}>
+                    <AddressPicker
+                        onAddressSelected={(selected) => {
+                            setMapModalVisible(false);
+                            setSelectedAddress(selected.address);
+                            setSelectedPincode(selected.pincode || '');
+                            setSelectedLat(selected.latitude);
+                            setSelectedLng(selected.longitude);
+                            handleCheckLocation(selected.latitude, selected.longitude);
+                        }}
+                        onCancel={() => setMapModalVisible(false)}
+                        title="Set Accurate Location"
+                        subtitle="Move the pin to your exact location"
+                    />
+                </Modal>
+            )}
         </SafeAreaView>
     );
 }
@@ -349,5 +589,144 @@ const styles = StyleSheet.create({
     assistanceActions: { flexDirection: 'row', alignItems: 'center' },
     callbackBtn: { flex: 1, flexDirection: 'row', borderWidth: 1, borderColor: '#F97316', borderRadius: 12, height: 50, alignItems: 'center', justifyContent: 'center', marginRight: 15 },
     callbackText: { color: '#F97316', fontWeight: '600', fontSize: 15 },
-    whatsappBtn: { width: 50, height: 50, borderRadius: 12, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }
+    whatsappBtn: { width: 50, height: 50, borderRadius: 12, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' },
+
+    // Location picker styles
+    locationContainer: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#FDE6D5',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2
+    },
+    locationTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: 12
+    },
+    selectedLocationBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF5ED',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#FDE6D5'
+    },
+    selectedAddressText: {
+        fontSize: 13,
+        color: '#4B5563',
+        flex: 1,
+        lineHeight: 18
+    },
+    noLocationText: {
+        fontSize: 13,
+        color: '#9CA3AF',
+        marginBottom: 12,
+        fontStyle: 'italic'
+    },
+    actionButtonRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 12
+    },
+    detectLocationBtn: {
+        flex: 1,
+        backgroundColor: '#10B981',
+        borderRadius: 12,
+        height: 48,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    pickLocationBtn: {
+        flex: 1,
+        backgroundColor: '#F97316',
+        borderRadius: 12,
+        height: 48,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    pickLocationBtnText: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        fontSize: 14
+    },
+    serviceMessage: {
+        fontSize: 13,
+        fontWeight: '600',
+        marginTop: 10
+    },
+    serviceSuccess: {
+        color: '#10B981'
+    },
+    serviceFail: {
+        color: '#EF4444'
+    },
+
+    // Regional package styles
+    regionalCard: {
+        borderColor: '#0D9488',
+        borderWidth: 1.5,
+        backgroundColor: '#F0FDFA'
+    },
+    regionalBadge: {
+        position: 'absolute',
+        top: -14,
+        alignSelf: 'center',
+        backgroundColor: '#0D9488',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center'
+    },
+    regionalBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 10,
+        fontWeight: '700'
+    },
+    planPriceRegional: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#0D9488'
+    },
+    selectBtnSolidRegional: {
+        backgroundColor: '#0D9488'
+    },
+    selectBtnOutlineRegional: {
+        borderColor: '#0D9488'
+    },
+    selectBtnOutlineTextRegional: {
+        color: '#0D9488'
+    },
+    detailsBtnTextRegional: {
+        color: '#0D9488'
+    },
+    detailsBtnRegional: {
+        borderColor: '#0D9488'
+    },
+    actionButtonRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 12
+    },
+    detectLocationBtn: {
+        flex: 1,
+        backgroundColor: '#FE6700',
+        borderRadius: 12,
+        height: 48,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center'
+    }
 });

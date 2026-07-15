@@ -44,6 +44,8 @@ router.get('/check-pincode', async (req: Request, res: Response) => {
         data: {
           available: true,
           location: `${zone.city}, ${zone.state}`,
+          zoneId: zone.id,
+          regionId: zone.regionId,
           stats: {
             companions: careCompanionCount,
             centers: centersCount,

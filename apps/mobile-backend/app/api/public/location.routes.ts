@@ -53,4 +53,133 @@ router.get('/reverse-geocode', async (req: Request, res: Response, next: NextFun
   }
 });
 
+router.get('/geocode', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { address } = req.query;
+    if (!address || typeof address !== 'string') {
+      throw new ApiError(400, 'Address query parameter is required');
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      throw new ApiError(500, 'Google Maps API key is not configured on the server');
+    }
+
+    const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`);
+    const data = await response.json();
+
+    if (data.status !== 'OK') {
+       return res.status(400).json({ success: false, message: 'Geocoding failed', details: data });
+    }
+
+    const result = data.results[0];
+    const location = result.geometry.location;
+
+    // Extract city, state, pincode from address_components
+    let city = '', state = '', pincode = '';
+    if (result.address_components) {
+      result.address_components.forEach((comp: any) => {
+          if (comp.types.includes('locality')) city = comp.long_name;
+          if (comp.types.includes('administrative_area_level_1')) state = comp.long_name;
+          if (comp.types.includes('postal_code')) pincode = comp.long_name;
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        address: result.formatted_address,
+        city,
+        state,
+        pincode,
+        lat: location.lat,
+        lng: location.lng
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/autocomplete', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { input } = req.query;
+    if (!input || typeof input !== 'string') {
+      throw new ApiError(400, 'Input query parameter is required');
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      throw new ApiError(500, 'Google Maps API key is not configured on the server');
+    }
+
+    const response = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&components=country:in`);
+    const data = await response.json();
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+       return res.status(400).json({ success: false, message: 'Autocomplete failed', details: data });
+    }
+
+    const suggestions = (data.predictions || []).map((pred: any) => ({
+      description: pred.description,
+      placeId: pred.place_id
+    }));
+
+    res.json({
+      success: true,
+      data: suggestions
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/place-details', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { placeId } = req.query;
+    if (!placeId || typeof placeId !== 'string') {
+      throw new ApiError(400, 'placeId query parameter is required');
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      throw new ApiError(500, 'Google Maps API key is not configured on the server');
+    }
+
+    const response = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=geometry,address_components,formatted_address&key=${apiKey}`);
+    const data = await response.json();
+
+    if (data.status !== 'OK') {
+       return res.status(400).json({ success: false, message: 'Place details retrieval failed', details: data });
+    }
+
+    const result = data.result;
+    const location = result.geometry.location;
+
+    // Extract city, state, pincode
+    let city = '', state = '', pincode = '';
+    if (result.address_components) {
+      result.address_components.forEach((comp: any) => {
+          if (comp.types.includes('locality')) city = comp.long_name;
+          if (comp.types.includes('administrative_area_level_1')) state = comp.long_name;
+          if (comp.types.includes('postal_code')) pincode = comp.long_name;
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        address: result.formatted_address,
+        city,
+        state,
+        pincode,
+        lat: location.lat,
+        lng: location.lng
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

@@ -34,6 +34,7 @@ import MapView, { Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { API_URL } from '@/constants/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -83,6 +84,10 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
   const [manualAddress, setManualAddress] = useState('');
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   const mapRef = useRef<MapView>(null);
   const bottomSheetAnim = useRef(new Animated.Value(0)).current;
@@ -198,6 +203,60 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
       setAddressText('Could not fetch address');
     } finally {
       if (isComponentMounted.current) setLoadingAddress(false);
+    }
+  };
+
+  const handleQueryAutocomplete = async (text: string) => {
+    setSearchQuery(text);
+    if (text.length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/public/location/autocomplete?input=${encodeURIComponent(text)}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setSuggestions(json.data);
+        setShowSuggestions(true);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (err) {
+      console.warn('[Autocomplete error]', err);
+    }
+  };
+
+  const handleSelectSuggestion = async (placeId: string, description: string) => {
+    setSearchQuery(description);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setSearching(true);
+    
+    try {
+      const res = await fetch(`${API_URL}/public/location/place-details?placeId=${placeId}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const newRegion = {
+          latitude: json.data.lat,
+          longitude: json.data.lng,
+          latitudeDelta: 0.006,
+          longitudeDelta: 0.006
+        };
+        setRegion(newRegion);
+        mapRef.current?.animateToRegion(newRegion, 800);
+        setAddressText(json.data.address || description);
+        setAddressDetails({
+          city: json.data.city || '',
+          state: json.data.state || '',
+          pincode: json.data.pincode || '',
+        });
+      }
+    } catch (err) {
+      console.error('[Select suggestion error]', err);
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -409,6 +468,46 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
           >
             <Feather name="edit-2" size={20} color="#FF6A00" />
           </TouchableOpacity>
+        </View>
+
+        {/* Address Search Autocomplete Input */}
+        <View style={styles.searchSectionWrapper}>
+          <View style={styles.searchBarContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search area, landmark, or street..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={handleQueryAutocomplete}
+            />
+            <View style={styles.searchIconBtn}>
+              {searching ? (
+                <ActivityIndicator size="small" color="#FF6A00" />
+              ) : (
+                <Ionicons name="search" size={18} color="#94A3B8" />
+              )}
+            </View>
+          </View>
+
+          {/* Suggestions Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <View style={styles.suggestionsContainer}>
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
+                {suggestions.map((item) => (
+                  <TouchableOpacity
+                    key={item.placeId}
+                    style={styles.suggestionItem}
+                    onPress={() => handleSelectSuggestion(item.placeId, item.description)}
+                  >
+                    <Ionicons name="location-outline" size={16} color="#6B7280" style={{ marginRight: 8 }} />
+                    <Text style={styles.suggestionText} numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         {/* "Locate me" FAB */}
@@ -832,4 +931,66 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   locatingText: { color: '#64748B', fontSize: 16, fontWeight: '500' },
+  searchSectionWrapper: {
+    zIndex: 10,
+    position: 'relative',
+    marginHorizontal: 12,
+    marginTop: 8
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 14,
+    color: '#0F172A',
+    paddingVertical: 0
+  },
+  searchIconBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 54,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+    zIndex: 999
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9'
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: '#334155',
+    flex: 1
+  }
 });

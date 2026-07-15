@@ -78,6 +78,137 @@ export default function CheckoutScreen() {
     const [agreed, setAgreed] = useState(false);
     const [packageBenefits, setPackageBenefits] = useState<string[]>([]);
 
+    // Targeted package check states
+    const [fullPackage, setFullPackage] = useState<any>(null);
+
+    // Expo Router serialises params as URL query strings — commas split strings into arrays.
+    // serviceAddress is JSON-encoded before navigation so we safely parse it here.
+    const decodeServiceAddress = (): string => {
+        const raw = params.serviceAddress;
+        if (!raw) return '';
+        const str = Array.isArray(raw) ? raw.join('') : (raw as string);
+        try { return JSON.parse(str); } catch { return str; }
+    };
+    const [serviceAddress, setServiceAddress] = useState(decodeServiceAddress);
+    const [servicePincode, setServicePincode] = useState(() => {
+        const raw = params.servicePincode;
+        if (!raw) return '';
+        return Array.isArray(raw) ? raw[0] : (raw as string);
+    });
+    const [serviceChecked, setServiceChecked] = useState(false);
+    const [serviceAvailable, setServiceAvailable] = useState(false);
+    const [serviceRegionId, setServiceRegionId] = useState(() => {
+        const raw = params.serviceRegionId;
+        if (!raw) return '';
+        return Array.isArray(raw) ? raw[0] : (raw as string);
+    });
+    const [serviceLocationName, setServiceLocationName] = useState('');
+    const [checkingPincode, setCheckingPincode] = useState(false);
+
+    // ── Track the pre-validated region from the packages screen dynamically ─────
+    // This value updates whenever route params change (e.g. user goes back, picks another location).
+    const preValidatedRegionId = React.useMemo(() => {
+        const raw = params.serviceRegionId;
+        if (!raw) return '';
+        return Array.isArray(raw) ? raw[0] : (raw as string);
+    }, [params.serviceRegionId]);
+
+    // ── Sync navigation parameters to state dynamically ─────────────────────────
+    useEffect(() => {
+        const addr = decodeServiceAddress();
+        setServiceAddress(addr);
+
+        const rawPin = params.servicePincode;
+        const pin = !rawPin ? '' : (Array.isArray(rawPin) ? rawPin[0] : (rawPin as string));
+        setServicePincode(pin);
+
+        const rawRegion = params.serviceRegionId;
+        const region = !rawRegion ? '' : (Array.isArray(rawRegion) ? rawRegion[0] : (rawRegion as string));
+        setServiceRegionId(region);
+
+        if (region) {
+            setServiceChecked(true);
+            setServiceAvailable(true);
+        } else {
+            setServiceChecked(false);
+            setServiceAvailable(false);
+        }
+    }, [params.serviceAddress, params.servicePincode, params.serviceRegionId]);
+
+    const checkPincodeServiceability = async (pincode: string) => {
+        if (!pincode || pincode.length !== 6) {
+            setServiceChecked(false);
+            setServiceAvailable(false);
+            return;
+        }
+        setCheckingPincode(true);
+        try {
+            const res = await fetch(`${API_URL}/public/zones/check-pincode?pincode=${pincode}`);
+            const json = await res.json();
+            if (json.success && json.data.available) {
+                setServiceChecked(true);
+                setServiceAvailable(true);
+                // Only update serviceRegionId if there was no pre-validated one from params.
+                // If we overwrite it here we'll lose the validated region and break isPackageAvailable.
+                if (!preValidatedRegionId) {
+                    setServiceRegionId(json.data.regionId || '');
+                }
+                setServiceLocationName(json.data.location || '');
+            } else {
+                setServiceChecked(true);
+                setServiceAvailable(false);
+                if (!preValidatedRegionId) {
+                    setServiceRegionId('');
+                }
+                setServiceLocationName('');
+            }
+        } catch (err) {
+            console.error('[Pincode check error]', err);
+            setServiceChecked(false);
+        } finally {
+            setCheckingPincode(false);
+        }
+    };
+
+    useEffect(() => {
+        // Skip pincode re-validation entirely when location was pre-validated
+        // on the packages screen. The region is already confirmed — no need to
+        // re-check and risk overwriting the region with an async result.
+        if (preValidatedRegionId) return;
+
+        if (servicePincode.length === 6) {
+            checkPincodeServiceability(servicePincode);
+        } else {
+            setServiceChecked(false);
+            setServiceAvailable(false);
+        }
+    }, [servicePincode, preValidatedRegionId]);
+
+    const isPackageAvailable = React.useMemo(() => {
+        if (!fullPackage) return true; // Still loading — optimistically allow
+        if (fullPackage.isGlobal) return true; // Global packages serve everywhere
+
+        // If the user reached checkout via the packages screen with a pre-validated
+        // region, trust that validation. The packages screen already confirmed the
+        // zone covers this region and only showed matching packages.
+        if (preValidatedRegionId) return true;
+
+        // Fallback (manual pincode path): check against the zone check result
+        if (!serviceChecked || !serviceAvailable) return false;
+
+        // The backend returns packageRegions: [{ regionId, region: {...} }, ...]
+        // NOT a flat regionIds array — extract regionId values from the join table
+        const packageRegionIds: string[] = (fullPackage.packageRegions || []).map((pr: any) => pr.regionId);
+        return packageRegionIds.length === 0 || packageRegionIds.includes(serviceRegionId);
+    }, [fullPackage, serviceChecked, serviceAvailable, serviceRegionId, preValidatedRegionId]);
+
+    const isLocationReady = React.useMemo(() => {
+        if (!fullPackage) return false;
+        if (fullPackage.isGlobal) return true;
+        if (preValidatedRegionId) return true; // Pre-validated from packages screen
+        return serviceAvailable && isPackageAvailable;
+    }, [fullPackage, serviceAvailable, isPackageAvailable, preValidatedRegionId]);
+
     // 🛑 UI STATE
     const [activeTab, setActiveTab] = useState<'UPI' | 'CARDS' | 'NET_BANKING'>('UPI');
     const [upiId, setUpiId] = useState('');
@@ -124,13 +255,17 @@ export default function CheckoutScreen() {
 
     // Initial load — no coupon
     useEffect(() => {
-        const loadPackageBenefits = async (pkgId: string) => {
+        const loadPackageBenefits = async (pkgId: string, regionId?: string) => {
             try {
-                const res = await fetch(`${API_URL}/subscriber/subscriptions/packages`);
+                const url = regionId
+                    ? `${API_URL}/subscriber/subscriptions/packages?regionId=${regionId}`
+                    : `${API_URL}/subscriber/subscriptions/packages`;
+                const res = await fetch(url);
                 const data = await res.json();
                 if (data.success && Array.isArray(data.data)) {
                     const matchedPkg = data.data.find((p: any) => p.type === pkgId || p.id === pkgId);
                     if (matchedPkg) {
+                        setFullPackage(matchedPkg);
                         if (matchedPkg.packageBenefits && matchedPkg.packageBenefits.length > 0) {
                             const list = matchedPkg.packageBenefits.map((pb: any) => {
                                 const label = (pb.benefit?.unitLabel || '').replace(/^per\s+/i, '');
@@ -181,9 +316,9 @@ export default function CheckoutScreen() {
         }
 
         if (targetPkgId) {
-            loadPackageBenefits(targetPkgId);
+            loadPackageBenefits(targetPkgId, serviceRegionId);
         }
-    }, [packageId, isVerificationFlow, pendingDetailsRaw]);
+    }, [packageId, isVerificationFlow, pendingDetailsRaw, serviceRegionId]);
 
     // Apply coupon — calls preview again with the code
     const handleApplyCoupon = async () => {
@@ -217,6 +352,10 @@ export default function CheckoutScreen() {
     };
 
     const handlePay = async () => {
+        if (!isPackageAvailable) {
+            Alert.alert("Service Unavailable", "This package is not available at the selected service location pincode.");
+            return;
+        }
         setIsProcessing(true);
         try {
             const [storedUserData, storedToken] = await Promise.all([
@@ -618,6 +757,89 @@ export default function CheckoutScreen() {
                     <Text style={styles.sectionTitle}>{isVerificationFlow ? 'Verify & Activate Plan' : 'Payment Details'}</Text>
                     <Text style={styles.sectionSubtitle}>{isVerificationFlow ? 'Review details and agree to terms to activate pre-paid package' : 'Choose your preferred payment method'}</Text>
 
+                    {/* Service Location Confirmation Card */}
+                    {(serviceAddress || (fullPackage && !fullPackage.isGlobal)) && (
+                        <View style={styles.servicePincodeCard}>
+                            <View style={styles.servicePincodeHeader}>
+                                <Feather name="map-pin" size={18} color="#FE6700" />
+                                <Text style={styles.servicePincodeTitle}>
+                                    Confirm Service Location
+                                </Text>
+                            </View>
+                            <Text style={styles.servicePincodeSubtitle}>
+                                Care services will be delivered to the address below.
+                            </Text>
+
+                            {serviceAddress ? (
+                                <View style={styles.selectedAddressBox}>
+                                    <Feather name="map" size={14} color="#F97316" style={{ marginRight: 6 }} />
+                                    <Text style={styles.selectedAddressText} numberOfLines={3}>
+                                        {serviceAddress}
+                                    </Text>
+                                </View>
+                            ) : null}
+
+                            {/* If location was pre-validated on packages screen → show confirmed badge */}
+                            {serviceRegionId ? (
+                                <View style={styles.statusBox}>
+                                    <View style={styles.statusRow}>
+                                        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                                        <Text style={styles.statusSuccessText}>
+                                            Location verified — service available in your area
+                                        </Text>
+                                    </View>
+                                </View>
+                            ) : (
+                                /* Fallback: user came without a pre-validated region (manual pincode path) */
+                                fullPackage && !fullPackage.isGlobal ? (
+                                    <>
+                                        <View style={styles.pinInputRow}>
+                                            <TextInput
+                                                style={styles.pinTextInput}
+                                                placeholder="Enter 6-digit Pincode"
+                                                placeholderTextColor="#9CA3AF"
+                                                value={servicePincode}
+                                                onChangeText={(text) => setServicePincode(text.replace(/[^0-9]/g, '').slice(0, 6))}
+                                                keyboardType="numeric"
+                                                maxLength={6}
+                                            />
+                                            {checkingPincode && <ActivityIndicator size="small" color="#FE6700" style={{ marginLeft: 10 }} />}
+                                        </View>
+
+                                        {serviceChecked && (
+                                            <View style={styles.statusBox}>
+                                                {serviceAvailable ? (
+                                                    <View style={styles.statusRow}>
+                                                        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                                                        <Text style={styles.statusSuccessText}>
+                                                            Serving {serviceLocationName}!
+                                                        </Text>
+                                                    </View>
+                                                ) : (
+                                                    <View style={styles.statusRow}>
+                                                        <Ionicons name="close-circle" size={18} color="#EF4444" />
+                                                        <Text style={styles.statusErrorText}>
+                                                            Sorry, we do not serve this pincode yet.
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        )}
+
+                                        {serviceChecked && serviceAvailable && !isPackageAvailable && (
+                                            <View style={styles.warningBox}>
+                                                <Ionicons name="warning" size={18} color="#EA580C" />
+                                                <Text style={styles.warningText}>
+                                                    This package is not available in {serviceLocationName || 'this region'}. Please choose a different package.
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </>
+                                ) : null
+                            )}
+                        </View>
+                    )}
+
                     {isVerificationFlow ? (
                         <View style={styles.paymentCard}>
                             <Text style={{ fontFamily: 'Poppins_400Regular', fontSize: fs(30), color: '#111827', marginBottom: fs(12), fontWeight: '700' }}>
@@ -650,9 +872,9 @@ export default function CheckoutScreen() {
                             </View>
 
                             <TouchableOpacity
-                                style={[styles.payButton, (isProcessing || !agreed) && { opacity: 0.6 }]}
+                                style={[styles.payButton, (isProcessing || !agreed || !isLocationReady) && { opacity: 0.6 }]}
                                 onPress={handlePay}
-                                disabled={isProcessing || pricingLoading || !agreed}
+                                disabled={isProcessing || pricingLoading || !agreed || !isLocationReady}
                             >
                                 {isProcessing ? (
                                     <ActivityIndicator color="#FFFFFF" />
@@ -792,9 +1014,9 @@ export default function CheckoutScreen() {
                                         <View style={styles.divider} />
 
                                         <TouchableOpacity
-                                            style={[styles.payButton, isProcessing && { opacity: 0.7 }]}
+                                            style={[styles.payButton, (isProcessing || !isLocationReady) && { opacity: 0.7 }]}
                                             onPress={handlePay}
-                                            disabled={isProcessing || pricingLoading}
+                                            disabled={isProcessing || pricingLoading || !isLocationReady}
                                         >
                                             {isProcessing ? (
                                                 <ActivityIndicator color="#FFFFFF" />
@@ -1021,4 +1243,108 @@ const styles = StyleSheet.create({
     couponAppliedSaving: { fontSize: 12, color: '#059669', marginTop: 2, fontFamily: 'Poppins_400Regular' },
     removeBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#FEE2E2', borderRadius: 6 },
     removeBtnText: { fontSize: 13, fontWeight: '700', color: '#EF4444', fontFamily: 'Poppins_700Bold' },
+
+    servicePincodeCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: fs(20),
+        paddingHorizontal: fs(24),
+        paddingVertical: fs(24),
+        marginBottom: fs(41),
+        ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.08, shadowRadius: 18 }, android: { elevation: 4 }, web: { boxShadow: '0px 7px 20px rgba(0, 0, 0, 0.08)' } }),
+    },
+    servicePincodeHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: fs(12),
+        gap: fs(8),
+    },
+    servicePincodeTitle: {
+        fontSize: fs(26),
+        lineHeight: fs(36),
+        fontWeight: '700',
+        fontFamily: 'Poppins_700Bold',
+        color: '#111827',
+    },
+    servicePincodeSubtitle: {
+        fontSize: fs(22),
+        lineHeight: fs(30),
+        color: '#4B5563',
+        fontFamily: 'Poppins_400Regular',
+        marginBottom: fs(16),
+    },
+    pinInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: fs(12),
+    },
+    pinTextInput: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#C8C8C8',
+        borderRadius: fs(12),
+        paddingHorizontal: fs(26),
+        height: fs(79),
+        fontSize: fs(26),
+        lineHeight: fs(34),
+        fontWeight: '400',
+        fontFamily: 'Poppins_400Regular',
+        color: '#000000',
+    },
+    statusBox: {
+        marginTop: fs(8),
+    },
+    statusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    statusSuccessText: {
+        fontSize: fs(22),
+        color: '#10B981',
+        fontWeight: '600',
+        fontFamily: 'Poppins_600SemiBold',
+    },
+    statusErrorText: {
+        fontSize: fs(22),
+        color: '#EF4444',
+        fontWeight: '600',
+        fontFamily: 'Poppins_600SemiBold',
+    },
+    warningBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF7F2',
+        borderWidth: 1,
+        borderColor: '#FFE1CC',
+        borderRadius: fs(12),
+        padding: fs(16),
+        marginTop: fs(16),
+        gap: 8,
+    },
+    warningText: {
+        fontSize: fs(20),
+        lineHeight: fs(28),
+        color: '#EA580C',
+        fontWeight: '600',
+        fontFamily: 'Poppins_600SemiBold',
+        flex: 1,
+    },
+    selectedAddressBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF5ED',
+        borderRadius: fs(12),
+        padding: fs(16),
+        marginBottom: fs(16),
+        borderWidth: 1,
+        borderColor: '#FDE6D5'
+    },
+    selectedAddressText: {
+        fontSize: fs(22),
+        color: '#4B5563',
+        flex: 1,
+        lineHeight: fs(30),
+        fontFamily: 'Poppins_400Regular'
+    },
 });
