@@ -519,6 +519,7 @@ model Team {
   name           String
   fieldManagerId String
   zone           String
+  zoneId         String?
   description    String?
   maxCapacity    Int             @default(15)
   createdAt      DateTime        @default(now())
@@ -527,6 +528,7 @@ model Team {
   staffProfiles  StaffProfile[]
   beneficiaries  Beneficiary[]
   fieldManager   FieldManager    @relation(fields: [fieldManagerId], references: [id])
+  zoneRelation   Zone?           @relation(fields: [zoneId], references: [id])
 
   @@map("teams")
 }
@@ -1038,9 +1040,12 @@ model Zone {
   updatedAt             DateTime       @updatedAt
   fieldManagerId        String?
   operationsManagerId   String?
+  regionId              String?
   staffProfiles         StaffProfile[]
   fieldManagerUser      User?          @relation("ZoneFieldManager", fields: [fieldManagerId], references: [id])
   operationsManagerUser User?          @relation("ZoneOperationsManager", fields: [operationsManagerId], references: [id])
+  region                Region?        @relation(fields: [regionId], references: [id])
+  teams                 Team[]
 
   @@index([name])
   @@index([city])
@@ -1256,6 +1261,7 @@ model VitalReading {
   capturedById  String
   capturedAt    DateTime @default(now())
   captureMethod String   @default("manual") // 'manual', 'device', 'auto'
+  source        String   @default("care_companion") // 'care_companion' | 'beneficiary'
   deviceId      String?
 
   latitude  Float?
@@ -1697,3 +1703,21 @@ model ServiceRequest {
 
   @@map("service_requests")
 }
+
+model Region {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  city      String
+  state     String
+  latitude  Float
+  longitude Float
+  radiusKm  Float    @default(30.0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  zones     Zone[]
+
+  @@map("regions")
+}
+
+

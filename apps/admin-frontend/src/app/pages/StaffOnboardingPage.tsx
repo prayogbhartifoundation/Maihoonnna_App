@@ -18,7 +18,7 @@ import {
 import { usePincodeLookup } from '../hooks/usePincodeLookup';
 import { toast } from 'sonner';
 
-import { staffOnboardingApi } from '../../services/api';
+import { staffOnboardingApi, regionApi } from '../../services/api';
 import type {
   StaffBackgroundCheckType,
   StaffDocumentType,
@@ -262,6 +262,30 @@ export default function StaffOnboardingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  // Search states for Region & Zone
+  const [regionSearch, setRegionSearch] = useState('');
+  const [selectedRegionId, setSelectedRegionId] = useState('');
+  const [zoneSearch, setZoneSearch] = useState('');
+  const [regions, setRegions] = useState<any[]>([]);
+  const [regionFocused, setRegionFocused] = useState(false);
+  const [zoneFocused, setZoneFocused] = useState(false);
+
+  // Clear selections and zoneSearch when region changes
+  useEffect(() => {
+    setZoneSearch('');
+    if (role !== 'operations_manager') {
+      setFormState((prev) => ({
+        ...prev,
+        assignment: {
+          ...prev.assignment,
+          zoneId: '',
+          teamId: '',
+          reportsToUserId: '',
+        },
+      }));
+    }
+  }, [selectedRegionId, role]);
+
   useEffect(() => {
     setFormState((previousState) => {
       const nextState = adaptFormStateForRole(previousState, role);
@@ -289,9 +313,37 @@ export default function StaffOnboardingPage() {
     const loadMetadata = async () => {
       setLoading(true);
       try {
-        const response = await staffOnboardingApi.getMetadata();
+        const [response, regionsRes] = await Promise.all([
+          staffOnboardingApi.getMetadata(),
+          regionApi.getAll()
+        ]);
         if (!cancelled) {
           setMetadata(response);
+          setRegions(regionsRes || []);
+
+          // Pre-populate search fields if formState already has zoneId (restored from session)
+          const savedForm = sessionStorage.getItem('staff_onboarding_form');
+          if (savedForm) {
+            try {
+              const parsed = JSON.parse(savedForm);
+              const zId = parsed?.assignment?.zoneId;
+              if (zId && response?.zones) {
+                const zObj = response.zones.find((z: any) => z.id === zId);
+                if (zObj) {
+                  setZoneSearch(zObj.name);
+                  if (zObj.regionId) {
+                    setSelectedRegionId(zObj.regionId);
+                    const rObj = regionsRes.find((r: any) => r.id === zObj.regionId);
+                    if (rObj) {
+                      setRegionSearch(rObj.name);
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to pre-populate search fields from session', e);
+            }
+          }
         }
       } catch (error: any) {
         if (!cancelled) {
@@ -321,6 +373,29 @@ export default function StaffOnboardingPage() {
     if (!selectedZone) return false;
     return (manager.assignedZones || []).some(z => z.id === selectedZone.id);
   });
+
+  const filteredRegions = React.useMemo(() => {
+    if (!regionSearch) return regions;
+    return regions.filter(r => 
+      r.name?.toLowerCase().includes(regionSearch.toLowerCase()) ||
+      r.city?.toLowerCase().includes(regionSearch.toLowerCase())
+    );
+  }, [regions, regionSearch]);
+
+  const filteredZones = React.useMemo(() => {
+    const allZones = metadata?.zones || [];
+    let list = allZones;
+    if (selectedRegionId) {
+      list = allZones.filter(z => z.regionId === selectedRegionId);
+    } else {
+      list = [];
+    }
+    if (!zoneSearch) return list;
+    return list.filter(z => 
+      z.name?.toLowerCase().includes(zoneSearch.toLowerCase()) ||
+      z.city?.toLowerCase().includes(zoneSearch.toLowerCase())
+    );
+  }, [metadata?.zones, selectedRegionId, zoneSearch]);
 
   const requiredDocumentTypes = Object.entries(DOCUMENT_CONFIG)
     .filter(([, value]) => value.requiredFor.includes(role))
@@ -1326,85 +1401,195 @@ export default function StaffOnboardingPage() {
                         <p className="text-sm text-gray-500">CSAs are onboarded with global support access. No specific zone assignment is required.</p>
                       </div>
                     </div>
-                  ) : role === 'operations_manager' ? (
-                    <div className="rounded-3xl border border-[#E7DED6] bg-white p-6">
-                      <h3 className="text-base font-black text-gray-800 mb-4">Managed zones</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {(metadata?.zones || []).map((zoneItem) => {
-                          const selected = (formState.assignment.zoneIds || []).includes(zoneItem.id);
-                          return (
-                            <button
-                              key={zoneItem.id}
-                              type="button"
-                              onClick={() => toggleManagedZone(zoneItem.id)}
-                              className={`text-left rounded-2xl border p-4 transition-colors ${
-                                selected
-                                  ? 'border-[#1D4ED8] bg-[#EEF3FF]'
-                                  : 'border-[#E7DED6] bg-white hover:border-[#1D4ED8]'
-                              }`}
-                            >
-                              <p className="font-bold text-gray-800">{zoneItem.name}</p>
-                              <p className="text-sm text-gray-500 mt-1">
-                                {zoneItem.city}, {zoneItem.state}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-2">Pincode: {zoneItem.pincode}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <select
-                        value={formState.assignment.zoneId}
-                        onChange={(event) => {
-                          setAssignmentField('zoneId', event.target.value);
-                          setAssignmentField('teamId', '');
-                          setAssignmentField('reportsToUserId', '');
-                        }}
-                        className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
-                      >
-                        <option value="">Select zone</option>
-                        {(metadata?.zones || []).map((zoneItem) => (
-                          <option key={zoneItem.id} value={zoneItem.id}>
-                            {zoneItem.name} - {zoneItem.city}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="space-y-6 bg-white border border-[#E7DED6] rounded-[24px] p-6">
+                      {/* Search & Cascading Select */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Region Selector */}
+                        <div className="space-y-2 relative">
+                          <label className="text-[10px] font-black text-gray-400 uppercase block">Region / City Sector *</label>
+                          <input
+                            type="text"
+                            placeholder="Type to search and select region..."
+                            value={regionSearch}
+                            onFocus={() => setRegionFocused(true)}
+                            onBlur={() => setTimeout(() => setRegionFocused(false), 200)}
+                            onChange={(e) => {
+                              setRegionSearch(e.target.value);
+                              if (!e.target.value) {
+                                setSelectedRegionId('');
+                              }
+                            }}
+                            className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00] font-semibold text-sm shadow-sm"
+                          />
+                          {regionFocused && !selectedRegionId && (
+                            <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-[#E7DED6] rounded-2xl shadow-xl max-h-[180px] overflow-y-auto">
+                              {filteredRegions.map(r => (
+                                <button
+                                  key={r.id}
+                                  type="button"
+                                  onMouseDown={() => {
+                                    setSelectedRegionId(r.id);
+                                    setRegionSearch(r.name);
+                                    setRegionFocused(false);
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-orange-50 transition border-b border-gray-50 last:border-0 text-sm font-semibold text-gray-700"
+                                >
+                                  {r.name} ({r.city})
+                                </button>
+                              ))}
+                              {filteredRegions.length === 0 && (
+                                <div className="p-3 text-xs text-gray-400 text-center italic">No matching regions found</div>
+                              )}
+                            </div>
+                          )}
+                          {selectedRegionId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedRegionId('');
+                                setRegionSearch('');
+                              }}
+                              className="absolute right-3 top-9 text-xs font-bold text-[#FF7A00] hover:underline"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
 
-                      {role === 'care_companion' ? (
-                        <select
-                          value={formState.assignment.teamId}
-                          onChange={(event) => setAssignmentField('teamId', event.target.value)}
-                          className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00]"
-                        >
-                          <option value="">Select team (optional)</option>
-                          {availableTeams.map((team) => (
-                            <option key={team.id} value={team.id}>
-                              {team.name} - {team.currentCapacity}/{team.maxCapacity}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <select
-                          value={formState.assignment.reportsToUserId}
-                          onChange={(event) => setAssignmentField('reportsToUserId', event.target.value)}
-                          disabled={!formState.assignment.zoneId}
-                          className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00] disabled:opacity-50"
-                        >
-                          <option value="">
-                            {!formState.assignment.zoneId 
-                              ? 'Select zone first...' 
-                              : availableManagers.length === 0 
-                                ? 'No managers assigned to this zone' 
-                                : 'Reports to (Operations Manager)'}
-                          </option>
-                          {availableManagers.map((manager) => (
-                            <option key={manager.userId} value={manager.userId}>
-                              {manager.name}
-                            </option>
-                          ))}
-                        </select>
+                        {/* Zone Selector */}
+                        <div className="space-y-2 relative">
+                          <label className="text-[10px] font-black text-gray-400 uppercase block">
+                            {role === 'operations_manager' ? 'Select Zones (Managed Zones)' : 'Target Zone *'}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={selectedRegionId ? "Type to search and select zone..." : "Select Region First..."}
+                            value={zoneSearch}
+                            disabled={!selectedRegionId}
+                            onFocus={() => setZoneFocused(true)}
+                            onBlur={() => setTimeout(() => setZoneFocused(false), 200)}
+                            onChange={(e) => {
+                              setZoneSearch(e.target.value);
+                              if (role !== 'operations_manager' && !e.target.value) {
+                                setAssignmentField('zoneId', '');
+                                setAssignmentField('teamId', '');
+                                setAssignmentField('reportsToUserId', '');
+                              }
+                            }}
+                            className="w-full px-4 py-3 rounded-2xl bg-white border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00] font-semibold text-sm shadow-sm disabled:bg-gray-50 disabled:opacity-60"
+                          />
+                          {selectedRegionId && zoneFocused && (
+                            <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-[#E7DED6] rounded-2xl shadow-xl max-h-[180px] overflow-y-auto">
+                              {filteredZones.map(z => {
+                                const isSelected = role === 'operations_manager'
+                                  ? (formState.assignment.zoneIds || []).includes(z.id)
+                                  : formState.assignment.zoneId === z.id;
+
+                                return (
+                                  <button
+                                    key={z.id}
+                                    type="button"
+                                    onMouseDown={() => {
+                                      if (role === 'operations_manager') {
+                                        toggleManagedZone(z.id);
+                                      } else {
+                                        setAssignmentField('zoneId', z.id);
+                                        setAssignmentField('teamId', '');
+                                        setAssignmentField('reportsToUserId', '');
+                                        setZoneSearch(z.name);
+                                        setZoneFocused(false);
+                                      }
+                                    }}
+                                    className={`w-full text-left px-4 py-3 hover:bg-orange-50 transition border-b border-gray-50 last:border-0 text-sm font-semibold flex justify-between items-center ${
+                                      isSelected ? 'bg-orange-50 text-[#FF7A00]' : 'text-gray-700'
+                                    }`}
+                                  >
+                                    <span>{z.name} ({z.city})</span>
+                                    {isSelected && <CheckCircle2 size={16} className="text-[#FF7A00]" />}
+                                  </button>
+                                );
+                              })}
+                              {filteredZones.length === 0 && (
+                                <div className="p-3 text-xs text-gray-400 text-center italic">No matching zones found</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Display Selected Zones for Operations Manager */}
+                      {role === 'operations_manager' && (
+                        <div className="mt-4 bg-gray-50 border border-gray-100 p-4 rounded-2xl space-y-2">
+                          <p className="text-[10px] font-black text-gray-400 uppercase">Selected Managed Zones ({formState.assignment.zoneIds?.length || 0})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {(formState.assignment.zoneIds || []).map(id => {
+                              const zObj = metadata?.zones.find(z => z.id === id);
+                              if (!zObj) return null;
+                              return (
+                                <span key={id} className="bg-[#FFF1E6] text-[#FF7A00] border border-[#F6D2B6] px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                                  {zObj.name}
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleManagedZone(id)}
+                                    className="text-orange-400 hover:text-orange-600 font-bold text-sm"
+                                  >
+                                    &times;
+                                  </button>
+                                </span>
+                              );
+                            })}
+                            {(formState.assignment.zoneIds || []).length === 0 && (
+                              <p className="text-xs text-gray-400 italic">No zones selected yet. Please type and search in the Zone field above.</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Team / Reports To selectors (For single-zone roles) */}
+                      {role !== 'operations_manager' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-50">
+                          {role === 'care_companion' ? (
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-gray-400 uppercase block">Select Team (Optional)</label>
+                              <select
+                                value={formState.assignment.teamId}
+                                onChange={(event) => setAssignmentField('teamId', event.target.value)}
+                                className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00] font-semibold text-sm"
+                              >
+                                <option value="">Select team (optional)</option>
+                                {availableTeams.map((team) => (
+                                  <option key={team.id} value={team.id}>
+                                    {team.name} - {team.currentCapacity}/{team.maxCapacity}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-gray-400 uppercase block">Reports To (Operations Manager) *</label>
+                              <select
+                                value={formState.assignment.reportsToUserId}
+                                onChange={(event) => setAssignmentField('reportsToUserId', event.target.value)}
+                                disabled={!formState.assignment.zoneId}
+                                className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/30 border border-[#E7DED6] focus:outline-none focus:border-[#FF7A00] disabled:opacity-50 font-semibold text-sm"
+                              >
+                                <option value="">
+                                  {!formState.assignment.zoneId 
+                                    ? 'Select zone first...' 
+                                    : availableManagers.length === 0 
+                                      ? 'No managers assigned to this zone' 
+                                      : 'Reports to (Operations Manager)'}
+                                </option>
+                                {availableManagers.map((manager) => (
+                                  <option key={manager.userId} value={manager.userId}>
+                                    {manager.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

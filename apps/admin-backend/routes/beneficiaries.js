@@ -376,6 +376,8 @@ router.put('/:id/assign-staff', async (req, res) => {
     let newPrimaryCC = null;     // { id, name, userId } of newly assigned primary CC
     let newSecondaryCcUserId = null;
 
+    const { getConfigValue } = require('../utils/config');
+
     // ── Validate & track new primary CC ─────────────────────────────────────
     if (primaryCcId !== undefined) {
       if (primaryCcId) {
@@ -386,10 +388,12 @@ router.put('/:id/assign-staff', async (req, res) => {
           where: { id: primaryCcId },
           select: { id: true, name: true, userId: true, maxPrimaryBeneficiaries: true },
         });
-        if (count >= (cc?.maxPrimaryBeneficiaries || 5)) {
+        const maxPrimary = await getConfigValue('max_primary_cc', 5);
+        const limit = cc?.maxPrimaryBeneficiaries || maxPrimary;
+        if (count >= limit) {
           return res.status(400).json({
             success: false,
-            message: `Care Companion ${cc?.name || ''} has reached maximum primary capacity (5)`,
+            message: `Care Companion ${cc?.name || ''} has reached maximum primary capacity (${limit})`,
           });
         }
         // Only treat as "new" if it wasn't already assigned
@@ -410,10 +414,12 @@ router.put('/:id/assign-staff', async (req, res) => {
           where: { id: secondaryCcId },
           select: { name: true, userId: true, maxSecondaryBeneficiaries: true },
         });
-        if (count >= (cc?.maxSecondaryBeneficiaries || 5)) {
+        const maxSecondary = await getConfigValue('max_secondary_cc', 5);
+        const limit = cc?.maxSecondaryBeneficiaries || maxSecondary;
+        if (count >= limit) {
           return res.status(400).json({
             success: false,
-            message: `Care Companion ${cc?.name || ''} has reached maximum secondary capacity (5)`,
+            message: `Care Companion ${cc?.name || ''} has reached maximum secondary capacity (${limit})`,
           });
         }
         if (beneficiary.secondaryCcId !== secondaryCcId && cc?.userId) {
@@ -423,7 +429,23 @@ router.put('/:id/assign-staff', async (req, res) => {
       data.secondaryCcId = secondaryCcId || null;
     }
 
-    if (teamId !== undefined) data.teamId = teamId || null;
+    if (teamId !== undefined) {
+      if (teamId) {
+        if (beneficiary.teamId !== teamId) {
+          const maxBens = await getConfigValue('max_beneficiary_per_team', 10);
+          const count = await prisma.beneficiary.count({
+            where: { teamId, isActive: true },
+          });
+          if (count >= maxBens) {
+            return res.status(400).json({
+              success: false,
+              message: `Selected team has reached maximum beneficiary capacity (${maxBens})`,
+            });
+          }
+        }
+      }
+      data.teamId = teamId || null;
+    }
 
     // ── DB Transaction: update + activity log ────────────────────────────────
     const updated = await prisma.$transaction(async (tx) => {

@@ -29,6 +29,8 @@ import EditTeamPage from './pages/EditTeamPage';
 import StaffOnboardingPage from './pages/StaffOnboardingPage';
 import BenefitTypesPage from './pages/BenefitTypesPage';
 import BenefitsPage from './pages/BenefitsPage';
+import RegionsPage from './pages/RegionsPage';
+import ConfigurationPage from './pages/ConfigurationPage';
 
 import CouponsPage from './pages/CouponsPage';
 import SubscriberProfilePage from './pages/SubscriberProfilePage';
@@ -192,6 +194,14 @@ export const router = createBrowserRouter([
       {
         path: 'enroll',
         Component: EnrollmentWizardPage,
+      },
+      {
+        path: 'regions',
+        Component: RegionsPage,
+      },
+      {
+        path: 'config',
+        Component: ConfigurationPage,
       },
     ],
   },

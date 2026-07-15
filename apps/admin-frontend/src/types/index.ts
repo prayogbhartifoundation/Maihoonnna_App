@@ -376,6 +376,7 @@ export interface StaffOnboardingZone {
   state: string;
   pincode: string;
   operationsManagerId?: string | null;
+  regionId?: string | null;
 }
 
 export interface StaffOnboardingTeam {

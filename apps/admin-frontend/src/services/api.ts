@@ -1011,7 +1011,7 @@ export const teamApi = {
     return apiJson('/teams');
   },
 
-  async createTeam(data: { name: string; fieldManagerId: string; zone: string; careCompanionIds: string[] }): Promise<any> {
+  async createTeam(data: { name: string; fieldManagerId?: string | null; zone: string; zoneId?: string | null; careCompanionIds: string[] }): Promise<any> {
     return apiJson('/teams', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1027,7 +1027,7 @@ export const teamApi = {
     return apiJson(`/teams/${id}`);
   },
 
-  async updateTeam(id: string, data: { name?: string; fieldManagerId?: string; zone?: string; careCompanionIds?: string[] }): Promise<any> {
+  async updateTeam(id: string, data: { name?: string; fieldManagerId?: string | null; zone?: string; zoneId?: string | null; careCompanionIds?: string[] }): Promise<any> {
     return apiJson(`/teams/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -1300,6 +1300,52 @@ export const callbacksApi = {
     return apiJson<CallbackRequest>(`/callbacks/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    });
+  },
+};
+
+// ============================================================================
+// REGIONS API
+// ============================================================================
+
+export const regionApi = {
+  async getAll(): Promise<any[]> {
+    return apiJson<any[]>('/regions');
+  },
+  async create(data: any): Promise<any> {
+    return apiJson<any>('/regions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async update(id: string, data: any): Promise<any> {
+    return apiJson<any>(`/regions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async delete(id: string): Promise<any> {
+    return apiJson<any>(`/regions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+  async detect(lat: number, lng: number): Promise<any[]> {
+    return apiJson<any[]>(`/regions/detect?lat=${lat}&lng=${lng}`);
+  },
+};
+
+// ============================================================================
+// CONFIGURATION API
+// ============================================================================
+
+export const configApi = {
+  async getAll(): Promise<any[]> {
+    return apiJson<any[]>('/config');
+  },
+  async update(key: string, data: { value: string; description?: string; group?: string }): Promise<any> {
+    return apiJson<any>(`/config/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     });
   },
 };

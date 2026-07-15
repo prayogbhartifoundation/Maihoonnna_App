@@ -21,6 +21,7 @@ router.get('/', async (req, res) => {
 
     const listQuery = {
       where: filterParams,
+      include: { region: true },
       orderBy: { createdAt: 'desc' },
     };
 
@@ -98,6 +99,7 @@ router.get('/:id', async (req, res) => {
   try {
     const zone = await prisma.zone.findUnique({
       where: { id: req.params.id },
+      include: { region: true },
     });
     if (!zone)
       return res
@@ -125,6 +127,7 @@ router.post('/', async (req, res) => {
       leaseEndDate,
       fieldManagerId,
       operationsManagerId,
+      regionId,
     } = req.body;
 
     // Basic validation
@@ -150,7 +153,9 @@ router.post('/', async (req, res) => {
         isActive: true,
         fieldManagerId: fieldManagerId || null,
         operationsManagerId: operationsManagerId || null,
+        regionId: regionId || null,
       },
+      include: { region: true },
     });
 
     res.status(201).json({ success: true, data: zone });
@@ -183,6 +188,7 @@ router.put('/:id', async (req, res) => {
       isActive,
       fieldManagerId,
       operationsManagerId,
+      regionId,
     } = req.body;
 
     const data = {};
@@ -205,10 +211,13 @@ router.put('/:id', async (req, res) => {
       data.fieldManagerId = fieldManagerId || null;
     if (operationsManagerId !== undefined)
       data.operationsManagerId = operationsManagerId || null;
+    if (regionId !== undefined)
+      data.regionId = regionId || null;
 
     const zone = await prisma.zone.update({
       where: { id: req.params.id },
       data,
+      include: { region: true },
     });
 
     res.json({ success: true, data: zone });

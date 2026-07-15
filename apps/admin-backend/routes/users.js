@@ -374,6 +374,7 @@ async function buildOnboardingMetadata() {
       state: zone.state,
       pincode: zone.pincode,
       operationsManagerId: zone.operationsManagerId,
+      regionId: zone.regionId,
     })),
     teams: teams.map((team) => ({
       id: team.id,
@@ -753,12 +754,15 @@ router.post('/staff/onboard', async (req, res) => {
             message: 'Selected team does not belong to the chosen zone',
           });
       }
-      if (selectedTeam._count?.careCompanions >= selectedTeam.maxCapacity) {
+
+      const { getConfigValue } = require('../utils/config');
+      const maxCc = await getConfigValue('max_cc_per_team', 15);
+      if (selectedTeam._count?.careCompanions >= maxCc) {
         return res
           .status(400)
           .json({
             success: false,
-            message: 'Selected team is already at full capacity',
+            message: `Selected team is already at full capacity (${maxCc} Care Companions)`,
           });
       }
     }

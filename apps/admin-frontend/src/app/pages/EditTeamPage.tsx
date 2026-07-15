@@ -3,7 +3,7 @@ import { PageHeader } from '../components/common/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { teamApi } from '../../services/api';
+import { teamApi, regionApi } from '../../services/api';
 import { toast } from 'sonner';
 import { useParams, useNavigate } from 'react-router';
 import { Users, UserCheck, ShieldCheck, MapPin, Loader2 } from 'lucide-react';
@@ -14,26 +14,48 @@ export default function EditTeamPage() {
   const navigate = useNavigate();
   
   const [name, setName] = useState('');
+  const [selectedRegion, setSelectedRegion] = useState('');
   const [zone, setZone] = useState('');
   const [selectedFM, setSelectedFM] = useState('');
   const [selectedCCs, setSelectedCCs] = useState<string[]>([]);
   
+  const [availableRegions, setAvailableRegions] = useState<any[]>([]);
   const [availableFMs, setAvailableFMs] = useState<any[]>([]);
   const [availableCCs, setAvailableCCs] = useState<any[]>([]);
   const [availableZones, setAvailableZones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Filter zones based on selected region
+  const filteredZones = React.useMemo(() => {
+    if (!selectedRegion) return [];
+    return availableZones.filter(z => z.regionId === selectedRegion);
+  }, [availableZones, selectedRegion]);
+
   // Filter staff based on selected zone
   const filteredFMs = React.useMemo(() => {
     if (!zone) return availableFMs;
-    return availableFMs.filter(fm => fm.zone === zone);
-  }, [availableFMs, zone]);
+    const selectedZoneObj = availableZones.find(z => z.id === zone);
+    if (!selectedZoneObj) return [];
+    return availableFMs.filter(fm => fm.zone?.trim().toLowerCase() === selectedZoneObj.name?.trim().toLowerCase());
+  }, [availableFMs, zone, availableZones]);
 
   const filteredCCs = React.useMemo(() => {
     if (!zone) return availableCCs;
-    return availableCCs.filter(cc => cc.zone === zone);
-  }, [availableCCs, zone]);
+    const selectedZoneObj = availableZones.find(z => z.id === zone);
+    if (!selectedZoneObj) return [];
+    return availableCCs.filter(cc => cc.zone?.trim().toLowerCase() === selectedZoneObj.name?.trim().toLowerCase());
+  }, [availableCCs, zone, availableZones]);
+
+  // Clear zone selection when selectedRegion changes, unless it matches the loaded zone
+  useEffect(() => {
+    if (zone && availableZones.length > 0) {
+      const zoneObj = availableZones.find(z => z.id === zone);
+      if (zoneObj && zoneObj.regionId && zoneObj.regionId !== selectedRegion) {
+        setZone('');
+      }
+    }
+  }, [selectedRegion]);
 
   useEffect(() => {
     if (id) {
@@ -45,20 +67,48 @@ export default function EditTeamPage() {
     try {
       setLoading(true);
       // Fetch everything in parallel
-      const [teamData, fms, zonesData] = await Promise.all([
+      const [teamData, fms, zonesData, regionsData] = await Promise.all([
         teamApi.getTeamById(id!),
         teamApi.getAvailableManagers(),
-        teamApi.getZones()
+        teamApi.getZones(),
+        regionApi.getAll()
       ]);
 
       // Set basic team info
       setName(teamData.name);
-      setZone(teamData.zone);
+      
+      // Legacy resolution: fallback to finding by name if zoneId is not present
+      let initialZone = teamData.zoneId;
+      if (!initialZone && teamData.zone && zonesData) {
+        const found = zonesData.find((z: any) => z.name === teamData.zone);
+        if (found) {
+          initialZone = found.id;
+        }
+      }
+      setZone(initialZone || '');
+
+      // Resolve initial region selection
+      if (initialZone) {
+        const zoneObj = zonesData.find((z: any) => z.id === initialZone);
+        if (zoneObj && zoneObj.regionId) {
+          setSelectedRegion(zoneObj.regionId);
+        }
+      }
+
       setSelectedFM(teamData.fieldManagerId || 'none');
       setSelectedCCs(teamData.careCompanions.map((cc: any) => cc.id));
 
-      setAvailableFMs(fms);
+      // Merge current field manager into list if not already there
+      let fmsList = [...fms];
+      if (teamData.fieldManager) {
+        const fmExists = fmsList.some(fm => fm.id === teamData.fieldManager.id);
+        if (!fmExists) {
+          fmsList.push(teamData.fieldManager);
+        }
+      }
+      setAvailableFMs(fmsList);
       setAvailableZones(zonesData);
+      setAvailableRegions(regionsData);
 
       // Now fetch companions, including those already in this team
       const ccs = await teamApi.getAvailableCompanions(id);
@@ -89,10 +139,12 @@ export default function EditTeamPage() {
 
     try {
       setSaving(true);
+      const selectedZoneObj = availableZones.find(z => z.id === zone);
       await teamApi.updateTeam(id!, {
         name,
-        fieldManagerId: selectedFM === 'none' ? null : selectedFM,
-        zone,
+        fieldManagerId: selectedFM === 'none' || !selectedFM ? null : selectedFM,
+        zone: selectedZoneObj?.name || '',
+        zoneId: zone,
         careCompanionIds: selectedCCs
       });
       toast.success('Team updated successfully');
@@ -142,14 +194,35 @@ export default function EditTeamPage() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Target Zone</label>
-              <Select onValueChange={setZone} value={zone}>
+              <label className="text-[10px] font-black text-gray-400 uppercase">Region / City Sector</label>
+              <Select onValueChange={setSelectedRegion} value={selectedRegion}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Choose Zone" />
+                  <SelectValue placeholder="Choose Region" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableZones.map(z => (
-                    <SelectItem key={z.id} value={z.name}>
+                  {availableRegions.map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                  {availableRegions.length === 0 && <SelectItem value="none" disabled>No regions available</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase">Target Zone</label>
+              <Select 
+                onValueChange={setZone} 
+                value={zone}
+                disabled={!selectedRegion}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={selectedRegion ? "Choose Zone" : "Select Region First"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredZones.map(z => (
+                    <SelectItem key={z.id} value={z.id}>
                       {z.name}
                     </SelectItem>
                   ))}

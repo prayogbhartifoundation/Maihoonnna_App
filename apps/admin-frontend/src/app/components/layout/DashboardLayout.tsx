@@ -53,6 +53,7 @@ const navigationSections: NavSection[] = [
     items: [
       { path: '/visits', label: 'Visits', icon: Calendar, roles: ['master_admin', 'operations_manager', 'field_manager'] },
       { path: '/field-management', label: 'Field Management', icon: Activity, roles: ['master_admin', 'operations_manager', 'field_manager'] },
+      { path: '/regions', label: 'Regions', icon: MapPin, roles: ['master_admin', 'operations_manager'] },
       { path: '/zones', label: 'Zones', icon: MapPin, roles: ['master_admin', 'operations_manager'] },
       { path: '/teams', label: 'Teams', icon: Users, roles: ['master_admin', 'operations_manager'] },
       { path: '/field-managers', label: 'Field Managers List', icon: Calendar, roles: ['master_admin', 'operations_manager'] },
@@ -84,6 +85,7 @@ const navigationSections: NavSection[] = [
   {
     title: 'SYSTEM',
     items: [
+      { path: '/config', label: 'System Settings', icon: Settings, roles: ['master_admin'] },
       { path: '/subscriptions', label: 'Subscription Packages', icon: Package, roles: ['master_admin'] },
       { path: '/benefit-types', label: 'Benefit Types', icon: Settings, roles: ['master_admin'] },
       { path: '/benefits', label: 'Benefits Library', icon: FileText, roles: ['master_admin'] },

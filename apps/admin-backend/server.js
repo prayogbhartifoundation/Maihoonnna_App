@@ -97,6 +97,8 @@ app.use('/api/coupons', adminsOnly, require('./routes/coupons'));
 app.use('/api/field-manager', adminsOnly, require('./routes/field-manager'));
 app.use('/api/activity-logs', adminsOnly, require('./routes/activity-logs'));
 app.use('/api/location', staffOnly, require('./routes/location'));
+app.use('/api/regions', adminsOnly, require('./routes/regions'));
+app.use('/api/config', mastersOnly, require('./routes/config'));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/ping', (req, res) => res.json({ message: 'pong' }));

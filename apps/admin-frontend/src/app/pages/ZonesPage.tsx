@@ -3,11 +3,12 @@ import {
   MapPin, Plus, X, Building2, Power, PowerOff,
   Phone, Calendar, Edit2, Trash2, Loader2,
   Navigation, AlertTriangle, Users, UserCheck, ChevronRight,
-  Map as MapIcon
+  Map as MapIcon, Globe
 } from 'lucide-react';
 import { usePincodeLookup } from '../hooks/usePincodeLookup';
 import DataFilter from '../components/common/DataFilter';
 import LocationPickerModal from '../components/common/LocationPickerModal';
+import { regionApi } from '../../services/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001/api';
 
@@ -42,12 +43,14 @@ interface Zone {
   phone: string | null;
   leaseStartDate: string | null;
   leaseEndDate: string | null;
-   isActive: boolean;
-   fieldManagerId: string | null;
-   operationsManagerId: string | null;
-   createdAt: string;
-   updatedAt: string;
- }
+  isActive: boolean;
+  fieldManagerId: string | null;
+  operationsManagerId: string | null;
+  regionId: string | null;
+  region?: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface StaffMember {
   id: string;
@@ -60,13 +63,15 @@ const emptyForm = {
   name: '', city: '', address: '', state: '', pincode: '',
   phone: '', latitude: '', longitude: '',
   leaseStartDate: '', leaseEndDate: '',
-  fieldManagerId: '' as string | null
+  fieldManagerId: '' as string | null,
+  regionId: ''
 };
 
 const ZonesPage = () => {
   const [zones, setZones] = useState<Zone[]>([]);
   const [fieldManagers, setFieldManagers] = useState<StaffMember[]>([]);
   const [operationsManagers, setOperationsManagers] = useState<StaffMember[]>([]);
+  const [regions, setRegions] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -100,15 +105,17 @@ const ZonesPage = () => {
         limit: limit.toString()
       });
 
-      const [zonesRes, fmsRes, omsRes] = await Promise.all([
+      const [zonesRes, fmsRes, omsRes, regionsRes] = await Promise.all([
         authFetch(`${API_BASE}/zones?${params.toString()}`),
         authFetch(`${API_BASE}/users/field-managers`),
-        authFetch(`${API_BASE}/users/operations-managers`)
+        authFetch(`${API_BASE}/users/operations-managers`),
+        authFetch(`${API_BASE}/regions`)
       ]);
 
       const zonesJson = await zonesRes.json();
       const fmsJson = await fmsRes.json();
       const omsJson = await omsRes.json();
+      const regionsJson = await regionsRes.json();
 
       if (zonesJson.success) {
         setZones(zonesJson.data);
@@ -117,6 +124,7 @@ const ZonesPage = () => {
       }
       if (fmsJson.success) setFieldManagers(fmsJson.data);
       if (omsJson.success) setOperationsManagers(omsJson.data);
+      if (regionsJson.success) setRegions(regionsJson.data);
 
       if (!zonesJson.success) throw new Error(zonesJson.message);
     } catch (err: any) {
@@ -150,7 +158,8 @@ const ZonesPage = () => {
       longitude: zone.longitude?.toString() || '',
       leaseStartDate: zone.leaseStartDate ? zone.leaseStartDate.slice(0, 10) : '',
       leaseEndDate: zone.leaseEndDate ? zone.leaseEndDate.slice(0, 10) : '',
-      fieldManagerId: zone.fieldManagerId || ''
+      fieldManagerId: zone.fieldManagerId || '',
+      regionId: zone.regionId || ''
     });
     setShowLookupResults(false);
     resetLookup();
@@ -419,6 +428,13 @@ const ZonesPage = () => {
                         <span>Ops Manager: {operationsManagers.find(m => m.userId === zone.operationsManagerId)?.name || 'Assigned'}</span>
                       </div>
                     )}
+ 
+                    {zone.region && (
+                      <div className="flex items-center gap-2 text-[#FF7A00] font-black uppercase text-[10px] tracking-tight">
+                        <Globe size={14} className="shrink-0" />
+                        <span>Region: {zone.region.name}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Lease dates */}
@@ -506,6 +522,22 @@ const ZonesPage = () => {
                   className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/40 border border-[#E7DED6] font-semibold text-sm focus:outline-none focus:border-[#FF7A00]"
                   placeholder="e.g. Delhi North Hub"
                 />
+              </div>
+ 
+              <div>
+                <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Assigned Region / City Sector</label>
+                <select
+                  value={form.regionId}
+                  onChange={e => setForm(f => ({ ...f, regionId: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl bg-[#F4EAE3]/40 border border-[#E7DED6] font-semibold text-sm focus:outline-none focus:border-[#FF7A00]"
+                >
+                  <option value="">None / Select Region</option>
+                  {regions.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.city})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* City + State */}
@@ -710,16 +742,28 @@ const ZonesPage = () => {
       <LocationPickerModal
         isOpen={showLocationPicker}
         onClose={() => setShowLocationPicker(false)}
-        initialLat={parseFloat(form.latitude)}
-        initialLng={parseFloat(form.longitude)}
+        initialLat={parseFloat(form.latitude) || 28.6139}
+        initialLng={parseFloat(form.longitude) || 77.2090}
         initialAddress={`${form.address}, ${form.city}, ${form.state} ${form.pincode}`}
-        onSelectLocation={(lat, lng, addressDetails) => {
+        onSelectLocation={async (lat, lng, addressDetails) => {
           console.log('Location selected:', { lat, lng, addressDetails });
+          
+          let detectedRegionId = '';
+          try {
+            const matchingRegions = await regionApi.detect(lat, lng);
+            if (matchingRegions && matchingRegions.length > 0) {
+              detectedRegionId = matchingRegions[0].id;
+            }
+          } catch (e) {
+            console.warn('Detect region failed', e);
+          }
+ 
           setForm(f => {
             const newState = {
               ...f,
               latitude: lat.toFixed(6),
               longitude: lng.toFixed(6),
+              regionId: detectedRegionId || f.regionId,
               ...(addressDetails ? {
                 address: addressDetails.fullAddress,
                 city: addressDetails.city,

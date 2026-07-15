@@ -11,6 +11,11 @@ router.get('/', async (req, res) => {
       include: {
         fieldManager: true,
         careCompanions: true,
+        zoneRelation: {
+          include: {
+            region: true
+          }
+        }
       },
     });
     res.json({ success: true, data: teams });
@@ -23,17 +28,51 @@ router.get('/', async (req, res) => {
 // ── POST /api/teams ──────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
-    const { name, fieldManagerId, zone, careCompanionIds } = req.body;
+    const { name, fieldManagerId, zone, careCompanionIds, zoneId } = req.body;
+
+    const { getConfigValue } = require('../utils/config');
+
+    // 1. Validate number of CCs per team
+    const maxCc = await getConfigValue('max_cc_per_team', 15);
+    if (careCompanionIds && careCompanionIds.length > maxCc) {
+      return res.status(400).json({
+        success: false,
+        message: `A team can have at most ${maxCc} Care Companions`,
+      });
+    }
+
+    // 2. Validate number of teams per zone
+    if (zoneId) {
+      const maxTeams = await getConfigValue('max_teams_per_zone', 5);
+      const teamCount = await prisma.team.count({
+        where: { zoneId },
+      });
+      if (teamCount >= maxTeams) {
+        return res.status(400).json({
+          success: false,
+          message: `This zone office has reached the maximum allowed teams (${maxTeams})`,
+        });
+      }
+    }
 
     // Handle optional field manager
     const finalFMId =
       fieldManagerId === 'none' || !fieldManagerId ? null : fieldManagerId;
 
+    let finalZoneName = zone || '';
+    if (zoneId) {
+      const zoneObj = await prisma.zone.findUnique({ where: { id: zoneId } });
+      if (zoneObj) {
+        finalZoneName = zoneObj.name;
+      }
+    }
+
     const team = await prisma.team.create({
       data: {
         name,
         fieldManagerId: finalFMId,
-        zone,
+        zone: finalZoneName,
+        zoneId: zoneId || null,
         careCompanions: {
           connect: (careCompanionIds || []).map((id) => ({ id })),
         },
@@ -41,6 +80,11 @@ router.post('/', async (req, res) => {
       include: {
         fieldManager: true,
         careCompanions: true,
+        zoneRelation: {
+          include: {
+            region: true
+          }
+        }
       },
     });
     res.json({ success: true, data: team });
@@ -54,11 +98,47 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, fieldManagerId, zone, careCompanionIds } = req.body;
+    const { name, fieldManagerId, zone, careCompanionIds, zoneId } = req.body;
+
+    const { getConfigValue } = require('../utils/config');
+
+    // 1. Validate number of CCs per team
+    const maxCc = await getConfigValue('max_cc_per_team', 15);
+    if (careCompanionIds && careCompanionIds.length > maxCc) {
+      return res.status(400).json({
+        success: false,
+        message: `A team can have at most ${maxCc} Care Companions`,
+      });
+    }
+
+    // 2. Validate number of teams per zone
+    if (zoneId) {
+      const currentTeam = await prisma.team.findUnique({ where: { id } });
+      if (currentTeam && currentTeam.zoneId !== zoneId) {
+        const maxTeams = await getConfigValue('max_teams_per_zone', 5);
+        const teamCount = await prisma.team.count({
+          where: { zoneId },
+        });
+        if (teamCount >= maxTeams) {
+          return res.status(400).json({
+            success: false,
+            message: `This zone office has reached the maximum allowed teams (${maxTeams})`,
+          });
+        }
+      }
+    }
 
     // Handle optional field manager
     const finalFMId =
       fieldManagerId === 'none' || !fieldManagerId ? null : fieldManagerId;
+
+    let finalZoneName = zone || '';
+    if (zoneId) {
+      const zoneObj = await prisma.zone.findUnique({ where: { id: zoneId } });
+      if (zoneObj) {
+        finalZoneName = zoneObj.name;
+      }
+    }
 
     // Use transaction to ensure consistency
     const updatedTeam = await prisma.$transaction(async (tx) => {
@@ -74,7 +154,8 @@ router.put('/:id', async (req, res) => {
         data: {
           name,
           fieldManagerId: finalFMId,
-          zone,
+          zone: finalZoneName,
+          zoneId: zoneId || null,
           careCompanions: {
             connect: (careCompanionIds || []).map((ccId) => ({ id: ccId })),
           },
@@ -82,6 +163,11 @@ router.put('/:id', async (req, res) => {
         include: {
           fieldManager: true,
           careCompanions: true,
+          zoneRelation: {
+            include: {
+              region: true
+            }
+          }
         },
       });
     });
@@ -179,6 +265,11 @@ router.get('/:id', async (req, res) => {
       include: {
         fieldManager: true,
         careCompanions: true,
+        zoneRelation: {
+          include: {
+            region: true
+          }
+        }
       },
     });
 

@@ -3,32 +3,49 @@ import { PageHeader } from '../components/common/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { teamApi } from '../../services/api';
+import { teamApi, regionApi } from '../../services/api';
 import { toast } from 'sonner';
 import { Users, UserCheck, ShieldCheck, MapPin } from 'lucide-react';
 import { EntityAvatar } from '../components/common/EntityAvatar';
 
 export default function CreateTeamPage() {
   const [name, setName] = useState('');
+  const [selectedRegion, setSelectedRegion] = useState('');
   const [zone, setZone] = useState('');
   const [selectedFM, setSelectedFM] = useState('');
   const [selectedCCs, setSelectedCCs] = useState<string[]>([]);
   
+  const [availableRegions, setAvailableRegions] = useState<any[]>([]);
   const [availableFMs, setAvailableFMs] = useState<any[]>([]);
   const [availableCCs, setAvailableCCs] = useState<any[]>([]);
   const [availableZones, setAvailableZones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Filter zones based on selected region
+  const filteredZones = React.useMemo(() => {
+    if (!selectedRegion) return [];
+    return availableZones.filter(z => z.regionId === selectedRegion);
+  }, [availableZones, selectedRegion]);
+
   // Filter staff based on selected zone
   const filteredFMs = React.useMemo(() => {
     if (!zone) return availableFMs;
-    return availableFMs.filter(fm => fm.zone === zone);
-  }, [availableFMs, zone]);
+    const selectedZoneObj = availableZones.find(z => z.id === zone);
+    if (!selectedZoneObj) return [];
+    return availableFMs.filter(fm => fm.zone?.trim().toLowerCase() === selectedZoneObj.name?.trim().toLowerCase());
+  }, [availableFMs, zone, availableZones]);
 
   const filteredCCs = React.useMemo(() => {
     if (!zone) return availableCCs;
-    return availableCCs.filter(cc => cc.zone === zone);
-  }, [availableCCs, zone]);
+    const selectedZoneObj = availableZones.find(z => z.id === zone);
+    if (!selectedZoneObj) return [];
+    return availableCCs.filter(cc => cc.zone?.trim().toLowerCase() === selectedZoneObj.name?.trim().toLowerCase());
+  }, [availableCCs, zone, availableZones]);
+
+  // Clear zone selection when selectedRegion changes to prevent cross-region assignments
+  useEffect(() => {
+    setZone('');
+  }, [selectedRegion]);
 
   // Clear selections when zone changes to prevent cross-zone assignments
   useEffect(() => {
@@ -43,14 +60,16 @@ export default function CreateTeamPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [fms, ccs, zonesData] = await Promise.all([
+      const [fms, ccs, zonesData, regionsData] = await Promise.all([
         teamApi.getAvailableManagers(),
         teamApi.getAvailableCompanions(),
-        teamApi.getZones()
+        teamApi.getZones(),
+        regionApi.getAll()
       ]);
       setAvailableFMs(fms);
       setAvailableCCs(ccs);
       setAvailableZones(zonesData);
+      setAvailableRegions(regionsData);
     } catch (err) {
       toast.error('Failed to load available staff');
     } finally {
@@ -74,14 +93,17 @@ export default function CreateTeamPage() {
     }
 
     try {
+      const selectedZoneObj = availableZones.find(z => z.id === zone);
       await teamApi.createTeam({
         name,
         fieldManagerId: selectedFM === 'none' || !selectedFM ? undefined : selectedFM,
-        zone,
+        zone: selectedZoneObj?.name || '',
+        zoneId: zone,
         careCompanionIds: selectedCCs
       });
       toast.success('Team created successfully');
       setName('');
+      setSelectedRegion('');
       setZone('');
       setSelectedFM('');
       setSelectedCCs([]);
@@ -120,18 +142,43 @@ export default function CreateTeamPage() {
             </div>
 
             <div>
-              <label className="text-[10px] font-black text-gray-400 uppercase">Target Zone</label>
-              <Select onValueChange={setZone} value={zone}>
+              <label className="text-[10px] font-black text-gray-400 uppercase">Region / City Sector</label>
+              <Select onValueChange={setSelectedRegion} value={selectedRegion}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Choose Zone" />
+                  <SelectValue placeholder="Choose Region" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableZones.map(z => (
-                    <SelectItem key={z.id} value={z.name}>
+                  {availableRegions.map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                  {availableRegions.length === 0 && <SelectItem value="none" disabled>No regions available</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase">Target Zone</label>
+              <Select 
+                onValueChange={setZone} 
+                value={zone}
+                disabled={!selectedRegion}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={selectedRegion ? "Choose Zone" : "Select Region First"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredZones.map(z => (
+                    <SelectItem key={z.id} value={z.id}>
                       {z.name}
                     </SelectItem>
                   ))}
-                  {availableZones.length === 0 && <SelectItem value="none" disabled>No available zones</SelectItem>}
+                  {filteredZones.length === 0 && (
+                    <SelectItem value="none" disabled>
+                      {selectedRegion ? "No zones in this region" : "Select a region first"}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
