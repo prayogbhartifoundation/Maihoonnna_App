@@ -164,17 +164,24 @@ export const purchaseSubscription = async (
   emergencyContactsRaw?: any,
   couponCode?: string
 ) => {
-  // Validate packageType
-  const mappedType = (packageId || 'silver').toLowerCase();
-
-  // Ensure the packages exist and get the mapped one
-  const packages = await getSubscriptionPackages();
-  const subPackage = packages.find((p: any) => 
-    p.type.toLowerCase() === mappedType || 
-    p.id.toLowerCase() === mappedType
-  );
+  // Look up the package directly by UUID (id) or by type slug — this works for
+  // both global and regional packages, unlike getSubscriptionPackages() which
+  // filters to only global packages when no regionId is provided.
+  const subPackage = await prisma.subscriptionPackage.findFirst({
+    where: {
+      OR: [
+        { id: packageId },
+        { type: packageId.toLowerCase() },
+      ],
+      isActive: true,
+    },
+    include: {
+      packageRegions: { include: { region: true } },
+      packageBenefits: { include: { benefit: { include: { benefitType: true } } } },
+    },
+  });
   if (!subPackage) {
-    throw new Error(`Package type/ID ${mappedType} not found in database. Available types: ${packages.map(p => p.type).join(', ')}`);
+    throw new Error(`Package id/type "${packageId}" not found or is inactive.`);
   }
 
   // 1a. If beneficiaryData is provided, create the beneficiary user
@@ -239,7 +246,7 @@ export const purchaseSubscription = async (
     const validation = await validateCoupon(
       couponCode,
       userId,
-      mappedType,
+      subPackage.type,
       subPackage.basePrice,
       isFirstTimeSubscriber
     );
@@ -504,7 +511,7 @@ export const purchaseSubscription = async (
         subscriberId: userId,
         beneficiaryId: beneficiary ? beneficiary.id : null,
         subscriptionId: subscription.id,
-        packageType: mappedType,
+        packageType: subPackage.type,
         packageVersionId: versionObj.id,
         snapshotPackageName: versionObj.name,
         snapshotBasePrice: versionObj.basePrice,
