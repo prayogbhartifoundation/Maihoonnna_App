@@ -12,3 +12,9 @@ apps/mobile-backend/scratch/check_user.ts
 .vscode
 sync-app.ps1
 apps/web-landing/
+node_modules/
+**/node_modules/
+.expo/
+**/android/build/
+**/android/.gradle/
+**/ios/build/
