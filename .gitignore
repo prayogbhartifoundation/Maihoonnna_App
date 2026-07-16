@@ -1,20 +1,69 @@
+################################
+# Scratch / Dev-only files (never push)
+################################
 .claude
+MOBILE_TESTING_SETUP.md
+sync-app.ps1
+apps/web-landing/
+
+# Backend seed/scratch files
 apps/admin-backend/prisma/seed-beneficiary-subscriber.js
 apps/admin-backend/prisma/seed.js
 apps/admin-backend/prisma/seedTestSub.js
-MOBILE_TESTING_SETUP.md
+apps/admin-backend/scratch/
 apps/mobile-backend/scratch_check_user.ts
 apps/mobile-backend/scratch_delete_user.ts
-apps/admin-backend/scratch/
 apps/mobile-backend/scratch_check_harshit.ts
-apps/mobile-backend/scratch/check_user.ts
-.idea
-.vscode
-sync-app.ps1
-apps/web-landing/
+apps/mobile-backend/scratch/
+
+################################
+# Dependencies (all packages)
+################################
 node_modules/
 **/node_modules/
-.expo/
+
+################################
+# Environment secrets (NEVER commit)
+################################
+**/.env
+**/.env.local
+**/.env.*.local
+
+################################
+# Expo / Metro (mobile-app)
+################################
+**/.expo/
+**/.expo-export-dev/
+**/.expo-export-temp/
+**/.expo-export-temp2/
+**/.metro_live_bundle.js
+**/.metro-bundler/
+**/dist/
+**/expo-env.d.ts
+
+################################
+# Android build artifacts
+################################
 **/android/build/
+**/android/app/build/
+**/android/app/.cxx/
 **/android/.gradle/
+**/android/.kotlin/
+**/android/local.properties
+
+################################
+# iOS build artifacts
+################################
 **/ios/build/
+**/ios/Pods/
+**/ios/*.xcworkspace
+**/ios/DerivedData/
+
+################################
+# OS / Editor junk
+################################
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.idea/
+.vscode/
