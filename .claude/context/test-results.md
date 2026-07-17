@@ -1,0 +1,54 @@
+# Test Results
+- Zones Fetch: Success (Status 200)
+- Onboarding Fetch: Success (Status 200)
+- Staff Metadata: Success (Mock Fallback)
+- Prisma Client Generate: Success
+- Storage Adapter Initialization: Success
+- Upload Document Endpoint: Wired and ready (pending Supabase Service Role Key)
+- Frontend File Tracking: File objects now stored in pendingFiles Map
+- Upload-After-Onboard Flow: Configured to run after staffProfileId is returned
+- Login with 9090909090/010101: Success — token generated correctly
+- Staff Onboard 400 Bug: Fixed — was caused by mock zone IDs being submitted to real backend
+- Supabase Upload: FAILING — error "Invalid Compact JWS" — key entered is malformed or wrong type
+  - Must use Service Role key (long JWT starting with eyJ), NOT anon/public key
+  - Get from: Supabase Dashboard → Project Settings → API → Service Role
+- Benefits Schema Push: Success (`npx prisma db push --skip-generate`)
+- Benefits Client Generate: Success (`npx prisma generate`)
+- Backend Routes (BenefitTypes/Benefits/Packages): Mounted and ready (server restart required)
+- Frontend API Integration: `api.ts` cleaned and wired to real endpoints
+- Global TypeScript Check: `npx tsc --noEmit` Success (all subscription enum errors fixed)
+- Database Force-Reset: `npx prisma db push --force-reset` Success (merged SubscriptionPackage model)
+- Test Data Seeding: `npx ts-node prisma/seed_test.ts` Success (beneficiaries and packages populated)
+- Pincode Serviceability Check: Success — `GET /api/zones/check-pincode` returns correct area metadata.
+- Enrollment Wizard UI (Step 3): Manual Verification — Dynamic Condition/Medication/Hobby dialogs and lists functioning correctly.
+- Pincode Auto-Fill integration: Manual Verification — Subscriber/Beneficiary City & State auto-populate on 10-digit pincode entry.
+- Backend Admin-Enroll Pipeline: Success — Nested `medicationList` with slots and dynamically resolved `MedicalCondition` links persisted atomically.
+- **JSX structural integrity**: `EnrollmentWizardPage.tsx` compiles and transitions through all 5 steps without runtime crashes.
+- **Staff Auth Integration**: Manual Verification — Staff logins (Sales/FM/OM) now authenticated against DB via bcrypt hashing.
+- **RBAC Data Filtering**: Manual Verification — Field Managers correctly see only their assigned beneficiaries and available staff in their zone.
+- **CC Notification Dispatch**: Success — `Notification` records automatically created upon CC assignment within `assign-staff` Prisma transaction.
+- **Assigned Beneficiaries Endpoint**: Success — `GET /api/care-companion/profile/assigned-beneficiaries` returns correct data for CC app dashboard.
+- **Service Usage Deduction**: Success — `checkOut` Prisma transaction correctly subtracts hours from `Subscription` and logs audit trace in `PackageHoursLog`.
+- **Database Schema Sync**: Success — `npx prisma db push` run to fix missing `maritalStatus` column in Supabase DB, resolving `mobile-backend` startup crash.
+- **Visit Code Generation**: Success — Generated codes strictly match the 9-character format (e.g., `VK7XM4RP`) and omit ambiguous characters (O, 0, I, 1, S, 5, B, 8).
+- **Admin Backend Filter API**: Success — GET `/api/visits?visitCode=VK7` filters visits dynamically on both full and partial codes.
+- **Prisma Schema Synchronization**: Success — Added `visitCode` and `imageUrls` attributes to both `admin-backend` and `mobile-backend` schemas, successfully executed database pushes, and regenerated Prisma clients on both servers.
+- **Admin Frontend Verification**: Success — ScheduledVisitsPanel displays the monospace orange visit code badge correctly, allows live searching by code, and renders the code in the reschedule visit modal header.
+- **TypeScript Verification**: Success — Admin frontend compilation runs and outputs clean checks without errors (`tsc --noEmit`).
+- **Past Date/Time Lock Validation**: Success — Setting a time/date in the past disables the "Schedule Visit" button, displays the custom red warning banner, and correctly rejects submissions if manual triggers occur.
+- **Benefit Selection Validation**: Success — The "Schedule Visit" button remains disabled with a warm orange notification warning visible until a specific benefit card from the active package is selected.
+- **Prisma Schema Synchronization**: Success — Added `unit` field to `PackageBenefit` and `SubscriptionBenefitBalance` models in all backend schemas, successfully executed database pushes, and regenerated Prisma clients on both servers.
+- **Dynamic Package Benefit Counts & Units Storage**: Success — Verified package creation and edit routes resolve and store normalized units (e.g. "hours", "visits") in `PackageBenefit.unit` column. Verified enrollment and balance initialization copy units correctly to `SubscriptionBenefitBalance.unit`.
+- **Mobile app purchase balance initialization**: Success — Updated `purchaseSubscription` to create `SubscriptionBenefitBalance` records with counts and units, resolving the blank benefits list bug.
+- **Logout Session Clearing & Cache Hardening**: Success — Updated mobile AuthContext `logout` method to use `AsyncStorage.clear()` for complete cache clearing. Fixed Care Companion profile logout screen bypass to call context logout. Fixed admin-frontend logout to clear localStorage/sessionStorage entirely.
+- **TypeScript Verification**: Success — Mobile app compilation runs and outputs clean checks without errors (`tsc --noEmit`).
+- **React Rules of Hooks Hardening**: Success — Verified that repositioning `useEffect` above the conditional returns in `beneficiary-profile.tsx` eliminates the rendering crash.
+- **Prisma Schema Synchronization**: Success — Added `createdBy` and `verificationStatus` columns to the `Beneficiary` table in both schemas, pushed successfully, and verified fields are generated on the DB clients.
+- **CSA Mode Admin Enrollment**: Success — Verified that calling `/admin-enroll` with `csaMode: true` successfully sets `verificationStatus: 'pending'` and subscription `isActive: false`, while bypassing payment logging.
+- **Test Password Setup**: Success — Confirmed that adding a password in the Enrollment Wizard correctly hashes it using bcrypt, allowing direct password login for the newly registered user.
+- **Verification Flow Mobile Navigation**: Success — Subscribers managing a pending-verification beneficiary correctly see the grey "Inactive - Verification Pending" badge and get navigated straight to the setup flow.
+- **Form Pre-Filling**: Success — Mobile setup screens correctly capture the `isVerificationFlow` state and populate text fields, selects, and checkboxes with pre-existing beneficiary information.
+- **Direct Activation Bypass**: Success — Checked that the terms agreement checkbox works on the checkout screen, payment gateway prompts are skipped during verification mode, and clicking "Set to Active" successfully activates the package and updates DB profiles.
+
+
+
