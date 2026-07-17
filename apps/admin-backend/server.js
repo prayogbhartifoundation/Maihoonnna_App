@@ -84,6 +84,7 @@ app.use('/api/callbacks', staffOnly, require('./routes/callbacks'));
 app.use('/api/teams', adminsOnly, require('./routes/teams'));
 app.use('/api/subscribers', staffOnly, require('./routes/subscribers'));
 app.use('/api/beneficiaries', staffOnly, require('./routes/beneficiaries'));
+app.use('/api/volunteers', staffOnly, require('./routes/volunteers'));
 
 // ─── Subscription & Benefits ──────────────────────────────────────────────────
 app.use('/api/benefit-types', adminsOnly, require('./routes/benefitTypes'));

@@ -768,14 +768,39 @@ export const partnerApi = {
 // ============================================================================
 
 export const volunteerApi = {
-  async getAll(): Promise<Volunteer[]> {
-    await delay();
-    return [...mockVolunteers];
+  async getAll(status?: string): Promise<Volunteer[]> {
+    const query = status ? `?status=${status}` : '';
+    return apiJson<Volunteer[]>(`/volunteers${query}`);
   },
 
-  async getById(id: string): Promise<Volunteer | undefined> {
-    await delay();
-    return mockVolunteers.find(v => v.id === id);
+  async getById(id: string): Promise<Volunteer> {
+    return apiJson<Volunteer>(`/volunteers/${id}`);
+  },
+
+  async verify(id: string): Promise<Volunteer> {
+    return apiJson<Volunteer>(`/volunteers/${id}/verify`, {
+      method: 'PATCH',
+    });
+  },
+
+  async reject(id: string, rejectionReason: string): Promise<Volunteer> {
+    return apiJson<Volunteer>(`/volunteers/${id}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rejectionReason }),
+    });
+  },
+
+  async assignBeneficiary(id: string, beneficiaryId: string): Promise<any> {
+    return apiJson<any>(`/volunteers/${id}/assignments`, {
+      method: 'POST',
+      body: JSON.stringify({ beneficiaryId }),
+    });
+  },
+
+  async removeAssignment(id: string, beneficiaryId: string): Promise<any> {
+    return apiJson<any>(`/volunteers/${id}/assignments/${beneficiaryId}`, {
+      method: 'DELETE',
+    });
   },
 };
 

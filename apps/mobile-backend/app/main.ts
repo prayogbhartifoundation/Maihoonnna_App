@@ -52,6 +52,9 @@ import publicEnrollmentRouter from './api/public/enrollment.routes';
 import publicLocationRouter from './api/public/location.routes';
 import publicHobbiesRouter from './api/public/hobbies.routes';
 
+// Sathi Network Routes
+import sathiRouter from './api/sathi/sathi.routes';
+
 // ⚠️ DEV-ONLY — Remove this import + route registration below when done testing
 import devRouter from './api/dev/dev.routes';
 
@@ -151,6 +154,9 @@ app.use(`${API}/public/hobbies`, publicHobbiesRouter);
 app.use(`${API}/public/zones`, publicZonesRouter);
 app.use(`${API}/public/location`, publicLocationRouter);
 app.use(`${API}/public`, publicEnrollmentRouter);
+
+// Sathi Network endpoints
+app.use(`${API}/sathi`, sathiRouter);
 
 // ⚠️ DEV-ONLY — Remove this block when done testing (also delete app/api/dev/dev.routes.ts)
 app.use(`${API}/dev`, devRouter);

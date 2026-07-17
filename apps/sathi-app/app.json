@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "sathi-network",
+    "slug": "sathi-network",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "updates": {
+      "enabled": false
+    },
+    "icon": "./assets/images/icon.png",
+    "scheme": "sathinetwork",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyDPrFpN29FZ786mTWjIbeQvW3y6ztjx3xU"
+      },
+      "bundleIdentifier": "com.rajeev-23.sathinetwork"
+    },
+    "android": {
+      "package": "com.rajeev_23.sathinetwork",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "predictiveBackGestureEnabled": false,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDPrFpN29FZ786mTWjIbeQvW3y6ztjx3xU"
+        }
+      }
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/group4.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "MaiHoonNa needs your location to show your address on the map and find nearby care services.",
+          "locationWhenInUsePermission": "MaiHoonNa needs your location to pin your address and find nearby Care Companions."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FF7A00",
+          "sounds": [],
+          "androidMode": "default",
+          "androidCollapsedTitle": "MaiHoonNa Notifications"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5d0036fa-6e0c-47ed-9213-c8ed8ebaee75"
+      }
+    }
+  }
+}

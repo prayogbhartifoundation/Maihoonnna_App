@@ -20,6 +20,7 @@ import SupportPage from './pages/SupportPage';
 import ActivityLogsPage from './pages/ActivityLogsPage';
 import PartnersPage from './pages/PartnersPage';
 import VolunteersPage from './pages/VolunteersPage';
+import VolunteerRequestsPage from './pages/VolunteerRequestsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import CallbacksPage from './pages/CallbacksPage';
@@ -129,6 +130,10 @@ export const router = createBrowserRouter([
       {
         path: 'volunteers',
         Component: VolunteersPage,
+      },
+      {
+        path: 'volunteer-requests',
+        Component: VolunteerRequestsPage,
       },
       {
         path: 'subscriptions',

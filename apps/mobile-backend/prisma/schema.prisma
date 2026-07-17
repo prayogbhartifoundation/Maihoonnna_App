@@ -285,6 +285,8 @@ model Beneficiary {
   vitalReadings       VitalReading[]
   vitalAlerts         VitalAlert[]
   serviceRequests     ServiceRequest[]
+  volunteerAssignments VolunteerAssignment[]
+  volunteerVisitLogs   VolunteerVisitLog[]
 
   @@index([name])
   @@index([city])
@@ -1731,5 +1733,128 @@ model SubscriptionPackageRegion {
   @@id([packageId, regionId])
   @@map("subscription_package_regions")
 }
+
+// ─── Sathi Network Volunteer Table ───────────────────────────────────────────
+
+model Volunteer {
+  id                 String              @id @default(uuid())
+  phone              String              @unique
+  email              String?             @unique
+  password           String?
+  name               String
+  age                Int?
+  gender             String?
+  profilePhoto       String?
+  fcmToken           String?
+  refreshToken       String?
+  applicationStatus  VolunteerStatus     @default(SUBMITTED)
+  previousExperience String?
+  whyJoin            String?
+  address            String?
+  interests          String[]            @default([])
+  totalCreditHours   Float               @default(0)   // accumulated hours volunteered
+  totalCreditPoints  Float               @default(0)   // credit points earned
+  monthlyGoalHours   Float               @default(10)
+  verifiedAt         DateTime?
+  verifiedById       String?             // admin User.id who approved
+  rejectionReason    String?
+  rejectedAt         DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  assignments        VolunteerAssignment[]
+  visitLogs          VolunteerVisitLog[]
+  creditTransactions VolunteerCreditTransaction[]
+
+  @@map("volunteers")
+}
+
+// ─── Many-to-Many: Volunteer ↔ Beneficiary ──────────────────────────────────
+
+model VolunteerAssignment {
+  id            String           @id @default(uuid())
+  volunteerId   String           // FK -> Volunteer.id
+  beneficiaryId String           // FK -> Beneficiary.id
+  assignedById  String?          // admin User.id who created this assignment
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  volunteer     Volunteer        @relation(fields: [volunteerId], references: [id])
+  beneficiary   Beneficiary      @relation(fields: [beneficiaryId], references: [id])
+  visitLogs     VolunteerVisitLog[]
+
+  @@unique([volunteerId, beneficiaryId])
+  @@map("volunteer_assignments")
+}
+
+// ─── Visit Log: the deduction + credit event ────────────────────────────────
+
+model VolunteerVisitLog {
+  id                           String              @id @default(uuid())
+  volunteerId                  String              // FK -> Volunteer.id
+  beneficiaryId                String              // FK -> Beneficiary.id
+  assignmentId                 String              // FK -> VolunteerAssignment.id
+  subscriptionId               String?             // which subscription was charged
+  subscriptionBenefitBalanceId String?           // which benefit balance was deducted
+  checkInTime                  DateTime
+  checkOutTime                 DateTime?
+  minutesLogged                Float?              // computed at checkout
+  hoursEarned                  Float?              // minutesLogged / 60
+  creditPointsEarned           Float?              // hoursEarned × conversion rate
+  beneficiaryBalanceBefore     Float?              // snapshot for audit
+  beneficiaryBalanceAfter      Float?              // snapshot for audit
+  notes                        String?
+  status                       VolunteerVisitStatus @default(in_progress)
+  createdAt                    DateTime            @default(now())
+  updatedAt                    DateTime            @updatedAt
+  volunteer                    Volunteer           @relation(fields: [volunteerId], references: [id])
+  beneficiary                  Beneficiary         @relation(fields: [beneficiaryId], references: [id])
+  assignment                   VolunteerAssignment @relation(fields: [assignmentId], references: [id])
+
+  @@map("volunteer_visit_logs")
+}
+
+// ─── Credit Ledger: full audit trail ────────────────────────────────────────
+
+model VolunteerCreditTransaction {
+  id          String              @id @default(uuid())
+  volunteerId String              // FK -> Volunteer.id
+  visitLogId  String?             @unique
+  type        CreditTransactionType
+  minutesDelta  Float             // +ve = earned, -ve = redeemed
+  pointsDelta   Float             // +ve = earned, -ve = redeemed
+  balanceAfter  Float             // running balance snapshot
+  description String?
+  createdAt   DateTime            @default(now())
+  volunteer   Volunteer           @relation(fields: [volunteerId], references: [id])
+
+  @@map("volunteer_credit_transactions")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum VolunteerStatus {
+  NOT_APPLIED
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum VolunteerVisitStatus {
+  in_progress
+  completed
+  cancelled
+}
+
+enum CreditTransactionType {
+  earned       // from a completed visit
+  redeemed     // volunteer spent points
+  adjustment   // manual admin correction
+  expiry       // points expired
+}
+
 
 

@@ -260,16 +260,34 @@ export interface Partner {
 
 export interface Volunteer {
   id: string;
-  name: string;
   phone: string;
-  email?: string;
-  type: 'saathi'; // Community volunteers
-  skills: string[];
-  availableDays: string[];
-  zoneId: string;
-  volunteeredHours: number;
-  isActive: boolean;
-  joinedDate: string;
+  email?: string | null;
+  name: string;
+  age?: number | null;
+  gender?: string | null;
+  profilePhoto?: string | null;
+  status: 'pending' | 'under_review' | 'verified' | 'rejected' | 'suspended';
+  previousExperience?: string | null;
+  whyJoin?: string | null;
+  interests: string[];
+  totalCreditHours: number;
+  totalCreditPoints: number;
+  monthlyGoalHours: number;
+  verifiedAt?: string | null;
+  verifiedById?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignments?: {
+    id: string;
+    volunteerId: string;
+    beneficiaryId: string;
+    isActive: boolean;
+    beneficiary: {
+      id: string;
+      name: string;
+    };
+  }[];
 }
 
 // ============================================================================

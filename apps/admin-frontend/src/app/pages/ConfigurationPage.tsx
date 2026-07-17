@@ -60,7 +60,7 @@ const ConfigurationPage = () => {
     }
 
     // Basic numerical validation depending on keys
-    if (['max_cc_per_team', 'max_beneficiary_per_team', 'max_primary_cc', 'max_secondary_cc', 'max_teams_per_zone'].includes(key)) {
+    if (['max_cc_per_team', 'max_beneficiary_per_team', 'max_primary_cc', 'max_secondary_cc', 'max_teams_per_zone', 'sathi_reapply_cooldown_days'].includes(key)) {
       const num = parseInt(value, 10);
       if (isNaN(num) || num <= 0) {
         alert('Please enter a valid positive integer');

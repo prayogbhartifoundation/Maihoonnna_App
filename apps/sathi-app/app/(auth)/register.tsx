@@ -1,0 +1,401 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { API_URL } from '@/constants/api';
+import { useNavigationStack } from '@/contexts/NavigationStackContext';
+import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+import { AddressInputField } from '@/components/ui/AddressInputField';
+import { useAuth } from '@/contexts/AuthContext';
+
+const { width } = Dimensions.get('window');
+const scale = (size: number) => Math.round((width / 390) * size);
+
+const INTEREST_TAGS = ['Music', 'Cooking', 'Reading', 'Gardening', 'Arts & Crafts'];
+
+export default function RegisterVolunteerScreen() {
+  const { push, replace, pop } = useNavigationStack();
+  useAndroidBackHandler();
+  const { login } = useAuth();
+  const router = useRouter();
+
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    previousExperience: '',
+    whyJoin: '',
+  });
+
+  const [address, setAddress] = useState('');
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [customInterest, setCustomInterest] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [agreeGuidelines, setAgreeGuidelines] = useState(false);
+  const [consentBackground, setConsentBackground] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const toggleInterest = (tag: string) => {
+    if (selectedInterests.includes(tag)) {
+      setSelectedInterests(selectedInterests.filter((t) => t !== tag));
+    } else {
+      setSelectedInterests([...selectedInterests, tag]);
+    }
+  };
+
+  const handleAddCustomInterest = () => {
+    if (customInterest.trim()) {
+      const tag = customInterest.trim();
+      if (!selectedInterests.includes(tag)) {
+        setSelectedInterests([...selectedInterests, tag]);
+      }
+      setCustomInterest('');
+      setShowCustomInput(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!form.name || !form.phone || !form.password) {
+      Alert.alert('Required Fields', 'Full Name, Phone Number, and Password are required.');
+      return;
+    }
+    if (form.phone.length !== 10) {
+      Alert.alert('Invalid Input', 'Please enter a valid 10-digit phone number.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/sathi/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: `+91${form.phone}`,
+          password: form.password,
+          name: form.name,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok || data.success) {
+        const result = data.data;
+        await login(result.token, result.volunteer || result.user);
+        replace('/(sathi)/apply');
+      } else {
+        Alert.alert('Registration Failed', data.message || 'Failed to create account.');
+      }
+    } catch (error) {
+      console.error('Registration Error:', error);
+      Alert.alert('Network Error', 'Could not connect to the backend server.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => pop()} style={styles.backButton}>
+              <MaterialCommunityIcons name="arrow-left" size={scale(24)} color="#111827" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Register as Saathi</Text>
+            <Text style={styles.subtitle}>Join our network of care companions</Text>
+          </View>
+
+          {/* Form */}
+          <View style={styles.card}>
+            {/* Full Name */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Full Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your full name"
+                placeholderTextColor="#9CA3AF"
+                value={form.name}
+                onChangeText={(text) => setForm({ ...form, name: text })}
+                editable={!isLoading}
+              />
+            </View>
+
+            {/* Phone */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Phone Number *</Text>
+              <View style={styles.phoneRow}>
+                <Text style={styles.countryCode}>+91</Text>
+                <TextInput
+                  style={styles.phoneInput}
+                  placeholder="10-digit mobile number"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  maxLength={10}
+                  value={form.phone}
+                  onChangeText={(text) => setForm({ ...form, phone: text })}
+                  editable={!isLoading}
+                />
+              </View>
+            </View>
+
+            {/* Password */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Create Password *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Minimum 6 characters"
+                placeholderTextColor="#9CA3AF"
+                secureTextEntry
+                value={form.password}
+                onChangeText={(text) => setForm({ ...form, password: text })}
+                editable={!isLoading}
+              />
+            </View>
+
+            {/* Submit */}
+            <TouchableOpacity
+              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+              onPress={handleRegister}
+              disabled={isLoading}
+              activeOpacity={0.85}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Create Account</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Footer Signin */}
+            <TouchableOpacity
+              style={styles.loginLink}
+              onPress={() => replace('/(auth)')}
+              disabled={isLoading}
+            >
+              <Text style={styles.loginLinkText}>
+                Already have an account? <Text style={styles.orangeTextBold}>Sign in here</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: scale(20),
+    paddingTop: scale(20),
+    paddingBottom: scale(40),
+  },
+  header: {
+    marginBottom: scale(24),
+  },
+  backButton: {
+    marginBottom: scale(16),
+  },
+  title: {
+    fontSize: scale(26),
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: scale(6),
+  },
+  subtitle: {
+    fontSize: scale(14),
+    color: '#6B7280',
+  },
+  card: {
+    backgroundColor: '#FFF5EE',
+    padding: scale(20),
+    borderRadius: scale(16),
+    borderWidth: 1,
+    borderColor: '#FFE3D1',
+  },
+  inputGroup: {
+    marginBottom: scale(20),
+  },
+  label: {
+    fontSize: scale(14),
+    color: '#374151',
+    fontWeight: '600',
+    marginBottom: scale(8),
+  },
+  helpText: {
+    fontSize: scale(12),
+    color: '#6B7280',
+    marginBottom: scale(12),
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: scale(8),
+    paddingHorizontal: scale(14),
+    paddingVertical: scale(12),
+    fontSize: scale(15),
+    color: '#111827',
+  },
+  textArea: {
+    height: scale(80),
+    textAlignVertical: 'top',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(8),
+    alignItems: 'center',
+    paddingHorizontal: scale(12),
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  countryCode: {
+    fontSize: scale(15),
+    color: '#111827',
+    marginRight: scale(8),
+    fontWeight: '500',
+  },
+  phoneInput: {
+    flex: 1,
+    paddingVertical: scale(12),
+    fontSize: scale(15),
+    color: '#111827',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: scale(8),
+  },
+  tag: {
+    paddingHorizontal: scale(14),
+    paddingVertical: scale(8),
+    backgroundColor: '#F3F4F6',
+    borderRadius: scale(20),
+  },
+  tagSelected: {
+    backgroundColor: '#FF6F00',
+  },
+  tagText: {
+    fontSize: scale(13),
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  tagTextSelected: {
+    color: '#FFFFFF',
+  },
+  addTag: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  addTagText: {
+    fontSize: scale(13),
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  customInterestInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(20),
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    paddingLeft: scale(12),
+    height: scale(36),
+  },
+  customInterestInput: {
+    fontSize: scale(13),
+    color: '#111827',
+    width: scale(90),
+  },
+  customInterestAddBtn: {
+    backgroundColor: '#FF6F00',
+    padding: scale(6),
+    borderRadius: scale(18),
+    marginLeft: scale(4),
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: scale(16),
+  },
+  checkbox: {
+    width: scale(18),
+    height: scale(18),
+    borderRadius: scale(4),
+    borderWidth: 1.5,
+    borderColor: '#9CA3AF',
+    marginRight: scale(10),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: scale(2),
+  },
+  checkboxActive: {
+    backgroundColor: '#FF6F00',
+    borderColor: '#FF6F00',
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: scale(13),
+    color: '#4B5563',
+    lineHeight: scale(18),
+  },
+  orangeTextBold: {
+    color: '#FF6F00',
+    fontWeight: '600',
+  },
+  submitButton: {
+    backgroundColor: '#FF6F00',
+    paddingVertical: scale(14),
+    borderRadius: scale(10),
+    alignItems: 'center',
+    marginTop: scale(12),
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#FFB27A',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: scale(16),
+  },
+  loginLink: {
+    marginTop: scale(20),
+    alignItems: 'center',
+  },
+  loginLinkText: {
+    fontSize: scale(14),
+    color: '#4B5563',
+  },
+});

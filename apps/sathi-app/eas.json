@@ -1,0 +1,36 @@
+{
+  "cli": {
+    "version": ">= 18.8.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_T5r7EAjfxEsAtl"
+      }
+    },
+
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_test_T5r7EAjfxEsAtl"
+      }
+    },
+
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_RAZORPAY_KEY_ID": "rzp_live_REPLACE_WITH_LIVE_KEY"
+      }
+    }
+  },
+
+  "submit": {
+    "production": {}
+  }
+}
