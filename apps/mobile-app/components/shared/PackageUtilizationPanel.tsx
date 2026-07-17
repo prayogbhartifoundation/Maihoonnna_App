@@ -29,6 +29,7 @@ export interface LogEntry {
   ccType: string | null;
   visitStatus: string | null;
   actualMinutes: number | null;
+  isRequest?: boolean;
 }
 
 export interface DetailedUtilization {

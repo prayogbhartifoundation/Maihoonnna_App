@@ -150,7 +150,10 @@ export const getVolunteerDashboard = async (id: string) => {
     where: { id },
     include: {
       assignments: {
-        where: { isActive: true }
+        where: { isActive: true },
+        include: {
+          beneficiary: true
+        }
       },
       visitLogs: {
         where: { status: 'in_progress' }
@@ -161,6 +164,52 @@ export const getVolunteerDashboard = async (id: string) => {
   if (!volunteer) {
     throw new ApiError(404, 'Volunteer profile not found.');
   }
+
+  const beneficiaryIds = volunteer.assignments.map(a => a.beneficiaryId);
+
+  // Fetch pending visit requests (where not rejected by this volunteer)
+  const pendingRequests = await prisma.sathiVisitRequest.findMany({
+    where: {
+      beneficiaryId: { in: beneficiaryIds },
+      status: 'PENDING',
+      NOT: {
+        rejectedBy: { has: id }
+      }
+    },
+    include: {
+      beneficiary: {
+        select: {
+          id: true,
+          name: true,
+          photo: true,
+          age: true,
+          address: true
+        }
+      }
+    },
+    orderBy: { dateTime: 'asc' }
+  });
+
+  // Fetch upcoming accepted visits for this volunteer
+  const upcomingVisits = await prisma.sathiVisitRequest.findMany({
+    where: {
+      volunteerId: id,
+      status: 'ACCEPTED',
+      dateTime: { gte: new Date() }
+    },
+    include: {
+      beneficiary: {
+        select: {
+          id: true,
+          name: true,
+          photo: true,
+          age: true,
+          address: true
+        }
+      }
+    },
+    orderBy: { dateTime: 'asc' }
+  });
 
   const cooldownDays = parseInt(await getSystemConfig('sathi_reapply_cooldown_days', '30'), 10);
   let reapplyAllowedAfter: string | null = null;
@@ -182,6 +231,30 @@ export const getVolunteerDashboard = async (id: string) => {
     monthlyGoalHours: volunteer.monthlyGoalHours,
     beneficiariesCount: volunteer.assignments.length,
     activeVisit: volunteer.visitLogs[0] || null,
+    visitRequests: pendingRequests.map(r => ({
+      id: r.id,
+      beneficiaryId: r.beneficiaryId,
+      name: r.beneficiary.name,
+      photo: r.beneficiary.photo || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120',
+      age: r.beneficiary.age,
+      location: r.beneficiary.address,
+      dateTime: r.dateTime.toISOString(),
+      reason: r.reason
+    })),
+    upcomingVisits: upcomingVisits.map(v => {
+      const assignment = volunteer.assignments.find(a => a.beneficiaryId === v.beneficiaryId);
+      return {
+        id: v.id,
+        beneficiaryId: v.beneficiaryId,
+        assignmentId: assignment ? assignment.id : undefined,
+        name: v.beneficiary.name,
+        photo: v.beneficiary.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120',
+        age: v.beneficiary.age,
+        location: v.beneficiary.address,
+        dateTime: v.dateTime.toISOString(),
+        reason: v.reason
+      };
+    })
   };
 };
 
@@ -285,7 +358,7 @@ export const checkinVolunteerVisit = async (volunteerId: string, data: any) => {
   }
 
   const sathiBalance = subscription.benefitBalances.find(
-    b => b.benefit.benefitType.name === 'Sathi Companion'
+    b => b.benefit.benefitType.code === 'SATHI_COMPANION' || b.benefit.benefitType.name.toLowerCase().includes('sathi')
   );
 
   if (!sathiBalance || (sathiBalance.totalUnits - sathiBalance.usedUnits) <= 0) {
@@ -430,4 +503,182 @@ export const getVolunteerCreditTransactions = async (volunteerId: string) => {
     orderBy: { createdAt: 'desc' }
   });
   return txs;
+};
+
+export const getBeneficiarySathiEligibility = async (beneficiaryId: string) => {
+  const activeSubscriptions = await prisma.subscription.findMany({
+    where: {
+      beneficiaryId,
+      isActive: true
+    },
+    include: {
+      benefitBalances: {
+        include: {
+          benefit: {
+            include: {
+              benefitType: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  let eligible = false;
+  let remainingUnits = 0;
+  let sathiBalanceId = null;
+
+  for (const sub of activeSubscriptions) {
+    for (const bal of sub.benefitBalances) {
+      if (bal.benefit.benefitType && (bal.benefit.benefitType.code === 'SATHI_COMPANION' || bal.benefit.benefitType.name.toLowerCase().includes('sathi'))) {
+        const remaining = bal.totalUnits - bal.usedUnits;
+        if (remaining > 0) {
+          eligible = true;
+          remainingUnits += remaining;
+          sathiBalanceId = bal.id;
+        }
+      }
+    }
+  }
+
+  return { eligible, remainingUnits, sathiBalanceId };
+};
+
+export const createSathiVisitRequest = async (beneficiaryId: string, dateTime: string, reason: string) => {
+  const { eligible } = await getBeneficiarySathiEligibility(beneficiaryId);
+  if (!eligible) {
+    throw new ApiError(400, 'Your active subscription does not include Sathi Companion hours/benefits, or you have run out of units.');
+  }
+
+  const request = await prisma.sathiVisitRequest.create({
+    data: {
+      beneficiaryId,
+      dateTime: new Date(dateTime),
+      reason,
+      status: 'PENDING'
+    },
+    include: {
+      beneficiary: true
+    }
+  });
+
+  return request;
+};
+
+export const getVolunteerSathiRequests = async (volunteerId: string) => {
+  const assignments = await prisma.volunteerAssignment.findMany({
+    where: { volunteerId, isActive: true },
+    select: { beneficiaryId: true }
+  });
+
+  const beneficiaryIds = assignments.map(a => a.beneficiaryId);
+
+  const requests = await prisma.sathiVisitRequest.findMany({
+    where: {
+      beneficiaryId: { in: beneficiaryIds },
+      status: 'PENDING',
+      NOT: {
+        rejectedBy: { has: volunteerId }
+      }
+    },
+    include: {
+      beneficiary: {
+        select: {
+          id: true,
+          name: true,
+          photo: true,
+          age: true,
+          address: true
+        }
+      }
+    },
+    orderBy: { dateTime: 'asc' }
+  });
+
+  return requests;
+};
+
+export const respondToSathiVisitRequest = async (
+  volunteerId: string,
+  requestId: string,
+  action: 'ACCEPT' | 'REJECT',
+  rejectionReason?: string
+) => {
+  const request = await prisma.sathiVisitRequest.findUnique({
+    where: { id: requestId },
+    include: { beneficiary: true }
+  });
+
+  if (!request) {
+    throw new ApiError(404, 'Sathi visit request not found.');
+  }
+
+  const assignment = await prisma.volunteerAssignment.findFirst({
+    where: { volunteerId, beneficiaryId: request.beneficiaryId, isActive: true }
+  });
+
+  if (!assignment) {
+    throw new ApiError(403, 'You are not assigned as a companion to this beneficiary.');
+  }
+
+  if (request.status !== 'PENDING') {
+    throw new ApiError(400, `This request has already been ${request.status.toLowerCase()}.`);
+  }
+
+  if (action === 'ACCEPT') {
+    const { eligible, sathiBalanceId } = await getBeneficiarySathiEligibility(request.beneficiaryId);
+    if (!eligible || !sathiBalanceId) {
+      throw new ApiError(400, 'Beneficiary has no remaining Sathi Companion units to schedule this visit.');
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const balance = await tx.subscriptionBenefitBalance.findUnique({
+        where: { id: sathiBalanceId }
+      });
+
+      if (!balance || balance.totalUnits - balance.usedUnits <= 0) {
+        throw new ApiError(400, 'Beneficiary has no remaining Sathi Companion units.');
+      }
+
+      await tx.subscriptionBenefitBalance.update({
+        where: { id: sathiBalanceId },
+        data: { usedUnits: balance.usedUnits + 1 }
+      });
+
+      const updatedRequest = await tx.sathiVisitRequest.update({
+        where: { id: requestId },
+        data: {
+          status: 'ACCEPTED',
+          volunteerId
+        },
+        include: { beneficiary: true }
+      });
+
+      return updatedRequest;
+    });
+
+    return { request: result, message: 'Visit request accepted successfully.' };
+  } else {
+    const updatedRejectedBy = [...request.rejectedBy, volunteerId];
+
+    const allAssignments = await prisma.volunteerAssignment.findMany({
+      where: { beneficiaryId: request.beneficiaryId, isActive: true },
+      select: { volunteerId: true }
+    });
+    const allVolunteerIds = allAssignments.map(a => a.volunteerId);
+
+    const allRejected = allVolunteerIds.every(vid => updatedRejectedBy.includes(vid));
+
+    const updatedRequest = await prisma.sathiVisitRequest.update({
+      where: { id: requestId },
+      data: {
+        rejectedBy: updatedRejectedBy,
+        status: allRejected ? 'REJECTED' : 'PENDING',
+        rejectionReason: allRejected ? (rejectionReason || 'Rejected by all assigned companions') : undefined
+      },
+      include: { beneficiary: true }
+    });
+
+    return { request: updatedRequest, message: 'Visit request rejected.' };
+  }
 };

@@ -2017,3 +2017,41 @@ The vital tracking system is now completely dynamic and configuration-driven. Ne
 
 - Modified [package.json](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/sathi-app/package.json) scripts (`start`, `dev`, and `web`) to run on port `8082` (`expo start --port 8082`).
 - Backend CORS allowed origins automatically accept requests from the new `8082` origin.
+
+---
+
+## Session: Sathi Companion Scheduling & Visit Requests (2026-07-17)
+
+### Database Schemas & Synchronization
+
+- **Sathi Visit Request Model**:
+  - Declared `SathiVisitRequest` model with fields: `id`, `beneficiaryId`, `volunteerId`, `dateTime`, `reason`, `status` (enum `PENDING`, `ACCEPTED`, `REJECTED`), `rejectionReason`, `rejectedBy` string array, `createdAt`, and `updatedAt`.
+  - Added relation maps to both `Beneficiary` and `Volunteer` models.
+  - Propagated updates to `apps/mobile-backend/prisma/schema.prisma`, `packages/database/prisma/schema.prisma`, and `apps/admin-backend/prisma/schema.prisma`.
+  - Successfully ran database migrations via `npx prisma db push` and regenerated all Prisma Clients.
+
+### Backend Endpoints & Service Layer
+
+- **Sathi Eligibility Checking**:
+  - Implemented `getBeneficiarySathiEligibility` to check if a senior has active subscriptions with remaining units under the "Sathi Companion" benefit type.
+- **Visit Request Operations**:
+  - Implemented `createSathiVisitRequest` to check eligibility and save a pending visit request.
+  - Implemented `getVolunteerSathiRequests` to fetch all pending requests from beneficiaries assigned to a volunteer (excluding requests previously rejected by that volunteer).
+  - Implemented `respondToSathiVisitRequest` where accepting a request sets the status to `ACCEPTED`, sets the volunteer ID, and deducts 1 unit from the subscriber's Sathi Companion benefit balance.
+- **API Routers**:
+  - Created [sathi-requests.routes.ts](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-backend/app/api/subscriber/sathi-requests.routes.ts) mounting senior eligibility and request endpoints.
+  - Created [visit-requests.routes.ts](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-backend/app/api/sathi/visit-requests.routes.ts) mounting volunteer retrieval and response endpoints.
+
+### Mobile & Sathi App Upgrades
+
+- **Beneficiary Application**:
+  - Created [sathi-request.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-app/app/(beneficiary)/sathi-request.tsx) screen containing custom date/time pickers, purpose text input, and remaining balance indicator card.
+  - Bypasses form inputs and renders a beautiful "Not Eligible" message with contact information if eligibility check fails.
+  - Linked the card to navigate from the "Saathi" Quick Actions card on the Beneficiary Home page [index.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-app/app/(beneficiary)/index.tsx).
+- **Sathi Volunteer Application**:
+  - Updated volunteer dashboard [index.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/sathi-app/app/(sathi)/index.tsx) data fetching to fetch real pending `visitRequests` and upcoming accepted `upcomingVisits`.
+  - Renders interactive Sathi requests cards showing beneficiary details, scheduled date/time, purpose/reason, and Accept/Reject buttons.
+  - Handles rejection reason prompt with a web-safe `window.prompt` fallback.
+- **General Cleanliness**:
+  - Cleaned up pre-existing stylesheet duplicate errors in [subscription-packages.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-app/app/(setup)/subscription-packages.tsx).
+  - Cleaned up `LogEntry` types in [PackageUtilizationPanel.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-app/components/shared/PackageUtilizationPanel.tsx) to resolve implicit type-check warnings.

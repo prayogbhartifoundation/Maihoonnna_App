@@ -714,19 +714,5 @@ const styles = StyleSheet.create({
     },
     detailsBtnRegional: {
         borderColor: '#0D9488'
-    },
-    actionButtonRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginBottom: 12
-    },
-    detectLocationBtn: {
-        flex: 1,
-        backgroundColor: '#FE6700',
-        borderRadius: 12,
-        height: 48,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center'
     }
 });

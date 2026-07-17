@@ -247,6 +247,115 @@ export default function SathiDashboard() {
     }
   };
 
+  const handleRespondRequest = async (requestId: string, action: 'ACCEPT' | 'REJECT') => {
+    try {
+      if (action === 'REJECT') {
+        if (Platform.OS === 'web') {
+          const reason = window.prompt('Please enter a reason for rejecting this companion visit:');
+          if (reason !== null) {
+            await submitResponse(requestId, action, reason);
+          }
+        } else {
+          Alert.prompt(
+            'Reject Request',
+            'Please enter a reason for rejecting this companion visit:',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Reject',
+                style: 'destructive',
+                onPress: async (reason?: string) => {
+                  await submitResponse(requestId, action, reason || '');
+                }
+              }
+            ],
+            'plain-text'
+          );
+        }
+      } else {
+        Alert.alert(
+          'Accept Request',
+          'Are you sure you want to accept this companion visit request?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Accept',
+              onPress: async () => {
+                await submitResponse(requestId, action);
+              }
+            }
+          ]
+        );
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to process request action.');
+    }
+  };
+
+  const submitResponse = async (requestId: string, action: 'ACCEPT' | 'REJECT', reason?: string) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      setLoading(true);
+      const response = await fetch(`${API_URL}/sathi/visit-requests/${requestId}/respond`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          rejectionReason: reason || null,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok || data.success) {
+        Alert.alert('Success', action === 'ACCEPT' ? 'Visit request accepted!' : 'Visit request rejected.');
+        fetchDashboardData();
+      } else {
+        Alert.alert('Failed', data.message || 'Could not process request response.');
+        setLoading(false);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not connect to the backend server.');
+      setLoading(false);
+    }
+  };
+
+  const handleStartVisit = async (beneficiaryId: string, assignmentId: string) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      setLoading(true);
+      const response = await fetch(`${API_URL}/sathi/visits/checkin`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          beneficiaryId,
+          assignmentId,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok || data.success) {
+        Alert.alert('Success', 'Visit started successfully!');
+        fetchDashboardData();
+      } else {
+        Alert.alert('Failed', data.message || 'Could not start visit.');
+        setLoading(false);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not connect to the backend server.');
+      setLoading(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchDashboardData();
@@ -565,24 +674,53 @@ export default function SathiDashboard() {
         </View>
 
         {dashboard?.upcomingVisits && dashboard.upcomingVisits.length > 0 ? (
-          dashboard.upcomingVisits.map((item: any) => (
-            <View key={item.id} style={styles.visitCard}>
-              <Image source={{ uri: item.photo }} style={styles.seniorPhoto} />
-              <View style={styles.visitInfo}>
-                <View style={styles.rowJustify}>
-                  <Text style={styles.seniorName}>{item.name}</Text>
-                  <View style={styles.distanceBadge}>
-                    <Text style={styles.distanceText}>{item.distance}</Text>
+          dashboard.upcomingVisits.map((item: any) => {
+            const formattedDate = new Date(item.dateTime || new Date()).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              weekday: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            return (
+              <View key={item.id} style={styles.visitCard}>
+                <View style={styles.seniorHeader}>
+                  <Image source={{ uri: item.photo }} style={styles.seniorPhoto} />
+                  <View style={styles.seniorMeta}>
+                    <Text style={styles.seniorName}>
+                      {item.name}{item.age ? `, ${item.age}` : ''}
+                    </Text>
+                    <Text style={styles.locationTextSmall}>📍 {item.location || 'Delhi'}</Text>
                   </View>
                 </View>
-                <Text style={styles.locationTextSmall}>📍 {item.location}</Text>
-                <View style={styles.rowJustify}>
-                  <Text style={styles.visitDate}>{item.dateString}</Text>
-                  <Text style={styles.visitsCount}>{item.visitCount} visits</Text>
+
+                <View style={styles.requestTimeRow}>
+                  <Ionicons name="calendar-outline" size={16} color="#4CAF50" style={{ marginRight: 6 }} />
+                  <Text style={[styles.requestTimeText, { color: '#4CAF50' }]}>{formattedDate}</Text>
                 </View>
+
+                {item.reason && (
+                  <View style={styles.reasonContainer}>
+                    <Text style={styles.reasonText}>{item.reason}</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.requestAcceptBtn, { marginTop: scale(12), backgroundColor: '#4CAF50', width: '100%', justifyContent: 'center' }]}
+                  onPress={() => {
+                    if (!item.assignmentId) {
+                      Alert.alert('Error', 'No assignment found for this beneficiary.');
+                      return;
+                    }
+                    handleStartVisit(item.beneficiaryId, item.assignmentId);
+                  }}
+                >
+                  <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.requestAcceptText}>Start Visit</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-          ))
+            );
+          })
         ) : (
           <Text style={styles.emptyText}>No upcoming companion visits scheduled.</Text>
         )}
@@ -590,32 +728,66 @@ export default function SathiDashboard() {
         {/* Visit Requests */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Visit Requests</Text>
-          <TouchableOpacity onPress={() => replace('/(sathi)/match')}>
-            <Text style={styles.viewAllLink}>View All</Text>
-          </TouchableOpacity>
         </View>
 
         {dashboard?.visitRequests && dashboard.visitRequests.length > 0 ? (
-          dashboard.visitRequests.map((item: any) => (
-            <View key={item.id} style={styles.visitCard}>
-              <Image source={{ uri: item.photo }} style={styles.seniorPhoto} />
-              <View style={styles.visitInfo}>
-                <View style={styles.rowJustify}>
-                  <Text style={styles.seniorName}>{item.name}</Text>
-                  <View style={styles.distanceBadgeBlue}>
-                    <Text style={styles.distanceTextBlue}>{item.distance}</Text>
+          dashboard.visitRequests.map((item: any) => {
+            const formattedDate = new Date(item.dateTime).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              weekday: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            return (
+              <View key={item.id} style={styles.requestCard}>
+                <View style={styles.seniorHeader}>
+                  <Image source={{ uri: item.photo }} style={styles.seniorPhoto} />
+                  <View style={styles.seniorMeta}>
+                    <Text style={styles.seniorName}>
+                      {item.name}{item.age ? `, ${item.age}` : ''}
+                    </Text>
+                    <Text style={styles.locationTextSmall}>📍 {item.location || 'Delhi'}</Text>
                   </View>
                 </View>
-                <Text style={styles.locationTextSmall}>📍 {item.location}</Text>
-                <View style={styles.rowJustify}>
-                  <Text style={styles.visitsCount}>{item.totalVisits} total visits</Text>
-                  <Text style={styles.lastVisitText}>Last: {item.lastVisit}</Text>
+
+                {/* Date & Time */}
+                <View style={styles.requestTimeRow}>
+                  <Ionicons name="calendar-outline" size={16} color="#FF6F00" style={{ marginRight: 6 }} />
+                  <Text style={styles.requestTimeText}>{formattedDate}</Text>
+                </View>
+
+                {/* Reason */}
+                {item.reason && (
+                  <View style={styles.reasonContainer}>
+                    <Text style={styles.reasonLabel}>Reason:</Text>
+                    <Text style={styles.reasonText}>{item.reason}</Text>
+                  </View>
+                )}
+
+                {/* Accept/Reject Button Row */}
+                <View style={styles.requestActionsRow}>
+                  <TouchableOpacity
+                    style={styles.requestAcceptBtn}
+                    onPress={() => handleRespondRequest(item.id, 'ACCEPT')}
+                  >
+                    <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.requestAcceptText}>Accept</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.requestRejectBtn}
+                    onPress={() => handleRespondRequest(item.id, 'REJECT')}
+                  >
+                    <Ionicons name="close-circle-outline" size={16} color="#EF4444" style={{ marginRight: 4 }} />
+                    <Text style={styles.requestRejectText}>Reject</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            </View>
-          ))
+            );
+          })
         ) : (
-          <Text style={styles.emptyText}>No new companion match requests.</Text>
+          <Text style={styles.emptyText}>No pending companion visit requests.</Text>
         )}
 
         {/* Log Hours floating/bottom button */}
@@ -862,6 +1034,95 @@ const styles = StyleSheet.create({
     color: '#FF6F00',
     fontWeight: '600',
     fontSize: scale(14),
+  },
+  requestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(16),
+    borderWidth: 1,
+    borderColor: '#FFE3D1',
+    padding: scale(16),
+    marginBottom: scale(16),
+    shadowColor: '#FE6700',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  seniorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: scale(12),
+  },
+  seniorMeta: {
+    flex: 1,
+  },
+  requestTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5ED',
+    paddingVertical: scale(8),
+    paddingHorizontal: scale(12),
+    borderRadius: scale(8),
+    marginBottom: scale(12),
+  },
+  requestTimeText: {
+    fontSize: scale(13),
+    fontWeight: '600',
+    color: '#FF6F00',
+  },
+  reasonContainer: {
+    backgroundColor: '#F9FAFB',
+    padding: scale(12),
+    borderRadius: scale(8),
+    marginBottom: scale(16),
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  reasonLabel: {
+    fontSize: scale(11),
+    fontWeight: '700',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    marginBottom: scale(4),
+  },
+  reasonText: {
+    fontSize: scale(13),
+    color: '#374151',
+    lineHeight: scale(18),
+  },
+  requestActionsRow: {
+    flexDirection: 'row',
+    gap: scale(12),
+  },
+  requestAcceptBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF6F00',
+    paddingVertical: scale(10),
+    borderRadius: scale(10),
+  },
+  requestAcceptText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: scale(13),
+  },
+  requestRejectBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    paddingVertical: scale(10),
+    borderRadius: scale(10),
+  },
+  requestRejectText: {
+    color: '#EF4444',
+    fontWeight: '700',
+    fontSize: scale(13),
   },
   /* Pending Onboarding view styling */
   pendingHeader: {

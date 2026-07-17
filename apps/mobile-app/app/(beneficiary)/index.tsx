@@ -326,7 +326,10 @@ export default function BeneficiaryDashboard() {
                         <Text style={styles.actionSubtitle}>Join activities</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.actionCard}>
+                    <TouchableOpacity
+                        style={styles.actionCard}
+                        onPress={() => router.push('/(beneficiary)/sathi-request' as any)}
+                    >
                         <View style={[styles.actionIconBadge, { backgroundColor: '#FCE7F3' }]}>
                             <Feather name="alert-circle" size={24} color="#E60076" />
                         </View>

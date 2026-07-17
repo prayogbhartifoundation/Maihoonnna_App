@@ -287,6 +287,7 @@ model Beneficiary {
   serviceRequests     ServiceRequest[]
   volunteerAssignments VolunteerAssignment[]
   volunteerVisitLogs   VolunteerVisitLog[]
+  sathiVisitRequests   SathiVisitRequest[]
 
   @@index([name])
   @@index([city])
@@ -537,6 +538,7 @@ model Team {
 
 model BenefitType {
   id           String    @id @default(uuid())
+  code         String?   @unique
   name         String    @unique
   description  String?
   iconCode     String?
@@ -1765,6 +1767,7 @@ model Volunteer {
   assignments        VolunteerAssignment[]
   visitLogs          VolunteerVisitLog[]
   creditTransactions VolunteerCreditTransaction[]
+  sathiVisitRequests SathiVisitRequest[]
 
   @@map("volunteers")
 }
@@ -1854,6 +1857,30 @@ enum CreditTransactionType {
   redeemed     // volunteer spent points
   adjustment   // manual admin correction
   expiry       // points expired
+}
+
+model SathiVisitRequest {
+  id              String               @id @default(uuid())
+  beneficiaryId   String
+  volunteerId     String?              // The volunteer who accepted it (null if pending)
+  dateTime        DateTime
+  reason          String
+  status          SathiRequestStatus   @default(PENDING) // PENDING, ACCEPTED, REJECTED
+  rejectionReason String?
+  rejectedBy      String[]             @default([]) // Array of volunteer IDs who rejected this request
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  beneficiary     Beneficiary          @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  volunteer       Volunteer?           @relation(fields: [volunteerId], references: [id], onDelete: SetNull)
+
+  @@map("sathi_visit_requests")
+}
+
+enum SathiRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 
