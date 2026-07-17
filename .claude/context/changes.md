@@ -2055,3 +2055,30 @@ The vital tracking system is now completely dynamic and configuration-driven. Ne
 - **General Cleanliness**:
   - Cleaned up pre-existing stylesheet duplicate errors in [subscription-packages.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-app/app/(setup)/subscription-packages.tsx).
   - Cleaned up `LogEntry` types in [PackageUtilizationPanel.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-app/components/shared/PackageUtilizationPanel.tsx) to resolve implicit type-check warnings.
+
+---
+
+## Session: Sathi Benefit Architecture & Beneficiary UI Linkage (2026-07-17)
+
+### Sathi Benefit Architecture Upgrade
+- **Unique Code Identifier:**
+  - Added a unique `code` column (`String? @unique`) to the `BenefitType` model to robustly identify system-level benefits, eliminating the brittle reliance on exact string matching (e.g. "Sathi Companion").
+  - Pushed the schema updates across all three workspaces and synced the live Supabase PostgreSQL database.
+  - Successfully updated the `BenefitType` row for the Sathi service (UUID: `defcdb9e-04ad-47c2-9761-2660501bf533`) with the new code `"SATHI_COMPANION"`.
+- **Eligibility & Usage Checking:**
+  - Refactored `sathi_service.ts` to check `bal.benefit.benefitType.code === 'SATHI_COMPANION'` as the primary source of truth, with `.includes('sathi')` as a fallback.
+  - Fixes bugs where Sathi eligibility failed due to naming mismatches when admins created the Sathi package.
+
+### Backend Routing Reorganization
+- Moved Sathi request routing out of the `subscriber` namespace into the `beneficiary` namespace (`sathi-requests.routes.ts`) for proper scoping.
+- **ID Resolution Bug Fix:**
+  - Resolved a critical bug where the frontend `user.id` passed to the backend could not be mapped to subscriptions (which expect the actual `Beneficiary.id`).
+  - Implemented `resolveBeneficiaryId(idParam)` to correctly lookup the `Beneficiary` whether the parameter passed was a `Beneficiary.id` or a `User.id` (subscriber/beneficiary user).
+
+### UI Upgrades
+- **Beneficiary App:**
+  - Updated API fetch routes in `sathi-request.tsx` to hit `/beneficiary/sathi-requests/` instead of `/subscriber/sathi-requests/`.
+- **Sathi Dashboard App:**
+  - In `upcomingVisits`, mapped the internal `assignmentId` from the volunteer's assignments array to the response payload.
+  - Added a **"Start Visit"** button directly to the upcoming visits cards inside `apps/sathi-app/app/(sathi)/index.tsx`.
+  - Pressing "Start Visit" automatically hits the `/checkin` endpoint using both the `beneficiaryId` and `assignmentId`, transitioning the state properly.
