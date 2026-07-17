@@ -2082,3 +2082,32 @@ The vital tracking system is now completely dynamic and configuration-driven. Ne
   - In `upcomingVisits`, mapped the internal `assignmentId` from the volunteer's assignments array to the response payload.
   - Added a **"Start Visit"** button directly to the upcoming visits cards inside `apps/sathi-app/app/(sathi)/index.tsx`.
   - Pressing "Start Visit" automatically hits the `/checkin` endpoint using both the `beneficiaryId` and `assignmentId`, transitioning the state properly.
+
+---
+
+## Session: Saathi Network UX, My Requests & Service Refactoring (2026-07-17)
+
+### Beneficiary App UI & UX Upgrades
+- **Saathi Network Integration**:
+  - Implemented the "Saathi Network" mockup by rebuilding the UI in `apps/mobile-app/app/(beneficiary)/sathi-request.tsx`.
+  - Added the "About Saathi Network" banner and an "Available Volunteers" list showing detailed profiles (Photo, Name, Rating, Distance, Bio, Hours).
+  - Designed the volunteer cards with drop shadows, custom badges, and colored "Request Visit" / "Feedback" action buttons to match Figma exactly.
+- **My Requests Tracking**:
+  - Built a dynamic **"My Requests"** section above the available volunteers list.
+  - Automatically queries and renders the user's past Sathi visit requests.
+  - Formats date and time cleanly, and adds colored status badges for `PENDING` (yellow), `ACCEPTED` (green), and `REJECTED` (red).
+  - Updating or submitting a new request automatically refreshes and displays the request at the top of the list.
+- **Cross-Platform Fixes**:
+  - Addressed a major issue where `react-native-modal-datetime-picker` does not open on web testing environments.
+  - Implemented a smooth fallback mechanism utilizing `Platform.OS === 'web'` to automatically degrade to native HTML5 `<input type="date">` and `<input type="time">` pickers while on the web, keeping tests fluid.
+- **Routing**:
+  - Correctly wired the "Saathi Network" button from the `more.tsx` settings panel to route users to the `sathi-request` screen.
+
+### Backend Refactoring
+- **Service Isolation**:
+  - Separated concerns by migrating all beneficiary-side request code out of the volunteer-focused `sathi_service.ts`.
+  - Created a dedicated `apps/mobile-backend/app/services/beneficiary/beneficiary_sathi_service.ts` to host `getBeneficiarySathiEligibility`, `createSathiVisitRequest`, `getLinkedVolunteers`, and `getBeneficiarySathiRequests`.
+- **API Router Updates**:
+  - Added a new endpoint `GET /:beneficiaryId/sathi/my-requests` for fetching a senior's personal requests.
+  - Updated `sathi-requests.routes.ts` imports to consume functions from the newly established beneficiary service folder.
+  - Resolved strict TypeScript errors in the backend resulting from legacy `status` keys and mismatched photo variable names.
