@@ -110,7 +110,7 @@ export default function MoreOptionsScreen() {
             icon: <AntDesign name="heart" size={16} color="#EC4899" />,
             label: 'Saathi Network',
             iconBg: '#FDF2F8',
-            onPress: () => { },
+            onPress: () => router.push('/(beneficiary)/sathi-request'),
         },
     ];
 

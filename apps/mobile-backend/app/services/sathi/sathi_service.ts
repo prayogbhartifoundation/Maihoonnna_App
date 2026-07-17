@@ -3,6 +3,7 @@ import prisma from '../../core/database';
 import { createToken } from '../../core/security';
 import { ApiError } from '../../utils/ApiError';
 import { OtpFactory } from '../../core/otp/OtpFactory';
+import { getBeneficiarySathiEligibility } from '../beneficiary/beneficiary_sathi_service';
 
 export const getSystemConfig = async (key: string, defaultValue: string): Promise<string> => {
   const config = await prisma.systemConfig.findUnique({ where: { key } });
@@ -505,65 +506,7 @@ export const getVolunteerCreditTransactions = async (volunteerId: string) => {
   return txs;
 };
 
-export const getBeneficiarySathiEligibility = async (beneficiaryId: string) => {
-  const activeSubscriptions = await prisma.subscription.findMany({
-    where: {
-      beneficiaryId,
-      isActive: true
-    },
-    include: {
-      benefitBalances: {
-        include: {
-          benefit: {
-            include: {
-              benefitType: true
-            }
-          }
-        }
-      }
-    }
-  });
 
-  let eligible = false;
-  let remainingUnits = 0;
-  let sathiBalanceId = null;
-
-  for (const sub of activeSubscriptions) {
-    for (const bal of sub.benefitBalances) {
-      if (bal.benefit.benefitType && (bal.benefit.benefitType.code === 'SATHI_COMPANION' || bal.benefit.benefitType.name.toLowerCase().includes('sathi'))) {
-        const remaining = bal.totalUnits - bal.usedUnits;
-        if (remaining > 0) {
-          eligible = true;
-          remainingUnits += remaining;
-          sathiBalanceId = bal.id;
-        }
-      }
-    }
-  }
-
-  return { eligible, remainingUnits, sathiBalanceId };
-};
-
-export const createSathiVisitRequest = async (beneficiaryId: string, dateTime: string, reason: string) => {
-  const { eligible } = await getBeneficiarySathiEligibility(beneficiaryId);
-  if (!eligible) {
-    throw new ApiError(400, 'Your active subscription does not include Sathi Companion hours/benefits, or you have run out of units.');
-  }
-
-  const request = await prisma.sathiVisitRequest.create({
-    data: {
-      beneficiaryId,
-      dateTime: new Date(dateTime),
-      reason,
-      status: 'PENDING'
-    },
-    include: {
-      beneficiary: true
-    }
-  });
-
-  return request;
-};
 
 export const getVolunteerSathiRequests = async (volunteerId: string) => {
   const assignments = await prisma.volunteerAssignment.findMany({
@@ -577,6 +520,10 @@ export const getVolunteerSathiRequests = async (volunteerId: string) => {
     where: {
       beneficiaryId: { in: beneficiaryIds },
       status: 'PENDING',
+      OR: [
+        { volunteerId: null },
+        { volunteerId: volunteerId }
+      ],
       NOT: {
         rejectedBy: { has: volunteerId }
       }
@@ -597,6 +544,8 @@ export const getVolunteerSathiRequests = async (volunteerId: string) => {
 
   return requests;
 };
+
+
 
 export const respondToSathiVisitRequest = async (
   volunteerId: string,
