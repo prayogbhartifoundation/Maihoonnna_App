@@ -156,20 +156,41 @@ router.get('/place-details', async (req: Request, res: Response, next: NextFunct
     const result = data.result;
     const location = result.geometry.location;
 
-    // Extract city, state, pincode
-    let city = '', state = '', pincode = '';
+    // Extract city, state, pincode, flatPlot, streetArea
+    let city = '', state = '', pincode = '', flatPlot = '', streetArea = '';
     if (result.address_components) {
+      const sublocalities: string[] = [];
+      let route = '';
+
       result.address_components.forEach((comp: any) => {
           if (comp.types.includes('locality')) city = comp.long_name;
           if (comp.types.includes('administrative_area_level_1')) state = comp.long_name;
           if (comp.types.includes('postal_code')) pincode = comp.long_name;
+          
+          if (comp.types.includes('premise') || comp.types.includes('subpremise') || comp.types.includes('street_number')) {
+            flatPlot = flatPlot ? `${flatPlot}, ${comp.long_name}` : comp.long_name;
+          }
+          if (comp.types.includes('route')) route = comp.long_name;
+          if (comp.types.includes('sublocality') || comp.types.includes('neighborhood') || comp.types.includes('sublocality_level_1') || comp.types.includes('sublocality_level_2')) {
+            sublocalities.push(comp.long_name);
+          }
       });
+      
+      // Combine route and sublocalities for streetArea
+      const streetParts = [];
+      if (route) streetParts.push(route);
+      if (sublocalities.length > 0) streetParts.push(...sublocalities);
+      
+      // Deduplicate parts to avoid "Sector 53, Sector 53"
+      streetArea = [...new Set(streetParts)].join(', ');
     }
 
     res.json({
       success: true,
       data: {
         address: result.formatted_address,
+        flatPlot,
+        streetArea,
         city,
         state,
         pincode,

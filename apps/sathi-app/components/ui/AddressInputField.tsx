@@ -18,6 +18,8 @@ export interface LocationDetails {
   city: string;
   state: string;
   pincode: string;
+  flatPlot?: string;
+  streetArea?: string;
 }
 
 interface AddressInputFieldProps {
@@ -47,6 +49,8 @@ export const AddressInputField: React.FC<AddressInputFieldProps> = ({
       city: selected.city,
       state: selected.state,
       pincode: selected.pincode,
+      flatPlot: selected.flatPlot,
+      streetArea: selected.streetArea,
     });
   };
 

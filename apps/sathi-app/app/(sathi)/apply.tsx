@@ -11,10 +11,12 @@ import {
   ActivityIndicator,
   ScrollView,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { API_URL } from '@/constants/api';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
@@ -43,12 +45,22 @@ export default function ApplyVolunteerScreen() {
     name: '',
     email: '',
     phone: '',
-    age: '',
     gender: '',
     previousExperience: '',
     whyJoin: '',
   });
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [address, setAddress] = useState('');
+  const [flatPlot, setFlatPlot] = useState('');
+  const [streetArea, setStreetArea] = useState('');
+  const [landmark, setLandmark] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [latitude, setLatitude] = useState(0);
+  const [longitude, setLongitude] = useState(0);
+
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [customInterest, setCustomInterest] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -87,12 +99,19 @@ export default function ApplyVolunteerScreen() {
             name: profile.name || '',
             email: profile.email || '',
             phone: profile.phone || '',
-            age: profile.age ? String(profile.age) : '',
             gender: profile.gender || '',
             previousExperience: profile.previousExperience || '',
             whyJoin: profile.whyJoin || '',
           });
           if (profile.address) setAddress(profile.address);
+          if (profile.flatPlot) setFlatPlot(profile.flatPlot);
+          if (profile.streetArea) setStreetArea(profile.streetArea);
+          if (profile.landmark) setLandmark(profile.landmark);
+          if (profile.city) setCity(profile.city);
+          if (profile.state) setState(profile.state);
+          if (profile.pincode) setPincode(profile.pincode);
+          if (profile.latitude) setLatitude(profile.latitude);
+          if (profile.longitude) setLongitude(profile.longitude);
           if (profile.interests?.length > 0) setSelectedInterests(profile.interests);
         } else {
           // Token may be invalid
@@ -135,13 +154,25 @@ export default function ApplyVolunteerScreen() {
       setFormError('Full Name is required.');
       return;
     }
-    if (!form.age) {
-      setFormError('Age is required.');
+    if (!city || !state || !pincode) {
+      setFormError('City, State, and Pincode are required. Please pick an accurate location.');
       return;
     }
-    const parsedAge = parseInt(form.age, 10);
-    if (isNaN(parsedAge) || parsedAge < 18 || parsedAge > 100) {
-      setFormError('Age must be a valid number between 18 and 100.');
+    if (!dateOfBirth) {
+      setFormError('Date of birth is required.');
+      return;
+    }
+    
+    // Calculate age
+    const today = new Date();
+    let calculatedAge = today.getFullYear() - dateOfBirth.getFullYear();
+    const m = today.getMonth() - dateOfBirth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dateOfBirth.getDate())) {
+      calculatedAge--;
+    }
+
+    if (calculatedAge < 18) {
+      setFormError('You must be at least 18 years old to register as a Saathi.');
       return;
     }
     if (!agreeGuidelines) {
@@ -167,9 +198,17 @@ export default function ApplyVolunteerScreen() {
         body: JSON.stringify({
           name: form.name.trim(),
           email: form.email.trim() || null,
-          age: parsedAge,
+          age: calculatedAge,
           gender: form.gender.trim() || null,
           address: address.trim() || null,
+          flatPlot: flatPlot.trim() || null,
+          streetArea: streetArea.trim() || null,
+          landmark: landmark.trim() || null,
+          city: city.trim() || null,
+          state: state.trim() || null,
+          pincode: pincode.trim() || null,
+          latitude: latitude || null,
+          longitude: longitude || null,
           previousExperience: form.previousExperience.trim() || null,
           whyJoin: form.whyJoin.trim() || null,
           interests: selectedInterests,
@@ -462,42 +501,168 @@ export default function ApplyVolunteerScreen() {
               </View>
             </View>
 
-            {/* Age */}
+            {/* Age -> Date of Birth */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Age *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your age (must be 18+)"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="numeric"
-                maxLength={3}
-                value={form.age}
-                onChangeText={(t) => setForm({ ...form, age: t.replace(/\D/g, '') })}
-                editable={!isLoading}
-              />
+              <Text style={styles.label}>Date of Birth *</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowDatePicker(true)}
+                disabled={isLoading}
+              >
+                <Text style={[styles.datePickerText, !dateOfBirth && { color: '#9CA3AF' }]}>
+                  {dateOfBirth ? dateOfBirth.toLocaleDateString() : 'Select your date of birth'}
+                </Text>
+                <MaterialCommunityIcons name="calendar" size={20} color="#6B7280" />
+              </TouchableOpacity>
+
+              {Platform.OS === 'ios' ? (
+                <Modal visible={showDatePicker} transparent animationType="slide">
+                  <View style={styles.iosPickerModalContainer}>
+                    <View style={styles.iosPickerContainer}>
+                      <View style={styles.iosPickerHeader}>
+                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                          <Text style={styles.iosPickerDoneText}>Done</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={dateOfBirth || new Date(new Date().setFullYear(new Date().getFullYear() - 18))}
+                        mode="date"
+                        display="spinner"
+                        maximumDate={new Date(new Date().setFullYear(new Date().getFullYear() - 18))}
+                        onChange={(event, selectedDate) => {
+                          if (selectedDate) setDateOfBirth(selectedDate);
+                        }}
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              ) : (
+                showDatePicker && (
+                  <DateTimePicker
+                    value={dateOfBirth || new Date(new Date().setFullYear(new Date().getFullYear() - 18))}
+                    mode="date"
+                    display="default"
+                    maximumDate={new Date(new Date().setFullYear(new Date().getFullYear() - 18))}
+                    onChange={(event, selectedDate) => {
+                      setShowDatePicker(false);
+                      if (selectedDate) setDateOfBirth(selectedDate);
+                    }}
+                  />
+                )
+              )}
             </View>
 
             {/* Gender */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Gender</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Male, Female, Other"
-                placeholderTextColor="#9CA3AF"
-                value={form.gender}
-                onChangeText={(t) => setForm({ ...form, gender: t })}
-                editable={!isLoading}
-              />
+              <View style={styles.radioGroup}>
+                {['Male', 'Female', 'Other', 'Prefer Not to say'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.radioOption}
+                    onPress={() => setForm({ ...form, gender: option })}
+                    disabled={isLoading}
+                  >
+                    <MaterialCommunityIcons
+                      name={form.gender === option ? 'radiobox-marked' : 'radiobox-blank'}
+                      size={22}
+                      color={form.gender === option ? '#FE6700' : '#BDC9C9'}
+                    />
+                    <Text style={styles.radioText}>{option}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             {/* Address */}
             <AddressInputField
               value={address}
               onChangeText={setAddress}
-              onLocationFetched={() => {}}
-              label="Full Address *"
-              placeholder="Street address, apartment, city, state, ZIP"
+              onLocationFetched={(details) => {
+                if (details.flatPlot) setFlatPlot(details.flatPlot);
+                if (details.streetArea) setStreetArea(details.streetArea);
+                if (details.city) setCity(details.city);
+                if (details.state) setState(details.state);
+                if (details.pincode) setPincode(details.pincode);
+                if (details.latitude) setLatitude(details.latitude);
+                if (details.longitude) setLongitude(details.longitude);
+              }}
+              label="Address"
+              placeholder="Pick accurate location"
             />
+
+            <View style={styles.gridRow}>
+              <View style={styles.gridCol}>
+                <Text style={styles.label}>Flat / Plot / Building</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. 402, Sunshine"
+                  placeholderTextColor="#9CA3AF"
+                  value={flatPlot}
+                  onChangeText={setFlatPlot}
+                />
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.label}>Street / Area *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Sector 15"
+                  placeholderTextColor="#9CA3AF"
+                  value={streetArea}
+                  onChangeText={setStreetArea}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Landmark (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Near HDFC Bank"
+                placeholderTextColor="#9CA3AF"
+                value={landmark}
+                onChangeText={setLandmark}
+              />
+            </View>
+
+            <View style={styles.gridRow}>
+              <View style={styles.gridCol}>
+                <Text style={styles.label}>City *</Text>
+                <TextInput
+                  style={[styles.input, styles.inputDisabled]}
+                  placeholder="City"
+                  placeholderTextColor="#9CA3AF"
+                  value={city}
+                  onChangeText={setCity}
+                  editable={false}
+                />
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.label}>Pincode *</Text>
+                <TextInput
+                  style={[styles.input, styles.inputDisabled]}
+                  placeholder="Pincode"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  maxLength={6}
+                  value={pincode}
+                  onChangeText={setPincode}
+                  editable={false}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>State *</Text>
+              <TextInput
+                style={[styles.input, styles.inputDisabled]}
+                placeholder="State"
+                placeholderTextColor="#9CA3AF"
+                value={state}
+                onChangeText={setState}
+                editable={false}
+              />
+            </View>
 
             {/* Previous Experience */}
             <View style={styles.inputGroup}>
@@ -739,6 +904,47 @@ const styles = StyleSheet.create({
     paddingVertical: scale(10),
     fontSize: scale(14),
     color: '#111827',
+    minHeight: scale(44),
+  },
+  inputDisabled: {
+    backgroundColor: '#F3F4F6',
+    color: '#6B7280',
+  },
+  radioGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: scale(12), marginTop: scale(4) },
+  radioOption: { flexDirection: 'row', alignItems: 'center', gap: scale(6), marginRight: scale(8) },
+  radioText: { fontSize: scale(14), color: '#3E4949' },
+  datePickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DC',
+    borderRadius: scale(6),
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(10),
+  },
+  datePickerText: { fontSize: scale(14), color: '#111827' },
+  iosPickerModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  iosPickerContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingBottom: scale(20),
+  },
+  iosPickerHeader: {
+    padding: scale(16),
+    alignItems: 'flex-end',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  iosPickerDoneText: {
+    color: '#007AFF',
+    fontWeight: '600',
+    fontSize: scale(16),
   },
   disabledInput: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
   phoneRow: {
@@ -767,6 +973,8 @@ const styles = StyleSheet.create({
   tagSelected: { backgroundColor: '#FE6700' },
   tagText: { fontSize: scale(13), color: '#3E4949', fontWeight: '500' },
   tagTextSelected: { color: '#FFFFFF' },
+  gridRow: { flexDirection: 'row', gap: scale(12), marginBottom: scale(16) },
+  gridCol: { flex: 1 },
   customInterestInputRow: {
     flexDirection: 'row',
     alignItems: 'center',

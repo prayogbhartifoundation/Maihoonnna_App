@@ -47,6 +47,8 @@ export interface SelectedAddress {
   city?: string;
   state?: string;
   pincode?: string;
+  flatPlot?: string;
+  streetArea?: string;
 }
 
 interface AddressPickerProps {
@@ -191,6 +193,8 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
         const formatted = parts.join(', ');
         setAddressText(formatted || 'Unknown location');
         setAddressDetails({
+          flatPlot: p.name && p.name !== p.street ? p.name : '',
+          streetArea: [p.street, p.subregion].filter(Boolean).join(', ') || '',
           city: p.city || p.district || '',
           state: p.region || '',
           pincode: p.postalCode || '',
@@ -248,6 +252,8 @@ export const AddressPicker: React.FC<AddressPickerProps> = ({
         mapRef.current?.animateToRegion(newRegion, 800);
         setAddressText(json.data.address || description);
         setAddressDetails({
+          flatPlot: json.data.flatPlot || '',
+          streetArea: json.data.streetArea || '',
           city: json.data.city || '',
           state: json.data.state || '',
           pincode: json.data.pincode || '',

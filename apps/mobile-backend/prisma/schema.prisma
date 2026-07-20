@@ -1753,6 +1753,14 @@ model Volunteer {
   previousExperience String?
   whyJoin            String?
   address            String?
+  flatPlot           String?
+  streetArea         String?
+  landmark           String?
+  city               String?
+  state              String?
+  pincode            String?
+  latitude           Float?
+  longitude          Float?
   interests          String[]            @default([])
   totalCreditHours   Float               @default(0)   // accumulated hours volunteered
   totalCreditPoints  Float               @default(0)   // credit points earned
