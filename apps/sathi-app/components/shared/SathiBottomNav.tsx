@@ -69,6 +69,19 @@ export function SathiBottomNav() {
           />
           <Text style={[styles.tabText, isActive('guide') && { color: DEEP_ORANGE }]}>Guide</Text>
         </TouchableOpacity>
+
+        {/* Profile Tab */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => router.replace('/(sathi)/profile')}
+        >
+          <Ionicons
+            name={isActive('profile') ? 'person' : 'person-outline'}
+            size={24}
+            color={isActive('profile') ? DEEP_ORANGE : '#9CA3AF'}
+          />
+          <Text style={[styles.tabText, isActive('profile') && { color: DEEP_ORANGE }]}>Profile</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

@@ -8,6 +8,7 @@ export default function SathiLayout() {
       <Stack.Screen name="match" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="hours" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="guide" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="profile" options={{ headerShown: false, gestureEnabled: false }} />
     </Stack>
   );
 }

@@ -104,7 +104,7 @@ router.post('/upload', authenticate, (req: any, res: Response, next) => {
 
 
   try {
-    // Fetch the requesting user's role
+    // Fetch the requesting user's role (could be User or Volunteer)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -113,8 +113,17 @@ router.post('/upload', authenticate, (req: any, res: Response, next) => {
       },
     });
 
+    let isVolunteer = false;
+    let volunteer = null;
+
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      volunteer = await prisma.volunteer.findUnique({
+        where: { id: userId },
+      });
+      if (!volunteer) {
+        return res.status(404).json({ success: false, message: 'User or Volunteer not found' });
+      }
+      isVolunteer = true;
     }
 
     let photoUrl: string;
@@ -123,22 +132,29 @@ router.post('/upload', authenticate, (req: any, res: Response, next) => {
     if (targetType === 'self') {
       // ── Upload profile photo for the authenticated user themselves ───────────
       const mimeType = file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype;
-      const storagePath = generateProfilePath(user.role, userId, file.originalname);
+      const role = isVolunteer ? 'volunteer' : user!.role;
+      const storagePath = generateProfilePath(role, userId, file.originalname);
       photoUrl = await uploadToSupabase(file.buffer, storagePath, mimeType);
 
-      if (user.role === 'care_companion' && user.careCompanionProfile) {
+      if (isVolunteer) {
+        updatedEntity = await prisma.volunteer.update({
+          where: { id: userId },
+          data: { profilePhoto: photoUrl },
+          select: { id: true, name: true, profilePhoto: true },
+        });
+      } else if (user!.role === 'care_companion' && user!.careCompanionProfile) {
         // CC: update CareCompanion.photo
         updatedEntity = await prisma.careCompanion.update({
-          where: { id: user.careCompanionProfile.id },
+          where: { id: user!.careCompanionProfile.id },
           data: { photo: photoUrl },
           select: { id: true, name: true, photo: true },
         });
         // Also update User.profilePhoto for consistency
         await prisma.user.update({ where: { id: userId }, data: { profilePhoto: photoUrl } });
-      } else if (user.role === 'beneficiary' && user.beneficiaryProfile) {
+      } else if (user!.role === 'beneficiary' && user!.beneficiaryProfile) {
         // Beneficiary: update Beneficiary.photo
         updatedEntity = await prisma.beneficiary.update({
-          where: { id: user.beneficiaryProfile.id },
+          where: { id: user!.beneficiaryProfile.id },
           data: { photo: photoUrl },
           select: { id: true, name: true, photo: true },
         });
