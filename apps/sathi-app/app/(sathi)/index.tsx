@@ -157,6 +157,7 @@ export default function SathiDashboard() {
       // Premium Offline Mock Mode
       setDashboard({
         status: 'verified', // 'pending' | 'verified' | 'under_review'
+        applicationStatus: 'APPROVED',
         name: 'Meera',
         totalCreditHours: 12.5,
         totalCreditPoints: 125,
@@ -466,7 +467,9 @@ export default function SathiDashboard() {
               <View style={styles.infoBox}>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Status:</Text>
-                  <Text style={[styles.infoValue, { color: '#FF7A00', fontWeight: '800' }]}>Under Review</Text>
+                  <Text style={[styles.infoValue, { color: '#FF7A00', fontWeight: '800' }]}>
+                    {appStatus === 'UNDER_REVIEW' ? 'Under Review' : appStatus === 'SUBMITTED' ? 'Submitted' : 'Pending'}
+                  </Text>
                 </View>
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Estimated Time:</Text>
@@ -622,7 +625,9 @@ export default function SathiDashboard() {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcomeText}>Welcome back, {dashboard?.name || 'Saathi'}!</Text>
-            <Text style={styles.locationText}>📍 Koramangala</Text>
+            <Text style={styles.locationText}>
+              📍 {[dashboard?.city, dashboard?.state].filter(Boolean).join(', ') || 'Location pending'}
+            </Text>
           </View>
           <TouchableOpacity style={styles.notificationBell}>
             <Ionicons name="notifications-outline" size={24} color="#111827" />

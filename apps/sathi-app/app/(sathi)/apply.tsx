@@ -26,8 +26,6 @@ import { useAuth } from '@/contexts/AuthContext';
 const { width } = Dimensions.get('window');
 const scale = (size: number) => Math.round((width / 390) * size);
 
-const INTEREST_TAGS = ['Music', 'Cooking', 'Reading', 'Gardening', 'Arts & Crafts'];
-
 type ApplicationStatus = 'NOT_APPLIED' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
 export default function ApplyVolunteerScreen() {
@@ -62,8 +60,8 @@ export default function ApplyVolunteerScreen() {
   const [longitude, setLongitude] = useState(0);
 
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [customInterest, setCustomInterest] = useState('');
-  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [availableInterests, setAvailableInterests] = useState<string[]>([]);
+  const [showAllInterests, setShowAllInterests] = useState(false);
   const [agreeGuidelines, setAgreeGuidelines] = useState(false);
   const [consentBackground, setConsentBackground] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,6 +91,12 @@ export default function ApplyVolunteerScreen() {
           // Set applicationStatus from DB
           setApplicationStatus(profile.applicationStatus as ApplicationStatus);
           setRejectionReason(profile.rejectionReason || null);
+
+          // If approved, redirect to dashboard
+          if (profile.applicationStatus === 'APPROVED') {
+            replace('/(sathi)');
+            return;
+          }
 
           // Prefill form fields
           setForm({
@@ -125,7 +129,22 @@ export default function ApplyVolunteerScreen() {
       }
     };
 
+    const fetchHobbies = async () => {
+      try {
+        const response = await fetch(`${API_URL}/public/hobbies?activeOnly=true`);
+        if (response.ok) {
+          const res = await response.json();
+          if (res.success && res.data) {
+            setAvailableInterests(res.data.map((h: any) => h.name));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching hobbies:', error);
+      }
+    };
+
     fetchProfile();
+    fetchHobbies();
   }, []);
 
   // ─── Interest Helpers ────────────────────────────────────────────────────────
@@ -133,15 +152,6 @@ export default function ApplyVolunteerScreen() {
     setSelectedInterests((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
-  };
-
-  const handleAddCustomInterest = () => {
-    const tag = customInterest.trim();
-    if (tag && !selectedInterests.includes(tag)) {
-      setSelectedInterests((prev) => [...prev, tag]);
-    }
-    setCustomInterest('');
-    setShowCustomInput(false);
   };
 
   // ─── Submit Handler ──────────────────────────────────────────────────────────
@@ -684,7 +694,7 @@ export default function ApplyVolunteerScreen() {
               <Text style={styles.label}>Interests & Hobbies</Text>
               <Text style={styles.helpText}>Select the things you love to talk about.</Text>
               <View style={styles.tagsRow}>
-                {INTEREST_TAGS.map((tag) => {
+                {(showAllInterests ? availableInterests : availableInterests.slice(0, 5)).map((tag) => {
                   const isSelected = selectedInterests.includes(tag);
                   return (
                     <TouchableOpacity
@@ -699,40 +709,14 @@ export default function ApplyVolunteerScreen() {
                   );
                 })}
 
-                {selectedInterests
-                  .filter((t) => !INTEREST_TAGS.includes(t))
-                  .map((tag) => (
-                    <TouchableOpacity
-                      key={tag}
-                      onPress={() => toggleInterest(tag)}
-                      style={[styles.tag, styles.tagSelected]}
-                    >
-                      <Text style={[styles.tagText, styles.tagTextSelected]}>{tag}</Text>
-                    </TouchableOpacity>
-                  ))}
-
-                {showCustomInput ? (
-                  <View style={styles.customInterestInputRow}>
-                    <TextInput
-                      style={styles.customInterestInput}
-                      placeholder="Add interest"
-                      value={customInterest}
-                      onChangeText={setCustomInterest}
-                      autoFocus
-                    />
-                    <TouchableOpacity
-                      onPress={handleAddCustomInterest}
-                      style={styles.customInterestAddBtn}
-                    >
-                      <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
+                {availableInterests.length > 5 && (
                   <TouchableOpacity
-                    onPress={() => setShowCustomInput(true)}
+                    onPress={() => setShowAllInterests(!showAllInterests)}
                     style={[styles.tag, styles.addTag]}
                   >
-                    <Text style={styles.addTagText}>+ Add More</Text>
+                    <Text style={styles.addTagText}>
+                      {showAllInterests ? 'View Less' : `+ ${availableInterests.length - 5} More`}
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
