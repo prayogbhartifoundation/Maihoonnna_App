@@ -1,42 +1,57 @@
 /**
  * Field Management Portal — Unified Entry Point
  *
- * Role views (will be locked later):
- *   - Admin / Master Admin → AdminFieldView (global drill-down)
- *   - Operations Manager  → OpsManagerFieldView (FM select + CC appointment)
- *   - Field Manager       → FieldManagerView (their team + beneficiaries)
- *
- * For now roles are NOT restricted — OpsManagerFieldView is shown to everyone
- * so the appointment workflow can be tested freely.
+ * Provides tabbed views for:
+ *   1. CC Allocation & Scheduling (existing workflows)
+ *   2. Roster Timeline & Approvals (real-time Gantt view + approval flow)
+ *   3. Planned vs. Actual Report (comparative verification logs)
+ *   4. Daily Roster Feedback (CC and zone level review comments)
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import OpsManagerFieldView from '../components/field-management/OpsManagerFieldView';
-import AdminFieldView from '../components/field-management/AdminFieldView';
 import FieldManagerView from '../components/field-management/FieldManagerView';
+import RosterReviewPanel from '../components/field-management/RosterReviewPanel';
+import PlannedVsActualReport from '../components/field-management/PlannedVsActualReport';
+import { Calendar, Users, ClipboardList, MessageSquare } from 'lucide-react';
 
 export default function FieldManagementPage() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'scheduling' | 'timeline' | 'report' | 'feedback'>('scheduling');
 
   const renderView = () => {
-    // TODO: lock roles once tested
-    // For now, show OpsManagerFieldView for everyone except FM
-    switch (user?.role) {
-      case 'field_manager':
-        return <FieldManagerView />;
-      case 'master_admin':
-      case 'admin':
-      case 'operations_manager':
+    switch (activeTab) {
+      case 'timeline':
+        return <RosterReviewPanel mode="timeline" />;
+      case 'report':
+        return <PlannedVsActualReport />;
+      case 'feedback':
+        return <RosterReviewPanel mode="feedback" />;
+      case 'scheduling':
       default:
-        return <OpsManagerFieldView />;
+        switch (user?.role) {
+          case 'field_manager':
+            return <FieldManagerView />;
+          case 'master_admin':
+          case 'admin':
+          case 'operations_manager':
+          default:
+            return <OpsManagerFieldView />;
+        }
     }
   };
 
   const subtitle =
-    user?.role === 'field_manager'
-      ? 'Manage your assigned team and beneficiaries.'
-      : 'Select a Field Manager to manage their team and appoint Care Companions.';
+    activeTab === 'scheduling'
+      ? user?.role === 'field_manager'
+        ? 'Manage your assigned team and beneficiaries.'
+        : 'Select a Field Manager to manage their team and appoint Care Companions.'
+      : activeTab === 'timeline'
+      ? 'View real-time planned vs. actual care companion timelines and approve rosters.'
+      : activeTab === 'report'
+      ? 'Compare scheduled check-ins against actual checkout and geo-verification metrics.'
+      : 'Capture daily CC performance comments and overall zone-wide roster feedback.';
 
   return (
     <div className="space-y-6">
@@ -46,8 +61,33 @@ export default function FieldManagementPage() {
         <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
       </div>
 
+      {/* Tabs navigation */}
+      <div className="flex gap-1 border-b border-[#E7DED6] overflow-x-auto whitespace-nowrap">
+        {[
+          { key: 'scheduling', label: 'CC Allocation & Scheduling', icon: Users },
+          { key: 'timeline', label: 'Roster Timeline & Approvals', icon: Calendar },
+          { key: 'report', label: 'Planned vs. Actual Report', icon: ClipboardList },
+          { key: 'feedback', label: 'Daily Roster Feedback', icon: MessageSquare },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as any)}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-black border-b-2 transition-colors ${
+              activeTab === tab.key
+                ? 'border-[#FF7A00] text-[#FF7A00]'
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <tab.icon size={15} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Content */}
-      {renderView()}
+      <div className="mt-4">
+        {renderView()}
+      </div>
     </div>
   );
 }

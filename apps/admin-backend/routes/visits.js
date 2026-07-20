@@ -878,4 +878,128 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ─── CC Roster Approval & Feedback Endpoints ─────────────────────────────────
+
+router.post('/roster/approve', async (req, res) => {
+  const { date, periodType, zoneId } = req.body;
+  if (!date || !periodType || !zoneId) {
+    return res.status(400).json({ success: false, message: 'Missing date, periodType, or zoneId' });
+  }
+  const approvedBy = req.user?.id || 'static-login-admin';
+  try {
+    const approvalDate = new Date(date);
+    const existing = await prisma.rosterApproval.findUnique({
+      where: {
+        date_zoneId_periodType: {
+          date: approvalDate,
+          zoneId,
+          periodType
+        }
+      }
+    });
+
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Roster is already approved for this period.' });
+    }
+
+    const approval = await prisma.rosterApproval.create({
+      data: {
+        date: approvalDate,
+        periodType,
+        zoneId,
+        approvedBy
+      }
+    });
+
+    res.status(201).json({ success: true, data: approval });
+  } catch (error) {
+    console.error('Error approving roster:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/roster/approvals', async (req, res) => {
+  const { date, periodType, zoneId } = req.query;
+  try {
+    const where = {};
+    if (date) where.date = new Date(date);
+    if (periodType) where.periodType = periodType;
+    if (zoneId) where.zoneId = zoneId;
+
+    const approvals = await prisma.rosterApproval.findMany({
+      where,
+      orderBy: { approvedAt: 'desc' }
+    });
+
+    res.json({ success: true, data: approvals });
+  } catch (error) {
+    console.error('Error fetching approvals:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/roster/feedback', async (req, res) => {
+  const { date, zoneId, ccId, feedback } = req.body;
+  if (!date || !feedback) {
+    return res.status(400).json({ success: false, message: 'Missing date or feedback text' });
+  }
+  const submittedBy = req.user?.id || 'static-login-admin';
+  try {
+    const feedbackDate = new Date(date);
+    const existing = await prisma.rosterFeedback.findFirst({
+      where: {
+        date: feedbackDate,
+        zoneId: zoneId || null,
+        ccId: ccId || null
+      }
+    });
+
+    let result;
+    if (existing) {
+      result = await prisma.rosterFeedback.update({
+        where: { id: existing.id },
+        data: {
+          feedback,
+          submittedBy,
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      result = await prisma.rosterFeedback.create({
+        data: {
+          date: feedbackDate,
+          zoneId: zoneId || null,
+          ccId: ccId || null,
+          feedback,
+          submittedBy
+        }
+      });
+    }
+
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error submitting feedback:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/roster/feedbacks', async (req, res) => {
+  const { date, zoneId } = req.query;
+  try {
+    const where = {};
+    if (date) where.date = new Date(date);
+    if (zoneId) where.zoneId = zoneId;
+
+    const feedbacks = await prisma.rosterFeedback.findMany({
+      where,
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({ success: true, data: feedbacks });
+  } catch (error) {
+    console.error('Error fetching feedbacks:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

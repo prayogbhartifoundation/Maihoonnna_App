@@ -1014,6 +1014,28 @@ export const visitApi = {
       body: JSON.stringify(data),
     });
   },
+  async approveRoster(data: { date: string; periodType: 'daily' | 'weekly'; zoneId: string }): Promise<any> {
+    return apiJson('/visits/roster/approve', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async getRosterApprovals(params: { date?: string; periodType?: 'daily' | 'weekly'; zoneId?: string }): Promise<any> {
+    const clean = Object.fromEntries(Object.entries(params as any).filter(([, v]) => v !== '' && v != null));
+    const query = new URLSearchParams(clean as any).toString();
+    return apiJson(`/visits/roster/approvals?${query}`);
+  },
+  async submitRosterFeedback(data: { date: string; zoneId?: string; ccId?: string; feedback: string }): Promise<any> {
+    return apiJson('/visits/roster/feedback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async getRosterFeedbacks(params: { date?: string; zoneId?: string }): Promise<any> {
+    const clean = Object.fromEntries(Object.entries(params as any).filter(([, v]) => v !== '' && v != null));
+    const query = new URLSearchParams(clean as any).toString();
+    return apiJson(`/visits/roster/feedbacks?${query}`);
+  },
 };
 
 export const teamApi = {

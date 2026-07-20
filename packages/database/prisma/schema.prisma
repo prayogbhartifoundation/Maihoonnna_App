@@ -1883,5 +1883,33 @@ enum SathiRequestStatus {
   REJECTED
 }
 
+model RosterApproval {
+  id         String   @id @default(uuid())
+  date       DateTime
+  periodType String   // "daily" | "weekly"
+  zoneId     String
+  approvedBy String
+  approvedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([date, zoneId, periodType])
+  @@map("roster_approvals")
+}
+
+model RosterFeedback {
+  id          String   @id @default(uuid())
+  date        DateTime
+  zoneId      String?
+  ccId        String?
+  feedback    String
+  submittedBy String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, zoneId, ccId])
+  @@map("roster_feedbacks")
+}
+
 
 

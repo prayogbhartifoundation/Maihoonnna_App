@@ -2111,3 +2111,36 @@ The vital tracking system is now completely dynamic and configuration-driven. Ne
   - Added a new endpoint `GET /:beneficiaryId/sathi/my-requests` for fetching a senior's personal requests.
   - Updated `sathi-requests.routes.ts` imports to consume functions from the newly established beneficiary service folder.
   - Resolved strict TypeScript errors in the backend resulting from legacy `status` keys and mismatched photo variable names.
+
+---
+
+## Session: CC Roster Management & Reporting (2026-07-20)
+
+### Database Schema Updates
+- Added `RosterApproval` and `RosterFeedback` models to `admin-backend`, `mobile-backend`, and `packages/database` schema files.
+- Synchronized PostgreSQL database schema and regenerated Prisma clients.
+
+### Backend Routes (`admin-backend/routes/visits.js`)
+- Added `POST /api/visits/roster/approve`: Records daily/weekly zone roster approvals.
+- Added `GET /api/visits/roster/approvals`: Retrieves roster approvals.
+- Added `POST /api/visits/roster/feedback`: Saves daily overall zone and individual CC review comments.
+- Added `GET /api/visits/roster/feedbacks`: Fetches roster feedbacks.
+
+### Frontend: Roster Review & Gantt Timeline (`RosterReviewPanel.tsx`)
+- Created a new timeline panel to view real-time planned vs. actual Care Companion timelines.
+- Designed a custom **Gantt grid** rendering scheduled visit blocks (orange) overlaid with actual checkout timeframes (green).
+- Built conflict detection logic to highlight overlapping scheduled visits in red.
+- Integrated quick edit/reschedule actions directly into the timeline blocks.
+- Added **Roster Approval** locking interface by Zone and Date (Daily/Weekly toggles).
+- Built a daily feedback capture UI for overall zone metrics and companion-specific performance.
+
+### Frontend: Planned vs Actual Report (`PlannedVsActualReport.tsx`)
+- Developed an auditing report for field managers to track CC arrival/departure times.
+- Implemented **KPI metric cards**: Total Runs, Completed Runs, Avg Start Delay, and Geo Verified Rate.
+- Rendered an analytical grid displaying precise delay timings, actual duration versus planned duration, and **Arrival Status badges** (Geo Verified, Manual Override, Out of Range).
+- Added multi-factor filtering (Zone, Companion, Date, Status).
+
+### UI/UX Integrations & Fixes
+- Unified `FieldManagementPage.tsx` with a multi-tabbed layout containing: Scheduling, Roster Timeline, Planned vs. Actual, and Daily Feedback.
+- Added a "View Roster & Reports" shortcut button on `VisitsPage.tsx` to link cross-functional pages.
+- Corrected strict TypeScript compilation errors inside `mockData.ts` by appending optional proxy fields (`skills`, `isActive`, `totalCreditHours`, etc.) to the `Volunteer` interface in `types/index.ts`.
