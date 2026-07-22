@@ -908,5 +908,458 @@ router.get('/beneficiary/:id/utilization', async (req, res) => {
   }
 });
 
+// ── GET /api/subscriptions/expiring ──────────────────────────────────────────
+// Returns active subscriptions expiring within next N days
+router.get('/expiring', async (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + days);
+
+  try {
+    const subscriptions = await prisma.subscription.findMany({
+      where: {
+        isActive: true,
+        endDate: {
+          lte: targetDate,
+        },
+      },
+      orderBy: { endDate: 'asc' },
+      include: {
+        subscriber: {
+          select: { id: true, name: true, phone: true, email: true, location: true, city: true, state: true, pincode: true },
+        },
+        beneficiary: {
+          select: {
+            id: true,
+            name: true,
+            age: true,
+            dateOfBirth: true,
+            gender: true,
+            maritalStatus: true,
+            relationship: true,
+            address: true,
+            city: true,
+            state: true,
+            pincode: true,
+            primaryPhysicianName: true,
+            primaryPhysicianPhone: true,
+            hobbiesInterests: true,
+            emergencyContacts: { select: { id: true, name: true, phone: true, relationship: true, email: true } },
+            user: { select: { phone: true } },
+          },
+        },
+        package: true,
+        packageVersion: true,
+      },
+    });
+
+    res.json({ success: true, data: subscriptions });
+  } catch (err) {
+    console.error('GET /subscriptions/expiring error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── GET /api/subscriptions/terminated ──────────────────────────────────────────
+// List all terminated subscriptions with cancellation notes / reasons
+router.get('/terminated', async (req, res) => {
+  try {
+    const subscriptions = await prisma.subscription.findMany({
+      where: {
+        cancellationNote: { not: null },
+      },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        subscriber: {
+          select: { id: true, name: true, phone: true, email: true },
+        },
+        beneficiary: {
+          select: { id: true, name: true, relationship: true, user: { select: { phone: true } } },
+        },
+        package: true,
+        packageVersion: true,
+      },
+    });
+
+    res.json({ success: true, data: subscriptions });
+  } catch (err) {
+    console.error('GET /subscriptions/terminated error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── POST /api/subscriptions/:id/terminate ──────────────────────────────────────
+// Cancel subscription early with reason
+router.post('/:id/terminate', async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ success: false, message: 'Reason is required' });
+  }
+
+  try {
+    const updated = await prisma.subscription.update({
+      where: { id },
+      data: {
+        isActive: false,
+        cancelledAt: new Date(),
+        cancellationNote: reason,
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        userId: updated.subscriberId,
+        type: 'SUBSCRIPTION',
+        action: 'TERMINATED',
+        details: {
+          entity: 'subscription',
+          entityId: id,
+          reason,
+          terminatedBy: req.user?.name || 'Admin',
+        },
+      },
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('POST /subscriptions/:id/terminate error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── GET /api/subscriptions/:id/renewal ─────────────────────────────────────────
+// Complete renewal information context for an enterprise subscription
+router.get('/:id/renewal', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const sub = await prisma.subscription.findUnique({
+      where: { id },
+      include: {
+        subscriber: true,
+        beneficiary: {
+          include: {
+            emergencyContacts: true,
+            conditions: { include: { condition: true } },
+            medicationList: { where: { isActive: true } },
+            schedulePreference: true,
+            vitalConfigs: { where: { isActive: true }, include: { vitalDefinition: true } },
+          },
+        },
+        package: true,
+        packageVersion: { include: { versionBenefits: { include: { benefit: true } } } },
+        payments: { orderBy: { createdAt: 'desc' } },
+      },
+    });
+
+    if (!sub) {
+      return res.status(404).json({ success: false, message: 'Subscription not found' });
+    }
+
+    // Past subscription versions / history for this beneficiary
+    let subscriptionHistory = [];
+    if (sub.beneficiaryId) {
+      subscriptionHistory = await prisma.subscription.findMany({
+        where: { beneficiaryId: sub.beneficiaryId },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          package: { select: { id: true, name: true, type: true } },
+          packageVersion: { select: { id: true, name: true } },
+          payments: { select: { invoiceNumber: true, amountPaid: true, paymentMethod: true, paidAt: true } },
+        },
+      });
+    }
+
+    // Available packages for plan upgrade / downgrade
+    const availablePackages = await prisma.subscriptionPackage.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        packageBenefits: { include: { benefit: true } },
+      },
+    });
+
+    // Audit logs for activity
+    const auditLogs = await prisma.activityLog.findMany({
+      where: {
+        OR: [
+          { userId: sub.subscriberId },
+          { details: { path: ['entityId'], equals: sub.id } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    // Map active vitals to track object { [vitalCode]: true }
+    const vitalsToTrackMap = {};
+    if (sub.beneficiary?.vitalConfigs) {
+      sub.beneficiary.vitalConfigs.forEach((vc) => {
+        if (vc.vitalDefinition?.code && vc.isActive) {
+          vitalsToTrackMap[vc.vitalDefinition.code] = true;
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        subscription: sub,
+        subscriber: sub.subscriber,
+        beneficiary: sub.beneficiary,
+        medicalConditions: sub.beneficiary?.conditions?.map((bc) => ({
+          id: bc.condition.id,
+          name: bc.condition.name,
+          slug: bc.condition.slug,
+          severity: bc.severity,
+        })) || [],
+        medications: sub.beneficiary?.medicationList || [],
+        emergencyContacts: sub.beneficiary?.emergencyContacts || [],
+        vitalsToTrack: vitalsToTrackMap,
+        currentPackage: sub.packageVersion || sub.package,
+        paymentHistory: sub.payments,
+        subscriptionHistory,
+        availablePackages,
+        auditLogs,
+      },
+    });
+  } catch (err) {
+    console.error('GET /subscriptions/:id/renewal error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── POST /api/subscriptions/:id/renew ──────────────────────────────────────────
+// Creates a new SubscriptionVersion and new Payment, deactivating the old one
+router.post('/:id/renew', async (req, res) => {
+  const { id } = req.params;
+  const {
+    changedFields = {},
+    vitalsToTrack = null,
+    packageId,
+    duration = 'monthly',
+    renewalMode = 'from_expiry', // 'from_expiry' | 'today'
+    customStartDate,
+    payment = {},
+  } = req.body;
+
+  try {
+    const currentSub = await prisma.subscription.findUnique({
+      where: { id },
+      include: {
+        subscriber: true,
+        beneficiary: true,
+        package: true,
+      },
+    });
+
+    if (!currentSub) {
+      return res.status(404).json({ success: false, message: 'Subscription not found' });
+    }
+
+    if (currentSub.cancellationNote && !currentSub.isActive) {
+      return res.status(400).json({ success: false, message: 'Cannot renew a terminated subscription.' });
+    }
+
+    // Determine target package
+    const selectedPkgId = packageId || currentSub.package?.id;
+    const pkg = await prisma.subscriptionPackage.findUnique({
+      where: { id: selectedPkgId },
+      include: { packageBenefits: { include: { benefit: true } } },
+    });
+
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'Selected package not found' });
+    }
+
+    // Determine new start & end dates
+    const now = new Date();
+    let newStartDate;
+    if (customStartDate) {
+      newStartDate = new Date(customStartDate);
+    } else if (renewalMode === 'today') {
+      newStartDate = now;
+    } else {
+      // from_expiry
+      const curEndDate = new Date(currentSub.endDate);
+      newStartDate = curEndDate > now ? curEndDate : now;
+    }
+
+    const newEndDate = new Date(newStartDate);
+    if (duration === 'six_months') newEndDate.setMonth(newEndDate.getMonth() + 6);
+    else if (duration === 'annual') newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+    else newEndDate.setMonth(newEndDate.getMonth() + 1);
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Update subscriber / beneficiary fields if changed
+      if (changedFields.subscriber && Object.keys(changedFields.subscriber).length > 0) {
+        await tx.user.update({
+          where: { id: currentSub.subscriberId },
+          data: changedFields.subscriber,
+        });
+      }
+
+      if (changedFields.beneficiary && currentSub.beneficiaryId && Object.keys(changedFields.beneficiary).length > 0) {
+        await tx.beneficiary.update({
+          where: { id: currentSub.beneficiaryId },
+          data: changedFields.beneficiary,
+        });
+      }
+
+      // 1b. Update vitals configuration if vitalsToTrack provided
+      if (vitalsToTrack && currentSub.beneficiaryId) {
+        const vitalCodes = Object.keys(vitalsToTrack);
+        const activeVitalCodes = vitalCodes.filter((code) => vitalsToTrack[code]);
+        const vitalDefs = await tx.vitalDefinition.findMany();
+
+        for (const def of vitalDefs) {
+          const isSelected = activeVitalCodes.includes(def.code);
+          await tx.beneficiaryVitalConfig.upsert({
+            where: {
+              beneficiaryId_vitalDefinitionId: {
+                beneficiaryId: currentSub.beneficiaryId,
+                vitalDefinitionId: def.id,
+              },
+            },
+            update: { isActive: isSelected },
+            create: {
+              beneficiaryId: currentSub.beneficiaryId,
+              vitalDefinitionId: def.id,
+              isActive: isSelected,
+              frequency: 'every_visit',
+            },
+          });
+        }
+      }
+
+      // 2. Deactivate previous subscription
+      await tx.subscription.update({
+        where: { id: currentSub.id },
+        data: {
+          isActive: false,
+          cancellationNote: renewalMode === 'today' ? 'Terminated early for immediate renewal' : undefined,
+        },
+      });
+
+      // 3. Find or publish package version
+      let pVersion = await tx.packageVersion.findFirst({
+        where: { packageCode: pkg.type, isLatest: true },
+        include: { versionBenefits: true },
+      });
+
+      if (!pVersion) {
+        const createdVer = await publishPackageVersion(tx, pkg.id);
+        pVersion = await tx.packageVersion.findUnique({
+          where: { id: createdVer.id },
+          include: { versionBenefits: true },
+        });
+      }
+
+      // 4. Create new Subscription Version
+      const newSub = await tx.subscription.create({
+        data: {
+          subscriberId: currentSub.subscriberId,
+          beneficiaryId: currentSub.beneficiaryId,
+          packageType: pkg.type,
+          packageVersionId: pVersion.id,
+          duration,
+          startDate: newStartDate,
+          endDate: newEndDate,
+          visitsTotal: pkg.visitsPerWeek * 4,
+          hoursTotal: pkg.hoursPerMonth || 0,
+          isActive: true,
+        },
+      });
+
+      // 5. Create Subscription Benefit Balances for new subscription
+      if (pVersion.versionBenefits && pVersion.versionBenefits.length > 0) {
+        await tx.subscriptionBenefitBalance.createMany({
+          data: pVersion.versionBenefits.map((vb) => ({
+            subscriptionId: newSub.id,
+            benefitId: vb.benefitId,
+            packageVersionBenefitId: vb.id,
+            snapshotBenefitName: vb.snapshotName,
+            snapshotUnitLabel: vb.snapshotUnitLabel,
+            totalUnits: vb.unitsIncluded,
+            usedUnits: 0,
+            unit: vb.snapshotUnitLabel ? normalizeUnit(vb.snapshotUnitLabel) : 'visits',
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      // 6. Create new Payment & Invoice
+      const invoiceNumber = `REN-${Date.now()}`;
+      const amountPaid = parseFloat(payment.amountPaid) || pkg.basePrice;
+      const newPayment = await tx.payment.create({
+        data: {
+          invoiceNumber,
+          subscriberId: currentSub.subscriberId,
+          beneficiaryId: currentSub.beneficiaryId,
+          subscriptionId: newSub.id,
+          packageType: pkg.type,
+          packageVersionId: pVersion.id,
+          snapshotPackageName: pVersion.name,
+          snapshotBasePrice: pVersion.basePrice,
+          snapshotBenefits: pVersion.versionBenefits.map((vb) => ({
+            name: vb.snapshotName,
+            units: vb.unitsIncluded,
+            unitLabel: vb.snapshotUnitLabel,
+          })),
+          baseAmount: pkg.basePrice,
+          amountPaid,
+          discountAmount: pkg.basePrice - amountPaid > 0 ? pkg.basePrice - amountPaid : 0,
+          paymentMethod: payment.paymentMethod || 'Cash',
+          paymentStatus: 'success',
+          transactionId: payment.transactionId || `TXN-${Date.now()}`,
+          planStartDate: newStartDate,
+          planEndDate: newEndDate,
+          isSubscriptionActive: true,
+          gatewayName: 'admin_renewal',
+          failureReason: payment.paymentNote || null,
+        },
+      });
+
+      // 7. Record Audit Log
+      await tx.activityLog.create({
+        data: {
+          userId: currentSub.subscriberId,
+          type: 'SUBSCRIPTION',
+          action: 'RENEWED',
+          details: {
+            previousSubId: currentSub.id,
+            newSubId: newSub.id,
+            packageId: pkg.id,
+            packageName: pkg.name,
+            renewalMode,
+            changedFields,
+            amountPaid,
+            invoiceNumber,
+            renewedBy: req.user?.name || 'Admin',
+            ip: req.ip,
+          },
+        },
+      });
+
+      return {
+        newSubscription: newSub,
+        invoiceNumber,
+        payment: newPayment,
+        package: pkg,
+        subscriber: currentSub.subscriber,
+        beneficiary: currentSub.beneficiary,
+        startDate: newStartDate,
+        endDate: newEndDate,
+      };
+    });
+
+    res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    console.error('POST /subscriptions/:id/renew error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
+
 

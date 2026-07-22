@@ -962,6 +962,67 @@ export const subscriptionApi = {
   async initializeBalances(subscriptionId: string): Promise<{ created: number; message: string; benefits: any[] }> {
     return apiJson(`/subscriptions/${subscriptionId}/initialize-balances`, { method: 'POST' });
   },
+  /** Get expiring subscriptions for worklist */
+  async getExpiringSubscriptions(days: number = 30): Promise<any[]> {
+    return apiJson(`/subscriptions/expiring?days=${days}`);
+  },
+  /** Get terminated subscriptions with cancellation notes */
+  async getTerminatedSubscriptions(): Promise<any[]> {
+    return apiJson('/subscriptions/terminated');
+  },
+  /** Terminate a subscription early */
+  async terminateSubscription(id: string, reason: string): Promise<any> {
+    return apiJson(`/subscriptions/${id}/terminate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+  /** Fetch complete renewal information context */
+  async getRenewalData(subscriptionId: string): Promise<{
+    subscription: any;
+    subscriber: any;
+    beneficiary: any;
+    medicalConditions: any[];
+    medications: any[];
+    emergencyContacts: any[];
+    vitalsToTrack?: any;
+    currentPackage: any;
+    paymentHistory: any[];
+    subscriptionHistory: any[];
+    availablePackages: any[];
+    auditLogs: any[];
+  }> {
+    return apiJson(`/subscriptions/${subscriptionId}/renewal`);
+  },
+  /** Execute renewal creation */
+  async renewSubscription(subscriptionId: string, payload: {
+    changedFields?: any;
+    vitalsToTrack?: any;
+    packageId?: string;
+    duration?: string;
+    renewalMode?: 'from_expiry' | 'today';
+    customStartDate?: string;
+    payment?: {
+      amountPaid?: number;
+      paymentMethod?: string;
+      transactionId?: string;
+      paymentNote?: string;
+    };
+  }): Promise<{
+    newSubscription: any;
+    invoiceNumber: string;
+    payment: any;
+    package: any;
+    subscriber: any;
+    beneficiary: any;
+    startDate: string;
+    endDate: string;
+  }> {
+    return apiJson(`/subscriptions/${subscriptionId}/renew`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };
 
 export const visitApi = {

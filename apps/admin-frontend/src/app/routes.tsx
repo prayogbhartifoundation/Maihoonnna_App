@@ -44,6 +44,8 @@ import VitalTemplatesPage from './pages/vitals/VitalTemplatesPage';
 import BeneficiaryVitalsPage from './pages/vitals/BeneficiaryVitalsPage';
 import VitalsCaptureLogPage from './pages/vitals/VitalsCaptureLogPage';
 import AlertRulesPage from './pages/vitals/AlertRulesPage';
+import RenewalsWorklistPage from './pages/RenewalsWorklistPage';
+import RenewalWizardPage from './pages/RenewalWizardPage';
 
 
 export const router = createBrowserRouter([
@@ -199,6 +201,14 @@ export const router = createBrowserRouter([
       {
         path: 'enroll',
         Component: EnrollmentWizardPage,
+      },
+      {
+        path: 'renewals',
+        Component: RenewalsWorklistPage,
+      },
+      {
+        path: 'renew/:subscriptionId',
+        Component: RenewalWizardPage,
       },
       {
         path: 'regions',

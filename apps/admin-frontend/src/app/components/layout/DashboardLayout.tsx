@@ -25,6 +25,7 @@ import {
   UserPlus,
   Activity,
   Tag,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
@@ -71,6 +72,7 @@ const navigationSections: NavSection[] = [
     items: [
       { path: '/subscribers', label: 'Subscribers', icon: UserCircle, roles: ['master_admin', 'operations_manager'] },
       { path: '/enroll', label: 'Enroll Subscriber', icon: UserPlus, roles: ['master_admin', 'operations_manager'] },
+      { path: '/renewals', label: 'Renewals Worklist', icon: RefreshCw, roles: ['master_admin', 'operations_manager', 'customer_service'] },
       { path: '/beneficiaries', label: 'Beneficiaries', icon: Heart, roles: ['master_admin', 'operations_manager'] },
       { path: '/callback-requests', label: 'Callback Requests', icon: PhoneCall, roles: ['master_admin', 'operations_manager', 'customer_service'] },
     ]
