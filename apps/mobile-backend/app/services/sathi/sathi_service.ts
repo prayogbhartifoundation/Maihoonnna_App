@@ -235,6 +235,15 @@ export const getVolunteerDashboard = async (id: string) => {
     monthlyGoalHours: volunteer.monthlyGoalHours,
     beneficiariesCount: volunteer.assignments.length,
     activeVisit: volunteer.visitLogs[0] || null,
+    assignedBeneficiaries: volunteer.assignments.map(a => ({
+      id: a.beneficiary.id,
+      name: a.beneficiary.name,
+      photo: a.beneficiary.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      age: a.beneficiary.age,
+      location: a.beneficiary.address,
+      hobbies: a.beneficiary.hobbiesInterests || [],
+      assignedAt: a.createdAt.toISOString()
+    })),
     visitRequests: pendingRequests.map(r => ({
       id: r.id,
       beneficiaryId: r.beneficiaryId,

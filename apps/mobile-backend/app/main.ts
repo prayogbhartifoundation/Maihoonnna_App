@@ -52,7 +52,7 @@ import publicZonesRouter from './api/public/zones.routes';
 import publicEnrollmentRouter from './api/public/enrollment.routes';
 import publicLocationRouter from './api/public/location.routes';
 import publicHobbiesRouter from './api/public/hobbies.routes';
-
+import publicGuideRouter from './api/public/guide.routes';
 // Sathi Network Routes
 import sathiRouter from './api/sathi/sathi.routes';
 
@@ -152,6 +152,7 @@ app.use(`${API}/profile-photo`, profilePhotoRouter);
 
 // Public endpoints
 app.use(`${API}/public/vitals`, publicVitalsRouter);
+app.use(`${API}/public/sathi-guide`, publicGuideRouter);
 app.use(`${API}/public/hobbies`, publicHobbiesRouter);
 app.use(`${API}/public/zones`, publicZonesRouter);
 app.use(`${API}/public/location`, publicLocationRouter);

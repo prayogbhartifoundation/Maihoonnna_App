@@ -730,20 +730,18 @@ export default function SathiDashboard() {
           <Text style={styles.emptyText}>No upcoming companion visits scheduled.</Text>
         )}
 
-        {/* Visit Requests */}
+        {/* Assigned Beneficiaries */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Visit Requests</Text>
+          <Text style={styles.sectionTitle}>Assigned Beneficiaries</Text>
         </View>
 
-        {dashboard?.visitRequests && dashboard.visitRequests.length > 0 ? (
-          dashboard.visitRequests.map((item: any) => {
-            const formattedDate = new Date(item.dateTime).toLocaleString('en-US', {
+        {dashboard?.assignedBeneficiaries && dashboard.assignedBeneficiaries.length > 0 ? (
+          dashboard.assignedBeneficiaries.map((item: any) => {
+            const formattedDate = item.assignedAt ? new Date(item.assignedAt).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
-              weekday: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
+              year: 'numeric'
+            }) : '';
             return (
               <View key={item.id} style={styles.requestCard}>
                 <View style={styles.seniorHeader}>
@@ -757,42 +755,28 @@ export default function SathiDashboard() {
                 </View>
 
                 {/* Date & Time */}
-                <View style={styles.requestTimeRow}>
-                  <Ionicons name="calendar-outline" size={16} color="#FF6F00" style={{ marginRight: 6 }} />
-                  <Text style={styles.requestTimeText}>{formattedDate}</Text>
-                </View>
+                {formattedDate ? (
+                  <View style={styles.requestTimeRow}>
+                    <Ionicons name="calendar-outline" size={16} color="#FF6F00" style={{ marginRight: 6 }} />
+                    <Text style={styles.requestTimeText}>Assigned on {formattedDate}</Text>
+                  </View>
+                ) : null}
 
-                {/* Reason */}
-                {item.reason && (
-                  <View style={styles.reasonContainer}>
-                    <Text style={styles.reasonLabel}>Reason:</Text>
-                    <Text style={styles.reasonText}>{item.reason}</Text>
+                {/* Hobbies / Interests Tags */}
+                {item.hobbies && item.hobbies.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                    {item.hobbies.map((tag: string) => (
+                      <View key={tag} style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                        <Text style={{ color: '#9333EA', fontSize: 12, fontFamily: 'Poppins-Medium' }}>{tag}</Text>
+                      </View>
+                    ))}
                   </View>
                 )}
-
-                {/* Accept/Reject Button Row */}
-                <View style={styles.requestActionsRow}>
-                  <TouchableOpacity
-                    style={styles.requestAcceptBtn}
-                    onPress={() => handleRespondRequest(item.id, 'ACCEPT')}
-                  >
-                    <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.requestAcceptText}>Accept</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.requestRejectBtn}
-                    onPress={() => handleRespondRequest(item.id, 'REJECT')}
-                  >
-                    <Ionicons name="close-circle-outline" size={16} color="#EF4444" style={{ marginRight: 4 }} />
-                    <Text style={styles.requestRejectText}>Reject</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             );
           })
         ) : (
-          <Text style={styles.emptyText}>No pending companion visit requests.</Text>
+          <Text style={styles.emptyText}>No assigned beneficiaries yet.</Text>
         )}
 
         {/* Log Hours floating/bottom button */}

@@ -1458,4 +1458,76 @@ export const configApi = {
   },
 };
 
+// ============================================================================
+// SAATHI GUIDE API
+// ============================================================================
+
+export const saathiGuideApi = {
+  // Best Practices
+  async getBestPractices(): Promise<any[]> {
+    return apiJson<any[]>('/saathi-guide/best-practices');
+  },
+  async createBestPractice(data: any): Promise<any> {
+    return apiJson<any>('/saathi-guide/best-practices', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateBestPractice(id: string, data: any): Promise<any> {
+    return apiJson<any>(`/saathi-guide/best-practices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteBestPractice(id: string): Promise<any> {
+    return apiJson<any>(`/saathi-guide/best-practices/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Activities
+  async getActivities(): Promise<any[]> {
+    return apiJson<any[]>('/saathi-guide/activities');
+  },
+  async createActivity(data: any): Promise<any> {
+    return apiJson<any>('/saathi-guide/activities', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateActivity(id: string, data: any): Promise<any> {
+    return apiJson<any>(`/saathi-guide/activities/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteActivity(id: string): Promise<any> {
+    return apiJson<any>(`/saathi-guide/activities/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // FAQs
+  async getFaqs(): Promise<any[]> {
+    return apiJson<any[]>('/saathi-guide/faqs');
+  },
+  async createFaq(data: any): Promise<any> {
+    return apiJson<any>('/saathi-guide/faqs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateFaq(id: string, data: any): Promise<any> {
+    return apiJson<any>(`/saathi-guide/faqs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteFaq(id: string): Promise<any> {
+    return apiJson<any>(`/saathi-guide/faqs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 
