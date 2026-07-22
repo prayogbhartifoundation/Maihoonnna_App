@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,37 +21,14 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const ACTIVITIES = [
+// Fallbacks if API fails
+const FALLBACK_ACTIVITIES = [
   { title: 'Tea & Conversation', duration: '1-2 hours', difficulty: 'Easy' },
-  { title: 'Board Games or Cards', duration: '1-2 hours', difficulty: 'Easy' },
-  { title: 'Short Walks', duration: '30-60 mins', difficulty: 'Moderate' },
-  { title: 'Reading Together', duration: '30-60 mins', difficulty: 'Easy' },
-  { title: 'Photo Album Viewing', duration: '1 hour', difficulty: 'Easy' },
-  { title: 'Light Gardening', duration: '1-2 hours', difficulty: 'Moderate' },
-  { title: 'Technology Help', duration: '30-60 mins', difficulty: 'Moderate' },
-  { title: 'Grocery Shopping', duration: '1-2 hours', difficulty: 'Moderate' },
 ];
-
-const FAQS = [
+const FALLBACK_FAQS = [
   {
-    q: 'What if the beneficiary seems unwell during my visit?',
-    a: 'If they are in immediate medical distress, call Emergency Services (112) first, then contact the Program Coordinator (+91 98765 43210). If they seem mildly unwell, ask them if they would like to call their primary care contact or primary CC companion.',
-  },
-  {
-    q: 'How do I handle difficult conversations or emotions?',
-    a: 'Listen actively and with empathy. Avoid arguing or correcting. If they become highly distressed or show signs of confusion, politely change the subject to a positive memory or activity.',
-  },
-  {
-    q: 'What if I need to cancel a scheduled visit?',
-    a: 'Please notify the beneficiary and the program coordinator at least 24 hours in advance if possible. You can request a reschedule through the Match tab.',
-  },
-  {
-    q: 'Can I bring someone else along to visits?',
-    a: 'No, due to security, privacy policies, and background check protocols, you are not allowed to bring friends or family members to companion visits.',
-  },
-  {
-    q: 'How do I build rapport with someone I just met?',
-    a: 'Start by introducing yourself clearly, ask about their hobbies, their past experiences, or look at photo albums together. Respect their personal space and let them set the pace.',
+    question: 'What if the beneficiary seems unwell during my visit?',
+    answer: 'Call Emergency Services (112) first, then contact the Program Coordinator.',
   },
 ];
 
@@ -60,114 +38,194 @@ export default function SathiGuide() {
   const { width } = useWindowDimensions();
 
   const [expandedFaqIndex, setExpandedFaqIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [bestPractices, setBestPractices] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [faqs, setFaqs] = useState<any[]>([]);
 
-  const toggleFaq = (index: number) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    if (expandedFaqIndex === index) {
-      setExpandedFaqIndex(null);
-    } else {
-      setExpandedFaqIndex(index);
+  useEffect(() => {
+    fetchGuideData();
+  }, []);
+
+  const fetchGuideData = async () => {
+    try {
+      // Use EXPO_PUBLIC_API_URL or fallback to localhost
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8001/api';
+      const response = await fetch(`${apiUrl}/public/sathi-guide`);
+      const json = await response.json();
+      
+      if (json.success) {
+        setBestPractices(json.data.bestPractices || []);
+        setActivities(json.data.suggestedActivities || []);
+        setFaqs(json.data.faqs || []);
+      } else {
+        throw new Error('Failed to fetch guide data');
+      }
+    } catch (error) {
+      console.error('Error fetching guide data:', error);
+      // Fallback
+      setActivities(FALLBACK_ACTIVITIES);
+      setFaqs(FALLBACK_FAQS);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const scale = (size: number) => Math.round((width / 390) * size);
+  const toggleFaq = (index: number) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedFaqIndex(expandedFaqIndex === index ? null : index);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Suggested Activities */}
-        <Text style={styles.sectionTitle}>Suggested Activities</Text>
-        <View style={styles.activitiesCard}>
-          {ACTIVITIES.map((activity, idx) => (
-            <View
-              key={activity.title}
-              style={[
-                styles.activityRow,
-                idx === ACTIVITIES.length - 1 && { borderBottomWidth: 0 },
-              ]}
-            >
-              <View>
-                <Text style={styles.activityTitle}>{activity.title}</Text>
-                <View style={styles.durationRow}>
-                  <Ionicons name="time-outline" size={14} color="#6B7280" />
-                  <Text style={styles.activityDuration}>{activity.duration}</Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.difficultyBadge,
-                  activity.difficulty === 'Easy'
-                    ? styles.difficultyEasy
-                    : styles.difficultyModerate,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.difficultyText,
-                    activity.difficulty === 'Easy'
-                      ? { color: '#4CAF50' }
-                      : { color: '#FF9800' },
-                  ]}
-                >
-                  {activity.difficulty}
-                </Text>
-              </View>
-            </View>
-          ))}
+        
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Saathi Guide</Text>
+          <Text style={styles.headerSubtitle}>Tips and best practices for meaningful visits</Text>
         </View>
 
-        {/* FAQs */}
-        <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
-        <View style={styles.faqsContainer}>
-          {FAQS.map((faq, idx) => {
-            const isExpanded = expandedFaqIndex === idx;
-            return (
-              <TouchableOpacity
-                key={faq.q}
-                style={styles.faqItem}
-                onPress={() => toggleFaq(idx)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.faqHeader}>
-                  <Text style={styles.faqQuestion}>{faq.q}</Text>
-                  <Ionicons
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={18}
-                    color="#6B7280"
-                  />
-                </View>
-                {isExpanded && (
-                  <View style={styles.faqAnswerContainer}>
-                    <Text style={styles.faqAnswer}>{faq.a}</Text>
+        <View style={styles.welcomeCard}>
+          <Ionicons name="book-outline" size={24} color="#3B82F6" style={styles.welcomeIcon} />
+          <View style={styles.welcomeTextContainer}>
+            <Text style={styles.welcomeTitle}>Welcome to the Saathi Community!</Text>
+            <Text style={styles.welcomeDesc}>
+              Your time and compassion make a real difference. This guide will help you create meaningful connections and provide the best support to the seniors you visit.
+            </Text>
+          </View>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#FF7F50" style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            {/* Best Practices */}
+            {bestPractices.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Best Practices</Text>
+                {bestPractices.map((bp) => (
+                  <View key={bp.id} style={styles.bpCard}>
+                    <View style={styles.bpHeader}>
+                      <Ionicons name={bp.icon as any} size={20} color="#3B82F6" />
+                      <Text style={styles.bpTitle}>{bp.title}</Text>
+                    </View>
+                    <Text style={styles.bpDesc}>{bp.description}</Text>
+                    <View style={styles.bpPointsContainer}>
+                      {bp.points.map((point: string, idx: number) => (
+                        <View key={idx} style={styles.bpPointRow}>
+                          <Ionicons name="checkmark-circle-outline" size={16} color="#10B981" />
+                          <Text style={styles.bpPointText}>{point}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                ))}
+              </>
+            )}
 
-        {/* Emergency Support Card */}
-        <View style={styles.emergencyCard}>
-          <View style={styles.emergencyHeader}>
-            <Ionicons name="alert-circle" size={24} color="#EF4444" />
-            <Text style={styles.emergencyTitle}>Emergency Support</Text>
-          </View>
+            {/* Suggested Activities */}
+            {activities.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Suggested Activities</Text>
+                <View style={styles.activitiesCard}>
+                  {activities.map((activity, idx) => (
+                    <View
+                      key={activity.id || activity.title}
+                      style={[
+                        styles.activityRow,
+                        idx === activities.length - 1 && { borderBottomWidth: 0 },
+                      ]}
+                    >
+                      <View>
+                        <Text style={styles.activityTitle}>{activity.title}</Text>
+                        <View style={styles.durationRow}>
+                          <Ionicons name="time-outline" size={14} color="#6B7280" />
+                          <Text style={styles.activityDuration}>{activity.duration}</Text>
+                        </View>
+                      </View>
+                      <View
+                        style={[
+                          styles.difficultyBadge,
+                          activity.difficulty === 'Easy'
+                            ? styles.difficultyEasy
+                            : styles.difficultyModerate,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.difficultyText,
+                            activity.difficulty === 'Easy'
+                              ? { color: '#10B981' }
+                              : { color: '#F59E0B' },
+                          ]}
+                        >
+                          {activity.difficulty}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
 
-          <View style={styles.supportContact}>
-            <Text style={styles.contactLabel}>Program Coordinator:</Text>
-            <Text style={styles.contactValue}>+91 98765 43210</Text>
-          </View>
+            {/* FAQs */}
+            {faqs.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+                <View style={styles.faqsContainer}>
+                  {faqs.map((faq, idx) => {
+                    const isExpanded = expandedFaqIndex === idx;
+                    return (
+                      <TouchableOpacity
+                        key={faq.id || faq.question}
+                        style={styles.faqItem}
+                        onPress={() => toggleFaq(idx)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.faqHeader}>
+                          <Text style={styles.faqQuestion}>{faq.question}</Text>
+                          <Ionicons
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={18}
+                            color="#6B7280"
+                          />
+                        </View>
+                        {isExpanded && (
+                          <View style={styles.faqAnswerContainer}>
+                            <Text style={styles.faqAnswer}>{faq.answer}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            )}
 
-          <View style={styles.supportContact}>
-            <Text style={styles.contactLabel}>Emergency Services:</Text>
-            <Text style={styles.contactValue}>112</Text>
-          </View>
+            {/* Emergency Support Card */}
+            <View style={styles.emergencyCard}>
+              <View style={styles.emergencyHeaderRow}>
+                <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
+                <Text style={styles.emergencyTitle}>Emergency Support</Text>
+              </View>
 
-          <Text style={styles.emergencyDesc}>
-            Contact the program coordinator if you have questions, concerns, or need support with any
-            aspect of your role as a Saathi.
-          </Text>
-        </View>
+              <View style={styles.supportContact}>
+                <Text style={styles.contactLabel}>Program Coordinator:</Text>
+                <Text style={styles.contactValue}>+91 98765 43210</Text>
+              </View>
+
+              <View style={styles.supportContact}>
+                <Text style={styles.contactLabel}>Emergency Services:</Text>
+                <Text style={styles.contactValue}>112</Text>
+              </View>
+
+              <Text style={styles.emergencyDesc}>
+                Contact the program coordinator if you have questions, concerns, or need support with any
+                aspect of your role as a Saathi.
+              </Text>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <SathiBottomNav />
@@ -178,25 +236,108 @@ export default function SathiGuide() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF3EB',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 100,
   },
+  header: {
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  welcomeCard: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F8FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  welcomeIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  welcomeTextContainer: {
+    flex: 1,
+  },
+  welcomeTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  welcomeDesc: {
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 18,
+  },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#111827',
     marginBottom: 12,
     marginTop: 8,
   },
+  bpCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  bpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  bpTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginLeft: 8,
+  },
+  bpDesc: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 12,
+    marginLeft: 28,
+  },
+  bpPointsContainer: {
+    marginTop: 4,
+  },
+  bpPointRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  bpPointText: {
+    fontSize: 13,
+    color: '#374151',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
   activitiesCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3F4F6',
     paddingHorizontal: 16,
     marginBottom: 24,
   },
@@ -217,11 +358,11 @@ const styles = StyleSheet.create({
   durationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
   activityDuration: {
     fontSize: 12,
     color: '#6B7280',
+    marginLeft: 4,
   },
   difficultyBadge: {
     paddingHorizontal: 10,
@@ -229,67 +370,66 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   difficultyEasy: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#ECFDF5',
   },
   difficultyModerate: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#FEF3C7',
   },
   difficultyText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   faqsContainer: {
-    gap: 10,
     marginBottom: 24,
   },
   faqItem: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3F4F6',
     padding: 16,
+    marginBottom: 10,
   },
   faqHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
   },
   faqQuestion: {
-    flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#111827',
-    lineHeight: 18,
+    flex: 1,
+    marginRight: 16,
+    lineHeight: 20,
   },
   faqAnswerContainer: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
   faqAnswer: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#4B5563',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   emergencyCard: {
-    backgroundColor: '#FFF5F5',
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
   },
-  emergencyHeader: {
+  emergencyHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginBottom: 16,
   },
   emergencyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#EF4444',
+    color: '#111827',
+    marginLeft: 8,
   },
   supportContact: {
     flexDirection: 'row',
@@ -298,21 +438,17 @@ const styles = StyleSheet.create({
   },
   contactLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+    color: '#4B5563',
   },
   contactValue: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#111827',
   },
   emergencyDesc: {
-    fontSize: 12,
-    color: '#4B5563',
-    lineHeight: 18,
+    fontSize: 13,
+    color: '#6B7280',
     marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#FEE2E2',
-    paddingTop: 12,
+    lineHeight: 18,
   },
 });

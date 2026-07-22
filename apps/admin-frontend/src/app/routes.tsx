@@ -44,7 +44,7 @@ import VitalTemplatesPage from './pages/vitals/VitalTemplatesPage';
 import BeneficiaryVitalsPage from './pages/vitals/BeneficiaryVitalsPage';
 import VitalsCaptureLogPage from './pages/vitals/VitalsCaptureLogPage';
 import AlertRulesPage from './pages/vitals/AlertRulesPage';
-
+import GuideManagementPage from './pages/GuideManagementPage';
 
 export const router = createBrowserRouter([
   {
@@ -142,6 +142,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin-users',
         Component: AdminUsersPage,
+      },
+      {
+        path: 'guide-management',
+        Component: GuideManagementPage,
       },
       {
         path: 'teams',

@@ -1918,3 +1918,42 @@ model RosterFeedback {
   @@unique([date, zoneId, ccId])
   @@map("roster_feedbacks")
 }
+
+model SaathiBestPractice {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  icon        String
+  points      String[]
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("saathi_best_practices")
+}
+
+model SaathiSuggestedActivity {
+  id          String   @id @default(uuid())
+  title       String
+  duration    String
+  difficulty  String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("saathi_suggested_activities")
+}
+
+model SaathiFaq {
+  id          String   @id @default(uuid())
+  question    String
+  answer      String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("saathi_faqs")
+}
