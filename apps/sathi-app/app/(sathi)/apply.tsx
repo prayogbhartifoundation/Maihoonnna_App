@@ -12,6 +12,7 @@ import {
   ScrollView,
   Dimensions,
   Modal,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -172,7 +173,7 @@ export default function ApplyVolunteerScreen() {
       setFormError('Date of birth is required.');
       return;
     }
-    
+
     // Calculate age
     const today = new Date();
     let calculatedAge = today.getFullYear() - dateOfBirth.getFullYear();
@@ -466,6 +467,15 @@ export default function ApplyVolunteerScreen() {
                 <Text style={styles.featureDesc}>Your privacy and safety are our priority.</Text>
               </View>
             </View>
+          </View>
+
+          {/* Welcome Illustration */}
+          <View style={styles.welcomeImageContainer}>
+            <Image
+              source={require('../../assets/images/RegisterPageImage.png')}
+              style={styles.welcomeImage}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Form Card */}
@@ -867,6 +877,22 @@ const styles = StyleSheet.create({
   featureTextContainer: { flex: 1 },
   featureTitle: { fontSize: scale(15), fontWeight: '700', color: '#000', marginBottom: scale(2) },
   featureDesc: { fontSize: scale(12), color: '#3E4949' },
+  welcomeImageContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(16),
+    padding: scale(16),
+    marginBottom: scale(24),
+    alignItems: 'center',
+    shadowColor: '#181C1D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  welcomeImage: {
+    width: '100%',
+    height: scale(220),
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: scale(16),

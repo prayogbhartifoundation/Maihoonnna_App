@@ -2144,3 +2144,29 @@ The vital tracking system is now completely dynamic and configuration-driven. Ne
 - Unified `FieldManagementPage.tsx` with a multi-tabbed layout containing: Scheduling, Roster Timeline, Planned vs. Actual, and Daily Feedback.
 - Added a "View Roster & Reports" shortcut button on `VisitsPage.tsx` to link cross-functional pages.
 - Corrected strict TypeScript compilation errors inside `mockData.ts` by appending optional proxy fields (`skills`, `isActive`, `totalCreditHours`, etc.) to the `Volunteer` interface in `types/index.ts`.
+
+## Saathi Dashboard & Guide Management (2026-07-22)
+
+### Backend Updates
+- Added `routes/saathi-guide.js` in `admin-backend` to handle fetching and creating dynamic companion best practices.
+- Fixed the API response structure to standardize on `{ success: true, data: [...] }` to prevent frontend crashes.
+- Modified `sathi_service.ts` in `mobile-backend` to attach `assignedBeneficiaries` to the `getVolunteerDashboard` API payload.
+- Fixed `upcomingVisits` query in `sathi_service.ts` by removing the strict `dateTime` filter so newly accepted requests aren't hidden prematurely.
+
+### Frontend Updates (Admin Panel)
+- Built the `GuideManagementPage.tsx` interface to allow admins to create and manage the Saathi Companion Guidelines dynamically.
+
+### Frontend Updates (Mobile App - Sathi)
+- Revamped the Saathi Home Dashboard (`index.tsx`) to pull from `assignedBeneficiaries` instead of visit requests.
+- Re-architected the Match screen (`match.tsx`) to render actual pending `SathiVisitRequests` directly from the backend API instead of using static UI mock data.
+- Wired the "Accept" and "Reschedule" buttons on the Match screen to trigger the `/respond` backend endpoint.
+- Corrected the `apply.tsx` volunteer onboarding screen to use the correct `RegisterPageImage.png` and wrapped it in a beautifully styled shadow card matching the design mocks.
+
+### Sathi Dashboard UI Refinements (2026-07-22)
+- Reverted the "Assigned Beneficiaries" section back to "Visit Requests" on the Sathi Home Dashboard (`index.tsx`).
+- Updated the "Visit Requests" card UI to precisely match the provided mockup, including dynamic rendering of beneficiary photos, names, distances, bios, and hobbies.
+- Updated `sathi_service.ts` dashboard endpoint to fetch and serve `bio` and `hobbiesInterests` inside the `visitRequests` payload.
+- Upgraded the "Upcoming Visits" card in `index.tsx` to show the scheduled date and time instead of the visit count.
+- Implemented a live countdown timer for "Upcoming Visits" that dynamically renders the remaining time (days, hours, minutes) until a visit. 
+- Integrated countdown logic so the "Start Visit" button only becomes active within 1 hour of the scheduled visit (or if the Sathi is late), hiding it otherwise behind the countdown banner.
+- Updated the `handleStartVisit` action to immediately redirect the Sathi to the hours logging page (`hours.tsx`) upon a successful check-in.

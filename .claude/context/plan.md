@@ -191,3 +191,13 @@
   - [x] Passed benefits parameter to Payment Success page to display live details.
   - [x] Cleaned up duplicate transaction-level user creation crash in mobile-backend.
   - [x] Cleaned up Payment Success action buttons to only show "Go to Dashboard".
+
+- [x] Saathi Dashboard & Guide Management (2026-07-22)
+  - [x] Built `Saathi Guide` Management Portal in Admin Panel (`admin-frontend`) to allow dynamic creation of companion best practices.
+  - [x] Created `admin-backend` routes to fetch and save dynamic guides to the database.
+  - [x] Fixed frontend "white screen of death" in Admin by properly wrapping API responses with `{ success: true, data: ... }`.
+  - [x] Remapped the Saathi Mobile App (`sathi-app`) Home Dashboard to prominently display "Assigned Beneficiaries" with their hobbies and assignment dates.
+  - [x] Revamped the Match Screen to fetch real, pending `SathiVisitRequests` directly from the backend API.
+  - [x] Implemented fully functional `Accept` and `Reschedule` buttons on visit requests mapped to the `/respond` backend route.
+  - [x] Fixed backend `upcomingVisits` filter to ensure accepted visits appear immediately on the dashboard regardless of precise scheduled timestamps.
+  - [x] Improved mobile app UI by adding the correct `RegisterPageImage.png` and properly styling its shadow card container on the welcome screen.
