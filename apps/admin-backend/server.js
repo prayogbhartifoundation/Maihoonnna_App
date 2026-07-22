@@ -85,6 +85,7 @@ app.use('/api/teams', adminsOnly, require('./routes/teams'));
 app.use('/api/subscribers', staffOnly, require('./routes/subscribers'));
 app.use('/api/beneficiaries', staffOnly, require('./routes/beneficiaries'));
 app.use('/api/volunteers', staffOnly, require('./routes/volunteers'));
+app.use('/api/emergency', staffOnly, require('./routes/emergency'));
 
 // ─── Subscription & Benefits ──────────────────────────────────────────────────
 app.use('/api/benefit-types', adminsOnly, require('./routes/benefitTypes'));
@@ -131,11 +132,14 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
+const { ensureEmergencyBenefit } = require('./utils/initEmergencyBenefit');
+
 const server = app
-  .listen(PORT, () => {
+  .listen(PORT, async () => {
     console.log(`🚀 Admin Panel Backend running on port ${PORT}`);
     console.log(`📌 Zones API: /api/zones`);
     console.log(`🌐 CORS origin: ${FRONTEND_URL}`);
+    await ensureEmergencyBenefit();
   })
   .on('error', (err) => {
     if (err.code === 'EADDRINUSE') {

@@ -26,6 +26,8 @@ import {
   Activity,
   Tag,
   RefreshCw,
+  Radio,
+  ShieldAlert,
 } from 'lucide-react';
 import { cn } from '../ui/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
@@ -47,6 +49,7 @@ const navigationSections: NavSection[] = [
     title: 'MAIN',
     items: [
       { path: '/dashboard', label: 'Dashboard', icon: Home, roles: [] },
+      { path: '/emergency-radar', label: 'Emergency Radar', icon: Radio, roles: [] },
     ]
   },
   {

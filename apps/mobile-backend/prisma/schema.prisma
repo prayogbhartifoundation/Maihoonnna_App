@@ -555,6 +555,7 @@ model BenefitType {
 model Benefit {
   id                     String                       @id @default(uuid())
   benefitTypeId          String
+  code                   String?
   name                   String
   description            String?
   isChargeable           Boolean                      @default(false)

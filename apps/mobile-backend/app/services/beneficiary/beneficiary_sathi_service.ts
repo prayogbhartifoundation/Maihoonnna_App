@@ -1,6 +1,8 @@
 import prisma from '../../core/database';
 import { ApiError } from '../../utils/ApiError';
 
+import { isSathiBenefit } from '../../constants/systemBenefits';
+
 export const getBeneficiarySathiEligibility = async (beneficiaryId: string) => {
   const activeSubscriptions = await prisma.subscription.findMany({
     where: {
@@ -8,6 +10,17 @@ export const getBeneficiarySathiEligibility = async (beneficiaryId: string) => {
       isActive: true
     },
     include: {
+      packageVersion: {
+        include: {
+          versionBenefits: {
+            include: {
+              benefit: {
+                include: { benefitType: true }
+              }
+            }
+          }
+        }
+      },
       benefitBalances: {
         include: {
           benefit: {
@@ -23,13 +36,27 @@ export const getBeneficiarySathiEligibility = async (beneficiaryId: string) => {
   let sathiBalanceId = null;
 
   for (const sub of activeSubscriptions) {
-    for (const bal of sub.benefitBalances) {
-      if (bal.benefit.benefitType && (bal.benefit.benefitType.code === 'SATHI_COMPANION' || bal.benefit.benefitType.name.toLowerCase().includes('sathi'))) {
-        const remaining = bal.totalUnits - bal.usedUnits;
-        if (remaining > 0) {
-          eligible = true;
-          remainingUnits += remaining;
-          sathiBalanceId = bal.id;
+    if (sub.benefitBalances && sub.benefitBalances.length > 0) {
+      for (const bal of sub.benefitBalances) {
+        if (isSathiBenefit(bal.benefit)) {
+          const remaining = bal.totalUnits - bal.usedUnits;
+          if (remaining > 0) {
+            eligible = true;
+            remainingUnits += remaining;
+            sathiBalanceId = bal.id;
+          }
+        }
+      }
+    }
+
+    if (!eligible && sub.packageVersion?.versionBenefits) {
+      for (const pvb of sub.packageVersion.versionBenefits) {
+        if (isSathiBenefit(pvb.benefit)) {
+          const remaining = pvb.unitsIncluded;
+          if (remaining > 0 || pvb.isUnlimited) {
+            eligible = true;
+            remainingUnits += pvb.isUnlimited ? 999 : remaining;
+          }
         }
       }
     }

@@ -1530,4 +1530,23 @@ export const saathiGuideApi = {
   },
 };
 
+export const emergencyApi = {
+  async getRequests(status?: string): Promise<any[]> {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return apiJson<any[]>(`/emergency/requests${query}`);
+  },
+  async updateStatus(id: string, status: string, resolutionNotes?: string): Promise<any> {
+    return apiJson<any>(`/emergency/requests/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, resolutionNotes }),
+    });
+  },
+  async addNote(id: string, note: string, author?: string): Promise<any> {
+    return apiJson<any>(`/emergency/requests/${id}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ note, author }),
+    });
+  },
+};
+
 

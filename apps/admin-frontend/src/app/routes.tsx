@@ -47,6 +47,7 @@ import AlertRulesPage from './pages/vitals/AlertRulesPage';
 import RenewalsWorklistPage from './pages/RenewalsWorklistPage';
 import RenewalWizardPage from './pages/RenewalWizardPage';
 import GuideManagementPage from './pages/GuideManagementPage';
+import EmergencyRadarPage from './pages/EmergencyRadarPage';
 
 export const router = createBrowserRouter([
   {
@@ -217,6 +218,10 @@ export const router = createBrowserRouter([
       {
         path: 'regions',
         Component: RegionsPage,
+      },
+      {
+        path: 'emergency-radar',
+        Component: EmergencyRadarPage,
       },
       {
         path: 'config',

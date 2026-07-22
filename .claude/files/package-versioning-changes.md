@@ -16,3 +16,9 @@
    - Hour-based benefits deduct actual duration hours at checkout (handled in mobile-backend and admin-backend checkout).
 4. **Idempotent Refund on Cancel**: Programmed `DELETE /api/visits/:id` to check the `PackageHoursLog`, refund the exact locked `benefitId` from the subscription balance, and delete the log.
 5. **Removed Fallback Ambiguity**: Cleaned up checkout code in the mobile backend to avoid guessing or selecting fallback visit-based benefits when completing a visit.
+
+## Additional Enhancements (Dynamic Eligibility, Smart Versioning & Benefit Code Auto-Fill)
+- [modify] [apps/mobile-backend/app/services/beneficiary/beneficiary_sathi_service.ts](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-backend/app/services/beneficiary/beneficiary_sathi_service.ts): Added fallback to `packageVersion.versionBenefits` in Sathi eligibility checks.
+- [modify] [apps/mobile-app/app/(beneficiary)/index.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-app/app/(beneficiary)/index.tsx): Integrated mount-time eligibility check for Emergency and Saathi Companion buttons, hiding components if not in active subscription.
+- [modify] [apps/admin-backend/utils/packageVersionHelper.js](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/admin-backend/utils/packageVersionHelper.js): Implemented smart version publishing — pure price/metadata edits update current version metadata without bumping version number; structural benefit edits trigger a new version snapshot.
+- [modify] [apps/admin-frontend/src/app/pages/BenefitsPage.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/admin-frontend/src/app/pages/BenefitsPage.tsx): Auto-prefilled auto-generated Benefit ID/Code (`EMR_101`, `SATHI_101`, `PHY_101`, etc.) on form creation and edit.

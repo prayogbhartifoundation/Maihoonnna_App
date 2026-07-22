@@ -45,6 +45,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const {
     benefitTypeId,
+    code,
     name,
     description,
     isChargeable,
@@ -62,6 +63,7 @@ router.post('/', async (req, res) => {
     const benefit = await prisma.benefit.create({
       data: {
         benefitTypeId,
+        code: code ? code.trim().toUpperCase() : null,
         name,
         description,
         isChargeable: isChargeable ?? false,
@@ -84,6 +86,7 @@ router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const {
     benefitTypeId,
+    code,
     name,
     description,
     isChargeable,
@@ -94,19 +97,21 @@ router.patch('/:id', async (req, res) => {
     isActive,
   } = req.body;
   try {
+    const dataToUpdate = {};
+    if (benefitTypeId !== undefined) dataToUpdate.benefitTypeId = benefitTypeId;
+    if (code !== undefined) dataToUpdate.code = code ? code.trim().toUpperCase() : null;
+    if (name !== undefined) dataToUpdate.name = name;
+    if (description !== undefined) dataToUpdate.description = description;
+    if (isChargeable !== undefined) dataToUpdate.isChargeable = isChargeable;
+    if (unitCost !== undefined) dataToUpdate.unitCost = unitCost;
+    if (unitLabel !== undefined) dataToUpdate.unitLabel = unitLabel;
+    if (defaultUnits !== undefined) dataToUpdate.defaultUnits = defaultUnits;
+    if (displayOrder !== undefined) dataToUpdate.displayOrder = displayOrder;
+    if (isActive !== undefined) dataToUpdate.isActive = isActive;
+
     const benefit = await prisma.benefit.update({
       where: { id },
-      data: {
-        benefitTypeId,
-        name,
-        description,
-        isChargeable,
-        unitCost,
-        unitLabel,
-        defaultUnits,
-        displayOrder,
-        isActive,
-      },
+      data: dataToUpdate,
       include: { benefitType: { select: { id: true, name: true } } },
     });
     res.json({ success: true, data: benefit });

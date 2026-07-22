@@ -287,3 +287,23 @@ When scheduling a visit, the selected benefit was being saved into the visit's `
 - Successfully compiled an Android Development Build via `npx expo run:android` locally and deployed the APK to the connected device via ADB.
 - Established ADB port-forwarding mappings (ports 8081 and 8001) using `adb reverse` to allow local device to query the local development server.
 - Force pushed all changes to `dev` branch.
+
+---
+
+# Implementation: Dynamic Feature Eligibility, Smart Versioning & Benefit Code Auto-Fill (2026-07-22)
+
+## Files Modified
+- [modify] [apps/mobile-backend/app/services/beneficiary/beneficiary_sathi_service.ts](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-backend/app/services/beneficiary/beneficiary_sathi_service.ts): Added fallback to `packageVersion.versionBenefits` in Sathi eligibility checks.
+- [modify] [apps/mobile-app/app/(beneficiary)/index.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/mobile-app/app/(beneficiary)/index.tsx): Integrated mount-time eligibility check for Emergency Support and Saathi Companion buttons, hiding components if not in active subscription.
+- [modify] [apps/admin-backend/utils/packageVersionHelper.js](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/admin-backend/utils/packageVersionHelper.js): Implemented smart version publishing — pure price/metadata edits update current version metadata without bumping version number; structural benefit edits trigger a new version snapshot.
+- [modify] [apps/admin-frontend/src/app/pages/BenefitsPage.tsx](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/admin-frontend/src/app/pages/BenefitsPage.tsx): Auto-prefilled auto-generated Benefit ID/Code (`EMR_101`, `SATHI_101`, `PHY_101`, etc.) on form creation and edit.
+- [modify] [apps/admin-backend/utils/initEmergencyBenefit.js](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/admin-backend/utils/initEmergencyBenefit.js): Created auto-initializer for system `BenefitType: Emergency` and `Benefit: Emergency Button (EMR_101)`.
+- [modify] [apps/admin-backend/routes/emergency.js](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/admin-backend/routes/emergency.js): Added automatic package benefit deduction (`usedUnits += 1`) when Admin marks an emergency request as `resolved` on the radar.
+- [modify] [apps/admin-backend/server.js](file:///c:/Users/91930/OneDrive/Desktop/Mai-Hoonaa/apps/admin-backend/server.js): Executed `ensureEmergencyBenefit()` on backend server startup.
+
+## Actions Taken
+- Synced Sathi eligibility checking with Emergency eligibility pattern to read both live balances and frozen `packageVersion` benefits.
+- Replaced hardcoded frontend feature visibility checks with configuration-driven backend endpoints.
+- Updated package version publisher to detect benefit composition changes, allowing pricing edits without version inflation.
+- Auto-prefilled benefit codes in Benefits Library admin UI.
+- Implemented full End-to-End Emergency SOS resolution flow: Beneficiary triggers alert -> Notifications sent to Radar/Subscriber/CareCompanions -> Admin marks as `resolved` on Radar -> 1 Emergency unit deducted from package subscription balance.

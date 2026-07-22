@@ -12,13 +12,16 @@ const normalizeUnit = (unitLabel) => {
 /**
  * Creates a new PackageVersion and PackageVersionBenefit records for the given SubscriptionPackage.
  * Marks any previous versions of this package as isLatest = false.
- * Should be run inside a transaction (tx).
+ * Creates or updates a PackageVersion and PackageVersionBenefit records for the given SubscriptionPackage.
+ * Only increments the version number when benefit composition (benefits, units) actually changes.
+ * Pure pricing/metadata edits update the current latest version without bumping version number.
  * 
  * @param {object} tx - Prisma transaction client
  * @param {string} packageId - The UUID of the SubscriptionPackage
- * @returns {Promise<object>} The newly created PackageVersion
+ * @param {object} [options] - Options e.g. { force: true } to force a new version
+ * @returns {Promise<object>} The updated or newly created PackageVersion
  */
-async function publishPackageVersion(tx, packageId) {
+async function publishPackageVersion(tx, packageId, options = {}) {
   // 1. Fetch SubscriptionPackage with benefits
   const pkg = await tx.subscriptionPackage.findUnique({
     where: { id: packageId },
@@ -37,7 +40,75 @@ async function publishPackageVersion(tx, packageId) {
 
   const packageCode = pkg.type;
 
-  // 2. Find the current max version for this packageCode
+  // 2. Check if a latest version already exists
+  const latestVersion = await tx.packageVersion.findFirst({
+    where: { packageCode, isLatest: true },
+    include: {
+      versionBenefits: true,
+    },
+  });
+
+  if (latestVersion && !options.force) {
+    // Compare benefit composition between pkg.packageBenefits and latestVersion.versionBenefits
+    const curBenefits = pkg.packageBenefits || [];
+    const prevBenefits = latestVersion.versionBenefits || [];
+
+    let benefitsChanged = curBenefits.length !== prevBenefits.length;
+
+    if (!benefitsChanged) {
+      const curSorted = [...curBenefits].sort((a, b) => a.benefitId.localeCompare(b.benefitId));
+      const prevSorted = [...prevBenefits].sort((a, b) => a.benefitId.localeCompare(b.benefitId));
+
+      for (let i = 0; i < curSorted.length; i++) {
+        const c = curSorted[i];
+        const p = prevSorted[i];
+        if (
+          c.benefitId !== p.benefitId ||
+          c.unitsIncluded !== p.unitsIncluded ||
+          c.unitsPeriod !== p.unitsPeriod ||
+          c.isUnlimited !== p.isUnlimited
+        ) {
+          benefitsChanged = true;
+          break;
+        }
+      }
+    }
+
+    // If benefit composition did NOT change (e.g. only price / mrp / description was edited),
+    // update the live metadata on latestVersion without bumping version number!
+    if (!benefitsChanged) {
+      const updatedLatest = await tx.packageVersion.update({
+        where: { id: latestVersion.id },
+        data: {
+          name: pkg.name,
+          tagline: pkg.tagline,
+          description: pkg.description,
+          basePrice: pkg.basePrice,
+          mrp: pkg.mrp,
+          currency: pkg.currency,
+          billingCycle: pkg.billingCycle,
+          durationMonths: pkg.durationMonths,
+          isFreeTrial: pkg.isFreeTrial,
+          trialDurationDays: pkg.trialDurationDays,
+          visitsPerWeek: pkg.visitsPerWeek,
+          hoursPerMonth: pkg.hoursPerMonth,
+          maxBeneficiaries: pkg.maxBeneficiaries,
+          features: pkg.features,
+          highlightFeatures: pkg.highlightFeatures,
+          color: pkg.color,
+          isPopular: pkg.isPopular,
+          isActive: pkg.isActive,
+          sortOrder: pkg.sortOrder,
+          discountPercentage: pkg.discountPercentage,
+          miscellaneousCost: pkg.miscellaneousCost,
+        },
+      });
+      console.log(`[publishPackageVersion] Benefits unchanged for ${packageCode}. Updated existing version ${latestVersion.version} (id: ${latestVersion.id}) with new pricing/metadata.`);
+      return updatedLatest;
+    }
+  }
+
+  // 3. Benefit composition changed (or first time publication) -> Increment version & publish new snapshot
   const maxVersionRecord = await tx.packageVersion.findFirst({
     where: { packageCode },
     orderBy: { version: 'desc' },
@@ -46,13 +117,13 @@ async function publishPackageVersion(tx, packageId) {
 
   const nextVersion = maxVersionRecord ? maxVersionRecord.version + 1 : 1;
 
-  // 3. Mark all previous versions as not latest
+  // Mark all previous versions as not latest
   await tx.packageVersion.updateMany({
     where: { packageCode, isLatest: true },
     data: { isLatest: false },
   });
 
-  // 4. Create the new PackageVersion record
+  // Create the new PackageVersion record
   const newVersion = await tx.packageVersion.create({
     data: {
       packageCode,
@@ -82,7 +153,7 @@ async function publishPackageVersion(tx, packageId) {
     },
   });
 
-  // 5. Create PackageVersionBenefit records copying from current package benefits
+  // Create PackageVersionBenefit records copying from current package benefits
   if (pkg.packageBenefits.length > 0) {
     await tx.packageVersionBenefit.createMany({
       data: pkg.packageBenefits.map((pb) => ({
@@ -99,7 +170,7 @@ async function publishPackageVersion(tx, packageId) {
     });
   }
 
-  console.log(`[publishPackageVersion] Published ${packageCode} version ${nextVersion} (id: ${newVersion.id}) with ${pkg.packageBenefits.length} benefits.`);
+  console.log(`[publishPackageVersion] Published new ${packageCode} version ${nextVersion} (id: ${newVersion.id}) with ${pkg.packageBenefits.length} benefits (benefit composition changed).`);
   return newVersion;
 }
 

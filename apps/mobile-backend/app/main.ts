@@ -42,6 +42,7 @@ import sharedUsersRouter from './api/shared/users.routes';
 import beneficiaryDashboardRouter from './api/beneficiary/dashboard.routes';
 import beneficiaryInteractionsRouter from './api/beneficiary/interactions.routes';
 import beneficiarySathiRequestsRouter from './api/beneficiary/sathi-requests.routes';
+import beneficiaryEmergencyRouter from './api/beneficiary/emergency.routes';
 
 // Subscriber Visits (rating)
 import subscriberVisitsRouter from './api/subscriber/visits.routes';
@@ -135,6 +136,7 @@ app.use(`${API}/admin/users`, usersRouter);
 app.use(`${API}/beneficiary/dashboard`, beneficiaryDashboardRouter);
 app.use(`${API}/beneficiary/interactions`, beneficiaryInteractionsRouter);
 app.use(`${API}/beneficiary/sathi-requests`, beneficiarySathiRequestsRouter);
+app.use(`${API}/beneficiary`, beneficiaryEmergencyRouter);
 app.use(`${API}/beneficiary`, beneficiaryDashboardRouter);
 
 // Subscriber Visits rating
