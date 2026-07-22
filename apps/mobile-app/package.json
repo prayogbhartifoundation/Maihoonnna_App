@@ -23,7 +23,7 @@
     "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-query-persist-client": "^5.100.14",
     "date-fns": "^4.1.0",
-    "expo": "54",
+    "expo": "57",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
     "expo-device": "~8.0.10",
