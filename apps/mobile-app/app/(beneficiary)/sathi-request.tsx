@@ -40,10 +40,20 @@ export default function SathiRequestScreen() {
   const [date, setDate] = useState<Date | null>(null);
   const [time, setTime] = useState<Date | null>(null);
   const [reason, setReason] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{ title: string; message: string; volunteerName?: string } | null>(null);
 
   // Date/Time Picker visibility
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
+
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      try { window.alert(`${title}: ${message}`); } catch {}
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
   useEffect(() => {
     checkEligibility();
@@ -56,7 +66,7 @@ export default function SathiRequestScreen() {
       const userStr = await AsyncStorage.getItem('userData');
 
       if (!token || !userStr) {
-        Alert.alert('Session Expired', 'Please log in again.');
+        showAlert('Session Expired', 'Please log in again.');
         setLoading(false);
         return;
       }
@@ -106,28 +116,39 @@ export default function SathiRequestScreen() {
   const handleConfirmDate = (selectedDate: Date) => {
     setDate(selectedDate);
     setDatePickerVisibility(false);
+    setFormError(null);
   };
 
   const handleConfirmTime = (selectedTime: Date) => {
     setTime(selectedTime);
     setTimePickerVisibility(false);
+    setFormError(null);
   };
 
   const handleCreateRequest = async () => {
+    setFormError(null);
     if (!date) {
-      Alert.alert('Error', 'Please select a date.');
+      const msg = 'Please select a date for the visit.';
+      setFormError(msg);
+      showAlert('Error', msg);
       return;
     }
     if (!time) {
-      Alert.alert('Error', 'Please select a time.');
+      const msg = 'Please select a time for the visit.';
+      setFormError(msg);
+      showAlert('Error', msg);
       return;
     }
     if (!reason.trim()) {
-      Alert.alert('Error', 'Please enter a reason or description for the visit.');
+      const msg = 'Please enter a reason or description for the visit.';
+      setFormError(msg);
+      showAlert('Error', msg);
       return;
     }
     if (!selectedVolunteer) {
-      Alert.alert('Error', 'Please select a volunteer.');
+      const msg = 'Please select a volunteer.';
+      setFormError(msg);
+      showAlert('Error', msg);
       return;
     }
 
@@ -137,7 +158,9 @@ export default function SathiRequestScreen() {
       const userStr = await AsyncStorage.getItem('userData');
 
       if (!token || !userStr) {
-        Alert.alert('Error', 'Session not found. Please log in.');
+        const msg = 'Session not found. Please log in.';
+        setFormError(msg);
+        showAlert('Error', msg);
         setSubmitting(false);
         return;
       }
@@ -170,18 +193,27 @@ export default function SathiRequestScreen() {
       const data = await res.json();
 
       if (res.ok || data.success) {
-        Alert.alert('Success', `Your visit request has been sent to ${selectedVolunteer.name}.`);
-        // Reset form and re-fetch requests
-        setSelectedVolunteer(null);
+        const volName = selectedVolunteer.name;
+        // Show success modal
+        setSuccessModal({
+          title: 'Request Sent Successfully!',
+          message: `Your visit request has been sent to ${volName}. You can track the status under 'My Requests'.`,
+          volunteerName: volName,
+        });
+        showAlert('Success', `Your visit request has been sent to ${volName}.`);
+        // Reset form
         setDate(null);
         setTime(null);
         setReason('');
+        setFormError(null);
         checkEligibility();
       } else {
         throw new Error(data.message || 'Failed to submit request.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Something went wrong.');
+      const msg = err.message || 'Something went wrong.';
+      setFormError(msg);
+      showAlert('Error', msg);
     } finally {
       setSubmitting(false);
     }
@@ -314,8 +346,19 @@ export default function SathiRequestScreen() {
             multiline
             numberOfLines={4}
             value={reason}
-            onChangeText={setReason}
+            onChangeText={(txt) => {
+              setReason(txt);
+              if (formError) setFormError(null);
+            }}
           />
+
+          {/* Form Error Banner */}
+          {formError && (
+            <View style={styles.errorBanner}>
+              <Feather name="alert-circle" size={16} color="#DC2626" style={{ marginRight: 8 }} />
+              <Text style={styles.errorBannerText}>{formError}</Text>
+            </View>
+          )}
 
           <TouchableOpacity
             style={[styles.submitBtn, submitting && styles.disabledBtn]}
@@ -344,6 +387,29 @@ export default function SathiRequestScreen() {
           onConfirm={handleConfirmTime}
           onCancel={() => setTimePickerVisibility(false)}
         />
+
+        {/* Success Modal Overlay */}
+        {successModal && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalSuccessIconWrapper}>
+                <Feather name="check" size={28} color="#059669" />
+              </View>
+              <Text style={styles.modalTitle}>{successModal.title}</Text>
+              <Text style={styles.modalDesc}>{successModal.message}</Text>
+              <TouchableOpacity
+                style={styles.modalDoneBtn}
+                onPress={() => {
+                  setSuccessModal(null);
+                  setSelectedVolunteer(null);
+                  checkEligibility();
+                }}
+              >
+                <Text style={styles.modalDoneBtnText}>Got it!</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -872,5 +938,83 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
-  }
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 12,
+  },
+  errorBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#991B1B',
+    flex: 1,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    zIndex: 999,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalSuccessIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalDesc: {
+    fontSize: 14,
+    color: '#4B5563',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalDoneBtn: {
+    backgroundColor: '#FF6A00',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalDoneBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
 });
