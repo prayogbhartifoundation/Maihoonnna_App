@@ -196,7 +196,6 @@ export const getVolunteerDashboard = async (id: string) => {
     where: {
       volunteerId: id,
       status: 'ACCEPTED',
-      dateTime: { gte: new Date() }
     },
     include: {
       beneficiary: {
@@ -252,7 +251,9 @@ export const getVolunteerDashboard = async (id: string) => {
       age: r.beneficiary.age,
       location: r.beneficiary.address,
       dateTime: r.dateTime.toISOString(),
-      reason: r.reason
+      reason: r.reason,
+      bio: r.beneficiary.bio,
+      hobbies: r.beneficiary.hobbiesInterests || []
     })),
     upcomingVisits: upcomingVisits.map(v => {
       const assignment = volunteer.assignments.find(a => a.beneficiaryId === v.beneficiaryId);
@@ -293,15 +294,27 @@ export const getVolunteerMatches = async (id: string) => {
           address: true,
           hobbiesInterests: true,
         }
+      },
+      visitLogs: {
+        where: { status: 'completed' },
+        orderBy: { checkInTime: 'desc' },
+        select: { checkInTime: true }
       }
     }
   });
 
-  return assignments.map(a => ({
-    assignmentId: a.id,
-    beneficiary: a.beneficiary,
-    assignedAt: a.createdAt,
-  }));
+  return assignments.map(a => {
+    const totalVisits = a.visitLogs.length;
+    const lastVisitDate = a.visitLogs.length > 0 ? a.visitLogs[0].checkInTime : null;
+    
+    return {
+      assignmentId: a.id,
+      beneficiary: a.beneficiary,
+      assignedAt: a.createdAt,
+      totalVisits: totalVisits,
+      lastVisit: lastVisitDate ? new Date(lastVisitDate).toLocaleDateString('en-US') : null,
+    };
+  });
 };
 
 export const getVolunteerMatchDetail = async (volunteerId: string, beneficiaryId: string) => {

@@ -1,4 +1,8 @@
 import React, { useState, useCallback } from 'react';
+import { Dimensions } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const scale = (size: number) => Math.round((SCREEN_WIDTH / 390) * size);
 import {
   View,
   Text,
@@ -35,7 +39,7 @@ export default function SathiMatches() {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
 
-      const response = await fetch(`${API_URL}/sathi/visit-requests`, {
+      const response = await fetch(`${API_URL}/sathi/matches`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -50,32 +54,28 @@ export default function SathiMatches() {
       // Mock matches as shown in the screenshot
       setMatches([
         {
-          id: 'mock-1',
+          assignmentId: 'mock-1',
           beneficiary: {
             id: 'ben-1',
-            name: 'Mrs. Patel',
-            age: 69,
-            address: 'Saket, Delhi',
-            distance: '2.1 km',
-            bio: 'Active senior who wants help using her smartphone to video call with grandchildren.',
-            hobbiesInterests: ['Companionship', 'Technology Help'],
+            name: 'Mrs. Sharma',
+            address: 'Vasant Vihar, Delhi',
+            distance: '0.8 km',
             photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
           },
-          dateTime: '2026-06-21T10:00:00Z',
+          totalVisits: 8,
+          lastVisit: '4/14/2026',
         },
         {
-          id: 'mock-2',
+          assignmentId: 'mock-2',
           beneficiary: {
             id: 'ben-2',
-            name: 'Mr. Singh',
-            age: 81,
-            address: 'Greater Kailash, Delhi',
-            distance: '1.7 km',
-            bio: 'Enjoys morning walks in the park but needs a companion for safety. Former army officer.',
-            hobbiesInterests: ['Companionship', 'Walking Companion'],
+            name: 'Mr. Kapoor',
+            address: 'Defence Colony, Delhi',
+            distance: '1.2 km',
             photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150',
           },
-          dateTime: '2026-06-22T15:30:00Z',
+          totalVisits: 5,
+          lastVisit: '4/10/2026',
         },
       ]);
     } finally {
@@ -145,92 +145,38 @@ export default function SathiMatches() {
         </View>
 
         {/* Assigned Beneficiaries section */}
-        <Text style={styles.sectionTitle}>Visit Requests</Text>
+        <Text style={styles.sectionTitle}>Assigned Beneficiaries</Text>
 
         {matches.length > 0 ? (
           matches.map((item: any) => {
             const ben = item.beneficiary || item;
-            
-            let formattedDate = '';
-            let formattedTime = '';
-            if (item.dateTime) {
-              const d = new Date(item.dateTime);
-              formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' });
-              formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            } else {
-              formattedDate = ben.dateString || '';
-              formattedTime = ben.timeString || '';
-            }
+            const distance = ben.distance || '1.0 km';
+            const totalVisits = item.totalVisits !== undefined ? item.totalVisits : 0;
+            const lastVisit = item.lastVisit ? `Last: ${item.lastVisit}` : 'No prior visits';
 
             return (
-              <View key={item.id || ben.id} style={styles.matchCard}>
+              <View key={item.assignmentId || ben.id} style={styles.matchCard}>
                 <View style={styles.seniorHeader}>
                   <Image source={{ uri: ben.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }} style={styles.seniorPhoto} />
                   <View style={styles.seniorMeta}>
-                    <Text style={styles.seniorName}>
-                      {ben.name}{ben.age ? `, ${ben.age}` : ''}
-                    </Text>
+                    <Text style={styles.seniorName}>{ben.name}</Text>
                     <View style={styles.locationRow}>
                       <Ionicons name="location-outline" size={14} color="#6B7280" />
                       <Text style={styles.locationTextSmall}>{ben.location || ben.address || 'Delhi'}</Text>
                     </View>
                   </View>
-                  {ben.distance && (
-                    <View style={styles.distanceBadge}>
-                      <Text style={styles.distanceText}>{ben.distance}</Text>
-                    </View>
-                  )}
+                  <View style={styles.distanceBadge}>
+                    <Text style={styles.distanceText}>{distance}</Text>
+                  </View>
                 </View>
 
-                {ben.bio && <Text style={styles.bioText}>{ben.bio}</Text>}
+                {/* Gap/Spacing */}
+                <View style={{ height: 24 }} />
 
-                {/* Hobbies / Interests Tags */}
-                {ben.hobbiesInterests && ben.hobbiesInterests.length > 0 && (
-                  <View style={styles.tagsRow}>
-                    {ben.hobbiesInterests.map((tag: string) => (
-                      <View key={tag} style={styles.tag}>
-                        <Text style={styles.tagText}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Date & Time Row */}
-                {(formattedDate || formattedTime) && (
-                  <View style={styles.dateTimeRow}>
-                    {formattedDate ? (
-                      <View style={styles.dateTimeField}>
-                        <Ionicons name="calendar-outline" size={14} color="#4B5563" />
-                        <Text style={styles.dateTimeText}>{formattedDate}</Text>
-                      </View>
-                    ) : null}
-                    {formattedTime ? (
-                      <View style={styles.dateTimeField}>
-                        <Ionicons name="time-outline" size={14} color="#4B5563" />
-                        <Text style={styles.dateTimeText}>{formattedTime}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                )}
-                
-                {/* Reason */}
-                {item.reason && (
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={{ fontSize: 13, color: '#4B5563', fontFamily: 'Poppins-Medium' }}>Reason:</Text>
-                    <Text style={{ fontSize: 14, color: '#1F2937', fontFamily: 'Poppins-Regular' }}>{item.reason}</Text>
-                  </View>
-                )}
-
-                {/* Action Buttons */}
+                {/* Bottom Row */}
                 <View style={styles.actionsRow}>
-                  <TouchableOpacity style={styles.acceptBtn} onPress={() => handleRespondRequest(item.id, 'ACCEPT')}>
-                    <Ionicons name="heart-outline" size={16} color="#FFFFFF" style={{marginRight: 6}} />
-                    <Text style={styles.acceptBtnText}>Accept</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.reschedBtn} onPress={() => handleRespondRequest(item.id, 'REJECT')}>
-                    <Ionicons name="refresh-outline" size={16} color="#FF6F00" style={{marginRight: 6}} />
-                    <Text style={styles.reschedBtnText}>Reschedule</Text>
-                  </TouchableOpacity>
+                  <Text style={styles.statsText}>{totalVisits} total visits</Text>
+                  <Text style={styles.statsText}>{lastVisit}</Text>
                 </View>
               </View>
             );
@@ -301,6 +247,58 @@ const styles = StyleSheet.create({
   tipTextContent: {
     flex: 1,
   },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: scale(16),
+  },
+  statsText: {
+    fontSize: scale(13),
+    color: '#4B5563',
+    fontFamily: 'Poppins-Medium',
+  },
+  seniorPhoto: {
+    width: scale(56),
+    height: scale(56),
+    borderRadius: scale(12),
+  },
+  seniorMeta: {
+    flex: 1,
+    marginLeft: scale(14),
+  },
+  seniorName: {
+    fontSize: scale(16),
+    color: '#111827',
+    fontFamily: 'Poppins-SemiBold',
+    marginBottom: scale(4),
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationTextSmall: {
+    fontSize: scale(13),
+    color: '#6B7280',
+    fontFamily: 'Poppins-Regular',
+    marginLeft: scale(4),
+  },
+  distanceBadge: {
+    backgroundColor: '#E0E7FF',
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(4),
+    borderRadius: scale(12),
+  },
+  distanceText: {
+    fontSize: scale(12),
+    color: '#4338CA',
+    fontFamily: 'Poppins-Medium',
+  },
+  bioText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+  },
   tipTitle: {
     fontSize: 14,
     fontWeight: '700',
@@ -331,53 +329,6 @@ const styles = StyleSheet.create({
   },
   seniorHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  seniorPhoto: {
-    width: 65,
-    height: 65,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    marginRight: 16,
-  },
-  seniorMeta: {
-    flex: 1,
-    paddingTop: 4,
-  },
-  seniorName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 4,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  locationTextSmall: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  distanceBadge: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#2196F3',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  distanceText: {
-    fontSize: 11,
-    color: '#2196F3',
-    fontWeight: '600',
-  },
-  bioText: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 20,
-    marginBottom: 16,
   },
   tagsRow: {
     flexDirection: 'row',
@@ -400,50 +351,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
     marginBottom: 20,
-  },
-  dateTimeField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dateTimeText: {
-    fontSize: 13,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  acceptBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FF6F00',
-    paddingVertical: 12,
-    borderRadius: 20,
-  },
-  acceptBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  reschedBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#FF6F00',
-    paddingVertical: 12,
-    borderRadius: 20,
-  },
-  reschedBtnText: {
-    color: '#FF6F00',
-    fontWeight: '600',
-    fontSize: 14,
   },
   emptyContainer: {
     alignItems: 'center',

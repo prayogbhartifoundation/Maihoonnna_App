@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,12 @@ export default function SathiDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<any>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Edit Profile States
   const [showEditModal, setShowEditModal] = useState(false);
@@ -347,7 +353,8 @@ export default function SathiDashboard() {
       const data = await response.json();
       if (response.ok || data.success) {
         Alert.alert('Success', 'Visit started successfully!');
-        fetchDashboardData();
+        setLoading(false);
+        replace('/(sathi)/hours');
       } else {
         Alert.alert('Failed', data.message || 'Could not start visit.');
         setLoading(false);
@@ -681,49 +688,81 @@ export default function SathiDashboard() {
 
         {dashboard?.upcomingVisits && dashboard.upcomingVisits.length > 0 ? (
           dashboard.upcomingVisits.map((item: any) => {
-            const formattedDate = new Date(item.dateTime || new Date()).toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              weekday: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
+            let formattedDate = '';
+            let formattedTime = '';
+            let countdownText = '';
+            let isWithinOneHour = true;
+
+            if (item.dateTime) {
+              const d = new Date(item.dateTime);
+              formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' });
+              formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+              const timeDiff = d.getTime() - currentTime.getTime();
+              const oneHour = 60 * 60 * 1000;
+              isWithinOneHour = timeDiff <= oneHour;
+              
+              if (!isWithinOneHour && timeDiff > 0) {
+                const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeDiff / (1000 * 60 * 60)) % 24);
+                const mins = Math.floor((timeDiff / 1000 / 60) % 60);
+                
+                let parts = [];
+                if (days > 0) parts.push(`${days}d`);
+                if (hours > 0) parts.push(`${hours}h`);
+                if (mins > 0 || parts.length === 0) parts.push(`${mins}m`);
+                countdownText = `Starts in ${parts.join(' ')}`;
+              }
+            }
+
             return (
-              <View key={item.id} style={styles.visitCard}>
-                <View style={styles.seniorHeader}>
-                  <Image source={{ uri: sanitizeImageUri(item.photo) }} style={styles.seniorPhoto} />
-                  <View style={styles.seniorMeta}>
-                    <Text style={styles.seniorName}>
+              <View key={item.id} style={[styles.requestCard, { padding: scale(16), marginBottom: scale(16) }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                  <Image source={{ uri: sanitizeImageUri(item.photo) }} style={{ width: scale(56), height: scale(56), borderRadius: scale(12), marginRight: scale(14) }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: scale(16), color: '#111827', fontFamily: 'Poppins-SemiBold', marginBottom: scale(4) }}>
                       {item.name}{item.age ? `, ${item.age}` : ''}
                     </Text>
-                    <Text style={styles.locationTextSmall}>📍 {item.location || 'Delhi'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="location-outline" size={14} color="#6B7280" />
+                      <Text style={{ fontSize: scale(13), color: '#6B7280', fontFamily: 'Poppins-Regular', marginLeft: scale(4) }}>{item.location || 'Delhi'}</Text>
+                    </View>
+                  </View>
+                  <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#2196F3', paddingHorizontal: scale(10), paddingVertical: scale(4), borderRadius: scale(12) }}>
+                    <Text style={{ fontSize: scale(12), color: '#2196F3', fontFamily: 'Poppins-Medium' }}>{item.distance || '1.0 km'}</Text>
                   </View>
                 </View>
 
-                <View style={styles.requestTimeRow}>
-                  <Ionicons name="calendar-outline" size={16} color="#4CAF50" style={{ marginRight: 6 }} />
-                  <Text style={[styles.requestTimeText, { color: '#4CAF50' }]}>{formattedDate}</Text>
+                {/* Gap/Spacing */}
+                <View style={{ height: scale(24) }} />
+
+                {/* Bottom Row */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: scale(13), color: '#4B5563', fontFamily: 'Poppins-Medium' }}>{formattedDate}</Text>
+                  <Text style={{ fontSize: scale(13), color: '#4B5563', fontFamily: 'Poppins-Medium' }}>{formattedTime}</Text>
                 </View>
 
-                {item.reason && (
-                  <View style={styles.reasonContainer}>
-                    <Text style={styles.reasonText}>{item.reason}</Text>
+                {/* Start Visit Button OR Countdown */}
+                {!isWithinOneHour && countdownText ? (
+                  <View style={{ marginTop: scale(20), backgroundColor: '#F3F4F6', paddingVertical: scale(12), borderRadius: scale(20), flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="time-outline" size={18} color="#9CA3AF" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#6B7280', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>{countdownText}</Text>
                   </View>
+                ) : (
+                  <TouchableOpacity
+                    style={{ marginTop: scale(20), backgroundColor: '#FF6F00', paddingVertical: scale(12), borderRadius: scale(20), flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}
+                    onPress={() => {
+                      if (!item.assignmentId) {
+                        Alert.alert('Error', 'No assignment found for this beneficiary.');
+                        return;
+                      }
+                      handleStartVisit(item.beneficiaryId, item.assignmentId);
+                    }}
+                  >
+                    <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Start Visit</Text>
+                  </TouchableOpacity>
                 )}
-
-                <TouchableOpacity
-                  style={[styles.requestAcceptBtn, { marginTop: scale(12), backgroundColor: '#4CAF50', width: '100%', justifyContent: 'center' }]}
-                  onPress={() => {
-                    if (!item.assignmentId) {
-                      Alert.alert('Error', 'No assignment found for this beneficiary.');
-                      return;
-                    }
-                    handleStartVisit(item.beneficiaryId, item.assignmentId);
-                  }}
-                >
-                  <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.requestAcceptText}>Start Visit</Text>
-                </TouchableOpacity>
               </View>
             );
           })
@@ -731,53 +770,93 @@ export default function SathiDashboard() {
           <Text style={styles.emptyText}>No upcoming companion visits scheduled.</Text>
         )}
 
-        {/* Assigned Beneficiaries */}
+        {/* Visit Requests */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Assigned Beneficiaries</Text>
+          <Text style={styles.sectionTitle}>Visit Requests</Text>
         </View>
 
-        {dashboard?.assignedBeneficiaries && dashboard.assignedBeneficiaries.length > 0 ? (
-          dashboard.assignedBeneficiaries.map((item: any) => {
-            const formattedDate = item.assignedAt ? new Date(item.assignedAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric'
-            }) : '';
+        {dashboard?.visitRequests && dashboard.visitRequests.length > 0 ? (
+          dashboard.visitRequests.map((item: any) => {
+            let formattedDate = '';
+            let formattedTime = '';
+            if (item.dateTime) {
+              const d = new Date(item.dateTime);
+              formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' });
+              formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            }
+
             return (
-              <View key={item.id} style={styles.requestCard}>
-                <View style={styles.seniorHeader}>
-                  <Image source={{ uri: sanitizeImageUri(item.photo) }} style={styles.seniorPhoto} />
-                  <View style={styles.seniorMeta}>
-                    <Text style={styles.seniorName}>
+              <View key={item.id} style={[styles.requestCard, { padding: scale(16), marginBottom: scale(16) }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: scale(16) }}>
+                  <Image source={{ uri: sanitizeImageUri(item.photo) }} style={{ width: scale(65), height: scale(65), borderRadius: scale(12), marginRight: scale(16) }} />
+                  <View style={{ flex: 1, paddingTop: scale(4) }}>
+                    <Text style={{ fontSize: scale(18), color: '#000000', fontFamily: 'Poppins-SemiBold', marginBottom: scale(4) }}>
                       {item.name}{item.age ? `, ${item.age}` : ''}
                     </Text>
-                    <Text style={styles.locationTextSmall}>📍 {item.location || 'Delhi'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(4) }}>
+                      <Ionicons name="location-outline" size={14} color="#6B7280" />
+                      <Text style={{ fontSize: scale(14), color: '#6B7280', fontFamily: 'Poppins-Regular' }}>{item.location || 'Delhi'}</Text>
+                    </View>
+                  </View>
+                  <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#2196F3', paddingHorizontal: scale(8), paddingVertical: scale(4), borderRadius: scale(12) }}>
+                    <Text style={{ fontSize: scale(11), color: '#2196F3', fontFamily: 'Poppins-SemiBold' }}>{item.distance || '2.1 km'}</Text>
                   </View>
                 </View>
 
-                {/* Date & Time */}
-                {formattedDate ? (
-                  <View style={styles.requestTimeRow}>
-                    <Ionicons name="calendar-outline" size={16} color="#FF6F00" style={{ marginRight: 6 }} />
-                    <Text style={styles.requestTimeText}>Assigned on {formattedDate}</Text>
-                  </View>
-                ) : null}
+                {item.bio && <Text style={{ fontSize: scale(14), color: '#374151', lineHeight: scale(20), marginBottom: scale(16), fontFamily: 'Poppins-Regular' }}>{item.bio}</Text>}
 
                 {/* Hobbies / Interests Tags */}
                 {item.hobbies && item.hobbies.length > 0 && (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: scale(8), marginBottom: scale(16) }}>
                     {item.hobbies.map((tag: string) => (
-                      <View key={tag} style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                        <Text style={{ color: '#9333EA', fontSize: 12, fontFamily: 'Poppins-Medium' }}>{tag}</Text>
+                      <View key={tag} style={{ backgroundColor: '#F3E8FF', paddingHorizontal: scale(12), paddingVertical: scale(6), borderRadius: scale(16) }}>
+                        <Text style={{ color: '#9333EA', fontSize: scale(12), fontFamily: 'Poppins-Medium' }}>{tag}</Text>
                       </View>
                     ))}
                   </View>
                 )}
+
+                {/* Date & Time Row */}
+                {(formattedDate || formattedTime) && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(16), marginBottom: scale(20) }}>
+                    {formattedDate ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(6) }}>
+                        <Ionicons name="calendar-outline" size={14} color="#4B5563" />
+                        <Text style={{ fontSize: scale(13), color: '#4B5563', fontFamily: 'Poppins-Medium' }}>{formattedDate}</Text>
+                      </View>
+                    ) : null}
+                    {formattedTime ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(6) }}>
+                        <Ionicons name="time-outline" size={14} color="#4B5563" />
+                        <Text style={{ fontSize: scale(13), color: '#4B5563', fontFamily: 'Poppins-Medium' }}>{formattedTime}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
+
+                {/* Action Buttons */}
+                <View style={{ flexDirection: 'row', gap: scale(12) }}>
+                  <TouchableOpacity 
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF6F00', paddingVertical: scale(12), borderRadius: scale(20) }}
+                    onPress={() => handleRespondRequest(item.id, 'ACCEPT')}
+                  >
+                    <Ionicons name="heart-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Accept</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF4ED', borderWidth: 1, borderColor: '#FF6F00', paddingVertical: scale(12), borderRadius: scale(20) }}
+                    onPress={() => handleRespondRequest(item.id, 'REJECT')}
+                  >
+                    <Ionicons name="refresh-outline" size={16} color="#FF6F00" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#FF6F00', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Reschedule</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })
         ) : (
-          <Text style={styles.emptyText}>No assigned beneficiaries yet.</Text>
+          <Text style={styles.emptyText}>No pending visit requests.</Text>
         )}
 
         {/* Log Hours floating/bottom button */}
