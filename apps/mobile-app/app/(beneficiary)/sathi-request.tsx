@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import { API_URL } from '@/constants/api';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 export default function SathiRequestScreen() {
   const { width } = useWindowDimensions();
@@ -280,7 +281,7 @@ export default function SathiRequestScreen() {
           <View style={styles.targetCard}>
             <Text style={styles.targetLabel}>Requesting visit from:</Text>
             <View style={styles.targetInfo}>
-               <Image source={{uri: selectedVolunteer.photo}} style={styles.targetPhoto} />
+               <Image source={{uri: sanitizeImageUri(selectedVolunteer.photo)}} style={styles.targetPhoto} />
                <Text style={styles.targetName}>{selectedVolunteer.name}</Text>
             </View>
           </View>
@@ -468,7 +469,7 @@ export default function SathiRequestScreen() {
                 <Text style={styles.reqReason} numberOfLines={2}>{req.reason}</Text>
                 {req.volunteer && (
                   <View style={styles.reqVolunteer}>
-                    <Image source={{uri: req.volunteer.profilePhoto || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120'}} style={styles.reqVolPhoto} />
+                    <Image source={{uri: sanitizeImageUri(req.volunteer.profilePhoto, 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120')}} style={styles.reqVolPhoto} />
                     <Text style={styles.reqVolName}>{req.volunteer.name}</Text>
                   </View>
                 )}
@@ -487,7 +488,7 @@ export default function SathiRequestScreen() {
           volunteers.map((v) => (
             <View key={v.id} style={styles.volunteerCard}>
               <View style={styles.volHeader}>
-                <Image source={{ uri: v.photo }} style={styles.volPhoto} />
+                <Image source={{ uri: sanitizeImageUri(v.photo) }} style={styles.volPhoto} />
                 <View style={styles.volInfo}>
                   <Text style={styles.volName}>{v.name}</Text>
                   <View style={styles.volStatsRow}>

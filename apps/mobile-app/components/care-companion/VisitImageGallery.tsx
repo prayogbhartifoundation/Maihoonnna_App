@@ -31,6 +31,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { API_URL } from '@/constants/api';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -299,7 +300,7 @@ export function VisitImageGallery({ visitId, token, isCompleted = false }: Visit
               onPress={() => !slot.uploading && setPreviewUrl(slot.url)}
             >
               <Image
-                source={{ uri: slot.url }}
+                source={{ uri: sanitizeImageUri(slot.url) }}
                 style={[styles.thumb, slot.uploading && { opacity: 0.4 }]}
                 resizeMode="cover"
               />
@@ -387,7 +388,7 @@ export function VisitImageGallery({ visitId, token, isCompleted = false }: Visit
         <Pressable style={styles.previewBackdrop} onPress={() => setPreviewUrl(null)}>
           {previewUrl && (
             <Image
-              source={{ uri: previewUrl }}
+              source={{ uri: sanitizeImageUri(previewUrl) }}
               style={styles.previewImage}
               resizeMode="contain"
             />

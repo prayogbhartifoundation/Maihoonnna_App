@@ -1,7 +1,17 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mai-hoonaa-admin-secret-key-2026';
-const REFRESH_SECRET = process.env.REFRESH_SECRET || 'mai-hoonaa-refresh-secret-key-2026';
+// CWE-547: Never use hardcoded fallback secrets in production.
+// JWT_SECRET and REFRESH_SECRET MUST be set as environment variables.
+const JWT_SECRET = process.env.JWT_SECRET;
+const REFRESH_SECRET = process.env.REFRESH_SECRET;
+
+if (!JWT_SECRET || !REFRESH_SECRET) {
+  throw new Error(
+    'FATAL: JWT_SECRET and REFRESH_SECRET environment variables are required. ' +
+    'Set them in your .env file. Generate strong secrets with: ' +
+    'node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"'
+  );
+}
 
 const signAccessToken = (payload) => {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });

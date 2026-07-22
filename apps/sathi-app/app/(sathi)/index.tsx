@@ -18,6 +18,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_URL } from '@/constants/api';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 import { SathiBottomNav } from '@/components/shared/SathiBottomNav';
 import { useExitOnBack } from '@/hooks/useExitOnBack';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
@@ -690,7 +691,7 @@ export default function SathiDashboard() {
             return (
               <View key={item.id} style={styles.visitCard}>
                 <View style={styles.seniorHeader}>
-                  <Image source={{ uri: item.photo }} style={styles.seniorPhoto} />
+                  <Image source={{ uri: sanitizeImageUri(item.photo) }} style={styles.seniorPhoto} />
                   <View style={styles.seniorMeta}>
                     <Text style={styles.seniorName}>
                       {item.name}{item.age ? `, ${item.age}` : ''}
@@ -745,7 +746,7 @@ export default function SathiDashboard() {
             return (
               <View key={item.id} style={styles.requestCard}>
                 <View style={styles.seniorHeader}>
-                  <Image source={{ uri: item.photo }} style={styles.seniorPhoto} />
+                  <Image source={{ uri: sanitizeImageUri(item.photo) }} style={styles.seniorPhoto} />
                   <View style={styles.seniorMeta}>
                     <Text style={styles.seniorName}>
                       {item.name}{item.age ? `, ${item.age}` : ''}
