@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { sanitizeImgSrc } from '../../utils/sanitizeUrl';
 import { cn } from '../ui/utils';
 import { 
   Dialog, 
@@ -57,7 +58,7 @@ export function EntityAvatar({ name, photoUrl, type, className, style }: EntityA
         style={style}
       >
         {photoUrl ? (
-          <img src={photoUrl} alt={name || 'Avatar'} className="w-full h-full object-cover" />
+          <img src={sanitizeImgSrc(photoUrl)} alt={name || 'Avatar'} className="w-full h-full object-cover" />
         ) : (
           <span>{initials}</span>
         )}
@@ -71,7 +72,7 @@ export function EntityAvatar({ name, photoUrl, type, className, style }: EntityA
           {photoUrl && (
             <div className="relative flex items-center justify-center min-h-[300px]">
               <img 
-                src={photoUrl} 
+                src={sanitizeImgSrc(photoUrl)} 
                 alt={name || 'Avatar'} 
                 className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
               />

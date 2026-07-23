@@ -20,6 +20,7 @@
  */
 
 import React, { useRef,useEffect, useState } from 'react';
+import { sanitizeImgSrc } from '../../utils/sanitizeUrl';
 import { uploadApi } from '@/services/api';
 import { 
   Dialog, 
@@ -213,7 +214,7 @@ export function ProfilePhotoUploader({ config, className = '' }: ProfilePhotoUpl
         {/* Photo or initials */}
         {photoUrl ? (
           <img
-            src={photoUrl}
+            src={sanitizeImgSrc(photoUrl)}
             alt={name || 'Profile'}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -364,7 +365,7 @@ export function ProfilePhotoUploader({ config, className = '' }: ProfilePhotoUpl
           {photoUrl && (
             <div className="relative flex items-center justify-center min-h-[300px]">
               <img 
-                src={photoUrl} 
+                src={sanitizeImgSrc(photoUrl)} 
                 alt={name || 'Profile'} 
                 className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
               />

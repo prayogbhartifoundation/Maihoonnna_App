@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { sanitizeImgSrc } from '../utils/sanitizeUrl';
 import { useNavigate } from 'react-router';
 import { PageHeader } from '../components/common/PageHeader';
 import { Button } from '../components/ui/button';
@@ -500,7 +501,7 @@ export default function EnrollmentWizardPage() {
             <div className="flex justify-between items-center py-2 border-b border-dashed mb-2">
               <div className="flex items-center gap-3">
                 {profilePhoto ? (
-                  <img src={profilePhoto} alt="Beneficiary" className="w-12 h-12 rounded-full object-cover border-2 border-primary/20" />
+                  <img src={sanitizeImgSrc(profilePhoto)} alt="Beneficiary" className="w-12 h-12 rounded-full object-cover border-2 border-primary/20" />
                 ) : (
                   <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
                     <UserSquare className="w-6 h-6 text-muted-foreground" />
@@ -867,7 +868,7 @@ export default function EnrollmentWizardPage() {
                       {uploadingPhoto ? (
                         <Loader2 className="w-8 h-8 text-primary animate-spin" />
                       ) : profilePhoto ? (
-                        <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                        <img src={sanitizeImgSrc(profilePhoto)} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
                         <Camera className="w-8 h-8 text-muted-foreground/50 group-hover:text-primary transition-colors" />
                       )}

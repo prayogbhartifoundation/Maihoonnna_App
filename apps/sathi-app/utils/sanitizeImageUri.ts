@@ -12,5 +12,9 @@ export function sanitizeImageUri(uri: string | null | undefined, fallback = ''):
   if (!uri || typeof uri !== 'string') return fallback;
   const trimmed = uri.trim();
   if (!ALLOWED_SCHEMES.test(trimmed)) return fallback;
-  return trimmed;
+  try {
+    return encodeURI(trimmed);
+  } catch {
+    return fallback;
+  }
 }

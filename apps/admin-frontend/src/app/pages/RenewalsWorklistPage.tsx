@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router';
+import { sanitizeTelLink } from '../utils/sanitizeUrl';
 
 export default function RenewalsWorklistPage() {
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
@@ -222,7 +223,7 @@ export default function RenewalsWorklistPage() {
                           </div>
                           {sub.subscriber?.phone && (
                             <div className="flex gap-1">
-                              <a href={`tel:${sub.subscriber.phone}`} className="p-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors" title="Call">
+                              <a href={sanitizeTelLink(sub.subscriber.phone)} className="p-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors" title="Call">
                                 <Phone className="w-3 h-3" />
                               </a>
                               <a href={`https://wa.me/${sub.subscriber.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors" title="WhatsApp">

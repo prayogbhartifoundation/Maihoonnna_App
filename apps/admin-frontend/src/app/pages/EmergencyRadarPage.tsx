@@ -17,6 +17,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { emergencyApi } from '../../services/api';
+import { sanitizeImgSrc, sanitizeTelLink } from '../utils/sanitizeUrl';
 
 interface EmergencyNote {
   timestamp: string;
@@ -325,7 +326,7 @@ export default function EmergencyRadarPage() {
                   {/* Beneficiary Header Row */}
                   <div className="flex items-start gap-4">
                     <img
-                      src={u?.profilePhoto || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120'}
+                      src={sanitizeImgSrc(u?.profilePhoto, 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120')}
                       alt={b?.name}
                       className="w-14 h-14 rounded-2xl object-cover border-2 border-slate-700 bg-slate-800"
                     />
@@ -336,7 +337,7 @@ export default function EmergencyRadarPage() {
                       </h3>
                       <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                         <Phone size={12} className="text-slate-500" />
-                        <a href={`tel:${u?.phone}`} className="hover:text-red-400 transition-colors">{u?.phone || 'No phone'}</a>
+                        <a href={sanitizeTelLink(u?.phone)} className="hover:text-red-400 transition-colors">{u?.phone || 'No phone'}</a>
                       </p>
                     </div>
 
@@ -369,7 +370,7 @@ export default function EmergencyRadarPage() {
                       </p>
                       <p className="text-xs font-bold text-slate-200">{sub?.name || 'N/A'}</p>
                       {sub?.phone && (
-                        <a href={`tel:${sub.phone}`} className="text-xs text-red-400 hover:underline font-medium flex items-center gap-1 mt-0.5">
+                        <a href={sanitizeTelLink(sub.phone)} className="text-xs text-red-400 hover:underline font-medium flex items-center gap-1 mt-0.5">
                           <Phone size={11} /> {sub.phone}
                         </a>
                       )}
