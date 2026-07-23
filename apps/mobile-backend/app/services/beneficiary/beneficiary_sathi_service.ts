@@ -164,3 +164,30 @@ export const respondToSathiReschedule = async (beneficiaryId: string, requestId:
     return updatedRequest;
   }
 };
+
+export const completeSathiVisit = async (beneficiaryId: string, requestId: string) => {
+  const request = await prisma.sathiVisitRequest.findUnique({
+    where: { id: requestId }
+  });
+
+  if (!request) {
+    throw new ApiError(404, 'Sathi visit request not found.');
+  }
+
+  if (request.beneficiaryId !== beneficiaryId) {
+    throw new ApiError(403, 'You do not have permission to modify this visit request.');
+  }
+
+  if (request.status !== 'IN_PROGRESS') {
+    throw new ApiError(400, 'This visit is not in progress and cannot be completed.');
+  }
+
+  const updatedRequest = await prisma.sathiVisitRequest.update({
+    where: { id: requestId },
+    data: {
+      status: 'COMPLETED'
+    }
+  });
+
+  return { request: updatedRequest, message: 'Visit marked as completed successfully.' };
+};
