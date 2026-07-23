@@ -1,6 +1,20 @@
 - Added URL encoding for DATABASE_URL password in .env
 - Synchronized database schema with Prisma (db push/generate)
 - Fixed missing columns in zones table
+
+---
+
+## Session: AddMedicineModal Extraction, Subscriber Medication Controls & GlobalDrawer UI Overhaul (2026-07-23)
+
+### Reusable Component & Mobile UI
+- **AddMedicineModal Extraction**: Created `AddMedicineModal.tsx` in `apps/mobile-app/components/ui/AddMedicineModal.tsx` unifying medication form inputs, frequency chips, native date pickers, time slots, and reminder switches into a reusable component.
+- **Medication Management**: Updated `MedicalTab.tsx`, `medical-info.tsx`, and `beneficiary-edit.tsx` to leverage `AddMedicineModal`.
+- **Beneficiary Edit UI & Performance**: Removed dark loading flicker in `beneficiary-edit.tsx` by setting `#FAF5F0` background and instant header rendering, while implementing concurrent `Promise.all` fetching for profile & vitals data.
+- **GlobalDrawer Overhaul**: Redesigned `GlobalDrawer.tsx` with rounded panel edges (`borderTopLeftRadius: 28`, `borderBottomLeftRadius: 28`), minimalist profile header card, soft pastel icon containers, categorized menu sections, and interactive chevron arrows.
+
+### Backend Subscriber Medication Controls & Timeline Queries
+- **Subscriber Medication Controls**: Added `addMedication` and `deleteMedication` (soft delete `isActive: false`) in `beneficiary_service.ts` & `beneficiary.controller.ts`.
+- **Active Timeline Filtering**: Applied strict `isActive: true` AND `startDate <= now` AND (`endDate === null` || `endDate >= now`) query filters in beneficiary profile & care companion visit routes.
 - Implemented `StaffOnboardingMetadata` mock fallbacks in frontend `api.ts`
 - Built Storage Service Architecture with Supabase/S3 adapters
 - Added `fileKey` to `StaffDocument` schema for persistent storage tracking
