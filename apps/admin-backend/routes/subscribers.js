@@ -12,13 +12,14 @@ router.get('/', async (req, res) => {
     const { search, page, limit } = req.query;
     const filterParams = { role: 'subscriber' };
 
-    if (search) {
+    const searchStr = (typeof search === 'string' && search.trim()) ? search.trim() : null;
+    if (searchStr) {
       filterParams.AND = [
         {
           OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { phone: { contains: search } },
-            { email: { contains: search, mode: 'insensitive' } },
+            { name: { contains: searchStr, mode: 'insensitive' } },
+            { phone: { contains: searchStr } },
+            { email: { contains: searchStr, mode: 'insensitive' } },
           ],
         },
       ];

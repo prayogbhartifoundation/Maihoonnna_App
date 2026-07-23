@@ -110,6 +110,7 @@ function ensureOnboardingModels(res) {
 
 function asTrimmedString(value) {
   if (value === undefined || value === null) return '';
+  if (typeof value !== 'string' && typeof value !== 'number') return '';
   return String(value).trim();
 }
 
@@ -409,10 +410,11 @@ router.get('/field-managers', async (req, res) => {
     const { search, page, limit } = req.query;
     const filterParams = { user: { isActive: true } };
 
-    if (search) {
+    const searchStr = (typeof search === 'string' && search.trim()) ? search.trim() : null;
+    if (searchStr) {
       filterParams.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { zone: { contains: search, mode: 'insensitive' } },
+        { name: { contains: searchStr, mode: 'insensitive' } },
+        { zone: { contains: searchStr, mode: 'insensitive' } },
       ];
     }
 
@@ -497,8 +499,9 @@ router.get('/operations-managers', async (req, res) => {
     const { search, page, limit } = req.query;
     const filterParams = { user: { isActive: true } };
 
-    if (search) {
-      filterParams.name = { contains: search, mode: 'insensitive' };
+    const searchStr = (typeof search === 'string' && search.trim()) ? search.trim() : null;
+    if (searchStr) {
+      filterParams.name = { contains: searchStr, mode: 'insensitive' };
     }
 
     const listQuery = {
@@ -587,9 +590,9 @@ router.post('/staff/onboard', async (req, res) => {
     if (!ensureOnboardingModels(res)) return;
 
     const role = normalizeRole(req.body?.role);
-    const personal = req.body?.personal || {};
-    const professional = req.body?.professional || {};
-    const assignment = req.body?.assignment || {};
+    const personal = (req.body?.personal && typeof req.body.personal === 'object' && !Array.isArray(req.body.personal)) ? req.body.personal : {};
+    const professional = (req.body?.professional && typeof req.body.professional === 'object' && !Array.isArray(req.body.professional)) ? req.body.professional : {};
+    const assignment = (req.body?.assignment && typeof req.body.assignment === 'object' && !Array.isArray(req.body.assignment)) ? req.body.assignment : {};
     const documents = normalizeDocuments(req.body?.documents, role);
 
     if (!role) {
@@ -813,7 +816,7 @@ router.post('/staff/onboard', async (req, res) => {
         profilePhoto: asNullableString(personal.photoUrl),
       };
 
-      if (personal.newPassword && personal.newPassword.trim().length >= 6) {
+      if (typeof personal?.newPassword === 'string' && personal.newPassword.trim().length >= 6) {
         const salt = await bcrypt.genSalt(10);
         userData.password = await bcrypt.hash(
           personal.newPassword.trim(),
@@ -1054,15 +1057,16 @@ router.get('/care-companions', async (req, res) => {
       filterParams.ccType = ccType;
     }
 
-    if (search) {
+    const searchStr = (typeof search === 'string' && search.trim()) ? search.trim() : null;
+    if (searchStr) {
       if (searchBy === 'name') {
-        filterParams.name = { contains: search, mode: 'insensitive' };
+        filterParams.name = { contains: searchStr, mode: 'insensitive' };
       } else if (searchBy === 'zone') {
-        filterParams.zone = { contains: search, mode: 'insensitive' };
+        filterParams.zone = { contains: searchStr, mode: 'insensitive' };
       } else {
         filterParams.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { zone: { contains: search, mode: 'insensitive' } },
+          { name: { contains: searchStr, mode: 'insensitive' } },
+          { zone: { contains: searchStr, mode: 'insensitive' } },
         ];
       }
     }
@@ -1186,8 +1190,9 @@ router.get('/customer-service-agents', async (req, res) => {
       isActive: true,
     };
 
-    if (search) {
-      where.name = { contains: search, mode: 'insensitive' };
+    const searchStr = (typeof search === 'string' && search.trim()) ? search.trim() : null;
+    if (searchStr) {
+      where.name = { contains: searchStr, mode: 'insensitive' };
     }
 
     const [agents, total] = await Promise.all([
@@ -1362,7 +1367,10 @@ router.get('/staff/:userId', async (req, res) => {
 
 router.put('/staff/:userId', async (req, res) => {
   const { userId } = req.params;
-  const { personal, professional, assignment, notes } = req.body;
+  const personal = (req.body?.personal && typeof req.body.personal === 'object' && !Array.isArray(req.body.personal)) ? req.body.personal : {};
+  const professional = (req.body?.professional && typeof req.body.professional === 'object' && !Array.isArray(req.body.professional)) ? req.body.professional : {};
+  const assignment = (req.body?.assignment && typeof req.body.assignment === 'object' && !Array.isArray(req.body.assignment)) ? req.body.assignment : {};
+  const notes = (req.body?.notes && typeof req.body.notes === 'object' && !Array.isArray(req.body.notes)) ? req.body.notes : {};
   const role = normalizeRole(req.body?.role);
 
   if (!role) {
@@ -1383,7 +1391,7 @@ router.put('/staff/:userId', async (req, res) => {
         profilePhoto: asNullableString(personal.photoUrl),
       };
 
-      if (personal.newPassword && personal.newPassword.trim().length >= 6) {
+      if (typeof personal?.newPassword === 'string' && personal.newPassword.trim().length >= 6) {
         const salt = await bcrypt.genSalt(10);
         userDataToUpdate.password = await bcrypt.hash(
           personal.newPassword.trim(),

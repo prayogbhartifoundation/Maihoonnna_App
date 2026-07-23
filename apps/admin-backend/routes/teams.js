@@ -34,11 +34,19 @@ router.post('/', async (req, res) => {
 
     // 1. Validate number of CCs per team
     const maxCc = await getConfigValue('max_cc_per_team', 15);
-    if (careCompanionIds && careCompanionIds.length > maxCc) {
-      return res.status(400).json({
-        success: false,
-        message: `A team can have at most ${maxCc} Care Companions`,
-      });
+    if (careCompanionIds !== undefined && careCompanionIds !== null) {
+      if (!Array.isArray(careCompanionIds)) {
+        return res.status(400).json({
+          success: false,
+          message: 'careCompanionIds must be an array',
+        });
+      }
+      if (careCompanionIds.length > maxCc) {
+        return res.status(400).json({
+          success: false,
+          message: `A team can have at most ${maxCc} Care Companions`,
+        });
+      }
     }
 
     // 2. Validate number of teams per zone
@@ -74,7 +82,7 @@ router.post('/', async (req, res) => {
         zone: finalZoneName,
         zoneId: zoneId || null,
         careCompanions: {
-          connect: (careCompanionIds || []).map((id) => ({ id })),
+          connect: (Array.isArray(careCompanionIds) ? careCompanionIds : []).map((id) => ({ id })),
         },
       },
       include: {
@@ -104,11 +112,19 @@ router.put('/:id', async (req, res) => {
 
     // 1. Validate number of CCs per team
     const maxCc = await getConfigValue('max_cc_per_team', 15);
-    if (careCompanionIds && careCompanionIds.length > maxCc) {
-      return res.status(400).json({
-        success: false,
-        message: `A team can have at most ${maxCc} Care Companions`,
-      });
+    if (careCompanionIds !== undefined && careCompanionIds !== null) {
+      if (!Array.isArray(careCompanionIds)) {
+        return res.status(400).json({
+          success: false,
+          message: 'careCompanionIds must be an array',
+        });
+      }
+      if (careCompanionIds.length > maxCc) {
+        return res.status(400).json({
+          success: false,
+          message: `A team can have at most ${maxCc} Care Companions`,
+        });
+      }
     }
 
     // 2. Validate number of teams per zone
@@ -157,7 +173,7 @@ router.put('/:id', async (req, res) => {
           zone: finalZoneName,
           zoneId: zoneId || null,
           careCompanions: {
-            connect: (careCompanionIds || []).map((ccId) => ({ id: ccId })),
+            connect: (Array.isArray(careCompanionIds) ? careCompanionIds : []).map((ccId) => ({ id: ccId })),
           },
         },
         include: {

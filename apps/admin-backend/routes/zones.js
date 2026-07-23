@@ -11,11 +11,12 @@ router.get('/', async (req, res) => {
 
     const filterParams = {};
 
-    if (search) {
+    const searchStr = (typeof search === 'string' && search.trim()) ? search.trim() : null;
+    if (searchStr) {
       filterParams.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { city: { contains: search, mode: 'insensitive' } },
-        { pincode: { contains: search } },
+        { name: { contains: searchStr, mode: 'insensitive' } },
+        { city: { contains: searchStr, mode: 'insensitive' } },
+        { pincode: { contains: searchStr } },
       ];
     }
 

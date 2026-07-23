@@ -128,12 +128,12 @@ router.post('/admin-enroll', async (req, res) => {
     subscriberPassword = '',
   } = req.body;
 
-  if (!subscriberPhone || !subscriberName || !packageId) {
+  if (!subscriberPhone || typeof subscriberPhone !== 'string' || !subscriberName || typeof subscriberName !== 'string' || !packageId) {
     return res
       .status(400)
       .json({
         success: false,
-        message: 'subscriberPhone, subscriberName, and packageId are required',
+        message: 'subscriberPhone, subscriberName, and packageId are required and must be valid strings',
       });
   }
 
@@ -215,7 +215,8 @@ router.post('/admin-enroll', async (req, res) => {
         beneficiaryUser = subscriberUser;
       } else {
         // If no beneficiary phone given, generate a placeholder (BEN- prefix + subscriber phone suffix)
-        const benPhone = beneficiaryPhone || `BEN${subscriberPhone.slice(-8)}`;
+        const safeSubPhone = typeof subscriberPhone === 'string' ? subscriberPhone : String(subscriberPhone || '');
+        const benPhone = (typeof beneficiaryPhone === 'string' && beneficiaryPhone) || (safeSubPhone ? `BEN${safeSubPhone.slice(-8)}` : 'BEN-UNKNOWN');
         const benHash = await bcrypt.hash('otp-only-' + benPhone, 8);
         beneficiaryUser = await tx.user.findUnique({
           where: { phone: benPhone },
@@ -269,8 +270,8 @@ router.post('/admin-enroll', async (req, res) => {
                       {
                         name: emergencyContactName,
                         phone:
-                          emergencyContactPhone ||
-                          subscriberPhone.replace('+91', ''),
+                          (typeof emergencyContactPhone === 'string' && emergencyContactPhone) ||
+                          (typeof subscriberPhone === 'string' ? subscriberPhone.replace('+91', '') : String(subscriberPhone || '')),
                         relationship: emergencyContactRelationship,
                         email: emergencyContactEmail,
                         isPrimary: true,
@@ -993,7 +994,7 @@ router.get('/terminated', async (req, res) => {
 router.post('/:id/terminate', async (req, res) => {
   const { id } = req.params;
   const { reason } = req.body;
-  if (!reason || !reason.trim()) {
+  if (!reason || typeof reason !== 'string' || !reason.trim()) {
     return res.status(400).json({ success: false, message: 'Reason is required' });
   }
 

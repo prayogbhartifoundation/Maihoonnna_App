@@ -71,5 +71,11 @@
     "patch-package": "^8.0.1",
     "typescript": "~5.9.2"
   },
+  "overrides": {
+    "uuid": "^11.0.5",
+    "postcss": "^8.5.1",
+    "image-size": "^2.0.0",
+    "ws": "^8.21.0"
+  },
   "private": true
 }

@@ -29,18 +29,19 @@ router.get('/', async (req, res) => {
       filterParams.teamId = { not: null };
     }
 
-    if (search) {
+    const searchStr = (typeof search === 'string' && search.trim()) ? search.trim() : null;
+    if (searchStr) {
       if (searchBy === 'name') {
-        filterParams.name = { contains: search, mode: 'insensitive' };
+        filterParams.name = { contains: searchStr, mode: 'insensitive' };
       } else if (searchBy === 'city') {
-        filterParams.city = { contains: search, mode: 'insensitive' };
+        filterParams.city = { contains: searchStr, mode: 'insensitive' };
       } else if (searchBy === 'pincode') {
-        filterParams.pincode = { contains: search };
+        filterParams.pincode = { contains: searchStr };
       } else {
         filterParams.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { city: { contains: search, mode: 'insensitive' } },
-          { pincode: { contains: search } },
+          { name: { contains: searchStr, mode: 'insensitive' } },
+          { city: { contains: searchStr, mode: 'insensitive' } },
+          { pincode: { contains: searchStr } },
         ];
       }
     }
@@ -854,7 +855,7 @@ router.post('/:id/conditions', async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
 
-    if (!name) return res.status(400).json({ success: false, message: 'Condition name required' });
+    if (!name || typeof name !== 'string' || !name.trim()) return res.status(400).json({ success: false, message: 'Condition name required' });
 
     const normalizedName = name.trim();
     const slug = normalizedName
