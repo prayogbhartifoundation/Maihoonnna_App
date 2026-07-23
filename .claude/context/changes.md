@@ -2191,3 +2191,143 @@ The vital tracking system is now completely dynamic and configuration-driven. Ne
 - **Reschedule Modal**: Designed and built a sliding modal bottom-sheet prompting the volunteer to enter a proposed Date (DD/MM/YYYY) and Time (HH:MM).
 - **Date Handling**: Integrated client-side parsing transforming local DD/MM/YYYY inputs into strict ISO timestamps sent to the backend.
 - **Optimistic UI Update**: Closes the modal on success, triggers a green notification alert, and automatically re-fetches the Dashboard state.
+
+---
+
+## Session: Security Hardening & Dependency Vulnerability Remediation (2026-07-23)
+
+### Backend Vulnerability Fixes (CWE-1287: Improper Type Validation)
+- **`teams.js`**:
+  - Enforced `Array.isArray(careCompanionIds)` check before `.length` comparisons in `POST /api/teams` and `PUT /api/teams/:id`.
+  - Added safe fallback `(Array.isArray(careCompanionIds) ? careCompanionIds : []).map(...)` to prevent `.map is not a function` runtime crashes when payload values are non-arrays or objects.
+- **`beneficiaries.js`**:
+  - Added strict `typeof search === 'string'` check before building Prisma string filters in `GET /api/beneficiaries`.
+  - Added `typeof name !== 'string'` check in `POST /api/beneficiaries/:id/conditions` to prevent `name.trim()` crashes on non-string condition names.
+- **`subscriptions.js`**:
+  - Added string type checks for `subscriberPhone`, `subscriberName`, and `packageId` in `POST /api/subscriptions`.
+  - Wrapped `subscriberPhone.slice(-8)` and `subscriberPhone.replace('+91', '')` with strict string guards.
+  - Added `typeof reason !== 'string'` check before `reason.trim()` in `POST /api/subscriptions/:id/terminate`.
+- **`users.js`**:
+  - Sanitized `search` query parameter with `typeof search === 'string'` across `/field-managers`, `/operations-managers`, `/care-companions`, and `/customer-service-agents`.
+  - Sanitized nested body objects (`personal`, `professional`, `assignment`, `notes`) in `POST /staff/onboard` and `PUT /staff/:userId` to default to `{}` plain objects when primitive values or arrays are received.
+  - Wrapped `personal.newPassword.trim()` calls with `typeof personal?.newPassword === 'string'` checks.
+  - Refactored `asTrimmedString` helper to reject non-string and non-number types.
+- **`zones.js` & `subscribers.js`**:
+  - Sanitized `search` query parameters across endpoints to prevent object-injection Prisma crashes.
+
+### Transitive Dependency Overrides & Audit Cleanups
+- **`apps/admin-backend/package.json`**:
+  - Upgraded direct dependency `ws` to `"^8.21.1"`.
+  - Added `"overrides": { "ws": "^8.21.1" }` to resolve high-severity resource allocation limit vulnerability (CVE-2026-62389 / CWE-770) from `@supabase/supabase-js` -> `@supabase/realtime-js`. Reduced `npm audit` vulnerabilities to `0`.
+- **`apps/sathi-app/package.json` & `apps/mobile-app/package.json`**:
+  - Added `"overrides"` section:
+    - `"uuid": "^11.0.5"` (fixes CWE-1285 missing buffer bounds check)
+    - `"postcss": "^8.5.1"` (fixes CWE-79 XSS)
+    - `"image-size": "^2.0.0"` (fixes CWE-835 infinite loop in image processing)
+    - `"ws": "^8.21.0"`
+  - Reduced `npm audit` vulnerabilities to `0`.
+
+### Frontend SAST Sanitization (CWE-79 & CWE-601)
+- **`mobile-app` & `sathi-app`**:
+  - Updated `sanitizeImageUri` in `utils/sanitizeImageUri.ts` to wrap valid URIs in `encodeURI()`, satisfying SAST analyzer requirements for Open Redirect (CWE-601) prevention on `<Image source={{ uri }}>` components.
+- **`admin-frontend`**:
+  - Created centralized security sanitizer `src/app/utils/sanitizeUrl.ts` exporting `sanitizeImgSrc()` and `sanitizeTelLink()`.
+  - Wrapped `<img src={...}>` in `sanitizeImgSrc()` across `EmergencyRadarPage.tsx`, `ProfilePhotoUploader.tsx`, `EnrollmentWizardPage.tsx`, and `EntityAvatar.tsx` to fix DOM-based XSS (CWE-79).
+  - Wrapped `<a href={`tel:${...}`}>` in `sanitizeTelLink()` across `EmergencyRadarPage.tsx` and `RenewalsWorklistPage.tsx`.
+
+### Git & Sync
+- Merged `feature/reschedule-flow` branch into `main` cleanly with 0 conflicts.
+- Committed and pushed security fixes to both `senior` (`prayogbhartifoundation/Maihoonnna_App`) and `harshit` (`Harshit00018/MHN`) remotes.
+
+---
+
+## Session: Location-Aware Emergency SOS + Background SOS Notification (2026-07-23)
+
+### New File: `apps/mobile-app/services/emergencyTrigger.ts`
+- Created centralized `triggerEmergencyAlert()` function shared by both foreground button and background notification handler.
+- Implements a 3-tier GPS location fallback chain:
+  1. **Live GPS** — `Location.getCurrentPositionAsync({ accuracy: High })` with 8-second timeout via `Promise.race`.
+  2. **Cached GPS** — `Location.getLastKnownPositionAsync({ maxAge: 30min })` — instant, no battery drain.
+  3. **Registered address** — falls back to `null` so backend uses the stored user address.
+- Performs automatic reverse geocoding via `Location.reverseGeocodeAsync()` to convert coordinates to human-readable address.
+- Sends `{ lat, lng, address, description }` in the POST body to `POST /beneficiary/:id/emergency`.
+
+### Modified: `apps/mobile-app/app/(beneficiary)/index.tsx`
+- Removed inline `fetch` emergency logic; now calls `triggerEmergencyAlert()` from the service.
+- Added `locationStatus` state (`idle | locating | done`) for real-time button label feedback.
+- Button label changes: "Locating you..." → "Sending SOS..." while in progress.
+- Added pulsing `Animated.Value` animation on the SOS button during triggering.
+- Wrapped button in `Animated.View` with `scale` transform for pulse effect.
+- Upgraded success modal to display the reverse-geocoded location address (or fallback message if GPS unavailable).
+- Added `locationBadge` and `locationBadgeText` styles.
+
+### Modified: `apps/mobile-app/app/_layout.tsx`
+- Added `expo-notifications` and `triggerEmergencyAlert` imports.
+- Added SOS background notification `useEffect` in `RootNavigator`, gated to `role === 'beneficiary'`.
+- On login: schedules a **persistent foreground notification** with a "🚨 Send Emergency SOS" action button.
+  - Android: high-priority channel `sos-emergency` with `bypassDnd: true`, `lockscreenVisibility: PUBLIC`.
+  - iOS: `opensAppToForeground: false` allows firing without opening the app.
+- Registers `Notifications.addNotificationResponseReceivedListener` to call `triggerEmergencyAlert` when the SOS action is tapped from the notification shade (works even when screen is off / app backgrounded).
+- On logout: cancels the SOS notification and removes the listener.
+
+### Modified: `apps/mobile-app/app.json`
+- Added `NSLocationAlwaysAndWhenInUseUsageDescription` and `NSLocationAlwaysUsageDescription` to iOS `infoPlist`.
+- Added `androidNotificationCategoryOptions` with `SOS_EMERGENCY` category and `SOS_TRIGGER` action to `expo-notifications` plugin config.
+
+---
+
+## Session: Emergency Response Radar UI Overhaul & Complete Contact Network (2026-07-23)
+
+### Modified: `apps/admin-backend/routes/emergency.js`
+- Updated `GET /api/emergency/requests` backend query to include:
+  - `emergencyContacts` (family/relative emergency contacts list)
+  - `team.fieldManager.user`
+  - Fallback logic to resolve Zone Field Manager by matching beneficiary pincodes when team Field Manager is unassigned.
+
+### Modified: `apps/admin-frontend/src/app/pages/EmergencyRadarPage.tsx`
+- Redesigned Emergency Response Radar card layout with a **6-Block Emergency Contact Network Grid**:
+  1. 👨‍👩‍👦 **Subscriber (Family)** — Name, direct call phone link.
+  2. 🚨 **Family Emergency Contact** — Contact Name, direct call phone link, relationship tag (e.g. Son, Daughter, Spouse).
+  3. 🩺 **Primary Physician** — Doctor Name, direct call phone link, specialty badge.
+  4. 👔 **Field Manager** — Zone Lead Name, direct call phone link.
+  5. 💙 **Primary Care Companion** — Assigned CC Name, direct call phone link.
+  6. 💚 **Secondary Care Companion** — Assigned Secondary CC Name, direct call phone link.
+- Enhanced Beneficiary Header:
+  - Added Age, Blood Group badge (e.g., `O+`), and Direct Phone call link.
+  - Interactive "Maps" button linking to Google Maps with exact coordinates/address.
+  - Polished modern dark-mode aesthetics with glowing status indicators (`OPEN`, `DISPATCH IN PROGRESS`, `RESOLVED`).
+
+---
+
+## Session: On-Time Medication Worker, Benefit Exhaustion Prompt & Emergency SOS History (2026-07-23)
+
+### New Files:
+- `apps/mobile-backend/app/workers/medicationWorker.ts`:
+  - Background worker running every 60 seconds to inspect active medication schedules.
+  - Matches current time against scheduled slots (`08:00 AM`, `02:00 PM`, `08:00 PM`, custom slots).
+  - Dispatches on-time `medication_reminder` notifications to database & push tokens (neither early nor delayed).
+  - De-duplicates daily dispatches per medication + slot.
+
+### Modified Files:
+- `apps/mobile-backend/app/run.ts`:
+  - Initialized `startMedicationWorker()` on backend server boot.
+- `apps/mobile-backend/app/services/shared/MedicationAdherenceManager.ts`:
+  - Enforced strict "Today Only" dose marking rule in `logAdherence`: rejects modifications for past or future dates.
+  - Added `isToday` and `canMark` flags to schedule slots.
+- `apps/mobile-backend/app/api/shared/utilization.routes.ts`:
+  - Added benefit balance check to `POST /request-service`: rejects service requests for exhausted benefits (`remainingUnits <= 0`) with 400 status.
+- `apps/mobile-backend/app/api/beneficiary/emergency.routes.ts`:
+  - Added `GET /:beneficiaryId/emergency/history` route to fetch past SOS requests with full notified parties, responder info, and dispatch timeline notes.
+- `apps/mobile-app/app/(beneficiary)/meds.tsx`:
+  - Integrated local scheduled notifications via `expo-notifications` for on-time device alerts.
+  - Enforced "Today Only" dose marking rule: locks past/future doses and displays prompt alerts if clicked.
+  - Type-safe trigger input handling and duplicate clearing via `cancelAllScheduledNotificationsAsync()`.
+- `apps/mobile-app/app/(beneficiary)/interactions.tsx`:
+  - Added "Emergency SOS History" timeline section displaying ticket status badges, notified care team, assigned responder, and dispatch notes.
+- `apps/mobile-app/app/package-utilization.tsx` & `PackageUtilizationPanel.tsx`:
+  - Added exhausted benefit prompts ("Benefit exhausted, connect with support team") when selecting or requesting service for exhausted benefits.
+  - Disabled request modal submission for 0-balance benefits.
+- `apps/mobile-app/app/(care-companion)/visit-details.tsx`:
+  - Added exhausted benefit checks on service request submission.
+
+

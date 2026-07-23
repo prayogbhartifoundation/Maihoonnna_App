@@ -5,6 +5,8 @@ import { useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { API_URL } from '@/constants/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
+
 const bellIcon = require('../../assets/icons/bell.png');
 const calendarIcon = require('../../assets/icons/calendar.png');
 
@@ -15,7 +17,6 @@ const CustomPillIcon = ({ size = 24, color = '#FE6700' }) => (
         <Path d="M8.5 8.5l7 7" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
 );
-
 
 const CustomCheckIcon = ({ size = 18, color = '#16A34A' }) => (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -35,6 +36,13 @@ const CustomShieldIcon = ({ size = 42, color = '#9CA3AF' }) => (
     </Svg>
 );
 
+const CustomLockIcon = ({ size = 16, color = '#9CA3AF' }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M7 11V7a5 5 0 0110 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
 // --- INLINE MICRO CUSTOM SWITCH (32x18.4px) ---
 const CustomSwitch = ({ value, onValueChange }: { value: boolean, onValueChange: (v: boolean) => void }) => {
     const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
@@ -49,7 +57,7 @@ const CustomSwitch = ({ value, onValueChange }: { value: boolean, onValueChange:
 
     const translateX = animatedValue.interpolate({
         inputRange: [0, 1],
-        outputRange: [2, 16], // Micro travel distance
+        outputRange: [2, 16],
     });
 
     const backgroundColor = animatedValue.interpolate({
@@ -65,7 +73,6 @@ const CustomSwitch = ({ value, onValueChange }: { value: boolean, onValueChange:
         </TouchableWithoutFeedback>
     );
 };
-// ------------------------------------------------
 
 type MedScheduleItem = {
     id: string;
@@ -78,6 +85,10 @@ type MedScheduleItem = {
     scheduledTimeIso: string;
     status: 'taken' | 'missed' | 'pending';
     adherencePercentage: number;
+    isFutureSchedule?: boolean;
+    futureDateText?: string;
+    isToday?: boolean;
+    canMark?: boolean;
 };
 
 type Metrics = {
@@ -142,7 +153,9 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
             const metricsData = await metricsRes.json();
 
             if (scheduleData.success) {
-                setSchedule(scheduleData.data || []);
+                const items: MedScheduleItem[] = scheduleData.data || [];
+                setSchedule(items);
+                scheduleLocalReminders(items);
             }
             if (metricsData.success) {
                 setMetrics(metricsData.data || { average: 100, taken: 0, missed: 0 });
@@ -156,6 +169,37 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
         }
     };
 
+    const scheduleLocalReminders = async (items: MedScheduleItem[]) => {
+        if (Platform.OS === 'web') return;
+        try {
+            // Clear existing scheduled local notifications to avoid duplicates on refetch
+            await Notifications.cancelAllScheduledNotificationsAsync();
+
+            const now = new Date();
+            for (const item of items) {
+                const schedTime = new Date(item.scheduledTimeIso);
+                const diffMs = schedTime.getTime() - now.getTime();
+                if (diffMs > 0) {
+                    const seconds = Math.max(1, Math.floor(diffMs / 1000));
+                    await Notifications.scheduleNotificationAsync({
+                        content: {
+                            title: `💊 Medication Reminder: ${item.name}`,
+                            body: `Time to take your ${item.dosage || ''} dose (${item.scheduleTimeText}). ${item.instructions}`,
+                            data: { medicationId: item.id, scheduleTimeText: item.scheduleTimeText }
+                        },
+                        trigger: {
+                            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                            seconds,
+                            repeats: false,
+                        } as any,
+                    });
+                }
+            }
+        } catch (err) {
+            console.log('Failed to schedule local reminders', err);
+        }
+    };
+
     const loadMocks = () => {
         setMetrics({ average: 95, taken: 87, missed: 5 });
         setSchedule([
@@ -164,26 +208,43 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
                 name: 'Lisinopril', dosage: '10mg', frequency: 'Once daily',
                 instructions: 'Blood Pressure', scheduleTimeText: '08:00 AM',
                 scheduledTimeIso: new Date().toISOString(),
-                status: 'pending', adherencePercentage: 95
+                status: 'pending', adherencePercentage: 95, isToday: true, canMark: true
             },
             {
                 id: '2', logId: null,
                 name: 'Metformin', dosage: '500mg', frequency: 'Twice daily',
                 instructions: 'Diabetes', scheduleTimeText: '08:00 AM, 08:00 PM',
                 scheduledTimeIso: new Date().toISOString(),
-                status: 'pending', adherencePercentage: 92
+                status: 'pending', adherencePercentage: 92, isToday: true, canMark: true
             },
             {
                 id: '3', logId: null,
                 name: 'Atorvastatin', dosage: '20mg', frequency: 'Once daily',
                 instructions: 'Cholesterol', scheduleTimeText: '08:00 PM',
                 scheduledTimeIso: new Date().toISOString(),
-                status: 'pending', adherencePercentage: 98
+                status: 'pending', adherencePercentage: 98, isToday: true, canMark: true
             }
         ]);
     };
 
     const handleLogAdherence = async (item: MedScheduleItem, taken: boolean) => {
+        // Enforce strict Today-Only marking rule
+        const schedTime = new Date(item.scheduledTimeIso);
+        const now = new Date();
+        const isToday = schedTime.getDate() === now.getDate() &&
+                        schedTime.getMonth() === now.getMonth() &&
+                        schedTime.getFullYear() === now.getFullYear();
+
+        if (!isToday || item.isFutureSchedule || item.canMark === false) {
+            const lockMsg = 'Medication doses can only be marked on their scheduled day (Today). Past or future doses cannot be modified.';
+            if (Platform.OS === 'web') {
+                window.alert(`Dose Locked\n\n${lockMsg}`);
+            } else {
+                Alert.alert('Dose Locked', lockMsg);
+            }
+            return;
+        }
+
         try {
             setSubmittingId(`${item.id}-${item.scheduleTimeText}`);
             let targetBeneficiaryId = propBeneficiaryId;
@@ -265,15 +326,12 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            {/* --- NEW WHITE TOP BANNER --- */}
             <View style={[styles.header, responsiveStyle]}>
                 <Text style={styles.headerTitle}>Medications</Text>
                 <Text style={styles.headerSub}>Today's medication schedule</Text>
             </View>
 
             <ScrollView style={styles.container} contentContainerStyle={[styles.content, responsiveStyle]} showsVerticalScrollIndicator={false}>
-
-                {/* Top Row inside Peach Area */}
                 <View style={styles.topRow}>
                     <Text style={styles.topTitle}>Medications</Text>
                     <View style={styles.toggleContainer}>
@@ -318,6 +376,15 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
                 ) : (
                     schedule.map((item, index) => {
                         const isSubmitting = submittingId === `${item.id}-${item.scheduleTimeText}`;
+                        
+                        const schedTime = new Date(item.scheduledTimeIso);
+                        const now = new Date();
+                        const isItemToday = item.isToday ?? (
+                            schedTime.getDate() === now.getDate() &&
+                            schedTime.getMonth() === now.getMonth() &&
+                            schedTime.getFullYear() === now.getFullYear()
+                        );
+                        const canMarkItem = item.canMark ?? (isItemToday && !item.isFutureSchedule);
 
                         return (
                             <View key={`${item.id}-${index}`} style={styles.medCard}>
@@ -339,6 +406,13 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
                                     <View style={styles.actionColumn}>
                                         {isSubmitting ? (
                                             <ActivityIndicator size="small" color="#FE6700" />
+                                        ) : !canMarkItem ? (
+                                            <View style={styles.lockedBadgeContainer}>
+                                                <CustomLockIcon size={14} color="#9CA3AF" />
+                                                <Text style={styles.lockedBadgeText}>
+                                                    {item.isFutureSchedule ? `Scheduled: ${item.futureDateText}` : 'Past Dose'}
+                                                </Text>
+                                            </View>
                                         ) : (
                                             <View style={styles.btnRow}>
                                                 <TouchableOpacity
@@ -403,9 +477,9 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
                         <Image source={bellIcon} style={styles.bannerIconImage} resizeMode="contain" />
                     </View>
                     <View style={styles.bannerCopy}>
-                        <Text style={styles.bannerTitle}>Medication Reminders Active</Text>
+                        <Text style={styles.bannerTitle}>On-Time Medication Reminders Active</Text>
                         <Text style={styles.bannerText}>
-                            You'll receive notifications based on your medication schedule. Confirming helps track adherence.
+                            Background worker dispatches reminders on exact scheduled time. Doses can only be marked on their scheduled day (Today).
                         </Text>
                     </View>
                 </View>
@@ -419,7 +493,7 @@ export default function MedsTracker({ beneficiaryId: propBeneficiaryId }: Props)
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FFFFFF', // Ensures the notch area remains white
+        backgroundColor: '#FFFFFF',
     },
     header: {
         backgroundColor: '#FFFFFF',
@@ -438,7 +512,6 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         marginTop: 2,
     },
-    // -------------------------
     container: {
         flex: 1,
         backgroundColor: '#FCFAF7',
@@ -461,7 +534,6 @@ const styles = StyleSheet.create({
         color: '#374151',
     },
 
-    // --- Micro Switch Styles ---
     switchTrack: {
         width: 32,
         height: 18.4,
@@ -482,7 +554,6 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
 
-    // --- Top Row ---
     topRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -514,7 +585,6 @@ const styles = StyleSheet.create({
         marginRight: 8,
     },
 
-    // --- Stats Card ---
     statsCard: {
         backgroundColor: '#FE6700',
         borderRadius: 14,
@@ -573,7 +643,6 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
 
-    // --- Medication List Cards ---
     medCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 14,
@@ -620,7 +689,6 @@ const styles = StyleSheet.create({
         marginTop: 1,
     },
 
-    // --- Action Buttons ---
     actionColumn: {
         marginLeft: 12,
         justifyContent: 'center',
@@ -647,6 +715,20 @@ const styles = StyleSheet.create({
     },
     activeCross: {
         backgroundColor: '#EF4444',
+    },
+    lockedBadgeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 8,
+        paddingVertical: 5,
+        borderRadius: 8,
+        gap: 4,
+    },
+    lockedBadgeText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 11,
+        color: '#6B7280',
     },
 
     innerDivider: {
@@ -684,7 +766,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#16A34A',
     },
 
-    // --- Bottom Bell Banner ---
     bannerCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 14,

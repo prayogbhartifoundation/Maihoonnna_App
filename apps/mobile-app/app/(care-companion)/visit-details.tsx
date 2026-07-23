@@ -460,6 +460,10 @@ export default function VisitDetailsScreen() {
             Alert.alert('Selection Required', 'Please select a benefit to request.');
             return;
         }
+        if (selectedBenefit.isExhausted || selectedBenefit.remainingUnits <= 0) {
+            Alert.alert('Benefit Exhausted', `Benefit "${selectedBenefit.benefitName}" is exhausted. Connect with support team to renew or upgrade your package.`);
+            return;
+        }
         if (!reqPreferredDate.trim()) {
             Alert.alert('Date Required', 'Preferred date is required.');
             return;

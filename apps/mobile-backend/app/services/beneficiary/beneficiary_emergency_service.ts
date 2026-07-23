@@ -33,30 +33,29 @@ export const getBeneficiaryEmergencyEligibility = async (beneficiaryId: string) 
 
   let eligible = false;
   let benefitName = '';
+  let balanceId: string | null = null;
+  let remaining = 0;
 
   for (const sub of activeSubscriptions) {
     if (sub.benefitBalances) {
       for (const bal of sub.benefitBalances) {
         if (isEmergencyBenefit(bal.benefit)) {
-          eligible = true;
-          benefitName = bal.benefit?.benefitType?.name || bal.benefit?.name || 'Emergency Support';
-          break;
+          const rem = bal.totalUnits - bal.usedUnits;
+          if (rem > 0) {
+            eligible = true;
+            benefitName = bal.benefit?.benefitType?.name || bal.benefit?.name || 'Emergency Support';
+            balanceId = bal.id;
+            remaining = rem;
+            break;
+          }
+          // benefit exists but exhausted — keep eligible=false, continue scanning
         }
       }
     }
-
-    if (!eligible && sub.packageVersion?.versionBenefits) {
-      for (const pvb of sub.packageVersion.versionBenefits) {
-        if (isEmergencyBenefit(pvb.benefit)) {
-          eligible = true;
-          benefitName = pvb.benefit?.benefitType?.name || pvb.benefit?.name || 'Emergency Support';
-          break;
-        }
-      }
-    }
+    if (eligible) break;
   }
 
-  return { eligible, benefitName };
+  return { eligible, benefitName, balanceId, remaining };
 };
 
 export const triggerEmergencyRequest = async (
@@ -64,10 +63,10 @@ export const triggerEmergencyRequest = async (
   requestedByUserId: string,
   locationDetails?: { lat?: number; lng?: number; address?: string; description?: string }
 ) => {
-  // Check eligibility first
-  const { eligible } = await getBeneficiaryEmergencyEligibility(beneficiaryId);
+  // Check eligibility — also validates remaining balance > 0
+  const { eligible, balanceId } = await getBeneficiaryEmergencyEligibility(beneficiaryId);
   if (!eligible) {
-    throw new ApiError(403, 'Your active package subscription does not include Emergency Support benefits. Please upgrade your plan.');
+    throw new ApiError(403, 'Your Emergency Support uses are exhausted. Please renew or upgrade your plan to enable Emergency Support again.');
   }
 
   // Fetch full beneficiary details to assemble complete location and emergency contacts
@@ -101,34 +100,46 @@ export const triggerEmergencyRequest = async (
 
   const ticketNumber = `EMG-${Math.floor(100000 + Math.random() * 900000)}`;
 
-  const emergencyReq = await prisma.emergencyRequest.create({
-    data: {
-      ticketNumber,
-      beneficiaryId,
-      requestedBy: requestedByUserId,
-      status: 'open',
-      type: 'EMERGENCY_SUPPORT',
-      description: locationDetails?.description || 'SOS Emergency Alert triggered from mobile app',
-      locationLat: locationDetails?.lat || beneficiary.user?.latitude || null,
-      locationLng: locationDetails?.lng || beneficiary.user?.longitude || null,
-      locationAddress: fullAddress,
-      notes: [
-        {
-          timestamp: new Date().toISOString(),
-          note: `🚨 Emergency alert triggered by ${beneficiary.name}`
-        }
-      ]
-    },
-    include: {
-      beneficiary: {
-        include: {
-          user: true,
-          subscriber: true,
-          primaryCC: { include: { user: true } },
-          secondaryCC: { include: { user: true } }
+  // Wrap emergency request creation + balance deduction in a transaction
+  const emergencyReq = await prisma.$transaction(async (tx) => {
+    // 1. Deduct 1 unit from the benefit balance (if balance row exists)
+    if (balanceId) {
+      await tx.subscriptionBenefitBalance.update({
+        where: { id: balanceId },
+        data: { usedUnits: { increment: 1 } },
+      });
+    }
+
+    // 2. Create the emergency request record
+    return tx.emergencyRequest.create({
+      data: {
+        ticketNumber,
+        beneficiaryId,
+        requestedBy: beneficiary.userId,  // always use the beneficiary's actual user FK
+        status: 'open',
+        type: 'EMERGENCY_SUPPORT',
+        description: locationDetails?.description || 'SOS Emergency Alert triggered from mobile app',
+        locationLat: locationDetails?.lat || beneficiary.user?.latitude || null,
+        locationLng: locationDetails?.lng || beneficiary.user?.longitude || null,
+        locationAddress: fullAddress,
+        notes: [
+          {
+            timestamp: new Date().toISOString(),
+            note: `🚨 Emergency alert triggered by ${beneficiary.name}`
+          }
+        ]
+      },
+      include: {
+        beneficiary: {
+          include: {
+            user: true,
+            subscriber: true,
+            primaryCC: { include: { user: true } },
+            secondaryCC: { include: { user: true } }
+          }
         }
       }
-    }
+    });
   });
 
   // Dispatch notifications to Subscriber, Primary CC, and Secondary CC

@@ -55,6 +55,26 @@ router.get('/requests', async (req, res) => {
                   select: { id: true, name: true, phone: true }
                 }
               }
+            },
+            emergencyContacts: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                relationship: true,
+                isPrimary: true
+              }
+            },
+            team: {
+              include: {
+                fieldManager: {
+                  include: {
+                    user: {
+                      select: { id: true, name: true, phone: true }
+                    }
+                  }
+                }
+              }
             }
           }
         },
@@ -76,7 +96,43 @@ router.get('/requests', async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json({ success: true, data: requests });
+    // Resolve Field Manager from Zone if not set directly on Team
+    const zones = await prisma.zone.findMany({
+      where: { fieldManagerId: { not: null } },
+      include: {
+        fieldManagerUser: {
+          select: { id: true, name: true, phone: true }
+        }
+      }
+    });
+
+    const enrichedRequests = requests.map((reqItem) => {
+      const b = reqItem.beneficiary;
+      if (!b) return reqItem;
+
+      let fmName = b.team?.fieldManager?.user?.name || b.team?.fieldManager?.name || null;
+      let fmPhone = b.team?.fieldManager?.user?.phone || null;
+
+      // Fallback: match by pincode to zone
+      if (!fmName && (b.pincode || b.user?.pincode)) {
+        const pin = (b.pincode || b.user?.pincode || '').trim();
+        const matchingZone = zones.find((z) => Array.isArray(z.pincodes) && z.pincodes.includes(pin));
+        if (matchingZone && matchingZone.fieldManagerUser) {
+          fmName = matchingZone.fieldManagerUser.name;
+          fmPhone = matchingZone.fieldManagerUser.phone;
+        }
+      }
+
+      return {
+        ...reqItem,
+        beneficiary: {
+          ...b,
+          fieldManager: fmName ? { name: fmName, phone: fmPhone } : null
+        }
+      };
+    });
+
+    res.json({ success: true, data: enrichedRequests });
   } catch (error) {
     console.error('Error fetching emergency requests:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch emergency requests' });

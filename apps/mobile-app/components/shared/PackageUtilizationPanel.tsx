@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatHours } from '@/utils/timeFormat';
@@ -97,7 +97,18 @@ export default function PackageUtilizationPanel({ data, selectedBenefitId, onSel
               <TouchableOpacity 
                 key={b.benefitId} 
                 activeOpacity={0.85}
-                onPress={() => onSelectBenefit?.(b)}
+                onPress={() => {
+                  if (b.isExhausted || b.remainingUnits <= 0) {
+                    const msg = `Benefit "${b.benefitName}" is exhausted. Please connect with support team to renew or top up your package.`;
+                    if (Platform.OS === 'web') {
+                      window.alert(`Benefit Exhausted\n\n${msg}`);
+                    } else {
+                      Alert.alert('Benefit Exhausted', msg);
+                    }
+                    return;
+                  }
+                  onSelectBenefit?.(b);
+                }}
                 style={[
                   styles.benefitCard, 
                   b.isExhausted ? styles.cardExhausted : (b.isLowBalance ? styles.cardLow : {}),

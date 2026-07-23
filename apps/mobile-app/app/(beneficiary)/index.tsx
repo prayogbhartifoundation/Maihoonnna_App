@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
     useWindowDimensions,
     Alert,
+    Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Feather, AntDesign, Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import { API_URL } from '@/constants/api';
 import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 import NotificationBell from '@/components/shared/NotificationBell';
 import { useExitOnBack } from '@/hooks/useExitOnBack';
+import { triggerEmergencyAlert } from '@/services/emergencyTrigger';
 
 const MOCK_BENEFICIARY_ID = '8340d860-2641-479c-b26a-8b9a71bcec29';
 
@@ -66,9 +68,31 @@ export default function BeneficiaryDashboard() {
     useExitOnBack();
 
     const [triggeringEmergency, setTriggeringEmergency] = useState(false);
-    const [emergencySuccessModal, setEmergencySuccessModal] = useState<{ ticketNumber: string; message: string } | null>(null);
+    const [locationStatus, setLocationStatus] = useState<'idle' | 'locating' | 'done'>('idle');
+    const [emergencySuccessModal, setEmergencySuccessModal] = useState<{
+        ticketNumber: string;
+        message: string;
+        locationAddress?: string;
+        lat?: number;
+        lng?: number;
+    } | null>(null);
     const [emergencyEligible, setEmergencyEligible] = useState<boolean>(true);
     const [sathiEligible, setSathiEligible] = useState<boolean>(true);
+
+    // Pulsing animation for the SOS button while triggering
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+    useEffect(() => {
+        if (triggeringEmergency) {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, { toValue: 1.06, duration: 400, useNativeDriver: true }),
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+                ])
+            ).start();
+        } else {
+            pulseAnim.setValue(1);
+        }
+    }, [triggeringEmergency, pulseAnim]);
 
     useEffect(() => {
         async function fetchEligibility() {
@@ -142,78 +166,54 @@ export default function BeneficiaryDashboard() {
     });
 
     const handleEmergencyPress = async () => {
-        try {
-            const [storedUser, storedToken] = await Promise.all([
-                AsyncStorage.getItem('userData'),
-                AsyncStorage.getItem('userToken'),
-            ]);
-            if (!storedUser || !storedToken) return;
-            const parsedUser = JSON.parse(storedUser);
+        if (triggeringEmergency) return;
 
-            // 1. Check emergency eligibility against active subscription benefits
-            const eligRes = await fetch(`${API_URL}/beneficiary/${parsedUser.id}/emergency/eligibility`, {
-                headers: { Authorization: `Bearer ${storedToken}` }
-            });
-            const eligData = await eligRes.json();
+        // Optimistic confirmation dialog first — then locate
+        const executeEmergency = async () => {
+            setTriggeringEmergency(true);
+            setLocationStatus('locating');
+            try {
+                const result = await triggerEmergencyAlert(
+                    'SOS Emergency Support triggered from MaiHoonNa Mobile App'
+                );
+                setLocationStatus('done');
 
-            if (eligRes.ok && eligData?.data?.eligible === false) {
-                const msg = 'Emergency Support benefit is not included in your active package subscription. Please upgrade your plan package to enable Emergency Support.';
-                if (Platform.OS === 'web') {
-                    window.alert(`🔒 Plan Feature Locked:\n\n${msg}`);
-                } else {
-                    Alert.alert('Plan Feature Locked 🔒', msg);
-                }
-                return;
-            }
-
-            // 2. Ask confirmation
-            const executeEmergency = async () => {
-                setTriggeringEmergency(true);
-                try {
-                    const postRes = await fetch(`${API_URL}/beneficiary/${parsedUser.id}/emergency`, {
-                        method: 'POST',
-                        headers: {
-                            Authorization: `Bearer ${storedToken}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ description: 'SOS Emergency Support triggered from Mobile App' })
+                if (result.success) {
+                    setEmergencySuccessModal({
+                        ticketNumber: result.ticketNumber || 'EMG-ALERT',
+                        message: 'Your Subscriber, Care Companions, and Admin Emergency Center have been notified.',
+                        locationAddress: result.locationAddress,
+                        lat: result.lat,
+                        lng: result.lng,
                     });
-                    const postData = await postRes.json();
-                    if (postRes.ok && postData.success) {
-                        setEmergencySuccessModal({
-                            ticketNumber: postData.data?.ticketNumber || 'EMG-ALERT',
-                            message: 'Your Subscriber, Care Companions, and Admin Emergency Center have been notified.'
-                        });
-                    } else {
-                        const errMsg = postData.message || 'Failed to trigger emergency alert.';
-                        if (Platform.OS === 'web') window.alert(`Error: ${errMsg}`);
-                        else Alert.alert('Error', errMsg);
-                    }
-                } catch (err: any) {
-                    const errMsg = err.message || 'Network error triggering emergency alert.';
+                } else {
+                    const errMsg = result.error || 'Failed to trigger emergency alert.';
                     if (Platform.OS === 'web') window.alert(`Error: ${errMsg}`);
                     else Alert.alert('Error', errMsg);
-                } finally {
-                    setTriggeringEmergency(false);
                 }
-            };
-
-            if (Platform.OS === 'web') {
-                if (window.confirm('🚨 TRIGGER EMERGENCY SOS ALERT?\n\nAre you sure you want to trigger an emergency alert? This will immediately notify your Subscriber, Care Companions, and Emergency Center.')) {
-                    executeEmergency();
-                }
-            } else {
-                Alert.alert(
-                    '🚨 Trigger Emergency Alert?',
-                    'Are you sure you want to trigger an emergency alert? This will immediately alert your Subscriber, Care Companions, and Emergency Response Center.',
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'TRIGGER EMERGENCY', style: 'destructive', onPress: executeEmergency }
-                    ]
-                );
+            } catch (err: any) {
+                const errMsg = err.message || 'Network error while triggering emergency alert.';
+                if (Platform.OS === 'web') window.alert(`Error: ${errMsg}`);
+                else Alert.alert('Error', errMsg);
+            } finally {
+                setTriggeringEmergency(false);
+                setLocationStatus('idle');
             }
-        } catch (err: any) {
-            console.error('Emergency check error:', err);
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm('🚨 TRIGGER EMERGENCY SOS ALERT?\n\nThis will immediately locate you and alert your Subscriber, Care Companions, and Emergency Center.')) {
+                executeEmergency();
+            }
+        } else {
+            Alert.alert(
+                '🚨 Trigger Emergency Alert?',
+                'This will get your live GPS location and immediately alert your Subscriber, Care Companions, and Emergency Response Center.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'SEND SOS NOW', style: 'destructive', onPress: executeEmergency },
+                ]
+            );
         }
     };
 
@@ -300,21 +300,28 @@ export default function BeneficiaryDashboard() {
                         </View>
 
                         {emergencyEligible && (
-                            <TouchableOpacity
-                                style={[styles.emergencyBtn, responsiveContentStyle, triggeringEmergency && { opacity: 0.7 }]}
-                                activeOpacity={0.85}
-                                onPress={handleEmergencyPress}
-                                disabled={triggeringEmergency}
-                            >
-                                {triggeringEmergency ? (
-                                    <ActivityIndicator color="#FFFFFF" />
-                                ) : (
-                                    <>
-                                        <Feather name="alert-circle" size={28} color="#FFFFFF" />
-                                        <Text style={styles.emergencyText}>Emergency Support</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
+                            <Animated.View style={{ transform: [{ scale: pulseAnim }], ...responsiveContentStyle }}>
+                                <TouchableOpacity
+                                    style={[styles.emergencyBtn, triggeringEmergency && { opacity: 0.85 }]}
+                                    activeOpacity={0.85}
+                                    onPress={handleEmergencyPress}
+                                    disabled={triggeringEmergency}
+                                >
+                                    {triggeringEmergency ? (
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                            <ActivityIndicator color="#FFFFFF" size="small" />
+                                            <Text style={styles.emergencyText}>
+                                                {locationStatus === 'locating' ? 'Locating you...' : 'Sending SOS...'}
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        <>
+                                            <Feather name="alert-circle" size={28} color="#FFFFFF" />
+                                            <Text style={styles.emergencyText}>Emergency Support</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </Animated.View>
                         )}
                     </SafeAreaView>
                 </ImageBackground>
@@ -501,6 +508,24 @@ export default function BeneficiaryDashboard() {
                             <Text style={styles.ticketBadgeText}>Ticket: {emergencySuccessModal.ticketNumber}</Text>
                         </View>
                         <Text style={styles.modalDesc}>{emergencySuccessModal.message}</Text>
+
+                        {/* Location confirmation */}
+                        {emergencySuccessModal.locationAddress ? (
+                            <View style={styles.locationBadge}>
+                                <Feather name="map-pin" size={13} color="#DC2626" />
+                                <Text style={styles.locationBadgeText} numberOfLines={2}>
+                                    📍 {emergencySuccessModal.locationAddress}
+                                </Text>
+                            </View>
+                        ) : (
+                            <View style={styles.locationBadge}>
+                                <Feather name="map-pin" size={13} color="#6B7280" />
+                                <Text style={[styles.locationBadgeText, { color: '#6B7280' }]}>
+                                    Location: Using registered address
+                                </Text>
+                            </View>
+                        )}
+
                         <TouchableOpacity
                             style={styles.modalDoneBtn}
                             onPress={() => setEmergencySuccessModal(null)}
@@ -886,5 +911,25 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins-SemiBold',
         fontSize: 15,
         color: '#FFFFFF',
+    },
+    locationBadge: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 6,
+        backgroundColor: '#FFF5F5',
+        borderWidth: 1,
+        borderColor: '#FECACA',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 7,
+        marginBottom: 16,
+        width: '100%',
+    },
+    locationBadgeText: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 11,
+        color: '#B91C1C',
+        flex: 1,
+        lineHeight: 16,
     },
 });

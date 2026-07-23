@@ -34,6 +34,31 @@ interface Interaction {
     feedback: string;
 }
 
+interface EmergencyNote {
+    timestamp: string;
+    note: string;
+    author?: string;
+}
+
+interface NotifiedParty {
+    role: string;
+    name: string;
+}
+
+interface EmergencyLog {
+    id: string;
+    ticketNumber: string;
+    status: 'open' | 'acknowledged' | 'in_progress' | 'resolved' | 'cancelled';
+    description?: string;
+    locationAddress?: string;
+    triggeredAt: string;
+    resolvedAt?: string;
+    resolutionNotes?: string;
+    notes: EmergencyNote[];
+    notifiedParties: NotifiedParty[];
+    respondedBy?: { name: string; role: string } | null;
+}
+
 // ── Vital icon/colour palette ─────────────────────────────────────────────────
 const VITAL_PALETTE = [
     { bg: '#FEF2F2', icon: '#EF4444' },
@@ -94,6 +119,10 @@ export default function InteractionsScreen() {
     const [loading, setLoading] = useState(true);
     const [submittingRatingId, setSubmittingRatingId] = useState<string | null>(null);
 
+    // Emergency logs
+    const [emergencyLogs, setEmergencyLogs] = useState<EmergencyLog[]>([]);
+    const [expandedSosIds, setExpandedSosIds] = useState<Record<string, boolean>>({});
+
     // Per-visit feedback drafts and saving state
     const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
     const [savingFeedbackId, setSavingFeedbackId] = useState<string | null>(null);
@@ -101,6 +130,7 @@ export default function InteractionsScreen() {
     useFocusEffect(
         useCallback(() => {
             fetchInteractions();
+            fetchEmergencyHistory();
         }, [])
     );
 
@@ -133,6 +163,25 @@ export default function InteractionsScreen() {
             console.error('Fetch Interactions Error:', e);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchEmergencyHistory = async () => {
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            const user = await AsyncStorage.getItem('user');
+            if (!token || !user) return;
+            const { id: userId } = JSON.parse(user);
+
+            const res = await fetch(`${API_URL}/beneficiary/${userId}/emergency/history`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                setEmergencyLogs(data.data);
+            }
+        } catch (e) {
+            console.error('Fetch Emergency History Error:', e);
         }
     };
 
@@ -194,6 +243,25 @@ export default function InteractionsScreen() {
         }
     };
 
+    // Helper for emergency status badge
+    const sosBadge = (status: EmergencyLog['status']) => {
+        const map: Record<string, { label: string; bg: string; color: string }> = {
+            open:        { label: 'SOS OPEN',       bg: '#FEE2E2', color: '#DC2626' },
+            acknowledged:{ label: 'ACKNOWLEDGED',   bg: '#FEF3C7', color: '#D97706' },
+            in_progress: { label: 'IN PROGRESS',    bg: '#FEF9C3', color: '#CA8A04' },
+            resolved:    { label: 'RESOLVED',       bg: '#D1FAE5', color: '#059669' },
+            cancelled:   { label: 'CANCELLED',      bg: '#F3F4F6', color: '#6B7280' },
+        };
+        return map[status] || map.open;
+    };
+
+    const formatDateTime = (iso: string) => {
+        const d = new Date(iso);
+        return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+             + '  •  '
+             + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    };
+
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -216,6 +284,144 @@ export default function InteractionsScreen() {
                     contentContainerStyle={styles.content}
                     showsVerticalScrollIndicator={false}
                 >
+                    {/* ── Emergency SOS History Section ── */}
+                    {emergencyLogs.length > 0 && (
+                        <View style={styles.sosSectionWrap}>
+                            <View style={styles.sosSectionHeader}>
+                                <Ionicons name="alert-circle" size={20} color="#DC2626" />
+                                <Text style={styles.sosSectionTitle}>Emergency SOS History</Text>
+                            </View>
+
+                            {emergencyLogs.map((sos) => {
+                                const badge = sosBadge(sos.status);
+                                const isOpen = expandedSosIds[sos.id];
+                                const notes: EmergencyNote[] = Array.isArray(sos.notes) ? sos.notes : [];
+
+                                return (
+                                    <View key={sos.id} style={styles.sosCard}>
+                                        {/* Top row: ticket + status badge */}
+                                        <View style={styles.sosCardHeader}>
+                                            <View style={styles.sosTicketRow}>
+                                                <Ionicons name="radio" size={14} color="#DC2626" />
+                                                <Text style={styles.sosTicket}>{sos.ticketNumber}</Text>
+                                            </View>
+                                            <View style={[styles.sosBadge, { backgroundColor: badge.bg }]}>
+                                                <Text style={[styles.sosBadgeText, { color: badge.color }]}>{badge.label}</Text>
+                                            </View>
+                                        </View>
+
+                                        {/* Triggered time */}
+                                        <View style={styles.sosDetailRow}>
+                                            <Feather name="clock" size={13} color="#6B7280" />
+                                            <Text style={styles.sosDetailText}>
+                                                Triggered: {formatDateTime(sos.triggeredAt)}
+                                            </Text>
+                                        </View>
+
+                                        {/* Resolved time */}
+                                        {sos.resolvedAt && (
+                                            <View style={styles.sosDetailRow}>
+                                                <Feather name="check-circle" size={13} color="#059669" />
+                                                <Text style={[styles.sosDetailText, { color: '#059669' }]}>
+                                                    Resolved: {formatDateTime(sos.resolvedAt)}
+                                                </Text>
+                                            </View>
+                                        )}
+
+                                        {/* Location */}
+                                        {sos.locationAddress && (
+                                            <View style={styles.sosDetailRow}>
+                                                <Feather name="map-pin" size={13} color="#6B7280" />
+                                                <Text style={styles.sosDetailText} numberOfLines={2}>
+                                                    {sos.locationAddress}
+                                                </Text>
+                                            </View>
+                                        )}
+
+                                        {/* Toggle for full details */}
+                                        <TouchableOpacity
+                                            style={styles.sosToggleBtn}
+                                            onPress={() => setExpandedSosIds(prev => ({ ...prev, [sos.id]: !prev[sos.id] }))}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.sosToggleText}>
+                                                {isOpen ? 'Hide Details' : 'View Full Details'}
+                                            </Text>
+                                            <Feather name={isOpen ? 'chevron-up' : 'chevron-down'} size={15} color="#DC2626" />
+                                        </TouchableOpacity>
+
+                                        {isOpen && (
+                                            <View style={styles.sosExpandedSection}>
+                                                <View style={styles.divider} />
+
+                                                {/* Who was notified */}
+                                                {sos.notifiedParties.length > 0 && (
+                                                    <View style={styles.sosBlock}>
+                                                        <Text style={styles.sosBlockTitle}>
+                                                            <Ionicons name="notifications" size={13} color="#4B5563" /> Who Was Notified
+                                                        </Text>
+                                                        {sos.notifiedParties.map((p, i) => (
+                                                            <View key={i} style={styles.notifiedRow}>
+                                                                <View style={styles.notifiedDot} />
+                                                                <Text style={styles.notifiedRole}>{p.role}:</Text>
+                                                                <Text style={styles.notifiedName}>{p.name}</Text>
+                                                            </View>
+                                                        ))}
+                                                    </View>
+                                                )}
+
+                                                {/* Who responded */}
+                                                {sos.respondedBy && (
+                                                    <View style={styles.sosBlock}>
+                                                        <Text style={styles.sosBlockTitle}>
+                                                            <Ionicons name="person" size={13} color="#4B5563" /> Responded By
+                                                        </Text>
+                                                        <View style={styles.respondedBox}>
+                                                            <Ionicons name="shield-checkmark" size={16} color="#059669" />
+                                                            <Text style={styles.respondedName}>{sos.respondedBy.name}</Text>
+                                                            <Text style={styles.respondedRole}>({sos.respondedBy.role?.replace('_', ' ')})</Text>
+                                                        </View>
+                                                    </View>
+                                                )}
+
+                                                {/* Dispatch Notes Timeline */}
+                                                {notes.length > 0 && (
+                                                    <View style={styles.sosBlock}>
+                                                        <Text style={styles.sosBlockTitle}>
+                                                            <Ionicons name="list" size={13} color="#4B5563" /> Dispatch Timeline
+                                                        </Text>
+                                                        {notes.map((n, i) => (
+                                                            <View key={i} style={styles.timelineItem}>
+                                                                <View style={styles.timelineDot} />
+                                                                {i < notes.length - 1 && <View style={styles.timelineLine} />}
+                                                                <View style={styles.timelineContent}>
+                                                                    <Text style={styles.timelineTime}>
+                                                                        {formatDateTime(n.timestamp)}
+                                                                        {n.author ? `  •  ${n.author}` : ''}
+                                                                    </Text>
+                                                                    <Text style={styles.timelineNote}>{n.note}</Text>
+                                                                </View>
+                                                            </View>
+                                                        ))}
+                                                    </View>
+                                                )}
+
+                                                {/* Resolution remarks */}
+                                                {sos.resolutionNotes && (
+                                                    <View style={[styles.sosBlock, styles.resolutionBox]}>
+                                                        <Text style={styles.resolutionLabel}>Resolution Remarks</Text>
+                                                        <Text style={styles.resolutionText}>{sos.resolutionNotes}</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    )}
+
+                    {/* ── Care Interactions Section ── */}
                     <Text style={styles.subtitle}>Your care history</Text>
 
                     {interactions.length === 0 ? (
@@ -583,6 +789,203 @@ const styles = StyleSheet.create({
         paddingVertical: 13,
         alignItems: 'center',
         marginBottom: 4,
+    },
+    // SOS section
+    sosSectionWrap: {
+        marginBottom: 28,
+    },
+    sosSectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    sosSectionTitle: {
+        fontSize: 16,
+        color: '#111827',
+        fontFamily: 'Poppins-SemiBold',
+    },
+    sosCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 18,
+        marginBottom: 14,
+        borderWidth: 1.5,
+        borderColor: '#FEE2E2',
+        shadowColor: '#DC2626',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.07,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    sosCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+    },
+    sosTicketRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    sosTicket: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 13,
+        color: '#DC2626',
+        letterSpacing: 0.5,
+    },
+    sosBadge: {
+        paddingHorizontal: 9,
+        paddingVertical: 3,
+        borderRadius: 20,
+    },
+    sosBadgeText: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 10,
+        letterSpacing: 0.5,
+    },
+    sosDetailRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 7,
+        marginBottom: 6,
+    },
+    sosDetailText: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: '#4B5563',
+        flex: 1,
+        lineHeight: 19,
+    },
+    sosToggleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+        borderRadius: 10,
+        paddingVertical: 10,
+        marginTop: 10,
+        backgroundColor: '#FFF5F5',
+    },
+    sosToggleText: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 13,
+        color: '#DC2626',
+    },
+    sosExpandedSection: { marginTop: 4 },
+    sosBlock: {
+        marginBottom: 16,
+    },
+    sosBlockTitle: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 13,
+        color: '#374151',
+        marginBottom: 8,
+    },
+    notifiedRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 5,
+    },
+    notifiedDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#DC2626',
+    },
+    notifiedRole: {
+        fontFamily: 'Poppins-Medium',
+        fontSize: 12,
+        color: '#6B7280',
+    },
+    notifiedName: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 12,
+        color: '#111827',
+        flex: 1,
+    },
+    respondedBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+        backgroundColor: '#F0FDF4',
+        borderRadius: 10,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#BBF7D0',
+    },
+    respondedName: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 13,
+        color: '#065F46',
+    },
+    respondedRole: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 12,
+        color: '#047857',
+        textTransform: 'capitalize',
+    },
+    timelineItem: {
+        flexDirection: 'row',
+        marginBottom: 4,
+    },
+    timelineDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#DC2626',
+        marginTop: 5,
+        marginRight: 10,
+        flexShrink: 0,
+    },
+    timelineLine: {
+        position: 'absolute',
+        left: 3.5,
+        top: 13,
+        width: 1,
+        height: '100%',
+        backgroundColor: '#FECACA',
+    },
+    timelineContent: {
+        flex: 1,
+        paddingBottom: 12,
+    },
+    timelineTime: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 11,
+        color: '#9CA3AF',
+        marginBottom: 2,
+    },
+    timelineNote: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: '#374151',
+        lineHeight: 20,
+    },
+    resolutionBox: {
+        backgroundColor: '#F0FDF4',
+        borderRadius: 12,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: '#BBF7D0',
+    },
+    resolutionLabel: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 12,
+        color: '#059669',
+        marginBottom: 5,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    resolutionText: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+        color: '#065F46',
+        lineHeight: 20,
     },
     saveFeedbackText: {
         fontSize: 15,

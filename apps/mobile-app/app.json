@@ -15,7 +15,11 @@
       "config": {
         "googleMapsApiKey": "AIzaSyDPrFpN29FZ786mTWjIbeQvW3y6ztjx3xU"
       },
-      "bundleIdentifier": "com.rajeev-23.maihoonna"
+      "bundleIdentifier": "com.rajeev-23.maihoonna",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MaiHoonNa uses your location to share it with your care team when you trigger an SOS Emergency Alert.",
+        "NSLocationAlwaysUsageDescription": "MaiHoonNa needs background location access so your GPS coordinates are shared with caregivers the moment you press the SOS button."
+      }
     },
     "android": {
       "package": "com.rajeev_23.maihoonna",
@@ -57,7 +61,20 @@
           "color": "#FF7A00",
           "sounds": [],
           "androidMode": "default",
-          "androidCollapsedTitle": "MaiHoonNa Notifications"
+          "androidCollapsedTitle": "MaiHoonNa Notifications",
+          "androidNotificationCategoryOptions": {
+            "SOS_EMERGENCY": {
+              "actions": [
+                {
+                  "actionId": "SOS_TRIGGER",
+                  "buttonTitle": "🚨 Send Emergency SOS",
+                  "isDestructive": true,
+                  "isAuthenticationRequired": false,
+                  "opensAppToForeground": false
+                }
+              ]
+            }
+          }
         }
       ]
     ],

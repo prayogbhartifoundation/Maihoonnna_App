@@ -45,8 +45,30 @@ export default function PackageUtilizationScreen() {
   const [additionalNote, setAdditionalNote] = useState('');
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
+  const promptExhaustedMessage = (benefitName?: string) => {
+    const msg = `Benefit ${benefitName ? `"${benefitName}" ` : ''}is exhausted. Please connect with support team to renew or upgrade your package.`;
+    if (Platform.OS === 'web') {
+      window.alert(`Benefit Exhausted\n\n${msg}`);
+    } else {
+      Alert.alert('Benefit Exhausted', msg);
+    }
+  };
+
+  const handleSelectBenefit = (benefit: any) => {
+    if (benefit.isExhausted || benefit.remainingUnits <= 0) {
+      promptExhaustedMessage(benefit.benefitName);
+      return;
+    }
+    setSelectedBenefit(benefit);
+  };
+
   const handleRequestService = async () => {
     if (!selectedBenefit) return;
+    if (selectedBenefit.isExhausted || selectedBenefit.remainingUnits <= 0) {
+      promptExhaustedMessage(selectedBenefit.benefitName);
+      setShowRequestModal(false);
+      return;
+    }
     if (!preferredDate) {
       if (Platform.OS === 'web') window.alert('Please enter a preferred date');
       else Alert.alert('Error', 'Please enter a preferred date');
@@ -229,7 +251,7 @@ export default function PackageUtilizationScreen() {
             <PackageUtilizationPanel 
               data={detailData} 
               selectedBenefitId={selectedBenefit?.benefitId}
-              onSelectBenefit={setSelectedBenefit}
+              onSelectBenefit={handleSelectBenefit}
             />
           )}
         </ScrollView>
@@ -244,11 +266,24 @@ export default function PackageUtilizationScreen() {
             </TouchableOpacity>
           </View>
           <TouchableOpacity 
-            style={styles.requestServiceBtn}
-            onPress={() => setShowRequestModal(true)}
+            style={[
+              styles.requestServiceBtn,
+              (selectedBenefit.isExhausted || selectedBenefit.remainingUnits <= 0) && { backgroundColor: '#9CA3AF' }
+            ]}
+            onPress={() => {
+              if (selectedBenefit.isExhausted || selectedBenefit.remainingUnits <= 0) {
+                promptExhaustedMessage(selectedBenefit.benefitName);
+                return;
+              }
+              setShowRequestModal(true);
+            }}
           >
             <Ionicons name="calendar-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.requestServiceBtnText}>Request for the service</Text>
+            <Text style={styles.requestServiceBtnText}>
+              {(selectedBenefit.isExhausted || selectedBenefit.remainingUnits <= 0)
+                ? 'BENEFIT EXHAUSTED — CONNECT WITH SUPPORT'
+                : 'Request for the service'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -271,64 +306,82 @@ export default function PackageUtilizationScreen() {
 
             <Text style={styles.modalSubTitle}>{selectedBenefit?.benefitName}</Text>
             
-            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
-              <View style={styles.modalForm}>
-                <Text style={styles.modalLabel}>Preferred Date *</Text>
-                <TextInput
-                  style={styles.modalTextInput}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#9CA3AF"
-                  value={preferredDate}
-                  onChangeText={setPreferredDate}
-                />
-                <Text style={styles.modalHint}>Format: YYYY-MM-DD (e.g. 2026-07-15)</Text>
-
-                <Text style={styles.modalLabel}>Preferred Timing *</Text>
-                <View style={styles.timingRow}>
-                  {['Morning', 'Afternoon', 'Evening'].map((slot) => {
-                    const isActive = preferredTiming === slot;
-                    return (
-                      <TouchableOpacity
-                        key={slot}
-                        style={[styles.timingPill, isActive && styles.timingPillActive]}
-                        onPress={() => setPreferredTiming(slot)}
-                      >
-                        <Text style={[styles.timingPillText, isActive && styles.timingPillTextActive]}>
-                          {slot}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {userRole !== 'beneficiary' && (
-                  <>
-                    <Text style={styles.modalLabel}>Additional Note (Optional)</Text>
-                    <TextInput
-                      style={[styles.modalTextInput, styles.modalTextArea]}
-                      placeholder="Provide any instructions or preferences..."
-                      placeholderTextColor="#9CA3AF"
-                      multiline
-                      numberOfLines={4}
-                      value={additionalNote}
-                      onChangeText={setAdditionalNote}
-                    />
-                  </>
-                )}
-
+            {(selectedBenefit?.isExhausted || selectedBenefit?.remainingUnits <= 0) ? (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <Ionicons name="alert-circle" size={48} color="#EF4444" style={{ marginBottom: 12 }} />
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#DC2626', textAlign: 'center', marginBottom: 8 }}>
+                  Benefit Exhausted
+                </Text>
+                <Text style={{ fontSize: 14, color: '#4B5563', textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
+                  This benefit has no remaining units. Please connect with our support team to renew or upgrade your package.
+                </Text>
                 <TouchableOpacity 
-                  style={styles.modalSubmitBtn}
-                  onPress={handleRequestService}
-                  disabled={submittingRequest}
+                  style={{ backgroundColor: '#DC2626', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+                  onPress={() => setShowRequestModal(false)}
                 >
-                  {submittingRequest ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.modalSubmitBtnText}>Submit Request</Text>
-                  )}
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Close</Text>
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+            ) : (
+              <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+                <View style={styles.modalForm}>
+                  <Text style={styles.modalLabel}>Preferred Date *</Text>
+                  <TextInput
+                    style={styles.modalTextInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#9CA3AF"
+                    value={preferredDate}
+                    onChangeText={setPreferredDate}
+                  />
+                  <Text style={styles.modalHint}>Format: YYYY-MM-DD (e.g. 2026-07-15)</Text>
+
+                  <Text style={styles.modalLabel}>Preferred Timing *</Text>
+                  <View style={styles.timingRow}>
+                    {['Morning', 'Afternoon', 'Evening'].map((slot) => {
+                      const isActive = preferredTiming === slot;
+                      return (
+                        <TouchableOpacity
+                          key={slot}
+                          style={[styles.timingPill, isActive && styles.timingPillActive]}
+                          onPress={() => setPreferredTiming(slot)}
+                        >
+                          <Text style={[styles.timingPillText, isActive && styles.timingPillTextActive]}>
+                            {slot}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {userRole !== 'beneficiary' && (
+                    <>
+                      <Text style={styles.modalLabel}>Additional Note (Optional)</Text>
+                      <TextInput
+                        style={[styles.modalTextInput, styles.modalTextArea]}
+                        placeholder="Provide any instructions or preferences..."
+                        placeholderTextColor="#9CA3AF"
+                        multiline
+                        numberOfLines={4}
+                        value={additionalNote}
+                        onChangeText={setAdditionalNote}
+                      />
+                    </>
+                  )}
+
+                  <TouchableOpacity 
+                    style={styles.modalSubmitBtn}
+                    onPress={handleRequestService}
+                    disabled={submittingRequest}
+                  >
+                    {submittingRequest ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.modalSubmitBtnText}>Submit Request</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
           </View>
         </View>
       </Modal>

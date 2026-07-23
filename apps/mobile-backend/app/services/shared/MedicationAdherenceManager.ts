@@ -127,6 +127,9 @@ export class MedicationAdherenceManager {
                         status = 'missed'; // Past scheduled time with no log counts as missed
                     }
 
+                    const isTodaySlot = scheduledTime >= todayStart && scheduledTime <= todayEnd;
+                    const canMark = !isFuture && isTodaySlot;
+
                     scheduleSlots.push({
                         id: med.id,
                         logId,
@@ -139,7 +142,9 @@ export class MedicationAdherenceManager {
                         status,
                         adherencePercentage: medAdherencePercentage,
                         isFutureSchedule: isFuture,
-                        futureDateText: futureText
+                        futureDateText: futureText,
+                        isToday: isTodaySlot,
+                        canMark
                     });
                 }
             }
@@ -190,6 +195,15 @@ export class MedicationAdherenceManager {
         await this.resolveBeneficiaryId();
         const scheduledTime = new Date(scheduledTimeIso);
         
+        // Strict Today validation: Adherence can ONLY be marked on the scheduled day (Today)
+        const now = new Date();
+        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+
+        if (scheduledTime < todayStart || scheduledTime > todayEnd) {
+            throw new Error('Medication adherence can only be marked on the scheduled day (Today). Past or future doses cannot be modified.');
+        }
+
         let finalRecordedBy = recordedBy;
         
         // Self-healing validation for recordedBy to prevent DB foreign key violations

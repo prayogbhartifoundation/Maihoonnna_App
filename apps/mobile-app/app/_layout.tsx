@@ -17,6 +17,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { registerForPushNotifications } from '@/services/notifications';
 import { NavigationStackProvider, useNavigationStack } from '@/contexts/NavigationStackContext';
+import * as Notifications from 'expo-notifications';
+import { triggerEmergencyAlert } from '@/services/emergencyTrigger';
 
 // Keep splash screen visible while we load fonts + session
 SplashScreen.preventAutoHideAsync();
@@ -50,7 +52,7 @@ function onAppStateChange(status: AppStateStatus) {
  * cannot reach the login screen. This is exactly how Swiggy/Zomato/Uber work.
  */
 function RootNavigator() {
-  const { isLoading, isLoggedIn } = useAuth();
+  const { isLoading, isLoggedIn, role } = useAuth();
   const { resetStack } = useNavigationStack();
 
   // Reset logical navigation stack when auth state changes
@@ -64,6 +66,84 @@ function RootNavigator() {
       registerForPushNotifications();
     }
   }, [isLoggedIn]);
+
+  // ─── SOS Background Persistent Notification (Beneficiary only) ───────────────
+  useEffect(() => {
+    if (!isLoggedIn || role !== 'beneficiary' || Platform.OS === 'web') return;
+
+    const SOS_CATEGORY = 'SOS_EMERGENCY';
+    const SOS_CHANNEL = 'sos-emergency';
+
+    let responseSub: Notifications.EventSubscription | null = null;
+
+    const setupSosNotification = async () => {
+      try {
+        // 1. Create high-priority Android channel for SOS
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync(SOS_CHANNEL, {
+            name: '🚨 SOS Emergency',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 500, 250, 500],
+            lightColor: '#E7000B',
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+            sound: null,
+            bypassDnd: true,
+          });
+        }
+
+        // 2. Register action category with an SOS button
+        await Notifications.setNotificationCategoryAsync(SOS_CATEGORY, [
+          {
+            identifier: 'SOS_TRIGGER',
+            buttonTitle: '🚨 Send Emergency SOS',
+            options: {
+              isDestructive: true,
+              isAuthenticationRequired: false,
+              opensAppToForeground: false, // fires in background
+            },
+          },
+        ]);
+
+        // 3. Cancel any previously scheduled SOS notification, then schedule persistent one
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '🛡️ MaiHoonNa Emergency Ready',
+            body: 'Tap "Send Emergency SOS" to instantly alert your care team.',
+            categoryIdentifier: SOS_CATEGORY,
+            // sticky/persistent behavior is enforced by the MAX-importance Android channel
+            ...(Platform.OS === 'android' ? { channelId: SOS_CHANNEL } : {}),
+            data: { type: 'SOS_BACKGROUND' },
+          },
+          trigger: null, // deliver immediately
+        });
+
+        // 4. Listen for notification action responses (fires even when app is background)
+        responseSub = Notifications.addNotificationResponseReceivedListener(async (response) => {
+          const actionId = response.actionIdentifier;
+          const data = response.notification.request.content.data;
+          if (actionId === 'SOS_TRIGGER' && data?.type === 'SOS_BACKGROUND') {
+            console.log('[SOS] Background SOS triggered from notification action');
+            try {
+              await triggerEmergencyAlert('SOS Emergency triggered via background notification action');
+            } catch (err) {
+              console.error('[SOS] Background trigger failed:', err);
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('[SOS] Failed to set up persistent SOS notification:', err);
+      }
+    };
+
+    setupSosNotification();
+
+    // Cleanup: remove SOS notification on logout
+    return () => {
+      responseSub?.remove();
+      Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+    };
+  }, [isLoggedIn, role]);
 
   // While we're checking AsyncStorage, show a native splash-compatible loader
   if (isLoading) {

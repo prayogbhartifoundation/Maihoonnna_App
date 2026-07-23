@@ -49,4 +49,59 @@ router.post(
   })
 );
 
+// GET emergency history for the beneficiary (their own past SOS requests)
+router.get(
+  '/:beneficiaryId/emergency/history',
+  authenticate,
+  asyncHandler(async (req: any, res: Response) => {
+    const resolvedId = await resolveBeneficiaryId(req.params.beneficiaryId);
+
+    const requests = await prisma.emergencyRequest.findMany({
+      where: { beneficiaryId: resolvedId },
+      include: {
+        requester: { select: { id: true, name: true } },
+        assignee:  { select: { id: true, name: true, role: true } },
+        beneficiary: {
+          include: {
+            primaryCC:   { include: { user: { select: { id: true, name: true } } } },
+            secondaryCC: { include: { user: { select: { id: true, name: true } } } },
+            subscriber:  { select: { id: true, name: true } },
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const formatted = requests.map((r) => ({
+      id:              r.id,
+      ticketNumber:    r.ticketNumber,
+      status:          r.status,
+      description:     r.description,
+      locationAddress: r.locationAddress,
+      locationLat:     r.locationLat,
+      locationLng:     r.locationLng,
+      triggeredAt:     r.createdAt,
+      resolvedAt:      r.resolvedAt,
+      resolutionNotes: r.resolutionNotes,
+      notes:           r.notes,                               // JSON timeline
+      notifiedParties: [
+        r.beneficiary.subscriber
+          ? { role: 'Subscriber (Family)', name: r.beneficiary.subscriber.name }
+          : null,
+        r.beneficiary.primaryCC?.user
+          ? { role: 'Primary Care Companion', name: r.beneficiary.primaryCC.user.name }
+          : null,
+        r.beneficiary.secondaryCC?.user
+          ? { role: 'Secondary Care Companion', name: r.beneficiary.secondaryCC.user.name }
+          : null,
+      ].filter(Boolean),
+      respondedBy: r.assignee
+        ? { name: r.assignee.name, role: r.assignee.role }
+        : null,
+    }));
+
+    res.json(new ApiResponse(200, formatted));
+  })
+);
+
 export default router;

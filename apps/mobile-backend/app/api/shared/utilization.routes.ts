@@ -413,6 +413,34 @@ router.post('/request-service', authenticate, async (req: AuthRequest, res: Resp
     // Resolve subscriberId if userRole is subscriber
     const subscriberId = userRole === 'subscriber' ? userId : null;
 
+    // Validate benefit balance is not exhausted
+    const cleanBenId = String(beneficiaryId).replace('unlinked-', '');
+    const activeSub = await prisma.subscription.findFirst({
+      where: {
+        OR: [
+          { beneficiaryId: beneficiaryId },
+          { id: cleanBenId }
+        ],
+        isActive: true
+      },
+      include: {
+        benefitBalances: {
+          where: { benefitId: benefitId }
+        }
+      }
+    });
+
+    if (activeSub && activeSub.benefitBalances && activeSub.benefitBalances.length > 0) {
+      const balance = activeSub.benefitBalances[0];
+      const remaining = balance.totalUnits - balance.usedUnits;
+      if (balance.totalUnits > 0 && remaining <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Benefit exhausted. Connect with support team to renew or upgrade your package.'
+        });
+      }
+    }
+
     const request = await prisma.serviceRequest.create({
       data: {
         beneficiaryId,
