@@ -73,4 +73,23 @@ router.post(
   })
 );
 
+// Route to respond to a rescheduled Sathi visit request
+router.post(
+  '/:beneficiaryId/sathi/visit-requests/:requestId/respond-reschedule',
+  authenticate,
+  asyncHandler(async (req: any, res: Response) => {
+    const { action } = req.body; // 'ACCEPT' | 'REJECT'
+    if (!action || !['ACCEPT', 'REJECT'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Invalid action.' });
+    }
+    const resolvedId = await resolveBeneficiaryId(req.params.beneficiaryId);
+    const request = await beneficiarySathiService.respondToSathiReschedule(
+      resolvedId,
+      req.params.requestId,
+      action
+    );
+    res.json(new ApiResponse(200, request, `Reschedule ${action === 'ACCEPT' ? 'accepted' : 'declined'} successfully.`));
+  })
+);
+
 export default router;

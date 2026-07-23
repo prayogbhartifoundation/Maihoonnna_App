@@ -220,6 +220,33 @@ export default function SathiRequestScreen() {
     }
   };
 
+  const handleRespondReschedule = async (requestId: string, action: 'ACCEPT' | 'REJECT') => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const userStr = await AsyncStorage.getItem('userData');
+      if (!token || !userStr) return;
+      const user = JSON.parse(userStr);
+      
+      const res = await fetch(`${API_URL}/beneficiary/sathi-requests/${user.id}/sathi/visit-requests/${requestId}/respond-reschedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok || data.success) {
+        showAlert('Success', data.message || `Reschedule ${action === 'ACCEPT' ? 'accepted' : 'declined'} successfully.`);
+        checkEligibility(); // Refresh list
+      } else {
+        throw new Error(data.message || 'Failed to respond to reschedule.');
+      }
+    } catch (err: any) {
+      showAlert('Error', err.message || 'Network error.');
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -441,42 +468,121 @@ export default function SathiRequestScreen() {
           </View>
         </View>
 
-        {myRequests.length > 0 && (
-          <View style={styles.requestsContainer}>
-            <Text style={styles.sectionTitle}>My Requests</Text>
-            {myRequests.map((req) => (
-              <View key={req.id} style={styles.requestCard}>
-                <View style={styles.reqHeader}>
-                  <Text style={styles.reqDate}>
-                    {format(new Date(req.dateTime), 'MMM d, yyyy • h:mm a')}
-                  </Text>
-                  <View style={[
-                    styles.statusBadge, 
-                    req.status === 'ACCEPTED' ? styles.statusAccepted : 
-                    req.status === 'REJECTED' ? styles.statusRejected : 
-                    styles.statusPending
-                  ]}>
-                    <Text style={[
-                      styles.statusText,
-                      req.status === 'ACCEPTED' ? styles.statusTextAccepted : 
-                      req.status === 'REJECTED' ? styles.statusTextRejected : 
-                      styles.statusTextPending
-                    ]}>
-                      {req.status}
-                    </Text>
-                  </View>
+        {(() => {
+          const rescheduledRequests = myRequests.filter(req => req.proposedDateTime != null);
+          const otherRequests = myRequests.filter(req => req.proposedDateTime == null);
+          
+          return (
+            <>
+              {rescheduledRequests.length > 0 && (
+                <View style={styles.requestsContainer}>
+                  <Text style={styles.sectionTitle}>Rescheduled Requests</Text>
+                  {rescheduledRequests.map((req) => (
+                    <View key={req.id} style={styles.requestCard}>
+                      <View style={styles.reqHeader}>
+                        <Text style={styles.reqDate}>
+                          {format(new Date(req.dateTime), 'MMM d, yyyy • h:mm a')}
+                        </Text>
+                        <View style={[
+                          styles.statusBadge, 
+                          req.status === 'ACCEPTED' ? styles.statusAccepted : 
+                          req.status === 'REJECTED' ? styles.statusRejected : 
+                          { backgroundColor: '#FFEDD5' }
+                        ]}>
+                          <Text style={[
+                            styles.statusText,
+                            req.status === 'ACCEPTED' ? styles.statusTextAccepted : 
+                            req.status === 'REJECTED' ? styles.statusTextRejected : 
+                            { color: '#C2410C' }
+                          ]}>
+                            {req.status === 'ACCEPTED' ? 'RESCHEDULE ACCEPTED' : 
+                             req.status === 'REJECTED' ? 'RESCHEDULE REJECTED' : 
+                             'RESCHEDULE'}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.reqReason} numberOfLines={2}>{req.reason}</Text>
+
+                      {req.status === 'RESCHEDULE_PROPOSED' && req.proposedDateTime && (
+                        <View style={{ backgroundColor: '#FFF7ED', padding: 12, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#FED7AA' }}>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#9A3412', marginBottom: 4 }}>
+                            Proposed New Date:
+                          </Text>
+                          <Text style={{ fontSize: 13, color: '#C2410C', marginBottom: 8 }}>
+                            {format(new Date(req.proposedDateTime), 'EEEE, d MMMM yyyy • h:mm a')}
+                          </Text>
+                          {req.rejectionReason && (
+                            <Text style={{ fontSize: 13, color: '#9A3412', fontStyle: 'italic', marginBottom: 12 }}>
+                              "{req.rejectionReason}"
+                            </Text>
+                          )}
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <TouchableOpacity
+                              style={{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center' }}
+                              onPress={() => handleRespondReschedule(req.id, 'REJECT')}
+                            >
+                              <Text style={{ color: '#4B5563', fontWeight: '600', fontSize: 13 }}>Decline</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#F97316', alignItems: 'center' }}
+                              onPress={() => handleRespondReschedule(req.id, 'ACCEPT')}
+                            >
+                              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Accept</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+
+                      {req.volunteer && (
+                        <View style={styles.reqVolunteer}>
+                          <Image source={{uri: sanitizeImageUri(req.volunteer.profilePhoto, 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120')}} style={styles.reqVolPhoto} />
+                          <Text style={styles.reqVolName}>{req.volunteer.name}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
                 </View>
-                <Text style={styles.reqReason} numberOfLines={2}>{req.reason}</Text>
-                {req.volunteer && (
-                  <View style={styles.reqVolunteer}>
-                    <Image source={{uri: sanitizeImageUri(req.volunteer.profilePhoto, 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120')}} style={styles.reqVolPhoto} />
-                    <Text style={styles.reqVolName}>{req.volunteer.name}</Text>
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
+              )}
+
+              {otherRequests.length > 0 && (
+                <View style={styles.requestsContainer}>
+                  <Text style={styles.sectionTitle}>My Requests</Text>
+                  {otherRequests.map((req) => (
+                    <View key={req.id} style={styles.requestCard}>
+                      <View style={styles.reqHeader}>
+                        <Text style={styles.reqDate}>
+                          {format(new Date(req.dateTime), 'MMM d, yyyy • h:mm a')}
+                        </Text>
+                        <View style={[
+                          styles.statusBadge, 
+                          req.status === 'ACCEPTED' ? styles.statusAccepted : 
+                          req.status === 'REJECTED' ? styles.statusRejected : 
+                          styles.statusPending
+                        ]}>
+                          <Text style={[
+                            styles.statusText,
+                            req.status === 'ACCEPTED' ? styles.statusTextAccepted : 
+                            req.status === 'REJECTED' ? styles.statusTextRejected : 
+                            styles.statusTextPending
+                          ]}>
+                            {req.status}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.reqReason} numberOfLines={2}>{req.reason}</Text>
+                      {req.volunteer && (
+                        <View style={styles.reqVolunteer}>
+                          <Image source={{uri: sanitizeImageUri(req.volunteer.profilePhoto, 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120')}} style={styles.reqVolPhoto} />
+                          <Text style={styles.reqVolName}>{req.volunteer.name}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          );
+        })()}
 
         <Text style={styles.sectionTitle}>Available Volunteers</Text>
 

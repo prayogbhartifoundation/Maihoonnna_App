@@ -133,8 +133,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.removeItem('userToken');
       await AsyncStorage.removeItem('userData');
       await AsyncStorage.clear();
+      if (Platform.OS !== 'web') {
+        await SecureStore.deleteItemAsync('secureUserToken').catch(() => {});
+        await SecureStore.deleteItemAsync('secureUserData').catch(() => {});
+      }
     } catch (err) {
-      console.error('[AuthContext] Failed to clear AsyncStorage:', err);
+      console.error('[AuthContext] Failed to clear session on logout:', err);
     }
     setState({
       isLoading: false,

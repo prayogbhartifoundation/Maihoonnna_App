@@ -533,6 +533,52 @@ export const getVolunteerCreditTransactions = async (volunteerId: string) => {
 
 
 
+export const proposeRescheduleForSathiRequest = async (
+  volunteerId: string,
+  requestId: string,
+  proposedDateTime: string,
+  message?: string
+) => {
+  const request = await prisma.sathiVisitRequest.findUnique({
+    where: { id: requestId },
+    include: { beneficiary: true }
+  });
+
+  if (!request) {
+    throw new ApiError(404, 'Sathi visit request not found.');
+  }
+
+  const assignment = await prisma.volunteerAssignment.findFirst({
+    where: { volunteerId, beneficiaryId: request.beneficiaryId, isActive: true }
+  });
+
+  if (!assignment) {
+    throw new ApiError(403, 'You are not assigned as a companion to this beneficiary.');
+  }
+
+  if (!['PENDING', 'RESCHEDULE_PROPOSED'].includes(request.status)) {
+    throw new ApiError(400, `Cannot propose reschedule for a request with status: ${request.status}.`);
+  }
+
+  const proposed = new Date(proposedDateTime);
+  if (isNaN(proposed.getTime())) {
+    throw new ApiError(400, 'Invalid proposed date/time.');
+  }
+
+  const updatedRequest = await prisma.sathiVisitRequest.update({
+    where: { id: requestId },
+    data: {
+      status: 'RESCHEDULE_PROPOSED',
+      proposedDateTime: proposed,
+      proposedBy: volunteerId,
+      rejectionReason: message || null
+    },
+    include: { beneficiary: true }
+  });
+
+  return { request: updatedRequest, message: 'Reschedule proposal sent to beneficiary.' };
+};
+
 export const getVolunteerSathiRequests = async (volunteerId: string) => {
   const assignments = await prisma.volunteerAssignment.findMany({
     where: { volunteerId, isActive: true },
@@ -600,38 +646,16 @@ export const respondToSathiVisitRequest = async (
   }
 
   if (action === 'ACCEPT') {
-    const { eligible, sathiBalanceId } = await getBeneficiarySathiEligibility(request.beneficiaryId);
-    if (!eligible || !sathiBalanceId) {
-      throw new ApiError(400, 'Beneficiary has no remaining Sathi Companion units to schedule this visit.');
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const balance = await tx.subscriptionBenefitBalance.findUnique({
-        where: { id: sathiBalanceId }
-      });
-
-      if (!balance || balance.totalUnits - balance.usedUnits <= 0) {
-        throw new ApiError(400, 'Beneficiary has no remaining Sathi Companion units.');
-      }
-
-      await tx.subscriptionBenefitBalance.update({
-        where: { id: sathiBalanceId },
-        data: { usedUnits: balance.usedUnits + 1 }
-      });
-
-      const updatedRequest = await tx.sathiVisitRequest.update({
-        where: { id: requestId },
-        data: {
-          status: 'ACCEPTED',
-          volunteerId
-        },
-        include: { beneficiary: true }
-      });
-
-      return updatedRequest;
+    const updatedRequest = await prisma.sathiVisitRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'ACCEPTED',
+        volunteerId
+      },
+      include: { beneficiary: true }
     });
 
-    return { request: result, message: 'Visit request accepted successfully.' };
+    return { request: updatedRequest, message: 'Visit request accepted successfully.' };
   } else {
     const updatedRejectedBy = [...request.rejectedBy, volunteerId];
 

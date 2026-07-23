@@ -16,7 +16,7 @@ router.get(
   })
 );
 
-// POST /sathi/visit-requests/:requestId/respond -> accept or reject Sathi request
+// POST /sathi/visit-requests/:requestId/respond -> accept Sathi request (no reject — use propose-reschedule instead)
 router.post(
   '/visit-requests/:requestId/respond',
   authenticate,
@@ -30,6 +30,25 @@ router.post(
       req.params.requestId,
       action,
       rejectionReason
+    );
+    res.json(new ApiResponse(200, result.request, result.message));
+  })
+);
+
+// POST /sathi/visit-requests/:requestId/propose-reschedule -> volunteer proposes a new date/time
+router.post(
+  '/visit-requests/:requestId/propose-reschedule',
+  authenticate,
+  asyncHandler(async (req: any, res: Response) => {
+    const { proposedDateTime, message } = req.body;
+    if (!proposedDateTime) {
+      return res.status(400).json({ success: false, message: 'proposedDateTime is required.' });
+    }
+    const result = await sathiService.proposeRescheduleForSathiRequest(
+      req.userId!,
+      req.params.requestId,
+      proposedDateTime,
+      message
     );
     res.json(new ApiResponse(200, result.request, result.message));
   })

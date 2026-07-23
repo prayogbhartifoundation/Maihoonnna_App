@@ -23,6 +23,7 @@ import { SathiBottomNav } from '@/components/shared/SathiBottomNav';
 import { useExitOnBack } from '@/hooks/useExitOnBack';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Dimensions } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -58,6 +59,11 @@ export default function SathiDashboard() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [fetchingProfile, setFetchingProfile] = useState(false);
+
+  // Reschedule modal states
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleRequestId, setRescheduleRequestId] = useState<string | null>(null);
+
 
   const handleOpenEdit = async () => {
     try {
@@ -255,50 +261,31 @@ export default function SathiDashboard() {
     }
   };
 
-  const handleRespondRequest = async (requestId: string, action: 'ACCEPT' | 'REJECT') => {
+  const handleRespondRequest = async (requestId: string, action: 'ACCEPT') => {
     try {
-      if (action === 'REJECT') {
-        if (Platform.OS === 'web') {
-          const reason = window.prompt('Please enter a reason for rejecting this companion visit:');
-          if (reason !== null) {
-            await submitResponse(requestId, action, reason);
-          }
-        } else {
-          Alert.prompt(
-            'Reject Request',
-            'Please enter a reason for rejecting this companion visit:',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Reject',
-                style: 'destructive',
-                onPress: async (reason?: string) => {
-                  await submitResponse(requestId, action, reason || '');
-                }
-              }
-            ],
-            'plain-text'
-          );
-        }
-      } else {
-        Alert.alert(
-          'Accept Request',
-          'Are you sure you want to accept this companion visit request?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Accept',
-              onPress: async () => {
-                await submitResponse(requestId, action);
-              }
+      Alert.alert(
+        'Accept Request',
+        'Are you sure you want to accept this companion visit request?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Accept',
+            onPress: async () => {
+              await submitResponse(requestId, action);
             }
-          ]
-        );
-      }
+          }
+        ]
+      );
     } catch (err) {
       Alert.alert('Error', 'Failed to process request action.');
     }
   };
+
+  const handleOpenReschedule = (requestId: string) => {
+    setRescheduleRequestId(requestId);
+    setShowRescheduleModal(true);
+  };
+
 
   const submitResponse = async (requestId: string, action: 'ACCEPT' | 'REJECT', reason?: string) => {
     try {
@@ -382,9 +369,10 @@ export default function SathiDashboard() {
 
   // ─── Verification Pending & Rejected Onboarding views ────────────────────────
   // ─── Verification Pending & Rejected Onboarding views ────────────────────────
-  const appStatus = dashboard?.applicationStatus || 'SUBMITTED';
+  const appStatus = dashboard?.applicationStatus;
 
-  if (appStatus !== 'APPROVED') {
+  // Only gate on status once dashboard is loaded — avoids showing pending screen on logout/initial load
+  if (dashboard && appStatus && appStatus !== 'APPROVED') {
     const isRejected = appStatus === 'REJECTED';
     const isSuspended = appStatus === 'SUSPENDED';
     const isNotApplied = appStatus === 'NOT_APPLIED';
@@ -846,7 +834,7 @@ export default function SathiDashboard() {
                   
                   <TouchableOpacity 
                     style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF4ED', borderWidth: 1, borderColor: '#FF6F00', paddingVertical: scale(12), borderRadius: scale(20) }}
-                    onPress={() => handleRespondRequest(item.id, 'REJECT')}
+                    onPress={() => handleOpenReschedule(item.id)}
                   >
                     <Ionicons name="refresh-outline" size={16} color="#FF6F00" style={{ marginRight: 6 }} />
                     <Text style={{ color: '#FF6F00', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Reschedule</Text>
@@ -867,9 +855,144 @@ export default function SathiDashboard() {
       </ScrollView>
 
       <SathiBottomNav />
+
+      {/* Reschedule Proposal Modal */}
+      {showRescheduleModal && rescheduleRequestId && (
+        <RescheduleModal
+          visible={showRescheduleModal}
+          requestId={rescheduleRequestId}
+          onClose={() => setShowRescheduleModal(false)}
+          onSuccess={() => {
+            setShowRescheduleModal(false);
+            fetchDashboardData();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
+
+// Extracted separate component to avoid losing keyboard focus on re-renders
+const RescheduleModal = ({ visible, requestId, onClose, onSuccess }: { visible: boolean, requestId: string, onClose: () => void, onSuccess: () => void }) => {
+  const [proposedDate, setProposedDate] = useState(new Date(new Date().setHours(10, 0, 0, 0)));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [rescheduleMessage, setRescheduleMessage] = useState('');
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
+
+  const handleSubmitReschedule = async () => {
+    if (!requestId) return;
+
+    const proposedISO = proposedDate.toISOString();
+
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      setSubmittingReschedule(true);
+      const response = await fetch(`${API_URL}/sathi/visit-requests/${requestId}/propose-reschedule`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ proposedDateTime: proposedISO, message: rescheduleMessage }),
+      });
+
+      const data = await response.json();
+      if (response.ok || data.success) {
+        Alert.alert('Sent!', 'Your reschedule proposal has been sent to the beneficiary.');
+        onSuccess();
+      } else {
+        Alert.alert('Failed', data.message || 'Could not send reschedule proposal.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not connect to the backend server.');
+    } finally {
+      setSubmittingReschedule(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: scale(24), paddingBottom: scale(40) }}>
+          <Text style={{ fontSize: scale(18), fontFamily: 'Poppins-Bold', color: '#111827', marginBottom: scale(4) }}>Propose New Schedule</Text>
+          <Text style={{ fontSize: scale(13), fontFamily: 'Poppins-Regular', color: '#6B7280', marginBottom: scale(24) }}>Suggest a new date and time. The beneficiary will review your proposal.</Text>
+
+          <Text style={{ fontSize: scale(13), fontFamily: 'Poppins-SemiBold', color: '#374151', marginBottom: scale(8) }}>Proposed Date</Text>
+          <TouchableOpacity
+            style={{ borderWidth: 1, borderColor: '#E5E7EB', borderRadius: scale(12), paddingHorizontal: scale(16), paddingVertical: scale(12), marginBottom: scale(16), backgroundColor: '#F9FAFB', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={{ fontSize: scale(14), fontFamily: 'Poppins-Regular', color: '#111827' }}>
+              {proposedDate.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </Text>
+            <Ionicons name="calendar-outline" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: scale(13), fontFamily: 'Poppins-SemiBold', color: '#374151', marginBottom: scale(8) }}>Proposed Time</Text>
+          <TouchableOpacity
+            style={{ borderWidth: 1, borderColor: '#E5E7EB', borderRadius: scale(12), paddingHorizontal: scale(16), paddingVertical: scale(12), marginBottom: scale(16), backgroundColor: '#F9FAFB', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            onPress={() => setShowTimePicker(true)}
+          >
+            <Text style={{ fontSize: scale(14), fontFamily: 'Poppins-Regular', color: '#111827' }}>
+              {proposedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+            <Ionicons name="time-outline" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: scale(13), fontFamily: 'Poppins-SemiBold', color: '#374151', marginBottom: scale(8) }}>Message (Optional)</Text>
+          <TextInput
+            style={{ borderWidth: 1, borderColor: '#E5E7EB', borderRadius: scale(12), paddingHorizontal: scale(16), paddingVertical: scale(12), fontSize: scale(14), fontFamily: 'Poppins-Regular', color: '#111827', marginBottom: scale(28), backgroundColor: '#F9FAFB', height: scale(80), textAlignVertical: 'top' }}
+            placeholder="e.g. I have an exam in the morning, can we do afternoon?"
+            placeholderTextColor="#9CA3AF"
+            value={rescheduleMessage}
+            onChangeText={setRescheduleMessage}
+            multiline
+          />
+
+          {(showDatePicker || showTimePicker) && (
+            <DateTimePicker
+              value={proposedDate}
+              mode={showDatePicker ? 'date' : 'time'}
+              display="default"
+              minimumDate={new Date()}
+              onChange={(event, selectedDate) => {
+                if (Platform.OS === 'android') {
+                  setShowDatePicker(false);
+                  setShowTimePicker(false);
+                }
+                if (selectedDate) {
+                  setProposedDate(selectedDate);
+                }
+              }}
+            />
+          )}
+
+          <View style={{ flexDirection: 'row', gap: scale(12) }}>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: scale(14), borderRadius: scale(20), borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' }}
+              onPress={onClose}
+            >
+              <Text style={{ color: '#6B7280', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: scale(14), borderRadius: scale(20), backgroundColor: '#FF6F00', alignItems: 'center', opacity: submittingReschedule ? 0.7 : 1 }}
+              onPress={handleSubmitReschedule}
+              disabled={submittingReschedule}
+            >
+              {submittingReschedule
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Send Proposal</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
