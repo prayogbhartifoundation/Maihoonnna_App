@@ -64,6 +64,44 @@ export default function SathiDashboard() {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [rescheduleRequestId, setRescheduleRequestId] = useState<string | null>(null);
 
+  // OTP Verification States
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpRequestId, setOtpRequestId] = useState<string | null>(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+
+  // Feedback States
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackRequestId, setFeedbackRequestId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackNotes, setFeedbackNotes] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  // Active Visit Timer State
+  const [activeVisitElapsedTime, setActiveVisitElapsedTime] = useState('00:00:00');
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (dashboard?.activeVisit && dashboard.activeVisit.checkInTime) {
+      interval = setInterval(() => {
+        const start = new Date(dashboard.activeVisit.checkInTime).getTime();
+        const now = new Date().getTime();
+        const diff = Math.max(0, now - start);
+
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        
+        setActiveVisitElapsedTime(
+          `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+        );
+      }, 1000);
+    } else {
+      setActiveVisitElapsedTime('00:00:00');
+    }
+    return () => clearInterval(interval);
+  }, [dashboard?.activeVisit]);
+
 
   const handleOpenEdit = async () => {
     try {
@@ -349,6 +387,122 @@ export default function SathiDashboard() {
     } catch (error) {
       Alert.alert('Error', 'Could not connect to the backend server.');
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!otpInput || otpInput.length !== 4) {
+      Alert.alert('Error', 'Please enter a valid 4-digit PIN.');
+      return;
+    }
+
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      setVerifyingOtp(true);
+      const response = await fetch(`${API_URL}/sathi/visit-requests/${otpRequestId}/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          otpCode: otpInput,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok || data.success) {
+        Alert.alert('Success', 'PIN Verified! Visit is now in progress.');
+        setShowOtpModal(false);
+        setOtpInput('');
+        fetchDashboardData();
+        replace('/(sathi)/hours');
+      } else {
+        Alert.alert('Verification Failed', data.message || 'Invalid PIN.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not verify PIN. Please try again.');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleSkipFeedback = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      setSubmittingFeedback(true);
+      // We can just call the same feedback endpoint with a 0 rating and empty notes, 
+      // or a new skip endpoint. Since the backend allows any rating and notes,
+      // we just submit dummy feedback to mark it complete.
+      const response = await fetch(`${API_URL}/sathi/visit-requests/${feedbackRequestId}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          feedbackNotes: 'No feedback provided.',
+          feedbackRating: 0,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok || data.success) {
+        setShowFeedbackModal(false);
+        setFeedbackNotes('');
+        setFeedbackRating(5);
+        fetchDashboardData();
+      } else {
+        Alert.alert('Failed', data.message || 'Could not skip feedback.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not skip feedback. Please try again.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackNotes.trim()) {
+      Alert.alert('Validation Error', 'Please enter some notes for this visit.');
+      return;
+    }
+
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      setSubmittingFeedback(true);
+      const response = await fetch(`${API_URL}/sathi/visit-requests/${feedbackRequestId}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          feedbackNotes,
+          feedbackRating,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok || data.success) {
+        Alert.alert('Success', 'Feedback submitted successfully.');
+        setShowFeedbackModal(false);
+        setFeedbackNotes('');
+        setFeedbackRating(5);
+        fetchDashboardData();
+      } else {
+        Alert.alert('Failed', data.message || 'Could not submit feedback.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not submit feedback. Please try again.');
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -730,8 +884,31 @@ export default function SathiDashboard() {
                   <Text style={{ fontSize: scale(13), color: '#4B5563', fontFamily: 'Poppins-Medium' }}>{formattedTime}</Text>
                 </View>
 
-                {/* Start Visit Button OR Countdown */}
-                {!isWithinOneHour && countdownText ? (
+                {/* Start Visit Button OR Countdown OR IN PROGRESS OR COMPLETED */}
+                {item.status === 'COMPLETED' ? (
+                  <TouchableOpacity
+                    style={{ marginTop: scale(20), backgroundColor: '#10B981', paddingVertical: scale(12), borderRadius: scale(20), flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}
+                    onPress={() => {
+                      setFeedbackRequestId(item.id);
+                      setShowFeedbackModal(true);
+                    }}
+                  >
+                    <Ionicons name="star" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Submit Visit Feedback</Text>
+                  </TouchableOpacity>
+                ) : item.status === 'IN_PROGRESS' ? (
+                  <View style={{ marginTop: scale(20) }}>
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#DBEAFE', paddingVertical: scale(12), borderRadius: scale(20), flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#93C5FD' }}
+                      onPress={() => replace('/(sathi)/hours')}
+                    >
+                      <Ionicons name="time" size={18} color="#1E40AF" style={{ marginRight: 6 }} />
+                      <Text style={{ color: '#1E40AF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>
+                        {activeVisitElapsedTime} - End Visit
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : !isWithinOneHour && countdownText ? (
                   <View style={{ marginTop: scale(20), backgroundColor: '#F3F4F6', paddingVertical: scale(12), borderRadius: scale(20), flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
                     <Ionicons name="time-outline" size={18} color="#9CA3AF" style={{ marginRight: 6 }} />
                     <Text style={{ color: '#6B7280', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>{countdownText}</Text>
@@ -740,11 +917,8 @@ export default function SathiDashboard() {
                   <TouchableOpacity
                     style={{ marginTop: scale(20), backgroundColor: '#FF6F00', paddingVertical: scale(12), borderRadius: scale(20), flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}
                     onPress={() => {
-                      if (!item.assignmentId) {
-                        Alert.alert('Error', 'No assignment found for this beneficiary.');
-                        return;
-                      }
-                      handleStartVisit(item.beneficiaryId, item.assignmentId);
+                      setOtpRequestId(item.id);
+                      setShowOtpModal(true);
                     }}
                   >
                     <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -868,6 +1042,113 @@ export default function SathiDashboard() {
           }}
         />
       )}
+
+      {/* OTP Verification Modal */}
+      <Modal visible={showOtpModal} transparent animationType="slide" onRequestClose={() => setShowOtpModal(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: scale(24), paddingBottom: scale(40) }}>
+            <Text style={{ fontSize: scale(18), fontFamily: 'Poppins-Bold', color: '#111827', marginBottom: scale(4) }}>Start Visit</Text>
+            <Text style={{ fontSize: scale(13), fontFamily: 'Poppins-Regular', color: '#6B7280', marginBottom: scale(24) }}>Ask the beneficiary for the 4-digit PIN displayed on their app to start the visit.</Text>
+
+            <TextInput
+              style={{ borderWidth: 1, borderColor: '#E5E7EB', borderRadius: scale(12), paddingHorizontal: scale(16), paddingVertical: scale(16), fontSize: scale(24), fontFamily: 'Poppins-Bold', color: '#111827', marginBottom: scale(24), backgroundColor: '#F9FAFB', textAlign: 'center', letterSpacing: 8 }}
+              placeholder="----"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="number-pad"
+              maxLength={4}
+              value={otpInput}
+              onChangeText={setOtpInput}
+            />
+
+            <View style={{ flexDirection: 'row', gap: scale(12) }}>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: scale(14), borderRadius: scale(12), backgroundColor: '#F3F4F6', alignItems: 'center' }}
+                onPress={() => {
+                  setShowOtpModal(false);
+                  setOtpInput('');
+                }}
+              >
+                <Text style={{ color: '#4B5563', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: scale(14), borderRadius: scale(12), backgroundColor: '#10B981', alignItems: 'center', opacity: verifyingOtp || otpInput.length !== 4 ? 0.7 : 1 }}
+                onPress={handleVerifyOTP}
+                disabled={verifyingOtp || otpInput.length !== 4}
+              >
+                {verifyingOtp ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Verify PIN</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Feedback Modal */}
+      <Modal visible={showFeedbackModal} transparent animationType="slide" onRequestClose={() => setShowFeedbackModal(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: scale(24), paddingBottom: scale(40) }}>
+            <Text style={{ fontSize: scale(18), fontFamily: 'Poppins-Bold', color: '#111827', marginBottom: scale(4) }}>Visit Completed</Text>
+            <Text style={{ fontSize: scale(13), fontFamily: 'Poppins-Regular', color: '#6B7280', marginBottom: scale(24) }}>Please rate the visit and add some notes for your records.</Text>
+
+            <Text style={{ fontSize: scale(13), fontFamily: 'Poppins-SemiBold', color: '#374151', marginBottom: scale(8) }}>Rating</Text>
+            <View style={{ flexDirection: 'row', gap: scale(16), marginBottom: scale(24), justifyContent: 'center' }}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <TouchableOpacity key={star} onPress={() => setFeedbackRating(star)}>
+                  <Ionicons name={feedbackRating >= star ? "star" : "star-outline"} size={scale(36)} color={feedbackRating >= star ? "#F59E0B" : "#D1D5DB"} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={{ fontSize: scale(13), fontFamily: 'Poppins-SemiBold', color: '#374151', marginBottom: scale(8) }}>Notes</Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: '#E5E7EB', borderRadius: scale(12), paddingHorizontal: scale(16), paddingVertical: scale(12), fontSize: scale(14), fontFamily: 'Poppins-Regular', color: '#111827', marginBottom: scale(28), backgroundColor: '#F9FAFB', height: scale(80), textAlignVertical: 'top' }}
+              placeholder="How did the visit go? What did you do together?"
+              placeholderTextColor="#9CA3AF"
+              value={feedbackNotes}
+              onChangeText={setFeedbackNotes}
+              multiline
+            />
+
+            <View style={{ flexDirection: 'row', gap: scale(12) }}>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: scale(14), borderRadius: scale(12), backgroundColor: '#F3F4F6', alignItems: 'center' }}
+                onPress={() => {
+                  setShowFeedbackModal(false);
+                  setFeedbackNotes('');
+                  setFeedbackRating(5);
+                }}
+              >
+                <Text style={{ color: '#4B5563', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: scale(14), borderRadius: scale(12), backgroundColor: '#10B981', alignItems: 'center', opacity: submittingFeedback || !feedbackNotes.trim() ? 0.7 : 1 }}
+                onPress={handleSubmitFeedback}
+                disabled={submittingFeedback || !feedbackNotes.trim()}
+              >
+                {submittingFeedback ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={{ marginTop: scale(16), alignItems: 'center', paddingVertical: scale(8) }}
+              onPress={handleSkipFeedback}
+              disabled={submittingFeedback}
+            >
+              <Text style={{ color: '#9CA3AF', fontFamily: 'Poppins-Medium', fontSize: scale(14), textDecorationLine: 'underline' }}>Skip Feedback</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }

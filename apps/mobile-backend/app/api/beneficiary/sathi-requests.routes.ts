@@ -92,4 +92,15 @@ router.post(
   })
 );
 
+// Route to complete a Sathi visit
+router.post(
+  '/:beneficiaryId/sathi/visit-requests/:requestId/complete',
+  authenticate,
+  asyncHandler(async (req: any, res: Response) => {
+    const resolvedId = await resolveBeneficiaryId(req.params.beneficiaryId);
+    const result = await beneficiarySathiService.completeSathiVisit(resolvedId, req.params.requestId);
+    res.json(new ApiResponse(200, result.request, result.message));
+  })
+);
+
 export default router;

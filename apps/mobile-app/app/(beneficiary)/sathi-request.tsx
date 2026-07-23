@@ -533,6 +533,38 @@ export default function SathiRequestScreen() {
                         </View>
                       )}
 
+                      {req.status === 'ACCEPTED' && req.otpCode && (
+                        <View style={{ backgroundColor: '#F0FDF4', padding: 12, borderRadius: 8, marginTop: 4, marginBottom: 12, borderWidth: 1, borderColor: '#BBF7D0', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 13, color: '#166534', marginBottom: 4 }}>Share this PIN when your Sathi arrives:</Text>
+                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#15803D', letterSpacing: 4 }}>{req.otpCode}</Text>
+                        </View>
+                      )}
+
+                      {req.status === 'IN_PROGRESS' && (
+                        <TouchableOpacity
+                          style={{ backgroundColor: '#F97316', paddingVertical: 12, borderRadius: 8, marginTop: 4, marginBottom: 12, alignItems: 'center' }}
+                          onPress={async () => {
+                            try {
+                              const token = await AsyncStorage.getItem('userToken');
+                              const userStr = await AsyncStorage.getItem('userData');
+                              if (!token || !userStr) return;
+                              const user = JSON.parse(userStr);
+                              
+                              const res = await fetch(`${API_URL}/beneficiary/sathi-requests/${user.id}/sathi/visit-requests/${req.id}/complete`, {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              if (res.ok) {
+                                checkEligibility();
+                                showAlert('Success', 'Visit completed!');
+                              }
+                            } catch (e) {}
+                          }}
+                        >
+                          <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Complete Visit</Text>
+                        </TouchableOpacity>
+                      )}
+
                       {req.volunteer && (
                         <View style={styles.reqVolunteer}>
                           <Image source={{uri: sanitizeImageUri(req.volunteer.profilePhoto, 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120')}} style={styles.reqVolPhoto} />
@@ -557,19 +589,55 @@ export default function SathiRequestScreen() {
                           styles.statusBadge, 
                           req.status === 'ACCEPTED' ? styles.statusAccepted : 
                           req.status === 'REJECTED' ? styles.statusRejected : 
+                          req.status === 'IN_PROGRESS' ? { backgroundColor: '#DBEAFE' } :
+                          req.status === 'COMPLETED' ? { backgroundColor: '#ECFCCB' } :
                           styles.statusPending
                         ]}>
                           <Text style={[
                             styles.statusText,
                             req.status === 'ACCEPTED' ? styles.statusTextAccepted : 
                             req.status === 'REJECTED' ? styles.statusTextRejected : 
+                            req.status === 'IN_PROGRESS' ? { color: '#1E40AF' } :
+                            req.status === 'COMPLETED' ? { color: '#3F6212' } :
                             styles.statusTextPending
                           ]}>
-                            {req.status}
+                            {req.status === 'IN_PROGRESS' ? 'IN PROGRESS' : req.status}
                           </Text>
                         </View>
                       </View>
                       <Text style={styles.reqReason} numberOfLines={2}>{req.reason}</Text>
+
+                      {req.status === 'ACCEPTED' && req.otpCode && (
+                        <View style={{ backgroundColor: '#F0FDF4', padding: 12, borderRadius: 8, marginTop: 4, marginBottom: 12, borderWidth: 1, borderColor: '#BBF7D0', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 13, color: '#166534', marginBottom: 4 }}>Share this PIN when your Sathi arrives:</Text>
+                          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#15803D', letterSpacing: 4 }}>{req.otpCode}</Text>
+                        </View>
+                      )}
+
+                      {req.status === 'IN_PROGRESS' && (
+                        <TouchableOpacity
+                          style={{ backgroundColor: '#F97316', paddingVertical: 12, borderRadius: 8, marginTop: 4, marginBottom: 12, alignItems: 'center' }}
+                          onPress={async () => {
+                            try {
+                              const token = await AsyncStorage.getItem('userToken');
+                              const userStr = await AsyncStorage.getItem('userData');
+                              if (!token || !userStr) return;
+                              const user = JSON.parse(userStr);
+                              
+                              const res = await fetch(`${API_URL}/beneficiary/sathi-requests/${user.id}/sathi/visit-requests/${req.id}/complete`, {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              if (res.ok) {
+                                checkEligibility();
+                                showAlert('Success', 'Visit completed!');
+                              }
+                            } catch (e) {}
+                          }}
+                        >
+                          <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Complete Visit</Text>
+                        </TouchableOpacity>
+                      )}
                       {req.volunteer && (
                         <View style={styles.reqVolunteer}>
                           <Image source={{uri: sanitizeImageUri(req.volunteer.profilePhoto, 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120')}} style={styles.reqVolPhoto} />

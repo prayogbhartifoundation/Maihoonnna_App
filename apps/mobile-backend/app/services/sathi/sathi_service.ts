@@ -184,18 +184,22 @@ export const getVolunteerDashboard = async (id: string) => {
           name: true,
           photo: true,
           age: true,
-          address: true
+          address: true,
+          hobbiesInterests: true
         }
       }
     },
     orderBy: { dateTime: 'asc' }
   });
 
-  // Fetch upcoming accepted visits for this volunteer
+  // Fetch upcoming accepted, in-progress, and completed (needs feedback) visits for this volunteer
   const upcomingVisits = await prisma.sathiVisitRequest.findMany({
     where: {
       volunteerId: id,
-      status: 'ACCEPTED',
+      OR: [
+        { status: { in: ['ACCEPTED', 'IN_PROGRESS'] } },
+        { status: 'COMPLETED', feedbackRating: null }
+      ]
     },
     include: {
       beneficiary: {
@@ -252,7 +256,7 @@ export const getVolunteerDashboard = async (id: string) => {
       location: r.beneficiary.address,
       dateTime: r.dateTime.toISOString(),
       reason: r.reason,
-      bio: r.beneficiary.bio,
+      bio: '', // Beneficiary has no bio field in Prisma schema
       hobbies: r.beneficiary.hobbiesInterests || []
     })),
     upcomingVisits: upcomingVisits.map(v => {
@@ -266,7 +270,8 @@ export const getVolunteerDashboard = async (id: string) => {
         age: v.beneficiary.age,
         location: v.beneficiary.address,
         dateTime: v.dateTime.toISOString(),
-        reason: v.reason
+        reason: v.reason,
+        status: v.status
       };
     })
   };
@@ -646,11 +651,14 @@ export const respondToSathiVisitRequest = async (
   }
 
   if (action === 'ACCEPT') {
+    const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+
     const updatedRequest = await prisma.sathiVisitRequest.update({
       where: { id: requestId },
       data: {
         status: 'ACCEPTED',
-        volunteerId
+        volunteerId,
+        otpCode
       },
       include: { beneficiary: true }
     });
@@ -679,4 +687,124 @@ export const respondToSathiVisitRequest = async (
 
     return { request: updatedRequest, message: 'Visit request rejected.' };
   }
+};
+
+export const verifySathiVisitOtp = async (volunteerId: string, requestId: string, otpCode: string) => {
+  const request = await prisma.sathiVisitRequest.findUnique({
+    where: { id: requestId }
+  });
+
+  if (!request) {
+    throw new ApiError(404, 'Sathi visit request not found.');
+  }
+
+  if (request.volunteerId !== volunteerId) {
+    throw new ApiError(403, 'You are not the assigned Sathi for this visit.');
+  }
+
+  if (request.status !== 'ACCEPTED') {
+    throw new ApiError(400, 'This visit is not in an accepted state.');
+  }
+
+  if (request.otpCode !== otpCode) {
+    throw new ApiError(400, 'Invalid OTP. Please check the code with the beneficiary and try again.');
+  }
+
+  const assignment = await prisma.volunteerAssignment.findFirst({
+    where: { volunteerId, beneficiaryId: request.beneficiaryId, isActive: true }
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, 'Assignment not found or inactive.');
+  }
+
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      beneficiaryId: request.beneficiaryId,
+      isActive: true,
+      benefitBalances: {
+        some: {
+          benefit: {
+            benefitType: { name: 'Sathi Companion' }
+          }
+        }
+      }
+    },
+    include: {
+      benefitBalances: {
+        include: { benefit: { include: { benefitType: true } } }
+      }
+    }
+  });
+
+  if (!subscription) {
+    throw new ApiError(400, 'Beneficiary does not have an active subscription with Sathi Companion benefits.');
+  }
+
+  const sathiBalance = subscription.benefitBalances.find(
+    b => b.benefit.benefitType.code === 'SATHI_COMPANION' || b.benefit.benefitType.name.toLowerCase().includes('sathi')
+  );
+
+  if (!sathiBalance || (sathiBalance.totalUnits - sathiBalance.usedUnits) <= 0) {
+    throw new ApiError(400, 'Beneficiary has exhausted their Sathi Companion benefit hours.');
+  }
+
+  const updatedRequest = await prisma.sathiVisitRequest.update({
+    where: { id: requestId },
+    data: {
+      status: 'IN_PROGRESS'
+    }
+  });
+
+  // Start the timer session
+  await prisma.volunteerVisitLog.create({
+    data: {
+      volunteerId,
+      beneficiaryId: request.beneficiaryId,
+      assignmentId: assignment.id,
+      subscriptionId: subscription.id,
+      subscriptionBenefitBalanceId: sathiBalance.id,
+      checkInTime: new Date(),
+      status: 'in_progress',
+    }
+  });
+
+  return { request: updatedRequest, message: 'OTP verified. Visit timer started.' };
+};
+
+export const submitSathiVisitFeedback = async (
+  volunteerId: string, 
+  requestId: string, 
+  feedbackNotes: string, 
+  feedbackRating: number
+) => {
+  const request = await prisma.sathiVisitRequest.findUnique({
+    where: { id: requestId }
+  });
+
+  if (!request) {
+    throw new ApiError(404, 'Sathi visit request not found.');
+  }
+
+  if (request.volunteerId !== volunteerId) {
+    throw new ApiError(403, 'You are not the assigned Sathi for this visit.');
+  }
+
+  if (request.status !== 'COMPLETED') {
+    throw new ApiError(400, 'You can only submit feedback for completed visits.');
+  }
+
+  if (request.feedbackRating) {
+    throw new ApiError(400, 'Feedback has already been submitted for this visit.');
+  }
+
+  const updatedRequest = await prisma.sathiVisitRequest.update({
+    where: { id: requestId },
+    data: {
+      feedbackNotes,
+      feedbackRating
+    }
+  });
+
+  return { request: updatedRequest, message: 'Feedback submitted successfully.' };
 };

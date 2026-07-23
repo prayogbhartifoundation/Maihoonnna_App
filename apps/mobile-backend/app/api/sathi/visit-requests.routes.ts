@@ -54,4 +54,41 @@ router.post(
   })
 );
 
+// POST /sathi/visit-requests/:requestId/verify-otp -> volunteer verifies OTP
+router.post(
+  '/visit-requests/:requestId/verify-otp',
+  authenticate,
+  asyncHandler(async (req: any, res: Response) => {
+    const { otpCode } = req.body;
+    if (!otpCode) {
+      return res.status(400).json({ success: false, message: 'OTP code is required.' });
+    }
+    const result = await sathiService.verifySathiVisitOtp(
+      req.userId!,
+      req.params.requestId,
+      otpCode
+    );
+    res.json(new ApiResponse(200, result.request, result.message));
+  })
+);
+
+// POST /sathi/visit-requests/:requestId/feedback -> volunteer submits feedback
+router.post(
+  '/visit-requests/:requestId/feedback',
+  authenticate,
+  asyncHandler(async (req: any, res: Response) => {
+    const { feedbackNotes, feedbackRating } = req.body;
+    if (!feedbackNotes || !feedbackRating) {
+      return res.status(400).json({ success: false, message: 'Feedback notes and rating are required.' });
+    }
+    const result = await sathiService.submitSathiVisitFeedback(
+      req.userId!,
+      req.params.requestId,
+      feedbackNotes,
+      Number(feedbackRating)
+    );
+    res.json(new ApiResponse(200, result.request, result.message));
+  })
+);
+
 export default router;
