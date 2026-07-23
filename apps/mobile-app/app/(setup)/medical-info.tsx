@@ -12,9 +12,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import HeaderSpacer from '@/components/HeaderSpacer';
+import { AddMedicineModal } from '@/components/ui/AddMedicineModal';
 
 type Medication = {
     name: string;
@@ -596,169 +596,40 @@ export default function MedicalInfoScreen() {
             </Modal>
 
             {/* Modal: Add Medicine */}
-            <Modal visible={showMedicineModal} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalMedicineContent}>
-                        <Text style={styles.modalTitle}>
-                            {editingIndex !== null ? 'Edit Medicine' : 'Add Medicine'}
-                        </Text>
-                        
-                        <Text style={styles.inputLabelSm}>Medication Name</Text>
-                        <TextInput
-                            style={styles.modalInput}
-                            placeholder="e.g., Amoxicillin"
-                            placeholderTextColor="#9CA3AF"
-                            value={newMedicine.name}
-                            maxLength={50}
-                            onChangeText={(t) => setNewMedicine({...newMedicine, name: t})}
-                        />
-
-                        <View style={styles.splitRow}>
-                            <View style={{ flex: 1, marginRight: 10 }}>
-                                <Text style={styles.inputLabelSm}>Dosage</Text>
-                                <TextInput
-                                    style={styles.modalInput}
-                                    placeholder="250mg"
-                                    placeholderTextColor="#9CA3AF"
-                                    value={newMedicine.dosage}
-                                    maxLength={30}
-                                    onChangeText={(t) => setNewMedicine({...newMedicine, dosage: t})}
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.inputLabelSm}>Frequency</Text>
-                                <View style={styles.timeChipsRow}>
-                                    {[
-                                        { label: 'Once', value: 'once_daily' },
-                                        { label: 'Twice', value: 'twice_daily' },
-                                        { label: 'Thrice', value: 'thrice_daily' }
-                                    ].map((f) => (
-                                        <TouchableOpacity 
-                                            key={f.value} 
-                                            style={[
-                                                styles.timeChip, 
-                                                newMedicine.frequency === f.value ? styles.timeChipSelected : styles.timeChipUnselected,
-                                                { paddingVertical: 8 }
-                                            ]}
-                                            onPress={() => {
-                                                let maxSlots = 3;
-                                                if (f.value === 'once_daily') maxSlots = 1;
-                                                else if (f.value === 'twice_daily') maxSlots = 2;
-                                                const truncatedTimes = newMedicine.timesPerDay.slice(0, maxSlots);
-                                                setNewMedicine({ ...newMedicine, frequency: f.value, timesPerDay: truncatedTimes });
-                                            }}
-                                        >
-                                            <Text style={[styles.timeChipText, { fontSize: 11 }]}>{f.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </View>
-                        </View>
-
-                        <Text style={styles.inputLabelSm}>Instructions (Optional)</Text>
-                        <TextInput
-                            style={styles.modalInput}
-                            placeholder="e.g., Take after food"
-                            placeholderTextColor="#9CA3AF"
-                            value={newMedicine.instructions ?? ''}
-                            maxLength={100}
-                            onChangeText={(t) => setNewMedicine({...newMedicine, instructions: t})}
-                        />
-
-                        <View style={styles.splitRow}>
-                            <View style={{ flex: 1, marginRight: 10 }}>
-                                <Text style={styles.inputLabelSm}>Start Date *</Text>
-                                <TouchableOpacity 
-                                    style={styles.modalInputWithIcon}
-                                    onPress={() => {
-                                        if (Platform.OS === 'web') {
-                                            alert("Please type the date directly (dd-mm-yyyy). The calendar picker will work natively on the mobile app.");
-                                        }
-                                        setStartDatePickerVisibility(true);
-                                    }}
-                                >
-                                    <TextInput
-                                        style={styles.modalFlexInput}
-                                        placeholder="DD-MM-YYYY"
-                                        placeholderTextColor="#9CA3AF"
-                                        value={newMedicine.startDate}
-                                        maxLength={10}
-                                        onChangeText={(t) => setNewMedicine({...newMedicine, startDate: formatEditingDate(t)})}
-                                    />
-                                    <Ionicons name="calendar-outline" size={16} color="#9CA3AF" style={{ marginRight: 6 }} />
-                                </TouchableOpacity>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.inputLabelSm}>End Date (Optional)</Text>
-                                <TouchableOpacity 
-                                    style={styles.modalInputWithIcon}
-                                    onPress={() => {
-                                        if (Platform.OS === 'web') {
-                                            alert("Please type the date directly (dd-mm-yyyy). The calendar picker will work natively on the mobile app.");
-                                        }
-                                        setEndDatePickerVisibility(true);
-                                    }}
-                                >
-                                    <TextInput
-                                        style={styles.modalFlexInput}
-                                        placeholder="DD-MM-YYYY"
-                                        placeholderTextColor="#9CA3AF"
-                                        value={newMedicine.endDate}
-                                        maxLength={10}
-                                        onChangeText={(t) => setNewMedicine({...newMedicine, endDate: formatEditingDate(t)})}
-                                    />
-                                    <Ionicons name="calendar-outline" size={16} color="#9CA3AF" style={{ marginRight: 6 }} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        <View style={styles.dividerLine} />
-
-                        <View style={styles.splitRowBetween}>
-                            <Text style={styles.inputLabelSm}>Times per day</Text>
-                            <Text style={styles.timesCountText}>{newMedicine.timesPerDay.length} times</Text>
-                        </View>
-
-                        <View style={styles.timeChipsRow}>
-                            {['Morning', 'Afternoon', 'Evening'].map((slot) => {
-                                const isSelected = newMedicine.timesPerDay.includes(slot);
-                                return (
-                                    <TouchableOpacity 
-                                        key={slot} 
-                                        style={[styles.timeChip, isSelected ? styles.timeChipSelected : styles.timeChipUnselected]}
-                                        onPress={() => toggleTimeSlot(slot)}
-                                    >
-                                        <Text style={[styles.timeChipText, isSelected ? styles.timeChipTextSelected : styles.timeChipTextUnselected]}>{slot}</Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-
-                        <View style={styles.reminderRow}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Ionicons name="notifications-outline" size={20} color="#4B5563" />
-                                <Text style={styles.reminderText}>Set Reminders</Text>
-                            </View>
-                            <Switch 
-                                trackColor={{ false: "#D1D5DB", true: "#FDBA74" }}
-                                thumbColor={newMedicine.setReminders ? "#F97316" : "#F3F4F6"}
-                                ios_backgroundColor="#D1D5DB"
-                                onValueChange={(v) => setNewMedicine({...newMedicine, setReminders: v})}
-                                value={newMedicine.setReminders}
-                            />
-                        </View>
-
-                        <TouchableOpacity style={styles.modalPrimaryBtn} onPress={addMedicine}>
-                            <Text style={styles.modalPrimaryBtnText}>
-                                {editingIndex !== null ? 'Save Changes' : 'Add to Schedule'}
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.modalSecondaryBtn} onPress={cancelModal}>
-                            <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
-                        </TouchableOpacity>
-                    </KeyboardAvoidingView>
-                </View>
-            </Modal>
+            <AddMedicineModal
+                visible={showMedicineModal}
+                onClose={cancelModal}
+                onSave={async (medData) => {
+                    if (editingIndex !== null) {
+                        const updated = [...medications];
+                        updated[editingIndex] = {
+                            name: medData.name,
+                            dosage: medData.dosage,
+                            frequency: medData.frequency,
+                            instructions: medData.instructions || '',
+                            startDate: medData.startDate || getTodayFormatted(),
+                            endDate: medData.endDate || '',
+                            timesPerDay: medData.timesPerDay || [],
+                            setReminders: !!medData.setReminders
+                        };
+                        setMedications(updated);
+                    } else {
+                        setMedications([...medications, {
+                            name: medData.name,
+                            dosage: medData.dosage,
+                            frequency: medData.frequency,
+                            instructions: medData.instructions || '',
+                            startDate: medData.startDate || getTodayFormatted(),
+                            endDate: medData.endDate || '',
+                            timesPerDay: medData.timesPerDay || [],
+                            setReminders: !!medData.setReminders
+                        }]);
+                    }
+                    setShowMedicineModal(false);
+                    setEditingIndex(null);
+                }}
+                initialData={editingIndex !== null ? medications[editingIndex] : null}
+            />
 
             <DateTimePickerModal
                 isVisible={isStartDatePickerVisible}

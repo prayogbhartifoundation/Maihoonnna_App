@@ -316,11 +316,17 @@ router.get('/:visitId/details', authenticate, async (req: Request, res: Response
       return true;
     });
 
-    // Fetch active medications for the beneficiary
+    // Fetch active medications within active timeline for the beneficiary
+    const now = new Date();
     const medications = await prisma.medication.findMany({
       where: {
         beneficiaryId: visit.beneficiaryId,
         isActive: true,
+        startDate: { lte: now },
+        OR: [
+          { endDate: null },
+          { endDate: { gte: now } }
+        ]
       },
       select: {
         id: true,

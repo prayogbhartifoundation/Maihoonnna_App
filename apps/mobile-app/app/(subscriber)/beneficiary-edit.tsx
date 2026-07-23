@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import GlobalDrawer from './components/shared/GlobalDrawer';
 import { Animated, Dimensions } from 'react-native';
-import AddMedicineModal, { type Medication } from './components/shared/AddMedicineModal';
+import { AddMedicineModal, MedicationFormData } from '@/components/ui/AddMedicineModal';
 import { AddressInputField } from '../../components/ui/AddressInputField';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,7 +52,7 @@ export default function EditBeneficiaryScreen() {
     const [latitude, setLatitude] = useState(0);
     const [longitude, setLongitude] = useState(0);
     const [conditions, setConditions] = useState<string[]>([]);
-    const [medications, setMedications] = useState<Medication[]>([]);
+    const [medications, setMedications] = useState<MedicationFormData[]>([]);
     const [physicianName, setPhysicianName] = useState('');
     const [physicianPhone, setPhysicianPhone] = useState('');
     const [physicianSpec, setPhysicianSpec] = useState('');
@@ -83,22 +83,29 @@ export default function EditBeneficiaryScreen() {
     };
 
     useEffect(() => {
+        let isMounted = true;
         const init = async () => {
             try {
                 const token = await AsyncStorage.getItem('userToken');
                 const userStr = await AsyncStorage.getItem('userData');
-                if (userStr) setUserData(JSON.parse(userStr));
+                if (userStr && isMounted) setUserData(JSON.parse(userStr));
 
-                // 1. Fetch vitals config
-                const vRes = await fetch(`${API_URL}/public/vitals?activeOnly=true`);
-                const vData = await vRes.json();
-                if (vData.success) setVitalsConfig(vData.data);
+                // Fetch vitals config and beneficiary profile concurrently
+                const [vRes, bRes] = await Promise.all([
+                    fetch(`${API_URL}/public/vitals?activeOnly=true`),
+                    fetch(`${API_URL}/subscriber/beneficiaries/${id}/profile`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
 
-                // 2. Fetch Beneficiary Data (Fetch instead of parsing from params)
-                const bRes = await fetch(`${API_URL}/subscriber/beneficiaries/${id}/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const bData = await bRes.json();
+                const [vData, bData] = await Promise.all([
+                    vRes.json(),
+                    bRes.json()
+                ]);
+
+                if (!isMounted) return;
+
+                if (vData.success) setVitalsConfig(vData.data || []);
 
                 if (bData.success) {
                     const beneficiary = bData.data;
@@ -112,8 +119,11 @@ export default function EditBeneficiaryScreen() {
                         name: m.name,
                         dosage: m.dosage,
                         frequency: m.frequency,
-                        timeSlots: m.timeSlots || [],
-                        setReminders: m.setReminders
+                        instructions: m.instructions || '',
+                        startDate: m.startDate || '',
+                        endDate: m.endDate || '',
+                        timesPerDay: m.timeSlots || [],
+                        setReminders: !!m.setReminders
                     })) || []);
                     setPhysicianName(beneficiary.primaryPhysicianName || '');
                     setPhysicianPhone(beneficiary.primaryPhysicianPhone || '');
@@ -131,7 +141,6 @@ export default function EditBeneficiaryScreen() {
                     setLongitude(beneficiary.longitude || 0);
 
                     const vFlags: Record<string, boolean> = {};
-                    // Initialize from relational configs
                     if (beneficiary.vitalConfigs) {
                         beneficiary.vitalConfigs.forEach((config: any) => {
                             vFlags[config.vitalDefinitionId] = !!config.isActive;
@@ -143,10 +152,11 @@ export default function EditBeneficiaryScreen() {
                 console.error('Init error:', e);
                 showAlert('Error', 'Failed to load beneficiary data');
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
         if (id) init();
+        return () => { isMounted = false; };
     }, [id]);
 
     const handleSave = async () => {
@@ -228,7 +238,21 @@ export default function EditBeneficiaryScreen() {
     };
 
     if (loading) return (
-        <SafeAreaView style={styles.center}><ActivityIndicator size="large" color="#F97316" /></SafeAreaView>
+        <SafeAreaView style={styles.safeArea}>
+            <View style={styles.inlineHeader}>
+                <TouchableOpacity onPress={() => safeBack()} style={styles.iconBtn}>
+                    <Ionicons name="arrow-back" size={24} color="#111827" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Edit Profile</Text>
+                <View style={styles.iconBtn} />
+            </View>
+            <View style={[styles.center, { flex: 1, backgroundColor: '#FAF5F0' }]}>
+                <ActivityIndicator size="large" color="#F97316" />
+                <Text style={{ marginTop: 12, fontSize: 14, color: '#6B7280', fontWeight: '500' }}>
+                    Loading profile details...
+                </Text>
+            </View>
+        </SafeAreaView>
     );
 
     return (
@@ -473,7 +497,19 @@ export default function EditBeneficiaryScreen() {
             <AddMedicineModal
                 visible={showMedicineModal}
                 onClose={() => setShowMedicineModal(false)}
-                onAdd={(med) => setMedications(prev => [...prev, med])}
+                onSave={async (med) => {
+                    setMedications(prev => [...prev, {
+                        name: med.name,
+                        dosage: med.dosage,
+                        frequency: med.frequency,
+                        instructions: med.instructions || '',
+                        startDate: med.startDate || '',
+                        endDate: med.endDate || '',
+                        timesPerDay: med.timesPerDay || [],
+                        setReminders: !!med.setReminders
+                    }]);
+                    setShowMedicineModal(false);
+                }}
             />
 
             {/* Relationship Selection Modal */}

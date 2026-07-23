@@ -5,6 +5,7 @@ import { API_URL } from '@/constants/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
+import { AddMedicineModal, MedicationFormData } from '@/components/ui/AddMedicineModal';
 
 const { width } = Dimensions.get('window');
 
@@ -131,6 +132,10 @@ export const MedicalTab = ({ beneficiary, conditions, onRefresh }: { beneficiary
     const [docName, setDocName] = useState("");
     const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
 
+    // Medication state
+    const [isMedModalVisible, setIsMedModalVisible] = useState(false);
+    const [addingMed, setAddingMed] = useState(false);
+
     const handlePickDocument = async () => {
         try {
             const res = await DocumentPicker.getDocumentAsync({
@@ -212,6 +217,80 @@ export const MedicalTab = ({ beneficiary, conditions, onRefresh }: { beneficiary
         }
     };
 
+    const formatFrequency = (freq?: string) => {
+        if (!freq) return 'Once Daily';
+        switch (freq) {
+            case 'once_daily': return 'Once Daily';
+            case 'twice_daily': return 'Twice Daily';
+            case 'thrice_daily': return 'Thrice Daily';
+            case 'four_times_daily': return '4 Times Daily';
+            case 'as_needed': return 'As Needed';
+            case 'weekly': return 'Weekly';
+            default: return freq.replace(/_/g, ' ');
+        }
+    };
+
+    const handleAddMedication = async (medData: MedicationFormData) => {
+        try {
+            setAddingMed(true);
+            const token = await AsyncStorage.getItem('userToken');
+            const res = await fetch(`${API_URL}/subscriber/beneficiaries/${beneficiary.id}/medications`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: medData.name.trim(),
+                    dosage: medData.dosage?.trim() || 'Take as directed',
+                    frequency: medData.frequency || 'twice_daily',
+                    instructions: medData.instructions?.trim() || undefined,
+                    startDate: medData.startDate || undefined,
+                    endDate: medData.endDate || undefined,
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                Alert.alert("Success", "Medication added successfully.");
+                setIsMedModalVisible(false);
+                onRefresh();
+            } else {
+                Alert.alert("Error", data.message || "Failed to add medication.");
+            }
+        } catch (e) {
+            console.error("Error adding medication:", e);
+            Alert.alert("Error", "Failed to add medication.");
+        } finally {
+            setAddingMed(false);
+        }
+    };
+
+    const handleDeleteMedication = (medId: string, medName: string) => {
+        Alert.alert("Remove Medication", `Are you sure you want to remove ${medName} from ongoing medications?`, [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: "Remove",
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        const token = await AsyncStorage.getItem('userToken');
+                        const res = await fetch(`${API_URL}/subscriber/beneficiaries/medications/${medId}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            Alert.alert("Removed", "Medication removed from active list.");
+                            onRefresh();
+                        }
+                    } catch (e) {
+                        Alert.alert("Error", "Failed to remove medication.");
+                    }
+                }
+            }
+        ]);
+    };
+
     return (
         <View style={{ paddingHorizontal: 20 }}>
             {/* Medical Conditions */}
@@ -281,17 +360,50 @@ export const MedicalTab = ({ beneficiary, conditions, onRefresh }: { beneficiary
                 </Modal>
             </View>
             
-            {/* Medications */}
+            {/* Medications Card */}
             <View style={styles.medCard}>
-                <Text style={styles.medCardTitle}>Current Medications</Text>
+                <View style={styles.medCardHeaderRow}>
+                    <Text style={styles.medCardTitle}>Current Medications</Text>
+                    <TouchableOpacity 
+                        style={styles.addMedBtn} 
+                        onPress={() => setIsMedModalVisible(true)}
+                    >
+                        <Ionicons name="add-circle" size={18} color="#F97316" />
+                        <Text style={styles.addMedBtnText}>Add</Text>
+                    </TouchableOpacity>
+                </View>
+
                 {beneficiary.medicationList?.length > 0 ? (
                     beneficiary.medicationList.map((m: any, i: number) => (
-                        <Text key={i} style={styles.medValue}>• {m.name} {m.dosage} ({m.frequency})</Text>
+                        <View key={m.id || i} style={styles.medRowItem}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.medNameText}>
+                                    • {m.name} <Text style={styles.medDosageText}>{m.dosage}</Text>
+                                </Text>
+                                <Text style={styles.medSubDetail}>
+                                    Frequency: {formatFrequency(m.frequency)} {m.instructions ? `• ${m.instructions}` : ''}
+                                </Text>
+                            </View>
+                            <TouchableOpacity 
+                                onPress={() => handleDeleteMedication(m.id, m.name)}
+                                style={styles.trashBtn}
+                            >
+                                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                            </TouchableOpacity>
+                        </View>
                     ))
                 ) : (
                     <Text style={styles.medValue}>No active medications.</Text>
                 )}
             </View>
+
+            {/* Add Medication Modal */}
+            <AddMedicineModal
+                visible={isMedModalVisible}
+                onClose={() => setIsMedModalVisible(false)}
+                onSave={handleAddMedication}
+                loading={addingMed}
+            />
 
             {/* Physician & Hobbies */}
             <View style={styles.medCard}>
@@ -315,7 +427,82 @@ const styles = StyleSheet.create({
             android: { elevation: 2 },
         }),
     },
-    medCardTitle: { fontSize: 13, fontWeight: '600', color: '#6B7280', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 0.5 },
+    medCardHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    medCardTitle: { fontSize: 13, fontWeight: '600', color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5 },
+    addMedBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: '#FFF5ED',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 8,
+    },
+    addMedBtnText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#F97316',
+    },
+    medRowItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    medNameText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#111827',
+    },
+    medDosageText: {
+        fontWeight: '500',
+        color: '#4B5563',
+    },
+    medSubDetail: {
+        fontSize: 12,
+        color: '#6B7280',
+        marginTop: 2,
+    },
+    trashBtn: {
+        padding: 6,
+        marginLeft: 8,
+    },
+    inputLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 6,
+    },
+    freqPillRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 16,
+    },
+    freqPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        backgroundColor: '#F3F4F6',
+    },
+    freqPillActive: {
+        backgroundColor: '#F97316',
+    },
+    freqPillText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#4B5563',
+    },
+    freqPillTextActive: {
+        color: '#FFFFFF',
+    },
+
     conditionsTags: { gap: 10 },
     condTagLarge: { backgroundColor: '#FFF5ED', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' },
     dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#F97316', marginRight: 10 },

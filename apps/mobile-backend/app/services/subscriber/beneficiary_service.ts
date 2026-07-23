@@ -280,7 +280,17 @@ export const getBeneficiaryProfile = async (beneficiaryId: string) => {
           condition: true
         }
       },
-      medicationList: true,
+      medicationList: {
+        where: {
+          isActive: true,
+          startDate: { lte: now },
+          OR: [
+            { endDate: null },
+            { endDate: { gte: now } }
+          ]
+        },
+        orderBy: { createdAt: 'desc' }
+      },
       medicalRecords: {
         where: { isActive: true },
         orderBy: { recordDate: 'desc' }
@@ -667,4 +677,34 @@ export const getBeneficiaryPendingDetails = async (beneficiaryId: string) => {
     phone: beneficiary.user?.phone || '',
     dateOfBirth: beneficiary.dateOfBirth || beneficiary.user?.dateOfBirth || null
   };
+};
+
+export const addMedication = async (beneficiaryId: string, data: {
+  name: string;
+  dosage: string;
+  frequency?: string;
+  instructions?: string;
+  startDate?: string;
+  endDate?: string;
+}) => {
+  return prisma.medication.create({
+    data: {
+      id: generateUUID(),
+      beneficiaryId,
+      name: data.name.trim(),
+      dosage: (data.dosage || 'Take as directed').trim(),
+      frequency: (data.frequency as any) || 'once_daily',
+      instructions: data.instructions ? data.instructions.trim() : null,
+      startDate: data.startDate ? new Date(data.startDate) : new Date(),
+      endDate: data.endDate ? new Date(data.endDate) : null,
+      isActive: true,
+    }
+  });
+};
+
+export const deleteMedication = async (medicationId: string) => {
+  return prisma.medication.update({
+    where: { id: medicationId },
+    data: { isActive: false }
+  });
 };

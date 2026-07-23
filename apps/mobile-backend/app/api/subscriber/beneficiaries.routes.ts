@@ -43,4 +43,8 @@ router.post('/:beneficiaryId/medical-records/upload', authenticate, (req: any, r
 router.put('/medical-records/:recordId', authenticate, beneficiaryController.updateMedicalRecord);
 router.delete('/medical-records/:recordId', authenticate, beneficiaryController.deleteMedicalRecord);
 
+// Medication Management
+router.post('/:beneficiaryId/medications', authenticate, beneficiaryController.addMedication);
+router.delete('/medications/:medicationId', authenticate, beneficiaryController.deleteMedication);
+
 export default router;

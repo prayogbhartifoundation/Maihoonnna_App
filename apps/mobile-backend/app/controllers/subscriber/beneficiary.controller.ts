@@ -117,3 +117,23 @@ export const getBeneficiaryPendingDetails = async (req: Request, res: Response) 
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const addMedication = async (req: Request, res: Response) => {
+  try {
+    const beneficiaryId = req.params.beneficiaryId as string;
+    const data = await beneficiaryService.addMedication(beneficiaryId, req.body);
+    res.status(201).json({ success: true, data });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteMedication = async (req: Request, res: Response) => {
+  try {
+    const medicationId = req.params.medicationId as string;
+    await beneficiaryService.deleteMedication(medicationId);
+    res.json({ success: true, message: 'Medication removed successfully' });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
