@@ -2170,3 +2170,24 @@ The vital tracking system is now completely dynamic and configuration-driven. Ne
 - Implemented a live countdown timer for "Upcoming Visits" that dynamically renders the remaining time (days, hours, minutes) until a visit. 
 - Integrated countdown logic so the "Start Visit" button only becomes active within 1 hour of the scheduled visit (or if the Sathi is late), hiding it otherwise behind the countdown banner.
 - Updated the `handleStartVisit` action to immediately redirect the Sathi to the hours logging page (`hours.tsx`) upon a successful check-in.
+
+---
+
+## Session: Sathi Reschedule Flow & Visit Checkout Fix (2026-07-23)
+
+### Database Schema Updates
+- Added `RESCHEDULE_PROPOSED` state to the `SathiRequestStatus` enum in `schema.prisma`.
+- Added `proposedDateTime` and `proposedBy` tracking fields to the `SathiVisitRequest` model.
+- Pushed schema updates to the production database and regenerated the Prisma Client.
+
+### Backend Infrastructure (`mobile-backend`)
+- **Checkout Logic Audit**: Confirmed `checkoutVolunteerVisit` correctly tracks visit duration, enforces the 1-hour minimum threshold, and properly deducts units from the beneficiary's balance while awarding points to the Sathi.
+- **Fixed Accept Action**: Removed early balance deduction from `respondToSathiVisitRequest` when a volunteer accepts a request. Deductions now exclusively happen during checkout.
+- **New Service Method**: Added `proposeRescheduleForSathiRequest` to `sathi_service.ts` allowing volunteers to negotiate new visit times without outright rejecting requests.
+- **API Endpoint**: Added `POST /api/sathi/visit-requests/:requestId/propose-reschedule` routing logic.
+
+### Frontend UI/UX (`sathi-app/app/(sathi)/index.tsx`)
+- **Action Remapping**: Disconnected the "Reschedule" button from the old hard-rejection logic.
+- **Reschedule Modal**: Designed and built a sliding modal bottom-sheet prompting the volunteer to enter a proposed Date (DD/MM/YYYY) and Time (HH:MM).
+- **Date Handling**: Integrated client-side parsing transforming local DD/MM/YYYY inputs into strict ISO timestamps sent to the backend.
+- **Optimistic UI Update**: Closes the modal on success, triggers a green notification alert, and automatically re-fetches the Dashboard state.

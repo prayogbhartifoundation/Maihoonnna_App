@@ -126,3 +126,41 @@ export const getBeneficiarySathiRequests = async (beneficiaryId: string) => {
   });
   return requests;
 };
+
+export const respondToSathiReschedule = async (beneficiaryId: string, requestId: string, action: 'ACCEPT' | 'REJECT') => {
+  const request = await prisma.sathiVisitRequest.findUnique({
+    where: { id: requestId }
+  });
+
+  if (!request || request.beneficiaryId !== beneficiaryId) {
+    throw new ApiError(404, 'Sathi visit request not found.');
+  }
+
+  if (request.status !== 'RESCHEDULE_PROPOSED') {
+    throw new ApiError(400, 'Request is not in a rescheduled state.');
+  }
+
+  if (action === 'ACCEPT') {
+    if (!request.proposedDateTime) {
+      throw new ApiError(400, 'No proposed date time available to accept.');
+    }
+    const updatedRequest = await prisma.sathiVisitRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'ACCEPTED',
+        dateTime: request.proposedDateTime,
+        rejectionReason: null
+      }
+    });
+    return updatedRequest;
+  } else {
+    const updatedRequest = await prisma.sathiVisitRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: 'Beneficiary declined the reschedule proposal.'
+      }
+    });
+    return updatedRequest;
+  }
+};

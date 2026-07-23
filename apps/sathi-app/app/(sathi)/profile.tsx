@@ -124,6 +124,7 @@ export default function SathiProfile() {
         style: 'destructive',
         onPress: async () => {
           await logout();
+          router.replace('/(auth)');
         },
       },
     ]);
