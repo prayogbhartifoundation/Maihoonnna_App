@@ -6,15 +6,25 @@
  * Rejects anything that doesn't match, returning a safe placeholder instead.
  */
 
-const ALLOWED_SCHEMES = /^(https?:\/\/|file:\/\/|data:image\/)/i;
+const ALLOWED_PROTOCOLS = new Set(['http:', 'https:', 'file:']);
 
 export function sanitizeImageUri(uri: string | null | undefined, fallback = ''): string {
   if (!uri || typeof uri !== 'string') return fallback;
   const trimmed = uri.trim();
-  if (!ALLOWED_SCHEMES.test(trimmed)) return fallback;
-  try {
-    return encodeURI(trimmed);
-  } catch {
-    return fallback;
+  if (!trimmed) return fallback;
+
+  if (trimmed.startsWith('data:image/')) {
+    return trimmed;
   }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (ALLOWED_PROTOCOLS.has(parsed.protocol)) {
+      return encodeURI(parsed.href);
+    }
+  } catch {
+    // If not a valid absolute URL, return safe fallback
+  }
+  return fallback;
 }
+

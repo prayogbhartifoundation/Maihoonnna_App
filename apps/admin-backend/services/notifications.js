@@ -110,7 +110,7 @@ async function notifyUser(tx, { userId, type = 'system', title, body, data = {} 
     }
   } catch (err) {
     // Never let notification failure crash the main operation
-    console.error(`[NotificationService] Failed to notify user ${userId}:`, err.message);
+    console.error('[NotificationService] Failed to notify user:', userId, err.message);
   }
 }
 

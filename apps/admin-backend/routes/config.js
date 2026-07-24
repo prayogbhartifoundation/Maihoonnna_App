@@ -32,7 +32,7 @@ router.put('/:key', async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (err) {
-    console.error(`PUT /api/config/${req.params.key} error:`, err);
+    console.error('PUT /api/config/:key error:', req.params.key, err);
     res.status(500).json({ success: false, message: 'Failed to update system configuration' });
   }
 });

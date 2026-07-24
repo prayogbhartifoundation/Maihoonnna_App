@@ -145,7 +145,7 @@ router.put('/:id', async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (err) {
-    console.error(`PUT /regions/${req.params.id} error:`, err);
+    console.error('PUT /regions/:id error:', req.params.id, err);
     res.status(500).json({ success: false, message: 'Failed to update region' });
   }
 });
@@ -173,7 +173,7 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ success: true, message: 'Region deleted successfully' });
   } catch (err) {
-    console.error(`DELETE /regions/${req.params.id} error:`, err);
+    console.error('DELETE /regions/:id error:', req.params.id, err);
     res.status(500).json({ success: false, message: 'Failed to delete region' });
   }
 });

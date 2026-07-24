@@ -1356,7 +1356,7 @@ router.get('/staff/:userId', async (req, res) => {
 
     res.json({ success: true, data: responseData });
   } catch (err) {
-    console.error(`[DEBUG] GET /staff/${userId} CRASH:`, err);
+    console.error('[DEBUG] GET /staff/:id CRASH:', userId, err);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch staff details',
@@ -1544,7 +1544,7 @@ router.put('/staff/:userId', async (req, res) => {
 
     res.json({ success: true, message: 'Staff member updated successfully' });
   } catch (err) {
-    console.error(`PUT /staff/${userId} error:`, err);
+    console.error('PUT /staff/:id error:', userId, err);
     res
       .status(500)
       .json({
@@ -1639,7 +1639,7 @@ router.put('/staff/:userId/deactivate', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(`PUT /staff/${userId}/deactivate error:`, err);
+    console.error('PUT /staff/:id/deactivate error:', userId, err);
     res
       .status(500)
       .json({
