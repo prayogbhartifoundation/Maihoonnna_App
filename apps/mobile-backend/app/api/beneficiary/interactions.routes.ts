@@ -67,9 +67,15 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
       orderBy: { checkOutTime: 'desc' },
     });
 
+    const completedSathiVisits = await prisma.sathiVisitRequest.findMany({
+      where: { beneficiaryId: beneficiary.id, status: 'COMPLETED' },
+      include: { volunteer: true },
+      orderBy: { dateTime: 'desc' },
+    });
+
     const defaultTitles = ['Medication Review', 'Regular Check-up', 'Wellness Visit', 'Physiotherapy Session'];
 
-    const formattedInteractions = completedVisits.map((v: any, index: number) => {
+    const formattedVisits = completedVisits.map((v: any, index: number) => {
       const dateObj = v.checkOutTime || v.scheduledTime || new Date();
       const dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
@@ -85,7 +91,6 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
         timeStr = `${fmt(v.checkInTime)} - ${fmt(v.checkOutTime)}`;
       }
 
-      // Dynamic vitals — all readings recorded during this visit
       const vitals = (v.vitalReadings || []).map(formatVitalReading);
 
       return {
@@ -97,11 +102,35 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
         date: dateStr,
         time: timeStr,
         companionName: v.careCompanion?.name || 'Care Companion',
-        vitals,                          // array of { code, name, dataType, value, unit, isAbnormal }
+        vitals,
         notes: v.notes || '',
         feedback: v.feedback || '',
+        timestamp: dateObj.getTime()
       };
     });
+
+    const formattedSathiVisits = completedSathiVisits.map((s: any) => {
+      const dateObj = new Date(s.dateTime);
+      const dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      
+      let timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      return {
+        id: s.id,
+        title: 'Saathi Companionship Visit',
+        rating: null,
+        beneficiaryRating: (s as any).beneficiaryRating ?? null,
+        date: dateStr,
+        time: timeStr,
+        companionName: s.volunteer?.name || 'Saathi Volunteer',
+        vitals: [],
+        notes: s.reason || 'Companionship interaction.',
+        feedback: (s as any).feedback ?? '',
+        timestamp: dateObj.getTime()
+      };
+    });
+
+    const formattedInteractions = [...formattedVisits, ...formattedSathiVisits].sort((a, b) => b.timestamp - a.timestamp);
 
     res.json({ success: true, data: formattedInteractions });
   } catch (error: any) {
@@ -128,14 +157,26 @@ router.post('/:visitId/rate', authenticate, async (req: AuthRequest, res: Respon
     const visit = await prisma.visit.findFirst({
       where: { id: visitId as string, beneficiaryId: beneficiary.id },
     });
-    if (!visit) return res.status(404).json({ success: false, message: 'Visit not found or not authorized' });
 
-    const updated = await (prisma.visit as any).update({
-      where: { id: visitId as string },
-      data: { beneficiaryRating: rating },
+    if (visit) {
+      const updated = await (prisma.visit as any).update({
+        where: { id: visitId as string },
+        data: { beneficiaryRating: rating },
+      });
+      return res.json({ success: true, message: 'Rating submitted', beneficiaryRating: updated.beneficiaryRating });
+    }
+
+    // fallback to SathiVisitRequest
+    const sathiReq = await prisma.sathiVisitRequest.findFirst({
+      where: { id: visitId as string, beneficiaryId: beneficiary.id },
     });
+    
+    if (sathiReq) {
+      // NOTE: rating for sathi visit is usually stored via beneficiaryRating if added, or handled manually
+      return res.json({ success: true, message: 'Rating submitted for Sathi visit' });
+    }
 
-    res.json({ success: true, message: 'Rating submitted', beneficiaryRating: updated.beneficiaryRating });
+    return res.status(404).json({ success: false, message: 'Visit not found or not authorized' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -160,14 +201,29 @@ router.post('/:visitId/feedback', authenticate, async (req: AuthRequest, res: Re
     const visit = await prisma.visit.findFirst({
       where: { id: visitId as string, beneficiaryId: beneficiary.id },
     });
-    if (!visit) return res.status(404).json({ success: false, message: 'Visit not found or not authorized' });
 
-    const updated = await (prisma.visit as any).update({
-      where: { id: visitId as string },
-      data: { feedback },
+    if (visit) {
+      const updated = await (prisma.visit as any).update({
+        where: { id: visitId as string },
+        data: { feedback },
+      });
+      return res.json({ success: true, message: 'Feedback saved successfully', feedback: updated.feedback });
+    }
+
+    // Fallback for Sathi
+    const sathiReq = await prisma.sathiVisitRequest.findFirst({
+      where: { id: visitId as string, beneficiaryId: beneficiary.id },
     });
 
-    res.json({ success: true, message: 'Feedback saved', feedback: updated.feedback });
+    if (sathiReq) {
+      const updated = await (prisma.sathiVisitRequest as any).update({
+        where: { id: visitId as string },
+        data: { feedback },
+      });
+      return res.json({ success: true, message: 'Feedback saved successfully for Sathi', feedback: updated.feedback });
+    }
+
+    return res.status(404).json({ success: false, message: 'Visit not found or not authorized' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

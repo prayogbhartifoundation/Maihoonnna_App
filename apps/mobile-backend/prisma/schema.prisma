@@ -1869,21 +1869,24 @@ enum CreditTransactionType {
 }
 
 model SathiVisitRequest {
-  id                String               @id @default(uuid())
-  beneficiaryId     String
-  volunteerId       String?              // The volunteer who accepted it (null if pending)
-  dateTime          DateTime
-  reason            String
-  status            SathiRequestStatus   @default(PENDING) // PENDING, ACCEPTED, REJECTED, RESCHEDULE_PROPOSED, IN_PROGRESS, COMPLETED
-  otpCode           String?              // 4-digit code generated when ACCEPTED
-  rejectionReason   String?
-  rejectedBy        String[]             @default([]) // Array of volunteer IDs who rejected this request
-  proposedDateTime  DateTime?            // New proposed date/time when volunteer requests reschedule
-  proposedBy        String?              // volunteerId who proposed the reschedule
-  feedbackNotes     String?              // Volunteer's notes after completion
-  feedbackRating    Int?                 // Volunteer's rating (1-5) after completion
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  id                    String               @id @default(uuid())
+  beneficiaryId         String
+  volunteerId           String?              // The volunteer who accepted it (null if pending)
+  dateTime              DateTime
+  reason                String
+  status                SathiRequestStatus   @default(PENDING) // PENDING, ACCEPTED, REJECTED, RESCHEDULE_PROPOSED, IN_PROGRESS, COMPLETED
+  otpCode               String?              // 4-digit code generated when ACCEPTED
+  rejectionReason       String?
+  rejectedBy            String[]             @default([]) // Array of volunteer IDs who rejected this request
+  proposedDateTime      DateTime?            // New proposed date/time when volunteer requests reschedule
+  proposedBy            String?              // volunteerId who proposed the reschedule
+  feedbackNotes         String?              // Volunteer's notes after completion
+  feedbackRating        Int?                 // Volunteer's rating (1-5) after completion
+  beneficiaryRating     Int?                 // Beneficiary's rating (1-5) after completion
+  beneficiaryFeedback   String?              // Beneficiary's text feedback after completion
+  actualDurationMinutes Float?               // Exact time taken
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 
   beneficiary     Beneficiary          @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
   volunteer       Volunteer?           @relation(fields: [volunteerId], references: [id], onDelete: SetNull)

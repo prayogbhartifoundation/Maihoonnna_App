@@ -509,6 +509,11 @@ export default function SathiDashboard() {
   useFocusEffect(
     useCallback(() => {
       fetchDashboardData();
+      const pollTimer = setInterval(() => {
+        fetchDashboardData();
+      }, 1000);
+
+      return () => clearInterval(pollTimer);
     }, [])
   );
 
@@ -871,7 +876,7 @@ export default function SathiDashboard() {
                     </View>
                   </View>
                   <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#2196F3', paddingHorizontal: scale(10), paddingVertical: scale(4), borderRadius: scale(12) }}>
-                    <Text style={{ fontSize: scale(12), color: '#2196F3', fontFamily: 'Poppins-Medium' }}>{item.distance || '1.0 km'}</Text>
+                    <Text style={{ fontSize: scale(12), color: '#2196F3', fontFamily: 'Poppins-Medium' }}>{item.distance || '1.2 km'}</Text>
                   </View>
                 </View>
 
@@ -884,19 +889,8 @@ export default function SathiDashboard() {
                   <Text style={{ fontSize: scale(13), color: '#4B5563', fontFamily: 'Poppins-Medium' }}>{formattedTime}</Text>
                 </View>
 
-                {/* Start Visit Button OR Countdown OR IN PROGRESS OR COMPLETED */}
-                {item.status === 'COMPLETED' ? (
-                  <TouchableOpacity
-                    style={{ marginTop: scale(20), backgroundColor: '#10B981', paddingVertical: scale(12), borderRadius: scale(20), flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}
-                    onPress={() => {
-                      setFeedbackRequestId(item.id);
-                      setShowFeedbackModal(true);
-                    }}
-                  >
-                    <Ionicons name="star" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={{ color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>Submit Visit Feedback</Text>
-                  </TouchableOpacity>
-                ) : item.status === 'IN_PROGRESS' ? (
+                {/* Start Visit Button OR Countdown OR IN PROGRESS */}
+                {item.status === 'IN_PROGRESS' ? (
                   <View style={{ marginTop: scale(20) }}>
                     <TouchableOpacity
                       style={{ backgroundColor: '#DBEAFE', paddingVertical: scale(12), borderRadius: scale(20), flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#93C5FD' }}
@@ -904,7 +898,7 @@ export default function SathiDashboard() {
                     >
                       <Ionicons name="time" size={18} color="#1E40AF" style={{ marginRight: 6 }} />
                       <Text style={{ color: '#1E40AF', fontFamily: 'Poppins-SemiBold', fontSize: scale(14) }}>
-                        {activeVisitElapsedTime} - End Visit
+                        {activeVisitElapsedTime} (Waiting for Beneficiary to complete)
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -961,7 +955,7 @@ export default function SathiDashboard() {
                     </View>
                   </View>
                   <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#2196F3', paddingHorizontal: scale(8), paddingVertical: scale(4), borderRadius: scale(12) }}>
-                    <Text style={{ fontSize: scale(11), color: '#2196F3', fontFamily: 'Poppins-SemiBold' }}>{item.distance || '2.1 km'}</Text>
+                    <Text style={{ fontSize: scale(11), color: '#2196F3', fontFamily: 'Poppins-SemiBold' }}>{item.distance || '1.2 km'}</Text>
                   </View>
                 </View>
 

@@ -182,6 +182,7 @@ export const completeSathiVisit = async (beneficiaryId: string, requestId: strin
     throw new ApiError(400, 'This visit is not in progress and cannot be completed.');
   }
 
+  // First update SathiVisitRequest to COMPLETED (without actualDurationMinutes yet)
   const updatedRequest = await prisma.sathiVisitRequest.update({
     where: { id: requestId },
     data: {
@@ -189,5 +190,75 @@ export const completeSathiVisit = async (beneficiaryId: string, requestId: strin
     }
   });
 
-  return { request: updatedRequest, message: 'Visit marked as completed successfully.' };
+  // Automatically check out the Saathi's active visit log with exact time
+  if (request.volunteerId) {
+    const activeLog = await prisma.volunteerVisitLog.findFirst({
+      where: {
+        beneficiaryId,
+        volunteerId: request.volunteerId,
+        status: 'in_progress'
+      }
+    });
+
+    if (activeLog) {
+      const checkOutTime = new Date();
+      const rawMinutes = (checkOutTime.getTime() - activeLog.checkInTime.getTime()) / 60000;
+      const hoursEarned = rawMinutes / 60;
+      const pointsEarned = hoursEarned * 10; // Default rate
+
+      await prisma.$transaction(async (tx) => {
+        // Update the actualDurationMinutes
+        await tx.sathiVisitRequest.update({
+          where: { id: requestId },
+          data: { actualDurationMinutes: rawMinutes }
+        });
+
+        if (activeLog.subscriptionBenefitBalanceId) {
+          await tx.subscriptionBenefitBalance.update({
+            where: { id: activeLog.subscriptionBenefitBalanceId },
+            data: { usedUnits: { increment: hoursEarned } }
+          });
+        }
+
+        const volunteer = await tx.volunteer.findUnique({
+          where: { id: activeLog.volunteerId }
+        });
+
+        if (volunteer) {
+          await tx.volunteer.update({
+            where: { id: volunteer.id },
+            data: {
+              totalCreditHours: volunteer.totalCreditHours + hoursEarned,
+              totalCreditPoints: volunteer.totalCreditPoints + pointsEarned
+            }
+          });
+
+          await tx.volunteerCreditTransaction.create({
+            data: {
+              volunteerId: volunteer.id,
+              visitLogId: activeLog.id,
+              type: 'earned',
+              minutesDelta: rawMinutes,
+              pointsDelta: pointsEarned,
+              balanceAfter: volunteer.totalCreditPoints + pointsEarned,
+              description: `Beneficiary confirmed completion.`
+            }
+          });
+        }
+
+        await tx.volunteerVisitLog.update({
+          where: { id: activeLog.id },
+          data: {
+            checkOutTime,
+            minutesLogged: rawMinutes,
+            hoursEarned,
+            creditPointsEarned: pointsEarned,
+            status: 'completed'
+          }
+        });
+      });
+    }
+  }
+
+  return { request: updatedRequest, message: 'Visit marked as completed successfully and Sathi hours logged.' };
 };

@@ -56,6 +56,14 @@ export default function SathiRequestScreen() {
     }
   };
 
+  // Active Timer Ticker
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     checkEligibility();
   }, []);
@@ -601,7 +609,16 @@ export default function SathiRequestScreen() {
                             req.status === 'COMPLETED' ? { color: '#3F6212' } :
                             styles.statusTextPending
                           ]}>
-                            {req.status === 'IN_PROGRESS' ? 'IN PROGRESS' : req.status}
+                            {req.status === 'IN_PROGRESS' ? (() => {
+                               const start = new Date(req.updatedAt).getTime();
+                               const diff = Math.max(0, currentTime.getTime() - start);
+                               const h = Math.floor(diff / 3600000);
+                               const m = Math.floor((diff % 3600000) / 60000);
+                               const s = Math.floor((diff % 60000) / 1000);
+                               return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                             })() : 
+                             req.status === 'COMPLETED' ? 'COMPLETED' : 
+                             req.status}
                           </Text>
                         </View>
                       </View>

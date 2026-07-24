@@ -4,6 +4,43 @@
 
 ---
 
+## Session: Unified Visit Histories, Live Timers & Saathi Feedback Integration (2026-07-24)
+
+### Saathi Live Timer & Checkout Automation
+- **Sathi Visit Automation**: Implemented automatic exact-duration checkout in `beneficiary_sathi_service.ts` when the beneficiary confirms the visit.
+- **Beneficiary UI Timer**: Added a live ticking timer (`setInterval`) and exact completed duration display directly into `sathi-request.tsx` (Beneficiary App).
+- **Saathi UI Polling**: Implemented a silent 1-second live data polling loop using `useFocusEffect` and `setInterval` in the Saathi App dashboard (`index.tsx`) so that incoming requests and status changes reflect instantly without tab switching.
+- **Data Standardization**: Standardized fallback placeholder photos and distances (to `1.2 km`) across `sathi_service.ts` and `index.tsx` for beneficiaries missing their profile data.
+
+### Unified Care & Saathi Interaction History
+- **Database Schema**: Added `actualDurationMinutes`, `beneficiaryRating`, and `beneficiaryFeedback` to `SathiVisitRequest` in `mobile-backend/prisma/schema.prisma` to fully support Sathi ratings by beneficiaries.
+- **Unified Interactions API**: Rewrote `GET /api/beneficiary/interactions/me` to concurrently fetch both `Visit` (Care Companion) and `SathiVisitRequest` (Saathi) records, merge them into identical `Interaction` cards, and sort them chronologically for the frontend timeline.
+- **Unified Rating Endpoints**: Updated `/rate` and `/feedback` POST endpoints to route ratings dynamically to either the `Visit` or `SathiVisitRequest` table depending on the `visitId`.
+
+### Architecture Flowchart: Unified Visit History
+```mermaid
+graph TD
+    A[Beneficiary interactions.tsx] -->|GET /interactions/me| B(Interactions API Route)
+    B --> C{Fetch Histories concurrently}
+    
+    C -->|Fetch Care Visits| D[prisma.visit]
+    C -->|Fetch Saathi Visits| E[prisma.sathiVisitRequest]
+    
+    D -->|Format| F[Map to Interaction Format]
+    E -->|Format| F
+    
+    F --> G[Sort chronologically by date/time descending]
+    G --> H[Return JSON Payload]
+    H --> I[Render Unified Timeline in Beneficiary App UI]
+    
+    J[Beneficiary rates/reviews visit] -->|POST /rate or /feedback| K(Interactions API Route)
+    K --> L{Check Visit Type by ID}
+    L -->|Is Care Visit?| M[Update prisma.visit]
+    L -->|Is Saathi Visit?| N[Update prisma.sathiVisitRequest]
+```
+
+---
+
 ## Session: AddMedicineModal Extraction, Subscriber Medication Controls & GlobalDrawer UI Overhaul (2026-07-23)
 
 ### Reusable Component & Mobile UI

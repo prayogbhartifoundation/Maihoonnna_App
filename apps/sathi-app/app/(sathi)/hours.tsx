@@ -168,34 +168,7 @@ export default function SathiHours() {
     }
   };
 
-  const handleCheckout = async () => {
-    if (!activeSession) return;
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/sathi/visits/${activeSession.id}/checkout`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          notes: checkoutNotes
-        })
-      });
-
-      const data = await response.json();
-      if (response.ok || data.success) {
-        Alert.alert('Checked Out', data.message || 'Visit finished successfully!');
-        setCheckoutNotes('');
-        loadHoursData();
-      } else {
-        Alert.alert('Checkout Failed', data.message || 'Could not complete visit.');
-      }
-    } catch (err) {
-      Alert.alert('Error', 'Connection to backend API failed.');
-    }
-  };
-
+  // Checkout is now handled by the beneficiary from their app.
   if (loading) {
     return (
       <View style={styles.loaderContainer}>
@@ -228,19 +201,11 @@ export default function SathiHours() {
 
             <Text style={styles.timerVal}>{elapsedTime}</Text>
 
-            <TextInput
-              style={styles.notesInput}
-              placeholder="What activities did you complete? (e.g. read storybooks, taught zoom call...)"
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-              value={checkoutNotes}
-              onChangeText={setCheckoutNotes}
-            />
-
-            <TouchableOpacity style={styles.checkoutBtn} onPress={handleCheckout}>
-              <Text style={styles.checkoutBtnText}>Complete Visit & Check-Out</Text>
-            </TouchableOpacity>
+            <View style={{ marginTop: 16, backgroundColor: '#FEF3C7', padding: 12, borderRadius: 8 }}>
+              <Text style={{ color: '#92400E', fontFamily: 'Poppins-Medium', textAlign: 'center', fontSize: 13 }}>
+                Waiting for beneficiary to confirm completion from their app.
+              </Text>
+            </View>
           </View>
         ) : (
           /* Checkin mode */
@@ -291,18 +256,30 @@ export default function SathiHours() {
         <Text style={styles.sectionTitle}>Completed Visits History</Text>
         {visitHistory.length > 0 ? (
           visitHistory.map((item) => (
-            <View key={item.id} style={styles.historyItem}>
-              <View>
-                <Text style={styles.historyName}>{item.beneficiary?.name}</Text>
-                <Text style={styles.historyDate}>
-                  📅 {new Date(item.checkInTime).toLocaleDateString()}
-                </Text>
+              <View key={item.id} style={[styles.historyItem, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={styles.historyName}>{item.beneficiary?.name}</Text>
+                    <Text style={styles.historyDate}>
+                      📅 {new Date(item.checkInTime).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={styles.historyMetrics}>
+                    <Text style={styles.historyHours}>
+                      {item.minutesLogged 
+                        ? `${Math.floor(item.minutesLogged / 60)}h ${Math.floor(item.minutesLogged % 60)}m`
+                        : `${item.hoursEarned?.toFixed(1)} hrs`}
+                    </Text>
+                    <Text style={styles.historyPoints}>+{item.creditPointsEarned?.toFixed(0)} pts</Text>
+                  </View>
+                </View>
+                <TouchableOpacity 
+                  style={{ marginTop: 12, backgroundColor: '#E5E7EB', paddingVertical: 8, borderRadius: 12, alignItems: 'center' }}
+                  onPress={() => Alert.alert('Feedback', 'Thank you for your feedback! This helps us improve the program.')}
+                >
+                  <Text style={{ color: '#4B5563', fontFamily: 'Poppins-Medium', fontSize: 13 }}>⭐ Feedback</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.historyMetrics}>
-                <Text style={styles.historyHours}>{item.hoursEarned?.toFixed(1)} hrs</Text>
-                <Text style={styles.historyPoints}>+{item.creditPointsEarned?.toFixed(0)} pts</Text>
-              </View>
-            </View>
           ))
         ) : (
           <Text style={styles.emptyText}>No completed visits logged.</Text>

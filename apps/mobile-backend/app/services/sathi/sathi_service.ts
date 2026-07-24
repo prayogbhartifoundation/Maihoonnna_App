@@ -192,14 +192,11 @@ export const getVolunteerDashboard = async (id: string) => {
     orderBy: { dateTime: 'asc' }
   });
 
-  // Fetch upcoming accepted, in-progress, and completed (needs feedback) visits for this volunteer
+  // Fetch upcoming accepted and in-progress visits for this volunteer
   const upcomingVisits = await prisma.sathiVisitRequest.findMany({
     where: {
       volunteerId: id,
-      OR: [
-        { status: { in: ['ACCEPTED', 'IN_PROGRESS'] } },
-        { status: 'COMPLETED', feedbackRating: null }
-      ]
+      status: { in: ['ACCEPTED', 'IN_PROGRESS'] }
     },
     include: {
       beneficiary: {
@@ -241,7 +238,7 @@ export const getVolunteerDashboard = async (id: string) => {
     assignedBeneficiaries: volunteer.assignments.map(a => ({
       id: a.beneficiary.id,
       name: a.beneficiary.name,
-      photo: a.beneficiary.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      photo: a.beneficiary.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
       age: a.beneficiary.age,
       location: a.beneficiary.address,
       hobbies: a.beneficiary.hobbiesInterests || [],
@@ -251,7 +248,7 @@ export const getVolunteerDashboard = async (id: string) => {
       id: r.id,
       beneficiaryId: r.beneficiaryId,
       name: r.beneficiary.name,
-      photo: r.beneficiary.photo || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120',
+      photo: r.beneficiary.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120',
       age: r.beneficiary.age,
       location: r.beneficiary.address,
       dateTime: r.dateTime.toISOString(),
@@ -424,10 +421,7 @@ export const checkoutVolunteerVisit = async (volunteerId: string, visitLogId: st
   const checkOutTime = new Date();
   const rawMinutes = (checkOutTime.getTime() - visitLog.checkInTime.getTime()) / 60000;
 
-  const minBillingMinutesStr = await getSystemConfig('SATHI_MIN_BILLING_MINUTES', '60');
-  const minBillingMinutes = parseFloat(minBillingMinutesStr);
-
-  const billableMinutes = Math.max(rawMinutes, minBillingMinutes);
+  const billableMinutes = rawMinutes;
   const hoursEarned = billableMinutes / 60;
 
   if (!visitLog.subscriptionBenefitBalanceId) {
