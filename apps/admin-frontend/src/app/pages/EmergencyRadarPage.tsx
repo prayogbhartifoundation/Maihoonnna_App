@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { emergencyApi } from '../../services/api';
 import { sanitizeImgSrc, sanitizeTelLink } from '../utils/sanitizeUrl';
+import LocationPickerModal from '../components/common/LocationPickerModal';
 
 interface EmergencyNote {
   timestamp: string;
@@ -114,6 +115,36 @@ export default function EmergencyRadarPage() {
   // Resolve Modal state
   const [resolvingRequest, setResolvingRequest] = useState<EmergencyRequestItem | null>(null);
   const [resolutionInput, setResolutionInput] = useState<string>('');
+
+  // Map Modal state
+  const [mapModalData, setMapModalData] = useState<{
+    isOpen: boolean;
+    lat?: number;
+    lng?: number;
+    address?: string;
+  } | null>(null);
+
+  const handleOpenMap = (req: EmergencyRequestItem) => {
+    const b = req.beneficiary;
+    const u = b?.user;
+    const lat = req.locationLat ?? u?.latitude ?? undefined;
+    const lng = req.locationLng ?? u?.longitude ?? undefined;
+
+    const fullAddress =
+      req.locationAddress ||
+      u?.location ||
+      [u?.flatPlot, u?.streetArea, u?.landmark, u?.city, u?.state, u?.pincode]
+        .filter(Boolean)
+        .join(', ') ||
+      undefined;
+
+    setMapModalData({
+      isOpen: true,
+      lat,
+      lng,
+      address: fullAddress,
+    });
+  };
 
   const fetchRequests = async () => {
     try {
@@ -405,16 +436,15 @@ export default function EmergencyRadarPage() {
                       </div>
                     </div>
 
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold border border-slate-700 rounded-xl transition-all shadow-md shrink-0"
+                    <button
+                      type="button"
+                      onClick={() => handleOpenMap(req)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold border border-slate-700 rounded-xl transition-all shadow-md shrink-0 cursor-pointer"
                     >
                       <MapPin size={14} />
                       Maps
-                      <ExternalLink size={11} />
-                    </a>
+                    </button>
+
                   </div>
 
                   {/* Location Address Banner */}
@@ -750,6 +780,17 @@ export default function EmergencyRadarPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* Location Picker Modal */}
+      {mapModalData?.isOpen && (
+        <LocationPickerModal
+          isOpen={mapModalData.isOpen}
+          onClose={() => setMapModalData(null)}
+          onSelectLocation={() => setMapModalData(null)}
+          initialLat={mapModalData.lat}
+          initialLng={mapModalData.lng}
+          initialAddress={mapModalData.address}
+        />
       )}
     </div>
   );
