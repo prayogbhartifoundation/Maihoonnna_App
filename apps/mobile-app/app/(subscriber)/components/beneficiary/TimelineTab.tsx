@@ -4,6 +4,7 @@ import {
     Modal, Animated, Pressable, ActivityIndicator, Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
@@ -176,9 +177,10 @@ export const TimelineTab = ({ visits: initialVisits }: { visits: VisitProps[] })
                     {/* Header: Avatar, Info, Status/Rate */}
                     <View style={styles.visitHeader}>
                         <Image
-                            source={{ uri: visit.companionPhoto || 'https://randomuser.me/api/portraits/women/1.jpg' }}
+                            source={{ uri: sanitizeImageUri(visit.companionPhoto, 'https://randomuser.me/api/portraits/women/1.jpg') }}
                             style={styles.visitCompanionPhoto}
                         />
+
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
                                 <Text style={styles.visitCompanionName}>{visit.companionName || 'Care Companion'}</Text>

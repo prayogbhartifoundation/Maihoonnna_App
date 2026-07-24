@@ -36,6 +36,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 // ─── Types (OOP config contract) ──────────────────────────────────────────────
 
@@ -262,8 +263,9 @@ export function ProfilePhotoUploader({ config, style }: ProfilePhotoUploaderProp
         {/* Avatar Image or Initials */}
         {photoUrl && !imageError ? (
           <Image
-            source={{ uri: photoUrl }}
+            source={{ uri: sanitizeImageUri(photoUrl) }}
             style={{ width: size, height: size, borderRadius: radius }}
+
             resizeMode="cover"
             onError={(e) => {
               console.warn('[ProfilePhotoUploader] Image failed to load:', photoUrl, e.nativeEvent?.error);

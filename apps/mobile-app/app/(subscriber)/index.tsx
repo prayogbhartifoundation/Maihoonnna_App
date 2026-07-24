@@ -15,6 +15,7 @@ import GlobalDrawer from './components/shared/GlobalDrawer';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificationBell from '@/components/shared/NotificationBell';
 import { useExitOnBack } from '@/hooks/useExitOnBack';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 const { width, height } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.75;
@@ -392,9 +393,10 @@ export default function SubscriberDashboardScreen() {
                                 }}
                             >
                                 <Image
-                                    source={{ uri: b.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.name || 'Beneficiary')}&background=FFE3D1&color=FE6700&bold=true` }}
+                                    source={{ uri: sanitizeImageUri(b.photo, `https://ui-avatars.com/api/?name=${encodeURIComponent(b.name || 'Beneficiary')}&background=FFE3D1&color=FE6700&bold=true`) }}
                                     style={styles.benPhoto}
                                 />
+
                                 <View style={styles.benDetails}>
                                     <Text style={styles.benName}>{b.name}</Text>
                                     <Text style={styles.benMeta}>{getDisplayAge(b)}{b.relationship ? ` • ${b.relationship}` : ''}</Text>

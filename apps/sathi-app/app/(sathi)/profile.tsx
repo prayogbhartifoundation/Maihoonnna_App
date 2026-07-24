@@ -19,6 +19,7 @@ import { API_URL } from '@/constants/api';
 import { SathiBottomNav } from '@/components/shared/SathiBottomNav';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/contexts/AuthContext';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = (size: number) => Math.round((SCREEN_WIDTH / 390) * size);
@@ -153,8 +154,9 @@ export default function SathiProfile() {
         <View style={styles.photoSection}>
           <View style={styles.avatarContainer}>
             {profile?.profilePhoto ? (
-              <Image source={{ uri: profile.profilePhoto }} style={styles.avatarImage} />
+              <Image source={{ uri: sanitizeImageUri(profile.profilePhoto) }} style={styles.avatarImage} />
             ) : (
+
               <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
                 <Ionicons name="person" size={60} color="#D1D5DB" />
               </View>

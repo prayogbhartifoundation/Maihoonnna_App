@@ -18,6 +18,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 import { API_URL } from '@/constants/api';
 import { SathiBottomNav } from '@/components/shared/SathiBottomNav';
 import { useExitOnBack } from '@/hooks/useExitOnBack';
@@ -157,7 +158,7 @@ export default function SathiMatches() {
             return (
               <View key={item.assignmentId || ben.id} style={styles.matchCard}>
                 <View style={styles.seniorHeader}>
-                  <Image source={{ uri: ben.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }} style={styles.seniorPhoto} />
+                  <Image source={{ uri: sanitizeImageUri(ben.photo, 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150') }} style={styles.seniorPhoto} />
                   <View style={styles.seniorMeta}>
                     <Text style={styles.seniorName}>{ben.name}</Text>
                     <View style={styles.locationRow}>

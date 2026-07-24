@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 interface NextVisitProps {
     nextVisit: {
@@ -22,9 +23,10 @@ export const NextVisitCard = ({ nextVisit }: NextVisitProps) => {
             </View>
             <View style={styles.content}>
                 <Image
-                    source={{ uri: nextVisit.companionPhoto || 'https://randomuser.me/api/portraits/women/2.jpg' }}
+                    source={{ uri: sanitizeImageUri(nextVisit.companionPhoto, 'https://randomuser.me/api/portraits/women/2.jpg') }}
                     style={styles.photo}
                 />
+
                 <View style={styles.info}>
                     <Text style={styles.name}>{nextVisit.companionName}</Text>
                     <Text style={styles.meta}>assigned by Field Manager</Text>

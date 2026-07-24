@@ -23,6 +23,7 @@ import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
 import NotificationBell from '@/components/shared/NotificationBell';
 import { useExitOnBack } from '@/hooks/useExitOnBack';
 import { triggerEmergencyAlert } from '@/services/emergencyTrigger';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 const MOCK_BENEFICIARY_ID = '8340d860-2641-479c-b26a-8b9a71bcec29';
 
@@ -363,9 +364,10 @@ export default function BeneficiaryDashboard() {
                             <View style={styles.ccAvatar}>
                                 {displayData.careCoordinator.photo ? (
                                     <Image
-                                        source={{ uri: displayData.careCoordinator.photo }}
+                                        source={{ uri: sanitizeImageUri(displayData.careCoordinator.photo) }}
                                         style={styles.ccImage}
                                     />
+
                                 ) : (
                                     <AntDesign name="user" size={30} color="#AAAAAA" />
                                 )}

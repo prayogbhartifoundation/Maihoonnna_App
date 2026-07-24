@@ -2,28 +2,38 @@
  * Security URL & DOM Sanitizer for CWE-79 (DOM XSS) and CWE-601 (Open Redirect)
  */
 
-const ALLOWED_PROTOCOLS = new Set(['http:', 'https:', 'file:']);
+const SAFE_DEFAULT_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3C/svg%3E';
 
-export function sanitizeImgSrc(url: string | null | undefined, fallback: string = ''): string {
-  if (!url || typeof url !== 'string') return fallback;
-  const trimmed = url.trim();
-  if (!trimmed) return fallback;
-
-  if (trimmed.startsWith('data:image/') || trimmed.startsWith('blob:')) {
-    return trimmed;
+export function sanitizeImgSrc(url: string | null | undefined, fallback?: string): string {
+  if (typeof url === 'string' && (url.trim().startsWith('data:image/') || url.trim().startsWith('blob:'))) {
+    return url.trim();
   }
 
-  try {
-    const parsed = new URL(trimmed);
-    if (ALLOWED_PROTOCOLS.has(parsed.protocol)) {
-      return encodeURI(parsed.href);
-    }
-  } catch {
-    if (trimmed.startsWith('/')) {
-      return encodeURI(trimmed);
+  if (typeof url === 'string' && url.trim()) {
+    try {
+      const parsed = new URL(url.trim());
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:') {
+        return encodeURI(parsed.href);
+      }
+    } catch {
+      if (url.trim().startsWith('/')) {
+        return encodeURI(url.trim());
+      }
     }
   }
-  return fallback;
+
+  if (typeof fallback === 'string' && fallback.trim()) {
+    try {
+      const parsedFallback = new URL(fallback.trim());
+      if (parsedFallback.protocol === 'http:' || parsedFallback.protocol === 'https:') {
+        return encodeURI(parsedFallback.href);
+      }
+    } catch {
+      // Invalid fallback URL
+    }
+  }
+
+  return SAFE_DEFAULT_IMAGE;
 }
 
 export function sanitizeTelLink(phone: string | null | undefined): string {
@@ -47,4 +57,3 @@ export function sanitizeWhatsappLink(phone: string | null | undefined): string {
     return '#';
   }
 }
-

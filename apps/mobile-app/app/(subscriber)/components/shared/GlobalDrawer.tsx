@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
 import { useAuth } from '@/contexts/AuthContext';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(width * 0.82, 350);
@@ -71,8 +72,9 @@ const GlobalDrawer = ({ isOpen, onClose, drawerAnim, userData: _userDataProp }: 
 
                             <View style={styles.headerProfileRow}>
                                 {userData?.photo ? (
-                                    <Image source={{ uri: userData.photo }} style={styles.avatarImage} />
+                                    <Image source={{ uri: sanitizeImageUri(userData.photo) }} style={styles.avatarImage} />
                                 ) : (
+
                                     <LinearGradient colors={['#F97316', '#FB923C']} style={styles.avatarBadge}>
                                         <Text style={styles.avatarText}>{initials}</Text>
                                     </LinearGradient>

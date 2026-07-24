@@ -39,6 +39,7 @@ import {
 import type { ImageSourcePropType } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,8 +181,9 @@ export function PhotoPickerInput({
           <ActivityIndicator color={accentColor} size="small" />
         ) : hasPhoto ? (
           <Image
-            source={{ uri: currentUri! }}
+            source={{ uri: sanitizeImageUri(currentUri) }}
             style={{ width: boxWidth, height: boxHeight, borderRadius }}
+
             resizeMode="cover"
           />
         ) : emptyImageSource ? (

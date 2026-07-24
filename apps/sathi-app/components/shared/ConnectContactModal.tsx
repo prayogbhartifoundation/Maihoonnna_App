@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 interface ConnectContactButtonProps {
     name: string;
@@ -60,8 +61,9 @@ export const ConnectContactButton = ({ name, role, phone, photo, trigger }: Conn
                         {/* Profile Photo / Avatar */}
                         <View style={styles.avatarWrap}>
                             {photo ? (
-                                <Image source={{ uri: photo }} style={styles.avatarImage} />
+                                <Image source={{ uri: sanitizeImageUri(photo) }} style={styles.avatarImage} />
                             ) : (
+
                                 <View style={styles.avatarPlaceholder}>
                                     <Ionicons name="person" size={32} color="#9CA3AF" />
                                 </View>

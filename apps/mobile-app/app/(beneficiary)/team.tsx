@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@/constants/api';
 import { ConnectContactButton } from '@/components/shared/ConnectContactModal';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 type TeamMember = {
     id: string;
@@ -116,7 +117,7 @@ export default function CareTeamScreen() {
                             <View style={styles.profileRow}>
                                 <View style={styles.avatarContainer}>
                                     {member.photo ? (
-                                        <Image source={{ uri: member.photo }} style={styles.avatar} />
+                                        <Image source={{ uri: sanitizeImageUri(member.photo) }} style={styles.avatar} />
                                     ) : (
                                         <View style={styles.avatarPlaceholder}>
                                             <Feather name="user" size={26} color="#9CA3AF" />

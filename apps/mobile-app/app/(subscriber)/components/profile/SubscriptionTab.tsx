@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { formatHours } from '@/utils/timeFormat';
 import { useNavigationStack } from '@/contexts/NavigationStackContext';
 import { useAndroidBackHandler } from '@/hooks/useAndroidBackHandler';
+import { sanitizeImageUri } from '@/utils/sanitizeImageUri';
 
 interface SubscriptionTabProps {
     plan: {
